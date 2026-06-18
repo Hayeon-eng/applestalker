@@ -14,7 +14,7 @@ services:
     plan: free
     branch: main
     rootDir: .  # 루트 디렉토리로 변경 (requirements.txt 가 루트에 있음)
-    buildCommand: pip install -r requirements.txt && playwright install chromium --no-shell
+    buildCommand: pip install -r requirements.txt && python -m playwright install chromium --no-shell
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
