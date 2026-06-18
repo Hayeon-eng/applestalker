@@ -1,0 +1,183 @@
+2026-06-17 18:22:20.483 | INFO     | main:lifespan:41 - Starting Apple Tracker Backend...
+2026-06-17 18:22:20.637 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'apple_daily_crawl' for apple.com with schedule: 30 23 * * *
+2026-06-17 18:22:20.638 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'samsung_daily_crawl' for samsung.com with schedule: 0 23 * * *
+2026-06-17 18:22:20.639 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 30 4 * * *
+2026-06-17 18:22:20.639 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 4 * * *
+2026-06-17 18:22:20.639 | INFO     | services.scheduler:init_scheduler:219 - Email report jobs added to scheduler
+2026-06-17 18:22:20.647 | INFO     | services.scheduler:start:86 - Crawl scheduler started
+2026-06-17 18:22:20.648 | INFO     | main:lifespan:57 - Apple Tracker Backend started successfully
+2026-06-17 19:42:58.981 | INFO     | main:lifespan:41 - Starting Apple Tracker Backend...
+2026-06-17 19:42:58.999 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'apple_daily_crawl' for apple.com with schedule: 30 23 * * *
+2026-06-17 19:42:58.999 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'samsung_daily_crawl' for samsung.com with schedule: 0 23 * * *
+2026-06-17 19:42:59.000 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 30 4 * * *
+2026-06-17 19:42:59.000 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 4 * * *
+2026-06-17 19:42:59.000 | INFO     | services.scheduler:init_scheduler:219 - Email report jobs added to scheduler
+2026-06-17 19:42:59.009 | INFO     | services.scheduler:start:86 - Crawl scheduler started
+2026-06-17 19:42:59.009 | INFO     | main:lifespan:57 - Apple Tracker Backend started successfully
+2026-06-17 19:44:09.077 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for samsung.com (Run ID: samsung_20260617_194409_8cb6c9af)
+2026-06-17 19:44:10.041 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-17 19:44:10.041 | ERROR    | services.crawl_service:execute_crawl:235 - Crawl failed: type object 'DiscoveredURL' has no attribute 'site_name'
+2026-06-17 19:44:27.531 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for samsung.com (Run ID: samsung_20260617_194427_1c457eb8)
+2026-06-17 19:44:27.961 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-17 19:44:27.961 | ERROR    | services.crawl_service:execute_crawl:235 - Crawl failed: type object 'DiscoveredURL' has no attribute 'site_name'
+2026-06-17 19:46:36.852 | INFO     | main:lifespan:41 - Starting Apple Tracker Backend...
+2026-06-17 19:46:36.856 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'apple_daily_crawl' for apple.com with schedule: 30 23 * * *
+2026-06-17 19:46:36.856 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'samsung_daily_crawl' for samsung.com with schedule: 0 23 * * *
+2026-06-17 19:46:36.857 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 30 4 * * *
+2026-06-17 19:46:36.857 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 4 * * *
+2026-06-17 19:46:36.857 | INFO     | services.scheduler:init_scheduler:219 - Email report jobs added to scheduler
+2026-06-17 19:46:36.859 | INFO     | services.scheduler:start:86 - Crawl scheduler started
+2026-06-17 19:46:36.859 | INFO     | main:lifespan:57 - Apple Tracker Backend started successfully
+2026-06-18 09:16:04.988 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for samsung.com (Run ID: samsung_20260618_091604_c3e2599d)
+2026-06-18 09:16:05.811 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 09:16:05.905 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 09:16:05.911 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 09:16:05.918 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 09:16:05.921 | INFO     | services.crawl_service:execute_crawl:192 - Step 5: Samsung POV Generation
+2026-06-18 09:16:05.934 | INFO     | services.crawl_service:execute_crawl:213 - Step 6: Saving Trend Data
+2026-06-18 09:16:05.948 | INFO     | services.crawl_service:execute_crawl:221 - Crawl completed for samsung.com
+2026-06-18 09:16:10.663 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for samsung.com (Run ID: samsung_20260618_091610_eabd3db7)
+2026-06-18 09:16:11.239 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 09:16:11.323 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 09:16:11.326 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 09:16:11.328 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 09:16:11.330 | INFO     | services.crawl_service:execute_crawl:192 - Step 5: Samsung POV Generation
+2026-06-18 09:16:11.349 | INFO     | services.crawl_service:execute_crawl:213 - Step 6: Saving Trend Data
+2026-06-18 09:16:11.358 | INFO     | services.crawl_service:execute_crawl:221 - Crawl completed for samsung.com
+2026-06-18 09:16:42.054 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for samsung.com (Run ID: samsung_20260618_091642_de0ffb23)
+2026-06-18 09:16:42.656 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 09:16:42.808 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 09:16:42.809 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 09:16:42.811 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 09:16:42.812 | INFO     | services.crawl_service:execute_crawl:192 - Step 5: Samsung POV Generation
+2026-06-18 09:16:42.822 | INFO     | services.crawl_service:execute_crawl:213 - Step 6: Saving Trend Data
+2026-06-18 09:16:42.834 | INFO     | services.crawl_service:execute_crawl:221 - Crawl completed for samsung.com
+2026-06-18 09:16:43.046 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for apple.com (Run ID: apple_20260618_091643_8806429d)
+2026-06-18 09:16:43.606 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 09:16:46.708 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 10:05:35.903 | INFO     | main:lifespan:41 - Starting Apple Tracker Backend...
+2026-06-18 10:05:35.911 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'apple_daily_crawl' for apple.com with schedule: 30 23 * * *
+2026-06-18 10:05:35.912 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'samsung_daily_crawl' for samsung.com with schedule: 0 23 * * *
+2026-06-18 10:05:35.912 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 30 4 * * *
+2026-06-18 10:05:35.913 | INFO     | services.scheduler:add_crawl_job:79 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 4 * * *
+2026-06-18 10:05:35.913 | INFO     | services.scheduler:init_scheduler:219 - Email report jobs added to scheduler
+2026-06-18 10:05:35.922 | INFO     | services.scheduler:start:86 - Crawl scheduler started
+2026-06-18 10:05:35.922 | INFO     | main:lifespan:57 - Apple Tracker Backend started successfully
+2026-06-18 11:06:08.855 | INFO     | main:lifespan:41 - Starting Apple Tracker Backend...
+2026-06-18 11:06:08.874 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_morning_crawl' for apple.com with schedule: 0 0 * * *
+2026-06-18 11:06:08.874 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_morning_crawl' for samsung.com with schedule: 0 0 * * *
+2026-06-18 11:06:08.874 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 0 5 * * *
+2026-06-18 11:06:08.875 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 5 * * *
+2026-06-18 11:06:08.875 | INFO     | services.scheduler:init_scheduler:242 - Email report jobs added to scheduler
+2026-06-18 11:06:08.875 | INFO     | services.scheduler:init_scheduler:244 - 📅 Scheduler initialized with real-time crawls at 09:00 and 14:00 KST for Apple and Samsung
+2026-06-18 11:06:08.884 | INFO     | services.scheduler:start:99 - Crawl scheduler started
+2026-06-18 11:06:08.884 | INFO     | main:lifespan:57 - Apple Tracker Backend started successfully
+2026-06-18 11:29:05.364 | INFO     | main:lifespan:61 - Shutting down Apple Tracker Backend...
+2026-06-18 11:29:05.365 | INFO     | services.scheduler:shutdown:106 - Crawl scheduler stopped
+2026-06-18 11:29:16.052 | INFO     | main:lifespan:42 - Starting Apple Tracker Backend...
+2026-06-18 11:29:16.060 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_morning_crawl' for apple.com with schedule: 0 0 * * *
+2026-06-18 11:29:16.061 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_morning_crawl' for samsung.com with schedule: 0 0 * * *
+2026-06-18 11:29:16.061 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 0 5 * * *
+2026-06-18 11:29:16.061 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 5 * * *
+2026-06-18 11:29:16.061 | INFO     | services.scheduler:init_scheduler:242 - Email report jobs added to scheduler
+2026-06-18 11:29:16.061 | INFO     | services.scheduler:init_scheduler:244 - 📅 Scheduler initialized with real-time crawls at 09:00 and 14:00 KST for Apple and Samsung
+2026-06-18 11:29:16.072 | INFO     | services.scheduler:start:99 - Crawl scheduler started
+2026-06-18 11:29:16.072 | INFO     | main:lifespan:58 - Apple Tracker Backend started successfully
+2026-06-18 13:03:34.381 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for apple.com (Run ID: apple_20260618_130334_25f936ac)
+2026-06-18 13:03:35.465 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 13:03:38.257 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 13:11:35.495 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 13:11:36.292 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 13:11:37.594 | ERROR    | services.crawl_service:execute_crawl:235 - Crawl failed: (sqlite3.IntegrityError) NOT NULL constraint failed: geo_signals.page_id
+[SQL: INSERT INTO geo_signals (page_id, url, detected_at, signal_type, evidence, signal_strength) VALUES (?, ?, ?, ?, ?, ?) RETURNING id]
+[parameters: (None, 'https://www.apple.com/ae-ar', '2026-06-18 04:11:37.574898', 'semantic_coverage', 'Multiple subtopics covered (20 headings)', 0.75)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-06-18 13:11:37.598 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for samsung.com (Run ID: samsung_20260618_131137_b85c56f7)
+2026-06-18 13:11:38.312 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 13:11:38.614 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 13:11:38.616 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 13:11:38.619 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 13:11:38.620 | INFO     | services.crawl_service:execute_crawl:192 - Step 5: Samsung POV Generation
+2026-06-18 13:11:38.632 | INFO     | services.crawl_service:execute_crawl:213 - Step 6: Saving Trend Data
+2026-06-18 13:11:38.645 | INFO     | services.crawl_service:execute_crawl:221 - Crawl completed for samsung.com
+2026-06-18 13:13:21.777 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for apple.com (Run ID: apple_20260618_131321_7302ec63)
+2026-06-18 13:13:22.400 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 13:13:24.821 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 13:18:37.913 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 13:18:38.776 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 13:18:39.931 | ERROR    | services.crawl_service:execute_crawl:235 - Crawl failed: (sqlite3.IntegrityError) NOT NULL constraint failed: geo_signals.page_id
+[SQL: INSERT INTO geo_signals (page_id, url, detected_at, signal_type, evidence, signal_strength) VALUES (?, ?, ?, ?, ?, ?) RETURNING id]
+[parameters: (None, 'https://www.apple.com/ae-ar', '2026-06-18 04:18:39.920974', 'semantic_coverage', 'Multiple subtopics covered (20 headings)', 0.75)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-06-18 13:18:39.934 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for samsung.com (Run ID: samsung_20260618_131839_790733ae)
+2026-06-18 13:18:40.470 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 13:18:40.717 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 13:18:40.718 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 13:18:40.722 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 13:18:40.723 | INFO     | services.crawl_service:execute_crawl:192 - Step 5: Samsung POV Generation
+2026-06-18 13:18:40.738 | INFO     | services.crawl_service:execute_crawl:213 - Step 6: Saving Trend Data
+2026-06-18 13:18:40.749 | INFO     | services.crawl_service:execute_crawl:221 - Crawl completed for samsung.com
+2026-06-18 13:23:20.443 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for apple.com (Run ID: apple_20260618_132320_1601e80b)
+2026-06-18 13:23:20.866 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 13:23:23.212 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 13:30:29.843 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 13:30:30.812 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 13:30:32.104 | ERROR    | services.crawl_service:execute_crawl:235 - Crawl failed: (sqlite3.IntegrityError) NOT NULL constraint failed: geo_signals.page_id
+[SQL: INSERT INTO geo_signals (page_id, url, detected_at, signal_type, evidence, signal_strength) VALUES (?, ?, ?, ?, ?, ?) RETURNING id]
+[parameters: (None, 'https://www.apple.com/ae-ar', '2026-06-18 04:30:32.095785', 'semantic_coverage', 'Multiple subtopics covered (20 headings)', 0.75)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-06-18 13:30:32.109 | INFO     | services.crawl_service:execute_crawl:82 - Starting crawl for samsung.com (Run ID: samsung_20260618_133032_e788416a)
+2026-06-18 13:30:32.798 | INFO     | services.crawl_service:execute_crawl:102 - Step 1: URL Discovery
+2026-06-18 13:30:32.931 | INFO     | services.crawl_service:execute_crawl:120 - Step 2: Page Crawling
+2026-06-18 13:30:32.932 | INFO     | services.crawl_service:execute_crawl:154 - Step 3: Change Detection
+2026-06-18 13:30:32.938 | INFO     | services.crawl_service:execute_crawl:177 - Step 4: GEO/AEO Analysis
+2026-06-18 13:30:32.939 | INFO     | services.crawl_service:execute_crawl:192 - Step 5: Samsung POV Generation
+2026-06-18 13:30:32.949 | INFO     | services.crawl_service:execute_crawl:213 - Step 6: Saving Trend Data
+2026-06-18 13:30:32.961 | INFO     | services.crawl_service:execute_crawl:221 - Crawl completed for samsung.com
+2026-06-18 13:33:03.251 | INFO     | main:lifespan:42 - Starting Apple Tracker Backend...
+2026-06-18 13:33:03.353 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_morning_crawl' for apple.com with schedule: 0 0 * * *
+2026-06-18 13:33:03.354 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_morning_crawl' for samsung.com with schedule: 0 0 * * *
+2026-06-18 13:33:03.354 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 0 5 * * *
+2026-06-18 13:33:03.354 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 5 * * *
+2026-06-18 13:33:03.355 | INFO     | services.scheduler:init_scheduler:242 - Email report jobs added to scheduler
+2026-06-18 13:33:03.355 | INFO     | services.scheduler:init_scheduler:244 - 📅 Scheduler initialized with real-time crawls at 09:00 and 14:00 KST for Apple and Samsung
+2026-06-18 13:33:03.363 | INFO     | services.scheduler:start:99 - Crawl scheduler started
+2026-06-18 13:33:03.364 | INFO     | main:lifespan:58 - Apple Tracker Backend started successfully
+2026-06-18 14:13:14.864 | INFO     | main:lifespan:42 - Starting Apple Tracker Backend...
+2026-06-18 14:13:15.085 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_morning_crawl' for apple.com with schedule: 0 0 * * *
+2026-06-18 14:13:15.086 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_morning_crawl' for samsung.com with schedule: 0 0 * * *
+2026-06-18 14:13:15.086 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 0 5 * * *
+2026-06-18 14:13:15.086 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 5 * * *
+2026-06-18 14:13:15.087 | INFO     | services.scheduler:init_scheduler:242 - Email report jobs added to scheduler
+2026-06-18 14:13:15.087 | INFO     | services.scheduler:init_scheduler:244 - 📅 Scheduler initialized with real-time crawls at 09:00 and 14:00 KST for Apple and Samsung
+2026-06-18 14:13:15.100 | INFO     | services.scheduler:start:99 - Crawl scheduler started
+2026-06-18 14:13:15.104 | INFO     | main:lifespan:58 - Apple Tracker Backend started successfully
+2026-06-18 14:54:26.827 | INFO     | main:lifespan:42 - Starting Apple Tracker Backend...
+2026-06-18 14:54:26.983 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_morning_crawl' for apple.com with schedule: 0 0 * * *
+2026-06-18 14:54:26.984 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_morning_crawl' for samsung.com with schedule: 0 0 * * *
+2026-06-18 14:54:26.985 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 0 5 * * *
+2026-06-18 14:54:26.986 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 5 * * *
+2026-06-18 14:54:26.986 | INFO     | services.scheduler:init_scheduler:242 - Email report jobs added to scheduler
+2026-06-18 14:54:26.987 | INFO     | services.scheduler:init_scheduler:244 - 📅 Scheduler initialized with real-time crawls at 09:00 and 14:00 KST for Apple and Samsung
+2026-06-18 14:54:26.995 | INFO     | services.scheduler:start:99 - Crawl scheduler started
+2026-06-18 14:54:26.995 | INFO     | main:lifespan:58 - Apple Tracker Backend started successfully
+2026-06-18 14:59:05.611 | INFO     | main:lifespan:46 - Starting Apple Tracker Backend...
+2026-06-18 14:59:05.714 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_morning_crawl' for apple.com with schedule: 0 0 * * *
+2026-06-18 14:59:05.714 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_morning_crawl' for samsung.com with schedule: 0 0 * * *
+2026-06-18 14:59:05.715 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 0 5 * * *
+2026-06-18 14:59:05.715 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 5 * * *
+2026-06-18 14:59:05.715 | INFO     | services.scheduler:init_scheduler:242 - Email report jobs added to scheduler
+2026-06-18 14:59:05.715 | INFO     | services.scheduler:init_scheduler:244 - 📅 Scheduler initialized with real-time crawls at 09:00 and 14:00 KST for Apple and Samsung
+2026-06-18 14:59:05.717 | INFO     | services.scheduler:start:99 - Crawl scheduler started
+2026-06-18 14:59:05.718 | INFO     | main:lifespan:62 - Apple Tracker Backend started successfully
+2026-06-18 14:59:05.719 | INFO     | main:lifespan:66 - Shutting down Apple Tracker Backend...
+2026-06-18 14:59:05.719 | INFO     | services.scheduler:shutdown:106 - Crawl scheduler stopped
+2026-06-18 15:00:03.822 | INFO     | main:lifespan:46 - Starting Apple Tracker Backend...
+2026-06-18 15:00:03.921 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_morning_crawl' for apple.com with schedule: 0 0 * * *
+2026-06-18 15:00:03.921 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_morning_crawl' for samsung.com with schedule: 0 0 * * *
+2026-06-18 15:00:03.922 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'apple_afternoon_crawl' for apple.com with schedule: 0 5 * * *
+2026-06-18 15:00:03.922 | INFO     | services.scheduler:add_crawl_job:92 - Added crawl job 'samsung_afternoon_crawl' for samsung.com with schedule: 0 5 * * *
+2026-06-18 15:00:03.922 | INFO     | services.scheduler:init_scheduler:242 - Email report jobs added to scheduler
+2026-06-18 15:00:03.922 | INFO     | services.scheduler:init_scheduler:244 - 📅 Scheduler initialized with real-time crawls at 09:00 and 14:00 KST for Apple and Samsung
+2026-06-18 15:00:03.924 | INFO     | services.scheduler:start:99 - Crawl scheduler started
+2026-06-18 15:00:03.924 | INFO     | main:lifespan:62 - Apple Tracker Backend started successfully
