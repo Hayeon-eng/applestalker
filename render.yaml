@@ -13,9 +13,9 @@ services:
     region: oregon-west
     plan: free
     branch: main
-    rootDir: backend
-    buildCommand: pip install -r ../requirements.txt && playwright install chromium --no-shell
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    rootDir: .  # 루트 디렉토리로 변경 (requirements.txt 가 루트에 있음)
+    buildCommand: pip install -r requirements.txt && playwright install chromium --no-shell
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -48,7 +48,7 @@ services:
       - key: ENABLE_FULL_SITE_CRAWL
         value: "true"
       - key: NEXT_PUBLIC_API_URL
-        value: https://apple-tracker-backend.onrender.com
+        value: https://apple-stalker-backend.onrender.com  # 원하는 커스텀 URL 로 변경 가능
 
   # Frontend Service (참고용)
   - type: web
