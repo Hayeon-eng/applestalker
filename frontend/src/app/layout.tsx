@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Apple Tracker - Competitive Intelligence Dashboard',
+  title: 'Apple Stalker - Competitive Intelligence Dashboard',
   description: 'Monitor Apple.com and Samsung.com changes with automated competitive intelligence',
 }
 
