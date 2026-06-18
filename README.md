@@ -214,10 +214,10 @@ git push -u origin main
 | **Name** | `apple-tracker-backend` |
 | **Region** | `Oregon West` |
 | **Branch** | `main` |
-| **Root Directory** | `backend` |
+| **Root Directory** | `.` (루트 - requirements.txt 가 루트에 있음) |
 | **Environment** | `Python` |
-| **Build Command** | `pip install -r ../requirements.txt && playwright install chromium --no-shell` |
-| **Start Command** | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| **Build Command** | `pip install -r requirements.txt && playwright install chromium --no-shell` |
+| **Start Command** | `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT` |
 | **Plan** | `Free` |
 
 4. **Advanced** 섹션에서 환경 변수 추가:
@@ -239,7 +239,7 @@ git push -u origin main
 | `MAX_CONCURRENT_CRAWLS` | `3` |
 | `CRAWL_TIMEOUT` | `60000` |
 | `ENABLE_FULL_SITE_CRAWL` | `true` |
-| `NEXT_PUBLIC_API_URL` | `https://apple-tracker-backend.onrender.com` |
+| `NEXT_PUBLIC_API_URL` | `https://apple-stalker-backend.onrender.com` (원하는 커스텀 URL 로 변경 가능) |
 
 5. **Create Web Service** 클릭
 
@@ -549,10 +549,10 @@ MIT
 ### 3. Backend 서비스
 - [ ] Render Dashboard → **New +** → **Web Service**
 - [ ] GitHub 저장소 연결
-- [ ] **Root Directory**: `backend`
+- [ ] **Root Directory**: `.` (루트 - requirements.txt 가 루트에 있음)
 - [ ] **Region**: `Oregon West`
-- [ ] **Build Command**: `pip install -r ../requirements.txt && playwright install chromium --no-shell`
-- [ ] **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- [ ] **Build Command**: `pip install -r requirements.txt && playwright install chromium --no-shell`
+- [ ] **Start Command**: `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT`
 - [ ] 환경 변수 설정:
   - [ ] `DATABASE_URL`: `postgresql+asyncpg://...` (앞에 `+asyncpg` 추가!)
   - [ ] `GEMINI_API_KEY`: 직접 입력
