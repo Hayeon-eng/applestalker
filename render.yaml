@@ -1,9 +1,16 @@
+# =====================================================
+# Apple Tracker - Render 배포 설정 (참고용)
+# =====================================================
+# 이 파일은 Render Blueprint 용이 아닌 참고용 설정입니다.
+# 실제 배포는 Render Dashboard 에서 New Service 로 직접 생성하세요.
+# =====================================================
+
 services:
-  # Backend Service
+  # Backend Service (참고용)
   - type: web
     name: apple-tracker-backend
     env: python
-    region: singapore
+    region: oregon-west
     plan: free
     branch: main
     rootDir: backend
@@ -13,9 +20,9 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: DATABASE_URL
-        sync: false  # Render PostgreSQL 에서 설정
+        sync: false  # Render Dashboard 에서 직접 입력
       - key: GEMINI_API_KEY
-        sync: false
+        sync: false  # Render Dashboard 에서 직접 입력
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
       - key: CRAWL_SCHEDULE
@@ -25,29 +32,29 @@ services:
       - key: SMTP_PORT
         value: "587"
       - key: SENDER_EMAIL
-        sync: false
+        sync: false  # Render Dashboard 에서 직접 입력
       - key: SENDER_PASSWORD
-        sync: false
+        sync: false  # Render Dashboard 에서 직접 입력
       - key: RECIPIENT_EMAIL
-        sync: false
+        sync: false  # Render Dashboard 에서 직접 입력
       - key: EMAIL_REPORT_ENABLED
         value: "true"
       - key: USE_PLAYWRIGHT
-        value: "true"  # 이미지 추출을 위해 Playwright 사용
+        value: "true"
       - key: MAX_CONCURRENT_CRAWLS
-        value: "3"  # 동시 크롤링 수 (안정성 우선)
+        value: "3"
       - key: CRAWL_TIMEOUT
-        value: "60000"  # 60 초 타임아웃 (이미지 로딩 고려)
+        value: "60000"
       - key: ENABLE_FULL_SITE_CRAWL
-        value: "true"  # 전체 사이트 크롤링 활성화
+        value: "true"
       - key: NEXT_PUBLIC_API_URL
-        value: https://apple-tracker-backend.onrender.com  # 프론트엔드에서 사용
+        value: https://apple-tracker-backend.onrender.com
 
-  # Frontend Service (Next.js)
+  # Frontend Service (참고용)
   - type: web
     name: apple-tracker-frontend
     env: node
-    region: singapore
+    region: oregon-west
     plan: free
     branch: main
     rootDir: frontend
@@ -57,21 +64,4 @@ services:
       - key: NODE_VERSION
         value: 20.x
       - key: NEXT_PUBLIC_API_URL
-        sync: false  # 백엔드 URL 입력
-
-  # PostgreSQL Database (Render Free)
-  - type: pserv
-    name: apple-tracker-db
-    env: postgres
-    region: singapore
-    plan: free
-    database:
-      name: appletracker
-      dbName: appletracker
-      user: appletracker
-    disk:
-      sizeGB: 10  # 무료 플랜 10GB
-
-envVars:
-  - key: APP_ENV
-    value: production
+        sync: false  # Render Dashboard 에서 직접 입력
