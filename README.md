@@ -156,17 +156,17 @@ apple-tracker/
 
 ---
 
-## 🚀 Render 배포 가이드 (Next.js + PostgreSQL)
+## 🚀 Render 배포 가이드 (수동 생성)
+
+> **📌 중요**: Blueprint 는 사용하지 않습니다. Render Dashboard 에서 **New Service**로 직접 생성합니다.
 
 ### 전체 Render 설정 요약
 
-`render.yaml` 파일에 **Backend( Python) + Frontend(Next.js) + PostgreSQL**이 모두 정의되어 있습니다.
-
-| 서비스 | 타입 | 환경 | 플랜 |
-|--------|------|------|------|
-| **Backend** | Web Service | Python 3.11 | Free |
-| **Frontend** | Web Service | Node.js 20.x | Free |
-| **Database** | PostgreSQL | - | Free (10GB) |
+| 서비스 | 타입 | 환경 | 플랜 | Region |
+|--------|------|------|------|--------|
+| **Backend** | Web Service | Python 3.11 | Free | Oregon West |
+| **Frontend** | Web Service | Node.js 20.x | Free | Oregon West |
+| **Database** | PostgreSQL | - | Free (10GB) | Oregon West |
 
 ---
 
@@ -193,87 +193,82 @@ git branch -M main
 git push -u origin main
 ```
 
-#### 2 단계: Render 에서 Blueprint 생성
+#### 2 단계: PostgreSQL 데이터베이스 생성
 
-1. [Render](https://render.com) 에 로그인합니다.
-2. 대시보드에서 **New +** → **Blueprint**을 선택합니다.
-3. GitHub 저장소를 연결합니다.
-4. `apple-tracker` 저장소를 선택하고 **Connect**를 클릭합니다.
-5. `render.yaml` 파일이 자동으로 감지됩니다.
-6. **Apply** 버튼을 클릭하여 배포를 시작합니다.
+1. [Render Dashboard](https://dashboard.render.com/) 에서 **New +** → **PostgreSQL** 클릭
+2. 설정 입력:
+   - **Name**: `apple-tracker-db`
+   - **Region**: `Oregon West`
+   - **Plan**: `Free`
+3. **Create Database** 클릭
+4. 생성 후 **Internal Database URL** 복사 (형식: `postgresql://user:pass@host/dbname`)
 
-#### 3 단계: Backend 환경 변수 설정
+#### 3 단계: Backend 서비스 생성
 
-Render 대시보드에서 **apple-tracker-backend** 서비스를 클릭하고 **Environment** 탭에서 변수를 추가합니다:
+1. Render Dashboard 에서 **New +** → **Web Service** 클릭
+2. GitHub 저장소 연결 → `apple-tracker` 선택
+3. 설정 입력:
 
-| 키 (Key) | 값 (Value) | 설명 | 필수 여부 |
-|----------|------------|------|----------|
-| `GEMINI_API_KEY` | `AIzaSy...` | Google Gemini API 키 | ✅ **필수** |
-| `DATABASE_URL` | `postgresql+asyncpg://...` | Render PostgreSQL 연결 URL | ✅ **필수** |
-| `SMTP_SERVER` | `smtp.naver.com` | 네이버 SMTP 서버 | ✅ 이메일 사용시 |
-| `SMTP_PORT` | `587` | SMTP 포트 | ✅ 이메일 사용시 |
-| `SENDER_EMAIL` | `your-id@naver.com` | 발송자 네이버 메일 주소 | ✅ 이메일 사용시 |
-| `SENDER_PASSWORD` | `your-password` | 네이버 메일 비밀번호 | ✅ 이메일 사용시 |
-| `RECIPIENT_EMAIL` | `your-email@company.com` | 리포트 수신자 이메일 | 선택 |
-| `EMAIL_REPORT_ENABLED` | `true` | 이메일 리포트 활성화 | 선택 |
-| `USE_PLAYWRIGHT` | `true` | Playwright 사용 여부 | 선택 |
-| `MAX_CONCURRENT_CRAWLS` | `3` | 동시 크롤링 수 | 선택 |
-| `CRAWL_TIMEOUT` | `60000` | 60 초 타임아웃 | 선택 |
-
-> **⚠️ 중요**: 
-> - `GEMINI_API_KEY` 와 `DATABASE_URL` 은 **반드시** 설정해야 합니다.
-> - `DATABASE_URL` 은 Render PostgreSQL 서비스에서 자동 생성됩니다.
-
-#### 4 단계: Frontend 환경 변수 설정
-
-Render 대시보드에서 **apple-tracker-frontend** 서비스를 클릭하고 **Environment** 탭에서 변수를 추가합니다:
-
-| 키 (Key) | 값 (Value) | 설명 |
-|----------|------------|------|
-| `NEXT_PUBLIC_API_URL` | `https://apple-tracker-backend.onrender.com` | 백엔드 URL |
-
-#### 5 단계: PostgreSQL 연결
-
-Render 이 자동으로 PostgreSQL 데이터베이스를 생성하고 `DATABASE_URL` 을 Backend 서비스에 연결합니다.
-
-**PostgreSQL 정보 확인:**
-1. Render 대시보드 → **apple-tracker-db** 클릭
-2. **Internal Database URL** 복사
-3. Backend 환경 변수에 붙여넣기 (앞에 `postgresql+asyncpg://` 추가)
-
----
-
-### Render 설정 상세
-
-#### Backend Service
-
-| 설정 | 값 |
+| 필드 | 값 |
 |------|-----|
 | **Name** | `apple-tracker-backend` |
-| **Region** | `Singapore` |
+| **Region** | `Oregon West` |
+| **Branch** | `main` |
 | **Root Directory** | `backend` |
+| **Environment** | `Python` |
 | **Build Command** | `pip install -r ../requirements.txt && playwright install chromium --no-shell` |
 | **Start Command** | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| **Plan** | `Free` |
 
-#### Frontend Service (Next.js)
+4. **Advanced** 섹션에서 환경 변수 추가:
 
-| 설정 | 값 |
+| Key | Value |
+|-----|-------|
+| `PYTHON_VERSION` | `3.11.0` |
+| `DATABASE_URL` | `postgresql+asyncpg://apple_tracker_db_user:BnK68hdUtgln6OctkJMaQzX66dT8ifm1@dpg-d8pr2v8g4nts7388im7g-a/apple_tracker_db` |
+| `GEMINI_API_KEY` | `AIzaSy...` (직접 입력) |
+| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `CRAWL_SCHEDULE` | `0 0,5 * * *` |
+| `SMTP_SERVER` | `smtp.naver.com` |
+| `SMTP_PORT` | `587` |
+| `SENDER_EMAIL` | `your-id@naver.com` (직접 입력) |
+| `SENDER_PASSWORD` | `your-password` (직접 입력) |
+| `RECIPIENT_EMAIL` | `your-email@company.com` (직접 입력) |
+| `EMAIL_REPORT_ENABLED` | `true` |
+| `USE_PLAYWRIGHT` | `true` |
+| `MAX_CONCURRENT_CRAWLS` | `3` |
+| `CRAWL_TIMEOUT` | `60000` |
+| `ENABLE_FULL_SITE_CRAWL` | `true` |
+| `NEXT_PUBLIC_API_URL` | `https://apple-tracker-backend.onrender.com` |
+
+5. **Create Web Service** 클릭
+
+#### 4 단계: Frontend 서비스 생성
+
+1. Render Dashboard 에서 **New +** → **Web Service** 클릭
+2. GitHub 저장소 연결 → `apple-tracker` 선택
+3. 설정 입력:
+
+| 필드 | 값 |
 |------|-----|
 | **Name** | `apple-tracker-frontend` |
-| **Region** | `Singapore` |
+| **Region** | `Oregon West` |
+| **Branch** | `main` |
 | **Root Directory** | `frontend` |
+| **Environment** | `Node` |
 | **Build Command** | `npm install && npm run build` |
 | **Start Command** | `npm run start` |
 | **Node Version** | `20.x` |
+| **Plan** | `Free` |
 
-#### PostgreSQL Database
+4. **Advanced** 섹션에서 환경 변수 추가:
 
-| 설정 | 값 |
-|------|-----|
-| **Name** | `apple-tracker-db` |
-| **Region** | `Singapore` |
-| **Plan** | Free (10GB) |
-| **Database Name** | `appletracker` |
+| Key | Value |
+|-----|-------|
+| `NODE_VERSION` | `20.x` |
+| `NEXT_PUBLIC_API_URL` | `https://apple-tracker-backend.onrender.com` (Backend URL 입력) |
+
+5. **Create Web Service** 클릭
 
 ---
 
@@ -474,7 +469,8 @@ Invoke-WebRequest -Uri https://your-render-url.onrender.com/api/email/test -Meth
 |--------|----------|------|
 | GET | `/api/settings` | 애플리케이션 설정 |
 | POST | `/api/auto-crawl` | 자동 크롤링 토글 |
-| GET | `/api/scheduler/jobs` | 스케줄러 작업 목록 |
+| GET | `/api/scheduler/jobs` | 
+스케줄러 작업 목록 |
 | POST | `/api/scheduler/run-now/{job_id}` | 스케줄러 즉시 실행 |
 
 ### 이메일 관련
@@ -539,27 +535,46 @@ MIT
 
 ## ✅ Quick Deploy Checklist
 
-### Backend
+### 1. GitHub 설정
 - [ ] GitHub 저장소 생성
 - [ ] 코드 푸시 (`git push`)
-- [ ] Render 계정 생성
-- [ ] GitHub 연동
-- [ ] Blueprint 로 `render.yaml` 감지
-- [ ] Backend 환경 변수 설정 (`GEMINI_API_KEY`, `DATABASE_URL` 필수!)
-- [ ] PostgreSQL 생성 및 연결
 
-### Frontend (Next.js)
-- [ ] Frontend 환경 변수 설정 (`NEXT_PUBLIC_API_URL`)
-- [ ] `frontend/src/app/page.tsx` 에 백엔드 API 연동 코드 확인
+### 2. PostgreSQL 데이터베이스
+- [ ] Render Dashboard → **New +** → **PostgreSQL**
+- [ ] **Name**: `apple-tracker-db`
+- [ ] **Region**: `Oregon West`
+- [ ] **Plan**: `Free`
+- [ ] **Internal Database URL** 복사
 
-### Database
-- [ ] PostgreSQL 생성 (Render 에서 자동)
-- [ ] `DATABASE_URL` Backend 에 설정
+### 3. Backend 서비스
+- [ ] Render Dashboard → **New +** → **Web Service**
+- [ ] GitHub 저장소 연결
+- [ ] **Root Directory**: `backend`
+- [ ] **Region**: `Oregon West`
+- [ ] **Build Command**: `pip install -r ../requirements.txt && playwright install chromium --no-shell`
+- [ ] **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- [ ] 환경 변수 설정:
+  - [ ] `DATABASE_URL`: `postgresql+asyncpg://...` (앞에 `+asyncpg` 추가!)
+  - [ ] `GEMINI_API_KEY`: 직접 입력
+  - [ ] `SENDER_EMAIL`: 직접 입력
+  - [ ] `SENDER_PASSWORD`: 직접 입력
+  - [ ] 나머지 변수들 입력
 
-### Verification
-- [ ] 배포 완료 대기
-- [ ] Backend URL 확인 (`https://apple-tracker-backend.onrender.com`)
-- [ ] Frontend URL 확인 (`https://apple-tracker-frontend.onrender.com`)
+### 4. Frontend 서비스
+- [ ] Render Dashboard → **New +** → **Web Service**
+- [ ] GitHub 저장소 연결
+- [ ] **Root Directory**: `frontend`
+- [ ] **Region**: `Oregon West`
+- [ ] **Build Command**: `npm install && npm run build`
+- [ ] **Start Command**: `npm run start`
+- [ ] 환경 변수 설정:
+  - [ ] `NEXT_PUBLIC_API_URL`: Backend URL 입력
+
+### 5. Verification
+- [ ] 배포 완료 대기 (약 3-5 분)
+- [ ] Backend Logs 확인
+- [ ] Frontend Logs 확인
+- [ ] Backend URL 접속 (`https://apple-tracker-backend.onrender.com/api/health`)
+- [ ] Frontend URL 접속 (`https://apple-tracker-frontend.onrender.com`)
 - [ ] 테스트 크롤링 실행
 - [ ] 테스트 이메일 발송 확인
-- [ ] PPTX/PNG 내보내기 테스트
