@@ -61,8 +61,8 @@ export default function MainPanel({ report, onRefresh, isDemo, isSnapshot }: Pro
     );
   }
 
-  const totalAdded = report.data_changes.reduce((sum, c) => sum + (c.added || 0), 0);
-  const totalRemoved = report.data_changes.reduce((sum, c) => sum + (c.removed || 0), 0);
+  const totalAdded = (report.data_changes || []).reduce((sum, c) => sum + (c.added || 0), 0);
+  const totalRemoved = (report.data_changes || []).reduce((sum, c) => sum + (c.removed || 0), 0);
 
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
@@ -128,7 +128,7 @@ export default function MainPanel({ report, onRefresh, isDemo, isSnapshot }: Pro
                     <span style={{ fontSize: 9, color: '#6B7280' }}>{change.tier}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-                    {change.change_types.map((type, j) => {
+                    {(change.change_types || []).map((type, j) => {
                       const st = TYPE_STYLE[type] || { bg: '#F9FAFB', color: '#4B5563', border: '#E5E7EB' };
                       return (
                         <span key={j} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>
