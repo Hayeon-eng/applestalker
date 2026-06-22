@@ -22,7 +22,7 @@ if not DATABASE_URL:
 IS_POSTGRESQL = "postgresql+asyncpg" in DATABASE_URL
 
 # For sync operations (initialization)
-SYNC_DATABASE_URL = DATABASE_URL.replace("+asyncpg", "psycopg2")
+SYNC_DATABASE_URL = DATABASE_URL.replace("+asyncpg", "+psycopg2")
 
 # Async engine for runtime operations
 engine = create_async_engine(
