@@ -273,7 +273,7 @@ class CrawlService:
             await self.crawler.close()
             db.close()
 
-    async def _discover_urls(self, base_url: str, site_name: str) -> List[DiscoveredURLData]:
+    async def _discover_urls(self, base_url: str, site_name: str) -> List[DiscoveredURL]:
         """Discover URLs from site navigation"""
         discovery_engine = URLDiscoveryEngine(base_url, site_name)
 
@@ -309,7 +309,7 @@ class CrawlService:
 
         return discovered
 
-    async def _crawl_pages(self, urls: List[DiscoveredURLData], crawl_run_id: str) -> List[Dict[str, Any]]:
+    async def _crawl_pages(self, urls: List[DiscoveredURL], crawl_run_id: str) -> List[Dict[str, Any]]:
         """Crawl multiple pages"""
         crawled = []
 
