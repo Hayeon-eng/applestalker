@@ -211,6 +211,12 @@ export default function MainPanel({ report, onRefresh, isDemo, isSnapshot }: Pro
               </div>
             </div>
           )}
+          {report.data_changes && report.data_changes.length > 0 && (
+            <div style={{ marginTop: 14, background: '#fff', borderRadius: 12, border: '1px solid #E8EAED', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #E8EAED', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14 }}>✏️</span>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#111318' }}>상세 변경 내역 (이전 → 이후)</p>
+              </div>
               <div style={{ padding: '12px 16px' }}>
                 <div style={{ marginBottom: 16 }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📝 헤드라인 · 카피</p>
