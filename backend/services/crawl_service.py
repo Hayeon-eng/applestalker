@@ -273,7 +273,7 @@ class CrawlService:
             await self.crawler.close()
             db.close()
 
-    async def _discover_urls(self, base_url: str, site_name: str) -> List[DiscoveredURLData]:
+    async def _discover_urls(self, base_url: str, site_name: str) -> List[Dict]:
         """Discover URLs from site navigation"""
         discovery_engine = URLDiscoveryEngine(base_url, site_name)
 
@@ -309,19 +309,17 @@ class CrawlService:
 
         return discovered
 
-    async def _crawl_pages(self, urls: List[DiscoveredURLData], crawl_run_id: str) -> List[Dict[str, Any]]:
+    async def _crawl_pages(self, urls: List[Dict], crawl_run_id: str) -> List[Dict[str, Any]]:
         """Crawl multiple pages"""
         crawled = []
 
         for url_data in urls:
             try:
-                url = url_data["url"] if isinstance(url_data, dict) else url_data.url
-                page_data = await self.crawler.crawl_page(url)
+                page_data = await self.crawler.crawl_page(url_data.url)
                 if page_data.get("error") is None:
                     crawled.append(page_data)
             except Exception as e:
-                url = url_data.get("url", str(url_data)) if isinstance(url_data, dict) else url_data.url
-                logger.warning(f"Failed to crawl {url}: {e}")
+                logger.warning(f"Failed to crawl {url_data.url}: {e}")
 
         return crawled
 
