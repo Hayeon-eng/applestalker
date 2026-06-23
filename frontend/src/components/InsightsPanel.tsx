@@ -213,12 +213,16 @@ export default function InsightsPanel({ analysis, isSnapshot }: Props) {
           {(analysis.action_items || []).length === 0 ? (
             <p style={{ fontSize: 12, color: 'rgba(37,99,235,0.5)' }}>액션 없음</p>
           ) : (
-            (analysis.action_items || []).map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 10px', borderRadius: 9, background: 'rgba(255,255,255,0.65)', border: '0.5px solid rgba(37,99,235,0.15)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
-                <span style={{ fontSize: 11, color: '#2563EB', fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
-                <p style={{ fontSize: 11, lineHeight: 1.6, margin: 0, color: '#1A3A7A', letterSpacing: '-0.1px' }}>{item}</p>
-              </div>
-            ))
+            (analysis.action_items || []).map((item, i) => {
+              // 기간 표기 제거: [즉시], [1 주 내], [2 주 내] 등
+              const cleanItem = item.replace(/\[[\w\s가-힣·\-\d]+\]\s*/g, '').trim();
+              return (
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 10px', borderRadius: 9, background: 'rgba(255,255,255,0.65)', border: '0.5px solid rgba(37,99,235,0.15)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+                  <span style={{ fontSize: 11, color: '#2563EB', fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                  <p style={{ fontSize: 11, lineHeight: 1.6, margin: 0, color: '#1A3A7A', letterSpacing: '-0.1px' }}>{cleanItem}</p>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

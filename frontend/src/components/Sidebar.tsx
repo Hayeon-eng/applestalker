@@ -86,6 +86,7 @@ export default function Sidebar({ runs, selectedRunId, onSelectRun, onNewCrawl, 
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [expandedUrl, setExpandedUrl]     = useState<string | null>(null);
   const [guideOpen, setGuideOpen]         = useState(false);
+  const [sevGuideOpen, setSevGuideOpen]   = useState(false);
   const [tierPanelOpen, setTierPanelOpen] = useState(false);
   const [selectedTiers, setSelectedTiers] = useState<string[]>(ALL_TIERS);
   const [autoCrawl, setAutoCrawl]         = useState(true);
@@ -252,6 +253,29 @@ export default function Sidebar({ runs, selectedRunId, onSelectRun, onNewCrawl, 
               <button onClick={(e) => { e.stopPropagation(); if (confirm('이 기록을 삭제할까요?')) onDeleteRun(run.run_id); }} title="삭제" style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', fontSize: 13, color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
           ))}
+        </div>
+
+        {/* 심각도 기준 */}
+        <div style={{ borderTop: `1px solid ${C.border}` }}>
+          <button onClick={() => setSevGuideOpen(v => !v)} style={{ width: '100%', padding: '10px 16px', border: 'none', cursor: 'pointer', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.textSub, textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚠️ 심각도 기준</span>
+            <span style={{ fontSize: 9, color: C.textSub }}>{sevGuideOpen ? '▲' : '▼'}</span>
+          </button>
+          {sevGuideOpen && (
+            <div style={{ padding: '0 12px 14px' }}>
+              {[
+                { level: 'Critical', color: '#EF4444', bg: '#FEF2F2', border: '#FECACA', desc: '핵심 경쟁 전략 변경. AI 검색·가격·슬로건 등 매출 직결 요소' },
+                { level: 'High',     color: '#F97316', bg: '#FFF7ED', border: '#FED7AA', desc: '주요 마케팅 요소 변경. 브랜드·UX·제품 설명 전략 변화' },
+                { level: 'Medium',   color: '#CA8A04', bg: '#FEFCE8', border: '#FDE68A', desc: '보조 요소 변경. 이미지·내비게이션 등 간접 영향' },
+                { level: 'Low',      color: '#22C55E', bg: '#F0FDF4', border: '#BBF7D0', desc: '소폭 수정. 텍스트 교정·마이너 레이아웃 변경' },
+              ].map(({ level, color, bg, border, desc }) => (
+                <div key={level} style={{ padding: '8px 10px', marginBottom: 6, borderRadius: 8, background: bg, border: `1px solid ${border}` }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color, margin: '0 0 3px' }}>{level}</p>
+                  <p style={{ fontSize: 10, color, opacity: 0.85, margin: 0, lineHeight: 1.5 }}>{desc}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 이용 안내 (접을 수 있음) */}
