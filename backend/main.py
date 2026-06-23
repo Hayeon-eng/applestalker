@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -83,6 +84,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve screenshots as static files
+import os as _os
+_os.makedirs("screenshots", exist_ok=True)
+app.mount("/screenshots", StaticFiles(directory="screenshots"), name="screenshots")
 
 
 # Request/Response Models
@@ -932,6 +938,7 @@ async def get_run_detail(run_id: str):
                 "added_lines": len(str(page_changes[0].after_value or "")) if changed else 0,
                 "removed_lines": len(str(page_changes[0].before_value or "")) if changed else 0,
                 "diff_summary": f"{page_changes[0].change_type} detected in {page_changes[0].field_name}" if changed else "",
+                "screenshot_url": f"/screenshots/{os.path.basename(page.screenshot_path)}" if page.screenshot_path and os.path.exists(page.screenshot_path) else None,
                 "diff_detail": diff_detail,
             })
         
