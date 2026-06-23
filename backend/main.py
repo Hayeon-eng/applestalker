@@ -12,7 +12,6 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -84,11 +83,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Serve screenshots as static files
-import os as _os
-_os.makedirs("screenshots", exist_ok=True)
-app.mount("/screenshots", StaticFiles(directory="screenshots"), name="screenshots")
 
 
 # Request/Response Models
@@ -564,7 +558,7 @@ async def export_dashboard(request: ExportRequest):
         # Prepare export data
         export_data = {
             "site_name": "Apple" if crawl_run.site_name == "apple" else "Samsung",
-            "timestamp": crawl_run.started_at.isoformat() if crawl_run.started_at else None,
+            "timestamp": (crawl_run.started_at.isoformat() + "Z") if crawl_run.started_at else None,
             "total_changes": len(changes),
             "changes": [
                 {
@@ -695,21 +689,34 @@ async def get_latest_report(run_id: Optional[str] = None):
         povs = pov_result.scalars().all()
 
         # Build data changes from real detected changes
+        _SEV_MAP   = {"critical": "Critical", "high": "High", "medium": "Medium", "low": "Low"}
+        _SEV_SCORE = {"critical": 88, "high": 65, "medium": 40, "low": 20}
+        _TYPE_KO   = {
+            "navigation": "내비게이션·구조", "content": "본문·기능 설명",
+            "commerce": "가격·프로모션", "technical": "SEO·AI 인덱싱",
+            "schema": "SEO·AI 인덱싱", "seo": "SEO·AI 인덱싱",
+            "headline": "헤드라인·슬로건", "visual": "비주얼·미디어",
+            "cta": "CTA·구매 흐름", "url": "내비게이션·구조",
+        }
         data_changes = []
-        for change in changes[:10]:  # Limit to 10 changes
+        for change in changes[:10]:
+            sev = (change.severity or "medium").lower()
+            ct  = (change.change_type or "content").lower()
             data_changes.append({
                 "url": change.url,
-                "site": "Apple" if change.crawl_run_id.startswith("apple") else "Samsung",
-                "tier": f"Tier {change.tier_level}" if change.tier_level else "Unknown",
+                "site": "Apple" if crawl_run.site_name == "apple" else "Samsung",
+                "tier": f"Tier {change.tier_level or 3}",
                 "added": len(str(change.after_value or "")),
                 "removed": len(str(change.before_value or "")),
                 "title_changed": change.field_name in ["title", "h1"],
-                "severity": change.severity or "Medium",
-                "severity_score": {"Critical": 88, "High": 65, "Medium": 40, "Low": 20}.get(change.severity, 40),
-                "change_types": [change.change_category or change.change_type or "general"],
+                "severity": _SEV_MAP.get(sev, "Medium"),
+                "severity_score": _SEV_SCORE.get(sev, 40),
+                "change_types": [_TYPE_KO.get(ct, "본문·기능 설명")],
                 "diff_detail": {
-                    "copies": [{"location": change.field_name, "old": change.before_value or "", "new": change.after_value or ""}] if change.field_name in ["title", "h1", "body_content"] else [],
-                    "schemas": [{"status": "수정", "type": change.change_type, "old": change.before_value or "", "new": change.after_value or ""}] if "schema" in (change.change_type or "").lower() else [],
+                    "copies": [{"location": change.field_name, "old": change.before_value or "", "new": change.after_value or ""}]
+                        if change.field_name in ["title", "h1", "body_content", "meta_description"] else [],
+                    "schemas": [{"status": "수정", "type": change.change_type, "old": change.before_value or "", "new": change.after_value or ""}]
+                        if "schema" in ct or ct == "technical" else [],
                     "images": [],
                 }
             })
@@ -719,9 +726,11 @@ async def get_latest_report(run_id: Optional[str] = None):
         action_items = []
         category_insights = {}
 
+        _EMOJI = {"critical": "🚨", "high": "⚠️", "medium": "👀", "low": "👀"}
         for pov in povs:
             insights.append(f"{pov.functional_area}: {pov.observation}")
-            action_items.append(f"{pov.priority}: {pov.recommended_action}")
+            emoji = _EMOJI.get((pov.priority or "medium").lower(), "👀")
+            action_items.append(f"{emoji} {pov.recommended_action}")
 
             # Build category insights
             if pov.functional_area not in category_insights:
@@ -736,7 +745,7 @@ async def get_latest_report(run_id: Optional[str] = None):
         # Default categories if empty
         if not category_insights:
             category_insights = {
-                "SEO·AI 인덱싱": {"status": "위험", "summary": "Apple speakable + FAQPage 완비. Samsung 미적용.", "apple_score": 9, "samsung_score": 4, "improvement_points": ["speakable 스키마 즉시 적용"]},
+                "SEO·AI 인덱싱": {"status": "위험", "summary": "Apple FAQPage + BreadcrumbList 완비. Samsung 기본 Product 스키마만 적용.", "apple_score": 9, "samsung_score": 4, "improvement_points": ["FAQPage 스키마 즉시 적용", "BreadcrumbList 추가"]},
                 "헤드라인·슬로건": {"status": "위험", "summary": "Apple 슬로건 전 제품군 H1 일관 적용.", "apple_score": 9, "samsung_score": 5},
                 "가격·프로모션": {"status": "주의", "summary": "Apple 월 할부 Hero 배치.", "apple_score": 8, "samsung_score": 5},
                 "비주얼·미디어": {"status": "주의", "summary": "Apple 색상 선택 시 이미지 실시간 전환.", "apple_score": 8, "samsung_score": 6},
@@ -750,14 +759,14 @@ async def get_latest_report(run_id: Optional[str] = None):
             "url": pages[0].url if pages else "",
             "site_name": "Apple" if crawl_run.site_name == "apple" else "Samsung",
             "tier": "Tier 0",
-            "timestamp": crawl_run.started_at.isoformat() if crawl_run.started_at else None,
+            "timestamp": (crawl_run.started_at.isoformat() + "Z") if crawl_run.started_at else None,
             "analysis": {
                 "change_summary": f"{len(changes)}개의 변경이 감지되었습니다." if changes else "변경 사항이 없습니다.",
                 "consumer_perception": povs[0].observation if povs else "분석 데이터가 없습니다.",
                 "samsung_comparison": povs[0].hypothesis if povs else "Samsung 과의 비교 데이터가 없습니다.",
                 "insights": insights[:6] if insights else ["실시간 크롤링 데이터가 없습니다. 크롤링을 실행해주세요."],
                 "action_items": action_items[:5] if action_items else ["크롤링 실행 후 액션 항목이 생성됩니다."],
-                "priority_label": "Critical" if any(c.severity == "Critical" for c in changes) else "High" if changes else "Medium",
+                "priority_label": "Critical" if any((c.severity or "").lower() == "critical" for c in changes) else "High" if any((c.severity or "").lower() == "high" for c in changes) else "Medium" if changes else "Low",
                 "functional_area": ", ".join(set(p.functional_area for p in povs[:3])) if povs else "분석 대기 중",
                 "category_insights": category_insights,
             },
@@ -938,7 +947,6 @@ async def get_run_detail(run_id: str):
                 "added_lines": len(str(page_changes[0].after_value or "")) if changed else 0,
                 "removed_lines": len(str(page_changes[0].before_value or "")) if changed else 0,
                 "diff_summary": f"{page_changes[0].change_type} detected in {page_changes[0].field_name}" if changed else "",
-                "screenshot_url": f"/screenshots/{os.path.basename(page.screenshot_path)}" if page.screenshot_path and os.path.exists(page.screenshot_path) else None,
                 "diff_detail": diff_detail,
             })
         
