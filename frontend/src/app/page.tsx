@@ -17,6 +17,7 @@ export interface DataChange {
   added: number; removed: number; title_changed: boolean;
   severity: string; severity_score: number; change_types: string[];
   diff_detail?: DiffDetail;
+  screenshot_url?: string | null;
 }
 export interface CategoryInsight {
   status: '양호' | '주의' | '위험';
