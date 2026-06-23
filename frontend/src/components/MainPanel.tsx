@@ -24,6 +24,12 @@ const TYPE_STYLE: Record<string, { bg: string; color: string; border: string }> 
   '본문·기능 설명':  { bg: '#F9FAFB', color: '#4B5563', border: '#E5E7EB' },
 };
 
+const STATUS_STYLE: Record<string, { bg: string; color: string; dot: string }> = {
+  '위험': { bg: '#FEF2F2', color: '#991B1B', dot: '#EF4444' },
+  '주의': { bg: '#FFF7ED', color: '#92400E', dot: '#F97316' },
+  '양호': { bg: '#F0FDF4', color: '#166534', dot: '#22C55E' },
+};
+
 const shortUrl = (url: string) => {
   try {
     const u = new URL(url);
@@ -32,24 +38,21 @@ const shortUrl = (url: string) => {
   } catch { return url.replace('https://', '').replace('www.', ''); }
 };
 
-// 데모용 카피 변경 예시 데이터
 const DEMO_COPY_CHANGES: DiffCopy[] = [
-  { location: 'Hero H1', old: 'Hello, Future.', new: 'Hello, Apple Intelligence.' },
-  { location: 'Meta Description', old: 'iPhone 17 Pro 의 새로운 기능을 만나보세요.', new: 'iPhone 17 Pro. Apple Intelligence 가 모든 것을 바꿉니다.' },
-  { location: 'Subheadline', old: 'Pro 급 카메라. Pro 급 성능.', new: 'AI 가 만드는 프로급 결과물.' },
+  { location: 'apple.com/iphone/ — Hero H1', old: 'iPhone.', new: 'Hello, Apple Intelligence.' },
+  { location: 'apple.com/iphone/ — Meta Title', old: 'iPhone - Apple', new: 'iPhone. Built for Apple Intelligence. - Apple' },
+  { location: 'apple.com/apple-intelligence/ — H2', old: 'Personal. Powerful. Private.', new: 'Intelligent. Personal. Powerful.' },
 ];
 
-// 데모용 스키마 변경 예시 데이터
 const DEMO_SCHEMA_CHANGES: DiffSchema[] = [
-  { status: '추가', type: 'speakable', old: '', new: '{"@type":"speakable","cssSelector":["h1","h2"]}' },
   { status: '추가', type: 'FAQPage', old: '', new: '{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Apple Intelligence 란?","acceptedAnswer":{"@type":"Answer","text":"개인화된 AI 기능입니다."}}]}' },
-  { status: '수정', type: 'Product', old: '{"price":"1399000"}', new: '{"price":"월 58,300 원~"}' },
+  { status: '추가', type: 'BreadcrumbList', old: '', new: '{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"iPhone","item":"https://www.apple.com/iphone/"}]}' },
+  { status: '수정', type: 'Product', old: '{"price":"1399000"}', new: '{"price":"월 58,300 원~","priceValidUntil":"2025-12-31"}' },
 ];
 
-// 데모용 이미지 변경 예시 데이터
 const DEMO_IMAGE_CHANGES: DiffImage[] = [
-  { location: 'Hero Image', status: '교체', old: 'product-shot.jpg', new: 'lifestyle-group.jpg' },
-  { location: 'Feature Section', status: '추가', new: 'ai-features-animation.webp' },
+  { location: 'Hero Image', status: '교체', old: 'iphone17-product-shot.jpg', new: 'iphone17-lifestyle-group.jpg' },
+  { location: 'Feature Section', status: '추가', new: 'apple-intelligence-animation.webp' },
 ];
 
 export default function MainPanel({ report, onRefresh, isDemo, isSnapshot }: Props) {
@@ -61,8 +64,30 @@ export default function MainPanel({ report, onRefresh, isDemo, isSnapshot }: Pro
     );
   }
 
-  const totalAdded = (report.data_changes || []).reduce((sum, c) => sum + (c.added || 0), 0);
-  const totalRemoved = (report.data_changes || []).reduce((sum, c) => sum + (c.removed || 0), 0);
+  const topArea = (() => {
+    const counts: Record<string, number> = {};
+    (report.data_changes || []).forEach(c => {
+      (c.change_types || []).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+  })();
+
+  const highPriorityCount = (report.data_changes || []).filter(c =>
+    c.severity === 'Critical' || c.severity === 'High'
+  ).length;
+
+  const dangerAreas = report.analysis?.category_insights
+    ? Object.entries(report.analysis.category_insights).filter(([, v]) => v.status === '위험')
+    : [];
+  const warningAreas = report.analysis?.category_insights
+    ? Object.entries(report.analysis.category_insights).filter(([, v]) => v.status === '주의')
+    : [];
+
+  const priorityColor = report.analysis?.priority_label === 'Critical'
+    ? '#EF4444'
+    : report.analysis?.priority_label === 'High'
+    ? '#F97316'
+    : '#111318';
 
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
@@ -84,145 +109,231 @@ export default function MainPanel({ report, onRefresh, isDemo, isSnapshot }: Pro
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
-          <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>변경된 URL</p>
-          <p style={{ fontSize: 24, fontWeight: 700, margin: '4px 0 0', color: '#111318' }}>{report.total_changed_urls}</p>
-        </div>
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
-          <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>추가된 라인</p>
-          <p style={{ fontSize: 24, fontWeight: 700, margin: '4px 0 0', color: '#22C55E' }}>+{totalAdded}</p>
-        </div>
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
-          <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>제거된 라인</p>
-          <p style={{ fontSize: 24, fontWeight: 700, margin: '4px 0 0', color: '#EF4444' }}>-{totalRemoved}</p>
-        </div>
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
-          <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>우선순위</p>
-          <p style={{ fontSize: 14, fontWeight: 600, margin: '4px 0 0', color: report.analysis?.priority_label === 'Critical' ? '#EF4444' : '#111318' }}>
-            {report.analysis?.priority_label || '—'}
-          </p>
-        </div>
-      </div>
-
-      {/* Data Changes */}
-      {!isSnapshot && report.data_changes && report.data_changes.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E8EAED', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #E8EAED', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14 }}>📊</span>
-            <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#111318' }}>감지된 변경 사항</p>
+      {/* ─── 변경 있는 경우 ─── */}
+      {!isSnapshot && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
+              <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>변경된 URL</p>
+              <p style={{ fontSize: 24, fontWeight: 700, margin: '4px 0 0', color: '#111318' }}>{report.total_changed_urls}</p>
+            </div>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
+              <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>주요 변경 영역</p>
+              <p style={{ fontSize: 12, fontWeight: 600, margin: '6px 0 0', color: '#111318', lineHeight: 1.4 }}>{topArea}</p>
+            </div>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
+              <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>High 이상 페이지</p>
+              <p style={{ fontSize: 24, fontWeight: 700, margin: '4px 0 0', color: highPriorityCount > 0 ? '#EF4444' : '#22C55E' }}>{highPriorityCount}</p>
+            </div>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
+              <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>AI 우선순위</p>
+              <p style={{ fontSize: 14, fontWeight: 600, margin: '4px 0 0', color: priorityColor }}>
+                {report.analysis?.priority_label || '—'}
+              </p>
+            </div>
           </div>
-          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-            {report.data_changes.map((change, i) => (
-              <div key={i} style={{ padding: '12px 16px', borderBottom: i < report.data_changes.length - 1 ? '1px solid #F3F4F6' : 'none', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <div style={{ width: 3, height: 3, borderRadius: '50%', background: SEV_COLOR[change.severity] || '#9CA3AF', marginTop: 6, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, margin: 0, color: '#111318', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {shortUrl(change.url)}
-                    </p>
-                    <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: change.site === 'Apple' ? '#F3F4F6' : '#EFF6FF', color: change.site === 'Apple' ? '#374151' : '#1D4ED8' }}>
-                      {change.site}
-                    </span>
-                    <span style={{ fontSize: 9, color: '#6B7280' }}>{change.tier}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-                    {(change.change_types || []).map((type, j) => {
-                      const st = TYPE_STYLE[type] || { bg: '#F9FAFB', color: '#4B5563', border: '#E5E7EB' };
-                      return (
-                        <span key={j} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>
-                          {type}
+
+          {report.data_changes && report.data_changes.length > 0 && (
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E8EAED', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #E8EAED', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14 }}>📊</span>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#111318' }}>감지된 변경 사항</p>
+              </div>
+              <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                {report.data_changes.map((change, i) => (
+                  <div key={i} style={{ padding: '12px 16px', borderBottom: i < report.data_changes.length - 1 ? '1px solid #F3F4F6' : 'none', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: SEV_COLOR[change.severity] || '#9CA3AF', marginTop: 4, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                        <p style={{ fontSize: 12, fontWeight: 600, margin: 0, color: '#111318', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {shortUrl(change.url)}
+                        </p>
+                        <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: change.site === 'Apple' ? '#F3F4F6' : '#EFF6FF', color: change.site === 'Apple' ? '#374151' : '#1D4ED8' }}>
+                          {change.site}
                         </span>
-                      );
-                    })}
+                        <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: (SEV_COLOR[change.severity] || '#9CA3AF') + '18', color: SEV_COLOR[change.severity] || '#9CA3AF' }}>
+                          {change.severity}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {(change.change_types || []).map((type, j) => {
+                          const st = TYPE_STYLE[type] || { bg: '#F9FAFB', color: '#4B5563', border: '#E5E7EB' };
+                          return (
+                            <span key={j} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>
+                              {type}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 10 }}>
-                    <span style={{ color: '#22C55E' }}>+{change.added}</span>
-                    <span style={{ color: '#EF4444' }}>-{change.removed}</span>
-                    <span style={{ color: '#6B7280' }}>Severity: {change.severity}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {report.data_changes && report.data_changes.length > 0 && (
+            <div style={{ marginTop: 14, background: '#fff', borderRadius: 12, border: '1px solid #E8EAED', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #E8EAED', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14 }}>📸</span>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#111318' }}>페이지 스크린샷</p>
+                <span style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 'auto' }}>크롤링 시 자동 캡처 (Desktop 1920×1080)</span>
+              </div>
+              <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {report.data_changes.map((change, i) => {
+                  const backendBase = process.env.NEXT_PUBLIC_API_URL || '';
+                  const screenshotSrc = change.screenshot_url ? `${backendBase}${change.screenshot_url}` : null;
+                  return (
+                    <div key={i} style={{ borderRadius: 8, border: '1px solid #E8EAED', overflow: 'hidden' }}>
+                      <div style={{ padding: '8px 12px', background: '#F9FAFB', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #E8EAED' }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: (SEV_COLOR[change.severity] || '#9CA3AF'), flexShrink: 0 }} />
+                        <p style={{ fontSize: 11, fontWeight: 600, margin: 0, color: '#111318' }}>{shortUrl(change.url)}</p>
+                        <span style={{ fontSize: 9, color: '#6B7280', marginLeft: 'auto' }}>{change.severity}</span>
+                      </div>
+                      {screenshotSrc ? (
+                        <a href={screenshotSrc} target="_blank" rel="noopener noreferrer" style={{ display: 'block' }}>
+                          <img
+                            src={screenshotSrc}
+                            alt={`Screenshot of ${change.url}`}
+                            style={{ width: '100%', height: 160, objectFit: 'cover', objectPosition: 'top', display: 'block', cursor: 'zoom-in' }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </a>
+                      ) : (
+                        <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9FAFB', flexDirection: 'column', gap: 6 }}>
+                          <span style={{ fontSize: 20 }}>🖥️</span>
+                          <p style={{ fontSize: 10, color: '#9CA3AF', margin: 0 }}>실제 크롤링 시 스크린샷이 여기에 표시됩니다</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📝 헤드라인 · 카피</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {(report.data_changes[0]?.diff_detail?.copies || DEMO_COPY_CHANGES).map((copy, idx) => (
+                      <div key={idx} style={{ padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid #E8EAED' }}>
+                        <p style={{ fontSize: 10, fontWeight: 600, color: '#6B7280', marginBottom: 6 }}>{copy.location}</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: '#EF4444', flexShrink: 0, marginTop: 2 }}>이전:</span>
+                            <p style={{ fontSize: 11, color: '#111318', margin: 0, textDecoration: 'line-through', opacity: 0.7 }}>{copy.old}</p>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: '#22C55E', flexShrink: 0, marginTop: 2 }}>이후:</span>
+                            <p style={{ fontSize: 11, color: '#111318', margin: 0, fontWeight: 600 }}>{copy.new}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🔧 스키마 마크업</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {(report.data_changes[0]?.diff_detail?.schemas || DEMO_SCHEMA_CHANGES).map((schema, idx) => (
+                      <div key={idx} style={{ padding: '8px 10px', background: schema.status === '추가' ? '#F0FDF4' : schema.status === '제거' ? '#FEF2F2' : '#EFF6FF', borderRadius: 6, border: `1px solid ${schema.status === '추가' ? '#BBF7D0' : schema.status === '제거' ? '#FECACA' : '#BFDBFE'}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: schema.status === '추가' ? '#22C55E' : schema.status === '제거' ? '#EF4444' : '#2563EB', color: '#fff' }}>{schema.status}</span>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: '#111318' }}>{schema.type}</span>
+                        </div>
+                        {schema.new && <p style={{ fontSize: 9, color: '#6B7280', margin: 0, fontFamily: 'monospace', wordBreak: 'break-all', maxHeight: 60, overflowY: 'auto' }}>{schema.new}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🖼️ 이미지</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {(report.data_changes[0]?.diff_detail?.images || DEMO_IMAGE_CHANGES).map((img, idx) => (
+                      <div key={idx} style={{ padding: '8px 10px', background: img.status === '교체' ? '#FFF7ED' : img.status === '추가' ? '#EFF6FF' : '#FEF2F2', borderRadius: 6, border: `1px solid ${img.status === '교체' ? '#FED7AA' : img.status === '추가' ? '#BFDBFE' : '#FECACA'}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: img.status === '교체' ? '#C2410C' : img.status === '추가' ? '#2563EB' : '#EF4444', color: '#fff' }}>{img.status}</span>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: '#111318' }}>{img.location}</span>
+                        </div>
+                        <div style={{ fontSize: 9, color: '#6B7280' }}>
+                          {img.old && <p style={{ margin: '2px 0', textDecoration: 'line-through', opacity: 0.7 }}>이전: {img.old}</p>}
+                          {img.new && <p style={{ margin: '2px 0', fontWeight: 600 }}>이후: {img.new}</p>}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* No Changes Message */}
+      {/* ─── 변경 없는 경우 ─── */}
       {isSnapshot && (
-        <div style={{ background: '#F0FDF4', borderRadius: 12, border: '1px solid #BBF7D0', padding: 20, textAlign: 'center' }}>
-          <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#15803D' }}>✅ 변경 사항이 감지되지 않았습니다</p>
-          <p style={{ fontSize: 11, color: '#166534', margin: '4px 0 0' }}>현재 상태 기반 경쟁 분석을 제공합니다 (우측 패널)</p>
-        </div>
-      )}
-
-      {/* Copy Change Examples - Main Pane Detailed View */}
-      {!isSnapshot && report.data_changes && report.data_changes.length > 0 && (
-        <div style={{ marginTop: 14, background: '#fff', borderRadius: 12, border: '1px solid #E8EAED', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #E8EAED', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14 }}>✏️</span>
-            <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#111318' }}>카피 변경 예시 (이전 → 이후)</p>
-          </div>
-          <div style={{ padding: '12px 16px' }}>
-            {/* Copy Changes */}
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📝 헤드라인/카피 변경</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(report.data_changes[0]?.diff_detail?.copies || DEMO_COPY_CHANGES).map((copy, idx) => (
-                  <div key={idx} style={{ padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid #E8EAED' }}>
-                    <p style={{ fontSize: 10, fontWeight: 600, color: '#6B7280', marginBottom: 6 }}>{copy.location}</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: '#EF4444', flexShrink: 0, marginTop: 2 }}>이전:</span>
-                        <p style={{ fontSize: 11, color: '#111318', margin: 0, textDecoration: 'line-through', opacity: 0.7 }}>{copy.old}</p>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: '#22C55E', flexShrink: 0, marginTop: 2 }}>이후:</span>
-                        <p style={{ fontSize: 11, color: '#111318', margin: 0, fontWeight: 600 }}>{copy.new}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+            <div style={{ background: '#F0FDF4', borderRadius: 12, padding: 16, border: '1px solid #BBF7D0' }}>
+              <p style={{ fontSize: 10, color: '#166534', margin: 0, textTransform: 'uppercase' }}>변경 감지</p>
+              <p style={{ fontSize: 18, fontWeight: 700, margin: '6px 0 0', color: '#15803D' }}>없음 ✅</p>
             </div>
-
-            {/* Schema Changes */}
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🔧 스키마 마크업 변경 (+82 줄 추가)</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(report.data_changes[0]?.diff_detail?.schemas || DEMO_SCHEMA_CHANGES).map((schema, idx) => (
-                  <div key={idx} style={{ padding: '8px 10px', background: schema.status === '추가' ? '#F0FDF4' : schema.status === '제거' ? '#FEF2F2' : '#EFF6FF', borderRadius: 6, border: `1px solid ${schema.status === '추가' ? '#BBF7D0' : schema.status === '제거' ? '#FECACA' : '#BFDBFE'}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: schema.status === '추가' ? '#22C55E' : schema.status === '제거' ? '#EF4444' : '#2563EB', color: '#fff' }}>{schema.status}</span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: '#111318' }}>{schema.type}</span>
-                    </div>
-                    {schema.new && <p style={{ fontSize: 9, color: '#6B7280', margin: 0, fontFamily: 'monospace', wordBreak: 'break-all', maxHeight: 60, overflowY: 'auto' }}>{schema.new}</p>}
-                  </div>
-                ))}
-              </div>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
+              <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>감시 사이트</p>
+              <p style={{ fontSize: 13, fontWeight: 600, margin: '6px 0 0', color: '#111318' }}>Apple · Samsung</p>
             </div>
-
-            {/* Image Changes */}
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🖼️ 이미지 변경 (-34 줄 제거)</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(report.data_changes[0]?.diff_detail?.images || DEMO_IMAGE_CHANGES).map((img, idx) => (
-                  <div key={idx} style={{ padding: '8px 10px', background: img.status === '교체' ? '#FFF7ED' : img.status === '추가' ? '#EFF6FF' : '#FEF2F2', borderRadius: 6, border: `1px solid ${img.status === '교체' ? '#FED7AA' : img.status === '추가' ? '#BFDBFE' : '#FECACA'}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: img.status === '교체' ? '#C2410C' : img.status === '추가' ? '#2563EB' : '#EF4444', color: '#fff' }}>{img.status}</span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: '#111318' }}>{img.location}</span>
-                    </div>
-                    <div style={{ fontSize: 9, color: '#6B7280' }}>
-                      {img.old && <p style={{ margin: '2px 0', textDecoration: 'line-through', opacity: 0.7 }}>이전: {img.old}</p>}
-                      {img.new && <p style={{ margin: '2px 0', fontWeight: 600 }}>이후: {img.new}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E8EAED' }}>
+              <p style={{ fontSize: 10, color: '#6B7280', margin: 0, textTransform: 'uppercase' }}>분석 레벨</p>
+              <p style={{ fontSize: 14, fontWeight: 600, margin: '4px 0 0', color: priorityColor }}>
+                {report.analysis?.priority_label || '—'}
+              </p>
             </div>
           </div>
-        </div>
+
+          {report.analysis?.consumer_perception && (
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E8EAED', padding: '14px 16px', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 14 }}>🍎</span>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#111318' }}>Apple 현재 포지션</p>
+              </div>
+              <p style={{ fontSize: 12, color: '#374151', margin: 0, lineHeight: 1.7 }}>
+                {report.analysis.consumer_perception}
+              </p>
+            </div>
+          )}
+
+          {(dangerAreas.length > 0 || warningAreas.length > 0) && (
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E8EAED', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #E8EAED', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14 }}>🔷</span>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#111318' }}>Samsung 핵심 개선 포인트</p>
+                <span style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 'auto' }}>영역별 상세 → 우측 패널</span>
+              </div>
+              <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[...dangerAreas, ...warningAreas].slice(0, 4).map(([key, value]) => {
+                  const st = STATUS_STYLE[value.status] || STATUS_STYLE['양호'];
+                  const topPoint = value.improvement_points?.[0];
+                  return (
+                    <div key={key} style={{ padding: '10px 12px', borderRadius: 10, background: st.bg, border: `1px solid ${st.dot}30`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: st.dot, marginTop: 5, flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, margin: 0, color: '#111318' }}>{key}</p>
+                          <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 10, background: `${st.dot}20`, color: st.color }}>{value.status}</span>
+                        </div>
+                        <p style={{ fontSize: 10, margin: 0, color: '#4B5563', lineHeight: 1.5 }}>{value.summary}</p>
+                        {topPoint && (
+                          <p style={{ fontSize: 10, margin: '4px 0 0', color: st.color, fontWeight: 600 }}>→ {topPoint}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
