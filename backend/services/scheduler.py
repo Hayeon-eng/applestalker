@@ -189,7 +189,7 @@ def init_scheduler(crawl_func: Callable, email_report_func: Callable = None):
         job_id="apple_morning_crawl",
         crawl_func=crawl_func,
         site_name="apple",
-        cron_expression="0 0 * * *",  # 09:00 KST = 00:00 UTC
+        cron_expression="0 9 * * *",  # 09:00 KST
     )
 
     # Samsung morning crawl - real-time web crawling  
@@ -197,16 +197,16 @@ def init_scheduler(crawl_func: Callable, email_report_func: Callable = None):
         job_id="samsung_morning_crawl",
         crawl_func=crawl_func,
         site_name="samsung",
-        cron_expression="0 0 * * *",  # 09:00 KST = 00:00 UTC
+        cron_expression="0 9 * * *",  # 09:00 KST
     )
 
-    # === AFTERNOON CRAWLS at 14:00 KST (05:00 UTC) ===
+    # === AFTERNOON CRAWLS at 14:00 KST ===
     # Apple afternoon crawl - real-time web crawling
     scheduler.add_crawl_job(
         job_id="apple_afternoon_crawl",
         crawl_func=crawl_func,
         site_name="apple",
-        cron_expression="0 5 * * *",  # 14:00 KST = 05:00 UTC
+        cron_expression="0 14 * * *",  # 14:00 KST
     )
 
     # Samsung afternoon crawl - real-time web crawling
@@ -214,26 +214,26 @@ def init_scheduler(crawl_func: Callable, email_report_func: Callable = None):
         job_id="samsung_afternoon_crawl",
         crawl_func=crawl_func,
         site_name="samsung",
-        cron_expression="0 5 * * *",  # 14:00 KST = 05:00 UTC
+        cron_expression="0 14 * * *",  # 14:00 KST
     )
 
     # Add email report jobs if provided
     if email_report_func:
         morning_func, afternoon_func = email_report_func
 
-        # Morning report at 09:00 KST (after morning crawls complete)
+        # Morning report 09:30 KST (크롤 완료 후 30분 뒤)
         scheduler.scheduler.add_job(
             func=morning_func,
-            trigger=CronTrigger(hour=0, minute=30, timezone="Asia/Seoul"),  # 09:30 KST
+            trigger=CronTrigger(hour=9, minute=30, timezone="Asia/Seoul"),
             id="morning_email_report",
             name="Morning Email Report",
             replace_existing=True,
         )
 
-        # Afternoon report at 14:00 KST (after afternoon crawls complete)
+        # Afternoon report 14:30 KST (크롤 완료 후 30분 뒤)
         scheduler.scheduler.add_job(
             func=afternoon_func,
-            trigger=CronTrigger(hour=5, minute=30, timezone="Asia/Seoul"),  # 14:30 KST
+            trigger=CronTrigger(hour=14, minute=30, timezone="Asia/Seoul"),
             id="afternoon_email_report",
             name="Afternoon Email Report",
             replace_existing=True,
