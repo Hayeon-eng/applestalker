@@ -39,20 +39,62 @@ const shortUrl = (url: string) => {
 };
 
 const DEMO_COPY_CHANGES: DiffCopy[] = [
-  { location: 'apple.com/iphone/ — Hero H1', old: 'iPhone.', new: 'Hello, Apple Intelligence.' },
-  { location: 'apple.com/iphone/ — Meta Title', old: 'iPhone - Apple', new: 'iPhone. Built for Apple Intelligence. - Apple' },
-  { location: 'apple.com/apple-intelligence/ — H2', old: 'Personal. Powerful. Private.', new: 'Intelligent. Personal. Powerful.' },
+  {
+    location: 'apple.com/iphone/ — og:title / Page Title',
+    old: 'iPhone - Apple',
+    new: 'iPhone 17 — Built for Apple Intelligence. - Apple',
+  },
+  {
+    location: 'apple.com/iphone/ — Hero H1',
+    old: 'iPhone.',
+    new: 'Hello, Apple Intelligence.',
+  },
+  {
+    location: 'apple.com/apple-intelligence/ — Meta Description',
+    old: 'Meet Apple Intelligence, the personal intelligence system for iPhone, iPad, and Mac.',
+    new: 'Apple Intelligence is here. Personal intelligence that understands you — privately and securely.',
+  },
 ];
 
 const DEMO_SCHEMA_CHANGES: DiffSchema[] = [
-  { status: '추가', type: 'FAQPage', old: '', new: '{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Apple Intelligence 란?","acceptedAnswer":{"@type":"Answer","text":"개인화된 AI 기능입니다."}}]}' },
-  { status: '추가', type: 'BreadcrumbList', old: '', new: '{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"iPhone","item":"https://www.apple.com/iphone/"}]}' },
-  { status: '수정', type: 'Product', old: '{"price":"1399000"}', new: '{"price":"월 58,300 원~","priceValidUntil":"2025-12-31"}' },
+  {
+    status: '추가',
+    type: 'FAQPage (인라인 임베드)',
+    old: '',
+    new: '{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is Apple Intelligence?","acceptedAnswer":{"@type":"Answer","text":"Apple Intelligence is the personal intelligence system for iPhone, iPad, and Mac."}},{"@type":"Question","name":"Which devices support Apple Intelligence?","acceptedAnswer":{"@type":"Answer","text":"Available on iPhone 16 series, iPhone 17 series, iPad with M1 or later, and Mac with Apple silicon."}}]}',
+  },
+  {
+    status: '추가',
+    type: 'BreadcrumbList (인라인)',
+    old: '',
+    new: '{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"iPhone","item":"https://www.apple.com/iphone/"},{"@type":"ListItem","position":2,"name":"iPhone 17","item":"https://www.apple.com/iphone-17/"}]}',
+  },
+  {
+    status: '수정',
+    type: 'Product > offers',
+    old: '{"@type":"Offer","price":"999.00","priceCurrency":"USD","availability":"https://schema.org/InStock"}',
+    new: '{"@type":"AggregateOffer","lowPrice":"58300","priceCurrency":"KRW","offerCount":"4","description":"월 할부 기준, iPhone 17 128GB 기준"}',
+  },
 ];
 
 const DEMO_IMAGE_CHANGES: DiffImage[] = [
-  { location: 'Hero Image', status: '교체', old: 'iphone17-product-shot.jpg', new: 'iphone17-lifestyle-group.jpg' },
-  { location: 'Feature Section', status: '추가', new: 'apple-intelligence-animation.webp' },
+  {
+    location: 'apple.com/iphone/ — Section 1 Hero',
+    status: '교체',
+    old: '/v/iphone/home/images/overview/hero/hero_iphone16_large__fkb9q06bpuuq_large.jpg',
+    new: '/v/iphone/home/images/overview/hero/hero_iphone17_large__fkb9q06bpuuq_large.jpg',
+  },
+  {
+    location: 'apple.com/iphone/ — Apple Intelligence 기능 섹션',
+    status: '추가',
+    new: '/v/iphone/home/images/overview/ai_writing_tools/writing_tools__f78bixs8xlea_large.jpg',
+  },
+  {
+    location: 'apple.com/apple-intelligence/ — Hero Background',
+    status: '교체',
+    old: '/v/apple-intelligence/a/images/overview/hero/hero_static__fq07f7drjxia_medium.jpg',
+    new: '/v/apple-intelligence/b/images/overview/hero/hero_animation__fq07f7drjxia_large.jpg',
+  },
 ];
 
 export default function MainPanel({ report, onRefresh, isDemo, isSnapshot }: Props) {
