@@ -7,6 +7,7 @@ Model: gemini-2.5-flash-preview-05-20
 import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from loguru import logger
 
 try:
     import google.generativeai as genai
@@ -344,6 +345,102 @@ Return as JSON array.
         if changes:
             return f"Page updates detected: {', '.join(changes)}. Monitor for impact."
         return "Minor or no significant changes detected on this page."
+
+    def analyze_snapshot(
+        self,
+        pages_data: List[Dict[str, Any]],
+        site_name: str,
+        schema_types: List[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Analyze current state of all crawled pages even when no changes detected.
+        Used for the '변경 없음' case to still provide competitive insights.
+        """
+        if not self.is_configured:
+            return self._fallback_snapshot(pages_data, site_name, schema_types or [])
+
+        # Build compact page summary for prompt
+        page_summaries = []
+        for p in pages_data[:20]:  # Limit for token efficiency
+            page_summaries.append({
+                "url": p.get("url", ""),
+                "title": p.get("title", ""),
+                "h1": p.get("h1", ""),
+                "h2": (p.get("h2") or [])[:4],
+                "meta_description": p.get("meta_description", ""),
+                "faq_count": len(p.get("faqs") or []),
+                "cta_count": len(p.get("ctas") or []),
+                "schema_types": [s.get("@type") for s in (p.get("structured_data") or []) if isinstance(s, dict) and s.get("@type")],
+                "word_count": p.get("word_count", 0),
+            })
+
+        competitor = "Samsung.com/sg" if site_name == "apple" else "Apple.com"
+        site_display = "Apple.com" if site_name == "apple" else "Samsung.com/sg"
+
+        prompt = f"""
+You are a competitive intelligence analyst for Samsung Electronics' Digital Marketing team.
+
+Analyze the current state of {site_display} based on this crawl data ({len(pages_data)} pages).
+Schema types found across platform: {schema_types or []}
+
+Page data:
+{json.dumps(page_summaries, ensure_ascii=False, indent=2)[:4000]}
+
+Provide a competitive analysis for Samsung's digital marketing team in JSON (Korean):
+{{
+    "summary": "3-4 문장으로 {site_display} 현재 전략 포지션 요약",
+    "samsung_comparison": "{competitor} 대비 {site_display} 의 핵심 차별점 2-3 문장",
+    "schema_analysis": "플랫폼 전반 스키마 구조 평가 (발견된 타입: {schema_types})",
+    "key_insights": ["인사이트 1", "인사이트 2", "인사이트 3"],
+    "action_items": [
+        "🚨 Samsung 즉시 대응 액션 (가장 중요)",
+        "⚠️ Samsung 우선 개선 액션",
+        "👀 Samsung 중기 검토 액션"
+    ],
+    "category_insights": {{
+        "SEO·AI 인덱싱": {{"status": "위험|주의|양호", "summary": "...", "apple_score": 0-10, "samsung_score": 0-10, "improvement_points": ["..."]}},
+        "헤드라인·슬로건": {{"status": "위험|주의|양호", "summary": "...", "apple_score": 0-10, "samsung_score": 0-10}},
+        "가격·프로모션": {{"status": "위험|주의|양호", "summary": "...", "apple_score": 0-10, "samsung_score": 0-10}},
+        "비주얼·미디어": {{"status": "위험|주의|양호", "summary": "...", "apple_score": 0-10, "samsung_score": 0-10}},
+        "내비게이션·구조": {{"status": "위험|주의|양호", "summary": "...", "apple_score": 0-10, "samsung_score": 0-10}},
+        "CTA·구매 흐름": {{"status": "위험|주의|양호", "summary": "...", "apple_score": 0-10, "samsung_score": 0-10}},
+        "본문·기능 설명": {{"status": "위험|주의|양호", "summary": "...", "apple_score": 0-10, "samsung_score": 0-10}}
+    }}
+}}
+Return ONLY valid JSON, no markdown.
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            result = self._parse_gemini_response(response.text)
+            result["_source"] = "gemini"
+            return result
+        except Exception as e:
+            logger.warning(f"Gemini snapshot analysis failed: {e}")
+            return self._fallback_snapshot(pages_data, site_name, schema_types or [])
+
+    def _fallback_snapshot(self, pages_data: List[Dict], site_name: str, schema_types: List[str]) -> Dict:
+        """Fallback snapshot when Gemini unavailable"""
+        faq_count = sum(len(p.get("faqs") or []) for p in pages_data)
+        has_faqpage = "FAQPage" in schema_types
+        has_breadcrumb = "BreadcrumbList" in schema_types
+        has_product = "Product" in schema_types
+
+        site_display = "Apple.com" if site_name == "apple" else "Samsung.com/sg"
+        schema_summary = f"발견된 스키마: {', '.join(schema_types) if schema_types else '없음'}"
+
+        return {
+            "summary": f"{site_display} {len(pages_data)}개 페이지 크롤링 완료. 변경 없음. {schema_summary}. FAQ {faq_count}개 발견.",
+            "samsung_comparison": "Gemini API 미설정 — GEMINI_API_KEY 환경변수 설정 후 상세 비교 분석 제공됩니다.",
+            "schema_analysis": schema_summary,
+            "key_insights": [
+                f"{'FAQPage 스키마 존재' if has_faqpage else 'FAQPage 스키마 없음'} — AI Overview 노출 {('가능' if has_faqpage else '불가')}",
+                f"{'BreadcrumbList 존재' if has_breadcrumb else 'BreadcrumbList 없음'}",
+                f"{'Product 스키마 존재' if has_product else 'Product 스키마 없음'}",
+            ],
+            "action_items": ["🔑 GEMINI_API_KEY 환경변수를 Render 에 설정하면 실시간 AI 분석이 활성화됩니다."],
+            "category_insights": {},
+            "_source": "fallback",
+        }
 
     def is_available(self) -> bool:
         """Check if Gemini is configured and available"""
