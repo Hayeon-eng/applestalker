@@ -721,6 +721,44 @@ async def get_latest_report(run_id: Optional[str] = None):
                 }
             })
 
+        # Aggregate schema types from ALL crawled pages (platform-wide view)
+        all_pages_result = await db.execute(
+            select(CrawledPage).where(CrawledPage.crawl_run_id == crawl_run.crawl_run_id)
+        )
+        all_pages = all_pages_result.scalars().all()
+
+        all_schema_types = set()
+        pages_for_analysis = []
+        for p in all_pages:
+            try:
+                schemas = json.loads(p.structured_data) if p.structured_data else []
+                page_schema_types = []
+                for s in schemas:
+                    if isinstance(s, dict):
+                        t = s.get("@type")
+                        if t:
+                            all_schema_types.add(t if isinstance(t, str) else str(t))
+                            page_schema_types.append(t)
+                        for g in s.get("@graph", []):
+                            if isinstance(g, dict):
+                                gt = g.get("@type")
+                                if gt:
+                                    all_schema_types.add(gt if isinstance(gt, str) else str(gt))
+                                    page_schema_types.append(gt)
+                pages_for_analysis.append({
+                    "url": p.url, "title": p.title, "h1": p.h1,
+                    "h2": json.loads(p.h2) if p.h2 else [],
+                    "meta_description": p.meta_description,
+                    "faqs": json.loads(p.faqs) if p.faqs else [],
+                    "ctas": json.loads(p.ctas) if p.ctas else [],
+                    "structured_data": schemas,
+                    "word_count": p.word_count or 0,
+                    "schema_types": page_schema_types,
+                })
+            except Exception:
+                pass
+        schema_types_list = sorted(all_schema_types)
+
         # Build analysis from POVs
         insights = []
         action_items = []
@@ -731,20 +769,27 @@ async def get_latest_report(run_id: Optional[str] = None):
             insights.append(f"{pov.functional_area}: {pov.observation}")
             emoji = _EMOJI.get((pov.priority or "medium").lower(), "👀")
             action_items.append(f"{emoji} {pov.recommended_action}")
-
-            # Build category insights
             if pov.functional_area not in category_insights:
                 category_insights[pov.functional_area] = {
-                    "status": "위험" if pov.priority == "critical" else "주의" if pov.priority == "high" else "양호",
+                    "status": "위험" if (pov.priority or "").lower() == "critical" else "주의" if (pov.priority or "").lower() == "high" else "양호",
                     "summary": pov.observation,
                     "apple_score": 8,
                     "samsung_score": 5,
                     "improvement_points": [pov.recommended_action],
                 }
 
-        # Default categories if empty
-        # No fake fallback — show empty when AI analysis hasn't run yet
-        # category_insights stays {} if no POVs
+        # No changes → run Gemini snapshot analysis for current-state
+        snapshot_analysis = {}
+        if not changes and pages_for_analysis:
+            from engines.gemini_engine import GeminiEngine
+            gemini = GeminiEngine()
+            snapshot_analysis = gemini.analyze_snapshot(pages_for_analysis, crawl_run.site_name, schema_types_list)
+            if snapshot_analysis.get("category_insights"):
+                category_insights = snapshot_analysis["category_insights"]
+            if snapshot_analysis.get("action_items"):
+                action_items = snapshot_analysis["action_items"]
+            if snapshot_analysis.get("key_insights"):
+                insights = snapshot_analysis["key_insights"]
 
         report = {
             "run_id": crawl_run.crawl_run_id,
@@ -752,14 +797,17 @@ async def get_latest_report(run_id: Optional[str] = None):
             "site_name": "Apple" if crawl_run.site_name == "apple" else "Samsung",
             "tier": "Tier 0",
             "timestamp": (crawl_run.started_at.isoformat() + "Z") if crawl_run.started_at else None,
+            "schema_types": schema_types_list,
+            "pages_crawled": len(all_pages),
             "analysis": {
-                "change_summary": f"{len(changes)}개의 변경이 감지되었습니다." if changes else "변경 사항이 없습니다.",
-                "consumer_perception": povs[0].observation if povs else "분석 데이터가 없습니다.",
-                "samsung_comparison": povs[0].hypothesis if povs else "Samsung 과의 비교 데이터가 없습니다.",
+                "change_summary": f"{len(changes)}개의 변경이 감지됐습니다." if changes else (snapshot_analysis.get("summary") or "변경 없음. 현재 상태 분석을 확인하세요."),
+                "consumer_perception": snapshot_analysis.get("summary") or (povs[0].observation if povs else "분석 데이터가 없습니다."),
+                "samsung_comparison": snapshot_analysis.get("samsung_comparison") or (povs[0].hypothesis if povs else "Samsung 과의 비교 데이터가 없습니다."),
+                "schema_analysis": snapshot_analysis.get("schema_analysis") or f"플랫폼 스키마: {', '.join(schema_types_list) if schema_types_list else '없음'}",
                 "insights": insights[:6] if insights else ["실시간 크롤링 데이터가 없습니다. 크롤링을 실행해주세요."],
                 "action_items": action_items[:5] if action_items else ["크롤링 실행 후 액션 항목이 생성됩니다."],
                 "priority_label": "Critical" if any((c.severity or "").lower() == "critical" for c in changes) else "High" if any((c.severity or "").lower() == "high" for c in changes) else "Medium" if changes else "Low",
-                "functional_area": ", ".join(set(p.functional_area for p in povs[:3])) if povs else "분석 대기 중",
+                "functional_area": ", ".join(set(p.functional_area for p in povs[:3])) if povs else "현재 상태 분석 완료",
                 "category_insights": category_insights,
             },
             "data_changes": data_changes,
@@ -964,24 +1012,16 @@ async def delete_run(run_id: str):
             raise HTTPException(status_code=404, detail="Run not found")
         
         # Delete in FK dependency order
-        await db.execute(
-            TrendData.__table__.delete().where(TrendData.crawl_run_id == run_id)
-        )
-        await db.execute(
-            DetectedChange.__table__.delete().where(DetectedChange.crawl_run_id == run_id)
-        )
-        await db.execute(
-            CrawledPage.__table__.delete().where(CrawledPage.crawl_run_id == run_id)
-        )
-        await db.execute(
-            DiscoveredURL.__table__.delete().where(DiscoveredURL.crawl_run_id == run_id)
-        )
-        await db.execute(
-            SamsungPOV.__table__.delete().where(SamsungPOV.related_crawl_run_id == run_id)
-        )
-        await db.execute(
-            CrawlRun.__table__.delete().where(CrawlRun.crawl_run_id == run_id)
-        )
+        for stmt in [
+            TrendData.__table__.delete().where(TrendData.crawl_run_id == run_id),
+            GEOSignal.__table__.delete().where(GEOSignal.crawl_run_id == run_id),
+            DetectedChange.__table__.delete().where(DetectedChange.crawl_run_id == run_id),
+            CrawledPage.__table__.delete().where(CrawledPage.crawl_run_id == run_id),
+            DiscoveredURL.__table__.delete().where(DiscoveredURL.crawl_run_id == run_id),
+            SamsungPOV.__table__.delete().where(SamsungPOV.related_crawl_run_id == run_id),
+            CrawlRun.__table__.delete().where(CrawlRun.crawl_run_id == run_id),
+        ]:
+            await db.execute(stmt)
         
         await db.commit()
         
