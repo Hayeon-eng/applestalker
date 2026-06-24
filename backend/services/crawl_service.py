@@ -138,15 +138,34 @@ class CrawlService:
 
             # ── Step 4: GEO/AEO signals ──
             logger.info("Step 4: GEO/AEO analysis")
-            geo_signals = self._analyze_geo(crawled_pages)
-            for sig in geo_signals:
-                db.add(GEOSignal(
-                    crawl_run_id=crawl_run_id,
-                    url=sig.url,
-                    signal_type=sig.signal_type,
-                    signal_value=sig.signal_value,
-                    geo_score=sig.geo_score,
-                ))
+            # Build url → page_id map (GEOSignal FK is page_id, not crawl_run_id)
+            url_to_page_id = {}
+            for page_data in crawled_pages:
+                row = db.execute(
+                    select(CrawledPage.id).where(
+                        CrawledPage.crawl_run_id == crawl_run_id,
+                        CrawledPage.url == page_data.get("url")
+                    )
+                ).first()
+                if row:
+                    url_to_page_id[page_data.get("url")] = row[0]
+
+            geo_engine_inst = GEOAEOEngine()
+            geo_signal_count = 0
+            for page_data in crawled_pages:
+                page_id = url_to_page_id.get(page_data.get("url"))
+                if not page_id:
+                    continue
+                for sig in geo_engine_inst.analyze_page(page_data):
+                    db.add(GEOSignal(
+                        page_id=page_id,
+                        url=sig.url,
+                        signal_type=sig.signal_type,
+                        evidence=sig.evidence,
+                        signal_strength=getattr(sig, "signal_strength", 0.0) or 0.0,
+                        related_content=getattr(sig, "related_content", None),
+                    ))
+                    geo_signal_count += 1
             db.commit()
 
             # ── Step 5: Samsung POV / Gemini insights ──
@@ -181,7 +200,7 @@ class CrawlService:
             db.commit()
 
             # ── Step 6: Trend data ──
-            self._save_trend_data(site_name, crawled_pages, geo_signals, all_schema_types, db)
+            self._save_trend_data(site_name, crawled_pages, geo_signal_count, all_schema_types, db)
 
             crawl_run.completed_at = datetime.utcnow()
             crawl_run.status = "completed"
@@ -195,7 +214,7 @@ class CrawlService:
                 "urls_crawled": len(crawled_pages),
                 "changes_detected": len(changes),
                 "schema_types_found": all_schema_types,
-                "geo_signals": len(geo_signals),
+                "geo_signals": geo_signal_count,
             }
 
         except Exception as e:
@@ -317,13 +336,13 @@ class CrawlService:
     # ─────────────────────────────────────────────
 
     def _save_trend_data(self, site_name: str, pages: List[Dict],
-                          geo_signals: List, schema_types: List[str], db):
+                          geo_signal_count: int, schema_types: List[str], db):
         now = datetime.utcnow()
         total_faqs = sum(len(p.get("faqs", [])) for p in pages)
         for metric, val in [
             ("url_count", len(pages)),
             ("faq_count", total_faqs),
-            ("geo_signal_count", len(geo_signals)),
+            ("geo_signal_count", geo_signal_count),
             ("schema_type_count", len(schema_types)),
         ]:
             db.add(TrendData(site_name=site_name, metric_type=metric, recorded_at=now, value=val))
