@@ -1012,9 +1012,18 @@ async def delete_run(run_id: str):
             raise HTTPException(status_code=404, detail="Run not found")
         
         # Delete in FK dependency order
+        # GEOSignal has page_id FK (not crawl_run_id) — delete via subquery
+        page_ids_res = await db.execute(
+            select(CrawledPage.id).where(CrawledPage.crawl_run_id == run_id)
+        )
+        page_ids = [r[0] for r in page_ids_res.fetchall()]
+        if page_ids:
+            await db.execute(
+                GEOSignal.__table__.delete().where(GEOSignal.page_id.in_(page_ids))
+            )
+
         for stmt in [
             TrendData.__table__.delete().where(TrendData.crawl_run_id == run_id),
-            GEOSignal.__table__.delete().where(GEOSignal.crawl_run_id == run_id),
             DetectedChange.__table__.delete().where(DetectedChange.crawl_run_id == run_id),
             CrawledPage.__table__.delete().where(CrawledPage.crawl_run_id == run_id),
             DiscoveredURL.__table__.delete().where(DiscoveredURL.crawl_run_id == run_id),
