@@ -743,16 +743,8 @@ async def get_latest_report(run_id: Optional[str] = None):
                 }
 
         # Default categories if empty
-        if not category_insights:
-            category_insights = {
-                "SEO·AI 인덱싱": {"status": "위험", "summary": "Apple FAQPage + BreadcrumbList 완비. Samsung 기본 Product 스키마만 적용.", "apple_score": 9, "samsung_score": 4, "improvement_points": ["FAQPage 스키마 즉시 적용", "BreadcrumbList 추가"]},
-                "헤드라인·슬로건": {"status": "위험", "summary": "Apple 슬로건 전 제품군 H1 일관 적용.", "apple_score": 9, "samsung_score": 5},
-                "가격·프로모션": {"status": "주의", "summary": "Apple 월 할부 Hero 배치.", "apple_score": 8, "samsung_score": 5},
-                "비주얼·미디어": {"status": "주의", "summary": "Apple 색상 선택 시 이미지 실시간 전환.", "apple_score": 8, "samsung_score": 6},
-                "내비게이션·구조": {"status": "양호", "summary": "양사 모두 BreadcrumbList 스키마 적용.", "apple_score": 8, "samsung_score": 7},
-                "CTA·구매 흐름": {"status": "주의", "summary": "Apple CTA sticky 상단 고정.", "apple_score": 9, "samsung_score": 6},
-                "본문·기능 설명": {"status": "양호", "summary": "양사 주요 제품 구체 수치 일관 사용.", "apple_score": 8, "samsung_score": 7},
-            }
+        # No fake fallback — show empty when AI analysis hasn't run yet
+        # category_insights stays {} if no POVs
 
         report = {
             "run_id": crawl_run.crawl_run_id,
@@ -971,22 +963,22 @@ async def delete_run(run_id: str):
         if not crawl_run:
             raise HTTPException(status_code=404, detail="Run not found")
         
-        # Delete associated changes
+        # Delete in FK dependency order
+        await db.execute(
+            TrendData.__table__.delete().where(TrendData.crawl_run_id == run_id)
+        )
         await db.execute(
             DetectedChange.__table__.delete().where(DetectedChange.crawl_run_id == run_id)
         )
-        
-        # Delete associated pages
         await db.execute(
             CrawledPage.__table__.delete().where(CrawledPage.crawl_run_id == run_id)
         )
-        
-        # Delete associated POVs
+        await db.execute(
+            DiscoveredURL.__table__.delete().where(DiscoveredURL.crawl_run_id == run_id)
+        )
         await db.execute(
             SamsungPOV.__table__.delete().where(SamsungPOV.related_crawl_run_id == run_id)
         )
-        
-        # Delete the crawl run
         await db.execute(
             CrawlRun.__table__.delete().where(CrawlRun.crawl_run_id == run_id)
         )
