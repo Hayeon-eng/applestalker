@@ -24,8 +24,8 @@ class PlaywrightCrawler:
 
     def __init__(
         self,
-        screenshots_dir: str = None,  # Not used - saving to DB
-        snapshots_dir: str = None,  # Not used - saving to DB
+        screenshots_dir: str = "./screenshots",
+        snapshots_dir: str = "./snapshots",
         user_agent: str = None,
         use_playwright: bool = True,  # 이미지 추출을 위해 Playwright 사용
         max_concurrent: int = 3,
@@ -38,6 +38,10 @@ class PlaywrightCrawler:
         )
         self.max_concurrent = max_concurrent
         self.timeout_ms = timeout_ms
+        self.screenshots_dir = Path(screenshots_dir)
+        self.snapshots_dir = Path(snapshots_dir)
+        self.screenshots_dir.mkdir(parents=True, exist_ok=True)
+        self.snapshots_dir.mkdir(parents=True, exist_ok=True)
         
         # HTTP client with connection pooling
         self.client: Optional[httpx.AsyncClient] = None
@@ -67,7 +71,7 @@ class PlaywrightCrawler:
                         "--no-sandbox",
                         "--disable-setuid-sandbox",
                         "--disable-dev-shm-usage",
-                        "--disable-images",  # 이미지는 추출만, 로딩은 안함 (속도)
+                        "--disable-gpu",
                     ]
                 )
             except Exception as e:
@@ -113,21 +117,19 @@ class PlaywrightCrawler:
                 start_time = datetime.now()
                 timeout = timeout or self.timeout_ms
 
-                # Fast HTTP GET request
-                response = await self.client.get(url, timeout=timeout/1000)
-                result["status_code"] = response.status_code
-                html = response.text
+                if self.browser:
+                    # Use Playwright: JS rendering + screenshots
+                    pw_result = await self._crawl_with_playwright(url, timeout)
+                    result.update(pw_result)
+                else:
+                    # Fallback: pure httpx (no JS, no screenshots)
+                    response = await self.client.get(url, timeout=timeout/1000)
+                    result["status_code"] = response.status_code
+                    html = response.text
+                    result.update(self._extract_page_data(BeautifulSoup(html, "lxml"), html))
+                    result["html_content"] = html
 
                 result["load_time_ms"] = int((datetime.now() - start_time).total_seconds() * 1000)
-
-                # Parse HTML
-                soup = BeautifulSoup(html, "lxml")
-
-                # Extract all page data
-                result.update(self._extract_page_data(soup, html))
-
-                # Store HTML in DB (not file)
-                result["html_content"] = html
 
             except Exception as e:
                 result["error"] = str(e)
@@ -136,14 +138,12 @@ class PlaywrightCrawler:
             return result
 
     async def _crawl_with_playwright(self, url: str, timeout: int) -> Dict[str, Any]:
-        """Crawl page using Playwright browser automation"""
+        """Crawl page using Playwright: JS rendering + screenshots"""
         result = {
             "status_code": 200,
             "error": None,
             "screenshot_path": None,
-            "mobile_screenshot_path": None,
-            "full_screenshot_path": None,
-            "html_snapshot_path": None,
+            "html_content": None,
         }
 
         try:
@@ -152,46 +152,47 @@ class PlaywrightCrawler:
                 user_agent=self.user_agent,
             )
             page = await context.new_page()
-            
-            # Navigate to page
-            response = await page.goto(url, wait_until="networkidle", timeout=timeout)
+
+            # Navigate and wait for network to settle
+            response = await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
             result["status_code"] = response.status if response else 200
-            
-            # Wait for content to load
-            await page.wait_for_timeout(2000)
-            
-            # Take desktop screenshot
-            screenshot_path = self.screenshots_dir / f"desktop_{self._sanitize_filename(url)}.png"
+
+            # Wait for JS to render (lazy content, schemas injected by JS)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=10000)
+            except Exception:
+                await page.wait_for_timeout(3000)
+
+            # Take desktop screenshot (1920x1080)
+            safe_name = self._sanitize_filename(url)
+            screenshot_path = self.screenshots_dir / f"desktop_{safe_name}.png"
             await page.screenshot(path=str(screenshot_path), full_page=False)
             result["screenshot_path"] = str(screenshot_path)
-            
-            # Take full page screenshot
-            full_screenshot_path = self.screenshots_dir / f"full_{self._sanitize_filename(url)}.png"
-            await page.screenshot(path=str(full_screenshot_path), full_page=True)
-            result["full_screenshot_path"] = str(full_screenshot_path)
-            
-            # Take mobile screenshot
-            await context.set_viewport_size({"width": 375, "height": 667})
-            mobile_screenshot_path = self.screenshots_dir / f"mobile_{self._sanitize_filename(url)}.png"
-            await page.screenshot(path=str(mobile_screenshot_path), full_page=False)
-            result["mobile_screenshot_path"] = str(mobile_screenshot_path)
-            
-            # Get rendered HTML
+
+            # Get fully rendered HTML (includes JS-injected JSON-LD etc.)
             html = await page.content()
-            
-            # Save HTML snapshot
-            result["html_snapshot_path"] = self._save_html_snapshot(html, url)
-            
-            # Parse HTML
+            result["html_content"] = html
+
+            # Parse and extract all data from rendered HTML
             soup = BeautifulSoup(html, "lxml")
             result.update(self._extract_page_data(soup, html))
-            
+
             await context.close()
-            
+
         except Exception as e:
             result["error"] = str(e)
             result["status_code"] = 0
-        
+            # Fallback to httpx if Playwright fails
+            try:
+                response = await self.client.get(url, timeout=30.0)
+                html = response.text
+                result["status_code"] = response.status_code
+                result["html_content"] = html
+                result.update(self._extract_page_data(BeautifulSoup(html, "lxml"), html))
+                result["error"] = None
+            except Exception:
+                pass
+
         return result
 
     async def _crawl_with_httpx(self, url: str, timeout: int) -> Dict[str, Any]:
