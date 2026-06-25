@@ -250,7 +250,7 @@ export default function Sidebar({ runs, selectedRunId, onSelectRun, onNewCrawl, 
                 </p>
               </button>
               <button onClick={(e) => openDrawer(run, e)} title="크롤링 상세" style={{ position: 'absolute', right: 28, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', fontSize: 11, color: C.textSub, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↗</button>
-              <button onClick={(e) => { e.stopPropagation(); if (confirm('이 기록을 삭제할까요?')) onDeleteRun(run.run_id); }} title="삭제" style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', fontSize: 13, color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              <button onClick={(e) => { e.stopPropagation(); onDeleteRun(run.run_id); }} title="삭제" style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, cursor: 'pointer', fontSize: 13, color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
           ))}
         </div>
