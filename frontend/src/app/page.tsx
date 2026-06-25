@@ -262,11 +262,13 @@ export default function Page() {
   };
 
   const deleteRun = async (runId: string) => {
+    // 낙관적 UI 업데이트 — 먼저 지우고 API 호출
+    setRuns(prev => prev.filter(r => r.run_id !== runId));
+    if (selectedRunId === runId) { setReport(null); setSelectedRunId(null); }
     try {
-      await fetch(`${api}/api/run/${runId}`, { method: 'DELETE' });
-      setRuns(prev => prev.filter(r => r.run_id !== runId));
-      if (selectedRunId === runId) { setReport(null); setSelectedRunId(null); }
-    } catch {}
+      const res = await fetch(`${api}/api/run/${runId}`, { method: 'DELETE' });
+      if (!res.ok) console.warn('Delete API failed:', res.status);
+    } catch (e) { console.error('Delete fetch error:', e); }
   };
 
   const showDemo         = () => { setReport(DEMO_REPORT);   setSelectedRunId('demo');          setError(null); };
