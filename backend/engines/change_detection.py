@@ -1,47 +1,52 @@
 """
-Change Detection Engine
-Detects changes between crawl runs including navigation, content, commerce, and technical changes.
+Change Detection Engine — Fully defensive version
+모든 감지 단계가 독립 try/except으로 감싸져 있어 하나 실패해도 나머지 계속 진행
 """
 
 import difflib
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 
 
 @dataclass
 class Change:
-    """Represents a detected change"""
     url: str
-    change_type: str  # navigation, content, commerce, technical, url
-    change_category: str  # added, removed, reordered, modified
+    change_type: str
+    change_category: str
     field_name: Optional[str] = None
     before_value: Optional[str] = None
     after_value: Optional[str] = None
-    severity: str = "medium"  # critical, high, medium, low
+    severity: str = "medium"
     severity_reason: Optional[str] = None
     tier_level: int = 3
     detected_at: datetime = field(default_factory=datetime.utcnow)
 
 
+def _safe_str(val) -> str:
+    return str(val) if val is not None else ""
+
+
+def _safe_list(val) -> List[str]:
+    """Returns a flat list of strings, safe for set()"""
+    if not val:
+        return []
+    result = []
+    for item in val:
+        if item is None:
+            continue
+        if isinstance(item, str):
+            result.append(item)
+        elif isinstance(item, (list, tuple)):
+            result.extend(str(x) for x in item if x is not None)
+        else:
+            result.append(str(item))
+    return result
+
+
 class ChangeDetectionEngine:
-    """
-    Detects changes between current and previous crawl data.
-    Higher weight for Tier 2-6 changes.
-    """
+    TIER_WEIGHTS = {0: 0.5, 1: 0.7, 2: 1.0, 3: 1.2, 4: 1.1, 5: 0.9, 6: 1.0}
 
-    # Severity weights by tier
-    TIER_WEIGHTS = {
-        0: 0.5,  # Homepage - lower weight (expected to change)
-        1: 0.7,  # Global Nav
-        2: 1.0,  # Sub Nav
-        3: 1.2,  # Product Pages - highest weight
-        4: 1.1,  # Commerce
-        5: 0.9,  # Support
-        6: 1.0,  # Internal Links
-    }
-
-    # Change type severity mapping
     CHANGE_SEVERITY = {
         ("navigation", "added"): "high",
         ("navigation", "removed"): "high",
@@ -72,90 +77,78 @@ class ChangeDetectionEngine:
         previous_data: Dict[str, Any],
         site_name: str,
     ) -> List[Change]:
-        """
-        Detect all types of changes between current and previous crawl.
-
-        Args:
-            current_data: Current crawl data with URLs and page data
-            previous_data: Previous crawl data
-            site_name: 'apple' or 'samsung'
-
-        Returns:
-            List of detected changes
-        """
         self.changes = []
 
-        # 1. URL Changes (new, removed, redirect)
-        self._detect_url_changes(current_data, previous_data)
+        steps = [
+            ("URL changes",        self._detect_url_changes),
+            ("Navigation changes", self._detect_navigation_changes),
+            ("Content changes",    self._detect_content_changes),
+            ("Commerce changes",   self._detect_commerce_changes),
+            ("Technical changes",  self._detect_technical_changes),
+            ("FAQ changes",        self._detect_faq_changes),
+            ("Schema changes",     self._detect_structured_data_changes),
+        ]
 
-        # 2. Navigation Changes
-        self._detect_navigation_changes(current_data, previous_data)
-
-        # 3. Content Changes
-        self._detect_content_changes(current_data, previous_data)
-
-        # 4. Commerce Changes
-        self._detect_commerce_changes(current_data, previous_data)
-
-        # 5. Technical Changes
-        self._detect_technical_changes(current_data, previous_data)
-
-        # 6. FAQ Changes
-        self._detect_faq_changes(current_data, previous_data)
-
-        # 7. Structured Data Changes
-        self._detect_structured_data_changes(current_data, previous_data)
+        for name, fn in steps:
+            try:
+                fn(current_data, previous_data)
+            except Exception as e:
+                # One step failing must NOT stop the rest
+                from loguru import logger
+                logger.warning(f"Change detection step [{name}] failed: {e}")
 
         return self.changes
 
-    def _detect_url_changes(self, current: Dict, previous: Dict):
-        """Detect new, removed, and redirected URLs"""
-        current_urls = set(current.get("urls", set()))
-        previous_urls = set(previous.get("urls", set()))
+    # ── URL Changes ──────────────────────────────────
 
-        # New URLs
+    def _detect_url_changes(self, current: Dict, previous: Dict):
+        current_urls = set(str(u) for u in (current.get("urls") or set()) if u)
+        previous_urls = set(str(u) for u in (previous.get("urls") or set()) if u)
+
         for url in current_urls - previous_urls:
             tier = self._get_tier_for_url(url)
-            severity = "critical" if tier <= 2 else "high"
             self.changes.append(Change(
                 url=url,
                 change_type="url",
                 change_category="new",
-                severity=severity,
-                severity_reason="New URL discovered" if tier <= 2 else "New page added",
+                severity="critical" if tier <= 2 else "high",
+                severity_reason="New URL discovered",
                 tier_level=tier,
             ))
 
-        # Removed URLs
         for url in previous_urls - current_urls:
             tier = self._get_tier_for_url(url)
-            severity = "critical" if tier <= 2 else "high"
             self.changes.append(Change(
                 url=url,
                 change_type="url",
                 change_category="removed",
-                severity=severity,
-                severity_reason="URL no longer accessible" if tier <= 2 else "Page removed",
+                severity="critical" if tier <= 2 else "high",
+                severity_reason="URL removed",
                 tier_level=tier,
             ))
 
+    # ── Navigation Changes ────────────────────────────
+
     def _detect_navigation_changes(self, current: Dict, previous: Dict):
-        """Detect navigation structure changes"""
-        current_nav = current.get("navigation", {})
-        previous_nav = previous.get("navigation", {})
+        current_nav = current.get("navigation") or {}
+        previous_nav = previous.get("navigation") or {}
 
-        # Compare main navigation
-        current_main = current_nav.get("main", [])
-        previous_main = previous_nav.get("main", [])
+        current_main = current_nav.get("main") or []
+        previous_main = previous_nav.get("main") or []
 
-        # Check for added/removed nav items
-        current_texts = {item.get("text", "") for item in current_main}
-        previous_texts = {item.get("text", "") for item in previous_main}
+        if not isinstance(current_main, list):
+            current_main = []
+        if not isinstance(previous_main, list):
+            previous_main = []
+
+        current_texts = {_safe_str(i.get("text") if isinstance(i, dict) else i) for i in current_main}
+        previous_texts = {_safe_str(i.get("text") if isinstance(i, dict) else i) for i in previous_main}
 
         for text in current_texts - previous_texts:
-            item = next((i for i in current_main if i.get("text") == text), {})
+            if not text:
+                continue
             self.changes.append(Change(
-                url=item.get("href", ""),
+                url="",
                 change_type="navigation",
                 change_category="added",
                 field_name="main_navigation",
@@ -166,9 +159,10 @@ class ChangeDetectionEngine:
             ))
 
         for text in previous_texts - current_texts:
-            item = next((i for i in previous_main if i.get("text") == text), {})
+            if not text:
+                continue
             self.changes.append(Change(
-                url=item.get("href", ""),
+                url="",
                 change_type="navigation",
                 change_category="removed",
                 field_name="main_navigation",
@@ -178,395 +172,269 @@ class ChangeDetectionEngine:
                 tier_level=1,
             ))
 
-        # Check for reordering
-        if current_texts == previous_texts and len(current_main) == len(previous_main):
-            if self._is_reordered(current_main, previous_main):
-                self.changes.append(Change(
-                    url="",
-                    change_type="navigation",
-                    change_category="reordered",
-                    field_name="main_navigation",
-                    severity="medium",
-                    severity_reason="Navigation order changed",
-                    tier_level=1,
-                ))
+    # ── Content Changes ───────────────────────────────
 
     def _detect_content_changes(self, current: Dict, previous: Dict):
-        """Detect content changes (headlines, copy, sections)"""
-        current_pages = current.get("pages", {})
-        previous_pages = previous.get("pages", {})
-
+        current_pages = current.get("pages") or {}
+        previous_pages = previous.get("pages") or {}
         common_urls = set(current_pages.keys()) & set(previous_pages.keys())
 
         for url in common_urls:
-            current_page = current_pages[url]
-            previous_page = previous_pages[url]
-
-            # H1 changes
-            if current_page.get("h1") != previous_page.get("h1"):
+            try:
+                cp = current_pages[url] or {}
+                pp = previous_pages[url] or {}
                 tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="content",
-                    change_category="headline",
-                    field_name="h1",
-                    before_value=previous_page.get("h1", ""),
-                    after_value=current_page.get("h1", ""),
-                    severity=self._calculate_severity("content", "headline", tier),
-                    severity_reason="Main headline changed",
-                    tier_level=tier,
-                ))
 
-            # H2 changes (added/removed)
-            current_h2s = set(current_page.get("h2", []))
-            previous_h2s = set(previous_page.get("h2", []))
-
-            for h2 in current_h2s - previous_h2s:
-                tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="content",
-                    change_category="section_added",
-                    field_name="h2",
-                    after_value=h2,
-                    severity="medium",
-                    severity_reason="New section added",
-                    tier_level=tier,
-                ))
-
-            for h2 in previous_h2s - current_h2s:
-                tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="content",
-                    change_category="section_removed",
-                    field_name="h2",
-                    before_value=h2,
-                    severity="medium",
-                    severity_reason="Section removed",
-                    tier_level=tier,
-                ))
-
-            # Body content changes (significant changes only)
-            current_body = current_page.get("body_content", "")
-            previous_body = previous_page.get("body_content", "")
-
-            if current_body and previous_body:
-                similarity = self._text_similarity(current_body, previous_body)
-                if similarity < 0.8:  # More than 20% change
-                    tier = self._get_tier_for_url(url)
-                    diff_summary = self._get_diff_summary(previous_body, current_body)
+                # H1
+                if _safe_str(cp.get("h1")) != _safe_str(pp.get("h1")):
                     self.changes.append(Change(
                         url=url,
                         change_type="content",
-                        change_category="copy",
-                        field_name="body_content",
-                        before_value=diff_summary.get("removed", "")[:500],
-                        after_value=diff_summary.get("added", "")[:500],
-                        severity=self._calculate_severity("content", "copy", tier),
-                        severity_reason=f"Content changed ({(1-similarity)*100:.0f}% difference)",
+                        change_category="headline",
+                        field_name="h1",
+                        before_value=_safe_str(pp.get("h1"))[:500],
+                        after_value=_safe_str(cp.get("h1"))[:500],
+                        severity=self._calculate_severity("content", "headline", tier),
+                        severity_reason="Main headline changed",
                         tier_level=tier,
                     ))
 
+                # H2 sections — use _safe_list to avoid unhashable errors
+                current_h2s = set(_safe_list(cp.get("h2")))
+                previous_h2s = set(_safe_list(pp.get("h2")))
+
+                for h2 in current_h2s - previous_h2s:
+                    self.changes.append(Change(
+                        url=url, change_type="content", change_category="section_added",
+                        field_name="h2", after_value=h2[:500], severity="medium",
+                        severity_reason="New section added", tier_level=tier,
+                    ))
+                for h2 in previous_h2s - current_h2s:
+                    self.changes.append(Change(
+                        url=url, change_type="content", change_category="section_removed",
+                        field_name="h2", before_value=h2[:500], severity="medium",
+                        severity_reason="Section removed", tier_level=tier,
+                    ))
+
+                # Body content similarity
+                current_body = _safe_str(cp.get("body_content"))[:10000]
+                previous_body = _safe_str(pp.get("body_content"))[:10000]
+                if current_body and previous_body:
+                    similarity = self._text_similarity(current_body, previous_body)
+                    if similarity < 0.8:
+                        diff = self._get_diff_summary(previous_body, current_body)
+                        self.changes.append(Change(
+                            url=url, change_type="content", change_category="copy",
+                            field_name="body_content",
+                            before_value=(diff.get("removed") or "")[:500],
+                            after_value=(diff.get("added") or "")[:500],
+                            severity=self._calculate_severity("content", "copy", tier),
+                            severity_reason=f"Content changed ({(1-similarity)*100:.0f}% difference)",
+                            tier_level=tier,
+                        ))
+
+            except Exception as e:
+                from loguru import logger
+                logger.warning(f"Content change detection failed for {url}: {e}")
+
+    # ── Commerce Changes ──────────────────────────────
+
     def _detect_commerce_changes(self, current: Dict, previous: Dict):
-        """Detect commerce-related changes (CTAs, buy flows)"""
-        current_pages = current.get("pages", {})
-        previous_pages = previous.get("pages", {})
+        current_pages = current.get("pages") or {}
+        previous_pages = previous.get("pages") or {}
 
-        common_urls = set(current_pages.keys()) & set(previous_pages.keys())
-
-        for url in common_urls:
-            current_page = current_pages[url]
-            previous_page = previous_pages[url]
-
-            # CTA changes
-            current_ctas = current_page.get("ctas", [])
-            previous_ctas = previous_page.get("ctas", [])
-
-            current_cta_texts = {cta.get("text", "") for cta in current_ctas}
-            previous_cta_texts = {cta.get("text", "") for cta in previous_ctas}
-
-            for cta_text in current_cta_texts - previous_cta_texts:
+        for url in set(current_pages.keys()) & set(previous_pages.keys()):
+            try:
+                cp = current_pages[url] or {}
+                pp = previous_pages[url] or {}
                 tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="commerce",
-                    change_category="cta_added",
-                    field_name="cta",
-                    after_value=cta_text,
-                    severity="medium",
-                    severity_reason="New CTA added",
-                    tier_level=tier,
-                ))
 
-            for cta_text in previous_cta_texts - current_cta_texts:
-                tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="commerce",
-                    change_category="cta_removed",
-                    field_name="cta",
-                    before_value=cta_text,
-                    severity="medium",
-                    severity_reason="CTA removed",
-                    tier_level=tier,
-                ))
+                def cta_texts(page):
+                    ctas = page.get("ctas") or []
+                    return {_safe_str(c.get("text") if isinstance(c, dict) else c) for c in ctas}
+
+                for text in cta_texts(cp) - cta_texts(pp):
+                    if text:
+                        self.changes.append(Change(
+                            url=url, change_type="commerce", change_category="cta_added",
+                            field_name="cta", after_value=text[:500],
+                            severity="medium", severity_reason="New CTA added", tier_level=tier,
+                        ))
+                for text in cta_texts(pp) - cta_texts(cp):
+                    if text:
+                        self.changes.append(Change(
+                            url=url, change_type="commerce", change_category="cta_removed",
+                            field_name="cta", before_value=text[:500],
+                            severity="medium", severity_reason="CTA removed", tier_level=tier,
+                        ))
+            except Exception as e:
+                from loguru import logger
+                logger.warning(f"Commerce change detection failed for {url}: {e}")
+
+    # ── Technical Changes ─────────────────────────────
 
     def _detect_technical_changes(self, current: Dict, previous: Dict):
-        """Detect technical SEO changes (metadata, canonical)"""
-        current_pages = current.get("pages", {})
-        previous_pages = previous.get("pages", {})
+        current_pages = current.get("pages") or {}
+        previous_pages = previous.get("pages") or {}
 
-        common_urls = set(current_pages.keys()) & set(previous_pages.keys())
-
-        for url in common_urls:
-            current_page = current_pages[url]
-            previous_page = previous_pages[url]
-
-            # Canonical URL changes
-            if current_page.get("canonical_url") != previous_page.get("canonical_url"):
+        for url in set(current_pages.keys()) & set(previous_pages.keys()):
+            try:
+                cp = current_pages[url] or {}
+                pp = previous_pages[url] or {}
                 tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="technical",
-                    change_category="canonical",
-                    field_name="canonical_url",
-                    before_value=previous_page.get("canonical_url", ""),
-                    after_value=current_page.get("canonical_url", ""),
-                    severity="high",
-                    severity_reason="Canonical URL changed",
-                    tier_level=tier,
-                ))
 
-            # Title changes
-            if current_page.get("title") != previous_page.get("title"):
-                tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="technical",
-                    change_category="metadata",
-                    field_name="title",
-                    before_value=previous_page.get("title", ""),
-                    after_value=current_page.get("title", ""),
-                    severity="medium",
-                    severity_reason="Page title changed",
-                    tier_level=tier,
-                ))
+                for field_name, severity, reason in [
+                    ("canonical_url", "high", "Canonical URL changed"),
+                    ("title", "medium", "Page title changed"),
+                    ("meta_description", "low", "Meta description changed"),
+                ]:
+                    if _safe_str(cp.get(field_name)) != _safe_str(pp.get(field_name)):
+                        self.changes.append(Change(
+                            url=url, change_type="technical",
+                            change_category="metadata" if field_name != "canonical_url" else "canonical",
+                            field_name=field_name,
+                            before_value=_safe_str(pp.get(field_name))[:500],
+                            after_value=_safe_str(cp.get(field_name))[:500],
+                            severity=severity, severity_reason=reason, tier_level=tier,
+                        ))
+            except Exception as e:
+                from loguru import logger
+                logger.warning(f"Technical change detection failed for {url}: {e}")
 
-            # Meta description changes
-            if current_page.get("meta_description") != previous_page.get("meta_description"):
-                tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="technical",
-                    change_category="metadata",
-                    field_name="meta_description",
-                    before_value=previous_page.get("meta_description", "")[:200],
-                    after_value=current_page.get("meta_description", "")[:200],
-                    severity="low",
-                    severity_reason="Meta description changed",
-                    tier_level=tier,
-                ))
+    # ── FAQ Changes ───────────────────────────────────
 
     def _detect_faq_changes(self, current: Dict, previous: Dict):
-        """Detect FAQ changes"""
-        current_pages = current.get("pages", {})
-        previous_pages = previous.get("pages", {})
+        current_pages = current.get("pages") or {}
+        previous_pages = previous.get("pages") or {}
 
-        common_urls = set(current_pages.keys()) & set(previous_pages.keys())
-
-        for url in common_urls:
-            current_page = current_pages[url]
-            previous_page = previous_pages[url]
-
-            current_faqs = current_page.get("faqs", [])
-            previous_faqs = previous_page.get("faqs", [])
-
-            current_questions = {faq.get("question", "") for faq in current_faqs}
-            previous_questions = {faq.get("question", "") for faq in previous_faqs}
-
-            # New FAQs
-            for question in current_questions - previous_questions:
+        for url in set(current_pages.keys()) & set(previous_pages.keys()):
+            try:
+                cp = current_pages[url] or {}
+                pp = previous_pages[url] or {}
                 tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="content",
-                    change_category="faq_added",
-                    field_name="faq",
-                    after_value=question,
-                    severity="high",
-                    severity_reason="New FAQ added (GEO signal)",
-                    tier_level=tier,
-                ))
 
-            # Removed FAQs
-            for question in previous_questions - current_questions:
-                tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="content",
-                    change_category="faq_removed",
-                    field_name="faq",
-                    before_value=question,
-                    severity="high",
-                    severity_reason="FAQ removed",
-                    tier_level=tier,
-                ))
+                def faq_questions(page):
+                    faqs = page.get("faqs") or []
+                    return {_safe_str(f.get("question") if isinstance(f, dict) else f) for f in faqs}
+
+                for q in faq_questions(cp) - faq_questions(pp):
+                    if q:
+                        self.changes.append(Change(
+                            url=url, change_type="content", change_category="faq_added",
+                            field_name="faq", after_value=q[:500],
+                            severity="high", severity_reason="New FAQ added (GEO signal)", tier_level=tier,
+                        ))
+                for q in faq_questions(pp) - faq_questions(cp):
+                    if q:
+                        self.changes.append(Change(
+                            url=url, change_type="content", change_category="faq_removed",
+                            field_name="faq", before_value=q[:500],
+                            severity="high", severity_reason="FAQ removed", tier_level=tier,
+                        ))
+            except Exception as e:
+                from loguru import logger
+                logger.warning(f"FAQ change detection failed for {url}: {e}")
+
+    # ── Structured Data Changes ───────────────────────
 
     def _detect_structured_data_changes(self, current: Dict, previous: Dict):
-        """Detect structured data (JSON-LD) changes"""
-        current_pages = current.get("pages", {})
-        previous_pages = previous.get("pages", {})
+        current_pages = current.get("pages") or {}
+        previous_pages = previous.get("pages") or {}
 
-        common_urls = set(current_pages.keys()) & set(previous_pages.keys())
-
-        for url in common_urls:
-            current_page = current_pages[url]
-            previous_page = previous_pages[url]
-
-            current_sd = current_page.get("structured_data", [])
-            previous_sd = previous_page.get("structured_data", [])
-
-            # Compare structured data types
-            current_types = {sd.get("@type", "") for sd in current_sd if isinstance(sd, dict)}
-            previous_types = {sd.get("@type", "") for sd in previous_sd if isinstance(sd, dict)}
-
-            for sd_type in current_types - previous_types:
+        for url in set(current_pages.keys()) & set(previous_pages.keys()):
+            try:
+                cp = current_pages[url] or {}
+                pp = previous_pages[url] or {}
                 tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="technical",
-                    change_category="structured_data",
-                    field_name="structured_data_type",
-                    after_value=sd_type,
-                    severity="medium",
-                    severity_reason=f"New structured data type: {sd_type}",
-                    tier_level=tier,
-                ))
 
-            for sd_type in previous_types - current_types:
-                tier = self._get_tier_for_url(url)
-                self.changes.append(Change(
-                    url=url,
-                    change_type="technical",
-                    change_category="structured_data",
-                    field_name="structured_data_type",
-                    before_value=sd_type,
-                    severity="medium",
-                    severity_reason=f"Structured data type removed: {sd_type}",
-                    tier_level=tier,
-                ))
+                def schema_types(page):
+                    schemas = page.get("structured_data") or []
+                    types = set()
+                    for s in schemas:
+                        if not isinstance(s, dict):
+                            continue
+                        t = s.get("@type")
+                        if isinstance(t, str):
+                            types.add(t)
+                        elif isinstance(t, list):
+                            types.update(_safe_str(x) for x in t if x)
+                        # @graph pattern
+                        for item in (s.get("@graph") or []):
+                            if isinstance(item, dict):
+                                gt = item.get("@type")
+                                if gt:
+                                    types.add(_safe_str(gt))
+                    return types
+
+                ct = schema_types(cp)
+                pt = schema_types(pp)
+
+                for sd_type in ct - pt:
+                    self.changes.append(Change(
+                        url=url, change_type="technical", change_category="structured_data",
+                        field_name="schema_type", after_value=sd_type,
+                        severity="medium", severity_reason=f"New schema: {sd_type}", tier_level=tier,
+                    ))
+                for sd_type in pt - ct:
+                    self.changes.append(Change(
+                        url=url, change_type="technical", change_category="structured_data",
+                        field_name="schema_type", before_value=sd_type,
+                        severity="medium", severity_reason=f"Schema removed: {sd_type}", tier_level=tier,
+                    ))
+            except Exception as e:
+                from loguru import logger
+                logger.warning(f"Schema change detection failed for {url}: {e}")
+
+    # ── Helpers ───────────────────────────────────────
 
     def _get_tier_for_url(self, url: str) -> int:
-        """Determine tier level from URL"""
-        from urllib.parse import urlparse
-
-        path = urlparse(url).path.lower()
-        segments = [s for s in path.split("/") if s]
-
-        if not segments:
-            return 0
-
-        # Product pages
-        if any(kw in path for kw in ["iphone", "galaxy", "macbook", "watch", "qled", "neo"]):
-            return 3
-
-        # Commerce
-        if any(kw in path for kw in ["buy", "shop", "purchase", "trade"]):
-            return 4
-
-        # Support
-        if any(kw in path for kw in ["support", "help", "faq"]):
-            return 5
-
-        # Compare/features
-        if any(kw in path for kw in ["compare", "features", "specs"]):
-            return 6
-
-        # Default based on depth
-        if len(segments) == 1:
-            return 1
-        elif len(segments) == 2:
-            return 2
-        else:
+        try:
+            from urllib.parse import urlparse
+            path = urlparse(_safe_str(url)).path.lower()
+            segments = [s for s in path.split("/") if s]
+            if not segments:
+                return 0
+            if any(kw in path for kw in ["iphone", "galaxy", "macbook", "watch", "qled"]):
+                return 3
+            if any(kw in path for kw in ["buy", "shop", "purchase", "trade"]):
+                return 4
+            if any(kw in path for kw in ["support", "help", "faq"]):
+                return 5
+            return min(len(segments), 3)
+        except Exception:
             return 3
 
     def _calculate_severity(self, change_type: str, change_category: str, tier: int) -> str:
-        """Calculate severity based on change type and tier"""
-        base_severity = self.CHANGE_SEVERITY.get(
-            (change_type, change_category), "medium"
-        )
-
-        # Adjust based on tier weight
+        base = self.CHANGE_SEVERITY.get((change_type, change_category), "medium")
         weight = self.TIER_WEIGHTS.get(tier, 1.0)
-
-        if weight >= 1.2 and base_severity == "medium":
+        if weight >= 1.2 and base == "medium":
             return "high"
-        elif weight >= 1.0 and base_severity == "low":
+        if weight >= 1.0 and base == "low":
             return "medium"
-
-        return base_severity
+        return base
 
     def _text_similarity(self, text1: str, text2: str) -> float:
-        """Calculate text similarity using SequenceMatcher"""
         if not text1 or not text2:
             return 0.0
-
-        # Use first 10000 chars for performance
-        text1 = text1[:10000]
-        text2 = text2[:10000]
-
-        return difflib.SequenceMatcher(None, text1, text2).ratio()
+        try:
+            return difflib.SequenceMatcher(None, text1, text2).ratio()
+        except Exception:
+            return 0.0
 
     def _get_diff_summary(self, text1: str, text2: str) -> Dict[str, str]:
-        """Get a summary of text differences"""
-        diff = difflib.ndiff(text1.splitlines(), text2.splitlines())
-
-        added = []
-        removed = []
-
-        for line in diff:
-            if line.startswith("+ "):
-                added.append(line[2:])
-            elif line.startswith("- "):
-                removed.append(line[2:])
-
-        return {
-            "added": "\n".join(added[:50]),
-            "removed": "\n".join(removed[:50]),
-        }
-
-    def _is_reordered(self, current: List, previous: List) -> bool:
-        """Check if list items have been reordered"""
-        if len(current) != len(previous):
-            return False
-
-        current_texts = [item.get("text", "") for item in current]
-        previous_texts = [item.get("text", "") for item in previous]
-
-        return current_texts != previous_texts and set(current_texts) == set(previous_texts)
-
-    def get_changes_by_severity(self, severity: str) -> List[Change]:
-        """Get changes filtered by severity"""
-        return [c for c in self.changes if c.severity == severity]
+        try:
+            diff = list(difflib.ndiff(text1.splitlines()[:200], text2.splitlines()[:200]))
+            added = "\n".join(l[2:] for l in diff if l.startswith("+ "))[:500]
+            removed = "\n".join(l[2:] for l in diff if l.startswith("- "))[:500]
+            return {"added": added, "removed": removed}
+        except Exception:
+            return {"added": "", "removed": ""}
 
     def get_summary(self) -> Dict[str, Any]:
-        """Get summary of all detected changes"""
         return {
             "total_changes": len(self.changes),
-            "by_type": self._count_by_field("change_type"),
-            "by_category": self._count_by_field("change_category"),
-            "by_severity": self._count_by_field("severity"),
-            "critical_count": len(self.get_changes_by_severity("critical")),
-            "high_count": len(self.get_changes_by_severity("high")),
-            "medium_count": len(self.get_changes_by_severity("medium")),
-            "low_count": len(self.get_changes_by_severity("low")),
+            "critical": sum(1 for c in self.changes if c.severity == "critical"),
+            "high": sum(1 for c in self.changes if c.severity == "high"),
+            "medium": sum(1 for c in self.changes if c.severity == "medium"),
+            "low": sum(1 for c in self.changes if c.severity == "low"),
         }
-
-    def _count_by_field(self, field: str) -> Dict[str, int]:
-        """Count changes by a specific field"""
-        counts = {}
-        for change in self.changes:
-            value = getattr(change, field, "unknown")
-            counts[value] = counts.get(value, 0) + 1
-        return counts
