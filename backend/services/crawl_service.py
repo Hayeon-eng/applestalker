@@ -258,19 +258,21 @@ class CrawlService:
             except Exception as e:
                 logger.warning(f"POV generation failed: {e}")
 
-            for pov in (povs or []):
+            for i, pov in enumerate(povs or []):
                 try:
                     db.add(SamsungPOV(
+                        pov_run_id=f"pov_{crawl_run_id}_{i}",
                         related_crawl_run_id=crawl_run_id,
-                        site_name=site_name,
-                        observation=_s(getattr(pov, "observation", ""))[:2000],
-                        hypothesis=_s(getattr(pov, "hypothesis", ""))[:2000],
-                        recommended_action=_s(getattr(pov, "recommended_action", ""))[:1000],
-                        priority=_s(getattr(pov, "priority", "medium")).lower() or "medium",
-                        functional_area=_s(getattr(pov, "functional_area", ""))[:100],
+                        observation=_s(getattr(pov, "observation", ""))[:2000] or "분석 완료",
+                        evidence=_s(getattr(pov, "evidence", ""))[:2000] or None,
+                        hypothesis=_s(getattr(pov, "hypothesis", ""))[:2000] or None,
+                        opportunity=_s(getattr(pov, "opportunity", ""))[:1000] or None,
+                        recommended_action=_s(getattr(pov, "recommended_action", ""))[:1000] or None,
+                        priority=(_s(getattr(pov, "priority", "medium")) or "medium").lower(),
+                        functional_area=_s(getattr(pov, "functional_area", ""))[:100] or None,
                     ))
                 except Exception as e:
-                    logger.warning(f"POV save failed: {e}")
+                    logger.warning(f"POV save failed (pov {i}): {e}")
             try:
                 db.commit()
             except Exception:
