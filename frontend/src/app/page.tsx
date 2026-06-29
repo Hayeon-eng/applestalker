@@ -24,18 +24,18 @@ const EXAMPLE: Report = {
   has_data:true, run_id:'example', site:'samsung', timestamp:new Date().toISOString(), has_changes:true,
   by_category:{ '데이터·스키마':2, '카피':2, '가격·프로모션':1, '비주얼':1 },
   changes:[
-    { id:1, url:'https://www.apple.com/apple-intelligence/', site:'apple', level:'High', category:'카피', field:'대표 제목',
+    { id:1, url:'https://www.apple.com/apple-intelligence/', site:'apple', level:'Medium', category:'카피', field:'대표 제목',
       summary:'대표 제목이 "차세대 Apple Intelligence·Siri"로 바뀜', before:'Apple Intelligence',
       after:'Introducing the next generation of Apple Intelligence and Siri', evidence:{ '바뀐 문장':'1개' } },
     { id:2, url:'https://www.apple.com/apple-intelligence/', site:'apple', level:'Medium', category:'데이터·스키마', field:'메뉴/기능',
       summary:'새 기능 안내 추가 — Safari에 "가격·재입고가 바뀌면 알려주는 기능"', before:'(없음)',
       after:'가격·재입고 변경 알림 기능', evidence:{ '변화 유형':'새 항목 추가' } },
-    { id:6, url:'https://www.apple.com/iphone/', site:'apple', level:'Medium', category:'데이터·스키마', field:'구조화 데이터',
+    { id:6, url:'https://www.apple.com/iphone/', site:'apple', level:'High', category:'데이터·스키마', field:'구조화 데이터',
       summary:'신제품 라인업(iPhone 17 Pro/Air/17/17e)이 페이지 구조에 반영됨', before:'제품 3종',
       after:'제품 4종', evidence:{ '변화 유형':'항목 증가' } },
     { id:4, url:'https://www.samsung.com/sg/galaxy-ai/', site:'samsung', level:'Medium', category:'카피', field:'대표 제목',
       summary:'대표 제목(슬로건) 변경', before:'Galaxy AI', after:'Galaxy AI, a true AI companion', evidence:{ '바뀐 문장':'1개' } },
-    { id:3, url:'https://www.samsung.com/sg/galaxy-ai/', site:'samsung', level:'High', category:'가격·프로모션', field:'안내 문구',
+    { id:3, url:'https://www.samsung.com/sg/galaxy-ai/', site:'samsung', level:'Medium', category:'가격·프로모션', field:'안내 문구',
       summary:'"Galaxy AI 2025년 말까지 무료" 프로모션 문구 노출', before:'(없음)',
       after:'Galaxy AI features free until the end of 2025', evidence:{ '감지된 키워드':'무료 / 2025' } },
     { id:5, url:'https://www.samsung.com/sg/', site:'samsung', level:'Low', category:'비주얼', field:'메인 이미지',
@@ -129,12 +129,18 @@ export default function Page() {
         <Row><Dot c="var(--samsung)" /><b>당사</b>&nbsp;Samsung</Row>
         <Row><Dot c="var(--apple)" /><b>경쟁사</b>&nbsp;Apple</Row>
 
-        <Sec t="중요도" hint="변화의 영향이 큰 순서입니다." />
-        <div style={{ padding:'0 14px' }}>
-          {[['High','가격·구매·구조 변화','var(--high)'],['Medium','카피·일부 구조','var(--med)'],['Low','단어·이미지 등 작은 변화','var(--low)']].map(([k,d,c])=>(
-            <div key={k} style={{ display:'flex', gap:8, alignItems:'center', padding:'5px 0', fontSize:12 }}>
-              <span style={{ width:9, height:9, borderRadius:3, background:c as string }} />
-              <b style={{ width:54 }}>{LV_KO[k as string]}</b><span style={{ color:'var(--sec)' }}>{d}</span></div>
+        <Sec t="중요도 기준" hint="무엇이 · 얼마나 바뀌었나로 정합니다" />
+        <div style={{ padding:'0 14px 4px' }}>
+          {[
+            ['High','높음','var(--high)','스키마·페이지 구조(레이아웃) 변화, 여러 섹션 동시 변화 — AI 검색 노출에 직접 영향'],
+            ['Medium','보통','var(--med)','메뉴·메타 변경, 문장·슬로건 카피 변경, 가격·구매 등 거래 변화'],
+            ['Low','낮음','var(--low)','단어 몇 개·오타 등 미세 변화, 작은 이미지 변화'],
+          ].map(([k,ko,c,d])=>(
+            <div key={k} style={{ display:'flex', gap:9, alignItems:'flex-start', padding:'7px 0', borderBottom:'1px solid var(--line)' }}>
+              <span style={{ width:9, height:9, borderRadius:3, background:c as string, marginTop:4, flex:'0 0 auto' }} />
+              <div><div style={{ fontWeight:700, fontSize:12 }}>{ko}</div>
+                <div style={{ fontSize:11, color:'var(--sec)', lineHeight:1.45, marginTop:1 }}>{d}</div></div>
+            </div>
           ))}
         </div>
 
