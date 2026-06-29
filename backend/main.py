@@ -165,35 +165,82 @@ def runs():
     return {"sessions": out[:30]}
 
 
+def _fk_child_tables(conn):
+    """crawl_runs.crawl_run_id 를 '외래키 제약'으로 참조하는 (테이블, 컬럼) 목록.
+    과거 배포 잔재 테이블(예: discovered_urls)을 자동 탐지해 같이 정리하기 위함. PostgreSQL 전용."""
+    rows = conn.execute(text("""
+        SELECT tc.table_name, kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+          ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND ccu.table_name = 'crawl_runs'
+          AND ccu.column_name = 'crawl_run_id'
+    """)).fetchall()
+    return [(r[0], r[1]) for r in rows]
+
+
+def _delete_run_cascade(conn, run_id: str) -> bool:
+    """run 1건 + 매달린 모든 자식 레코드를 '같은 트랜잭션'에서 삭제.
+    crawl_runs 행이 실제로 사라졌는지(True/False) 반환. commit/rollback 은 호출측(begin) 책임."""
+    is_pg = conn.dialect.name == "postgresql"
+    # 1) 앱이 직접 쓰는 자식들 (모델상 FK 제약은 없지만 같은 run 에 매달림)
+    conn.execute(text("DELETE FROM detected_changes WHERE crawl_run_id=:r"), {"r": run_id})
+    conn.execute(text("DELETE FROM page_snapshots  WHERE crawl_run_id=:r"), {"r": run_id})
+    conn.execute(text("DELETE FROM povs WHERE related_crawl_run_id=:r"), {"r": run_id})
+    # 2) crawl_runs 를 FK 제약으로 참조하는 자식들 — 여기서 막혀서 부모 삭제가 롤백되던 원인.
+    #    (예: 예전 스키마의 discovered_urls. 현재 models.py 엔 없지만 운영 DB 엔 남아있음)
+    if is_pg:
+        for tbl, col in _fk_child_tables(conn):
+            conn.execute(text(f'DELETE FROM "{tbl}" WHERE "{col}"=:r'), {"r": run_id})
+    else:
+        # sqlite 등 메타 조회 불가 환경: 알려진 잔재 테이블만 방어적으로 시도
+        try:
+            conn.execute(text("DELETE FROM discovered_urls WHERE crawl_run_id=:r"), {"r": run_id})
+        except Exception:
+            pass
+    # 3) 부모 삭제
+    conn.execute(text("DELETE FROM crawl_runs WHERE crawl_run_id=:r"), {"r": run_id})
+    # 4) 실제로 지워졌는지 확인 (응답에 사실대로 반영하기 위함)
+    return conn.execute(text("SELECT 1 FROM crawl_runs WHERE crawl_run_id=:r"),
+                        {"r": run_id}).first() is None
+
+
 @app.delete("/api/runs/{run_id}")
 def delete_run(run_id: str):
-    """크롤 이력 1건 삭제 (관련 변화·스냅샷·분석도 함께). 어떤 단계가 실패해도 끝까지 진행."""
-    with sync_engine.connect() as c:
-        for sql in (
-            "DELETE FROM detected_changes WHERE crawl_run_id=:r",
-            "DELETE FROM page_snapshots WHERE crawl_run_id=:r",
-            "DELETE FROM povs WHERE related_crawl_run_id=:r",
-            "DELETE FROM crawl_runs WHERE crawl_run_id=:r",
-        ):
-            try:
-                c.execute(text(sql), {"r": run_id}); c.commit()
-            except Exception as e:
-                c.rollback(); logger.warning(f"delete skip: {e}")
+    """크롤 이력 1건 삭제 (변화·스냅샷·분석 + FK 참조 잔재까지 한 트랜잭션으로).
+    하나라도 실패하면 전체 롤백하고 500 으로 알림 → 프론트가 '지워진 척' 하지 않게 함."""
+    try:
+        with sync_engine.begin() as c:   # 블록 정상 종료 시 commit, 예외 시 자동 rollback
+            ok = _delete_run_cascade(c, run_id)
+            if not ok:
+                raise RuntimeError("부모 행이 남아있음(참조 미해소)")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"delete failed: {run_id} | {e}")
+        raise HTTPException(status_code=500, detail=f"삭제 실패: {run_id}")
     return {"status": "deleted", "run_id": run_id}
 
 
 @app.delete("/api/runs")
 def clear_empty_runs():
-    """변경 0건이거나 페이지 0개인 빈 크롤 기록 일괄 정리."""
-    with sync_engine.connect() as c:
-        rows = c.execute(text("SELECT crawl_run_id FROM crawl_runs "
-                              "WHERE COALESCE(total_changes_detected,0)=0 "
-                              "AND COALESCE(total_urls_crawled,0)=0")).fetchall()
-        ids = [r[0] for r in rows]
-        for rid in ids:
-            c.execute(text("DELETE FROM crawl_runs WHERE crawl_run_id=:r"), {"r": rid})
-        c.commit()
-    return {"status": "cleared", "removed": len(ids)}
+    """변경 0건이고 페이지 0개인 빈 크롤 기록 일괄 정리 (자식·FK 잔재 포함)."""
+    removed = 0
+    try:
+        with sync_engine.begin() as c:
+            rows = c.execute(text("SELECT crawl_run_id FROM crawl_runs "
+                                  "WHERE COALESCE(total_changes_detected,0)=0 "
+                                  "AND COALESCE(total_urls_crawled,0)=0")).fetchall()
+            for (rid,) in rows:
+                if _delete_run_cascade(c, rid):
+                    removed += 1
+    except Exception as e:
+        logger.warning(f"clear_empty_runs failed | {e}")
+        raise HTTPException(status_code=500, detail="빈 기록 정리 실패")
+    return {"status": "cleared", "removed": removed}
 
 
 # ── 메인 데이터: 변경점(최근 1회) + 카테고리 묶음 + 현황분석 ──
