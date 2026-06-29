@@ -8,7 +8,7 @@ interface Change { id:number; url:string; site:string; level:'High'|'Medium'|'Lo
 interface Report { has_data:boolean; run_id?:string; site?:string; timestamp?:string;
   has_changes?:boolean; by_category?:Record<string,number>; changes?:Change[];
   analysis?:{ summary:string; aeo_implications:string; insights:any[]; actions:any[] }; }
-interface RunItem { run_id:string; site:string; timestamp:string; pages:number; changes:number; }
+interface Session { session:string; run_ids:string[]; sites:string[]; pages:number; changes:number; timestamp:string; }
 
 const CATS = [
   { key:'데이터·스키마', icon:'◧', tip:'웹페이지의 구조·코드(스키마/HTML)·메뉴 변화. 검색·AI 노출에 영향을 줍니다.' },
@@ -49,7 +49,7 @@ const EXAMPLE: Report = {
 export default function Page() {
   const [tab, setTab] = useState<'changes'|'compare'>('changes');
   const [report, setReport] = useState<Report|null>(null);
-  const [runs, setRuns] = useState<RunItem[]>([]);
+  const [runs, setRuns] = useState<Session[]>([]);
   const [sel, setSel] = useState<Change|null>(null);
   const [crawling, setCrawling] = useState(false);
   const [progress, setProgress] = useState<{done:number; total:number; url:string}|null>(null);
@@ -68,7 +68,7 @@ export default function Page() {
         const j = await r.json();
         setReport(r.ok && j.has_data ? j : null);   // 에러/무데이터면 빈 상태
       } catch { setReport(null); }
-      try { const rr = await fetch(`${API}/api/runs`); setRuns((await rr.json()).runs || []); } catch { setRuns([]); }
+      try { const rr = await fetch(`${API}/api/runs`); setRuns((await rr.json()).sessions || []); } catch { setRuns([]); }
     } catch { setOnline(false); setReport(null); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -98,9 +98,16 @@ export default function Page() {
     } catch { setCrawling(false); }
   };
 
-  const delRun = async (id:string) => {
+  const loadSession = async (runId:string) => {
     if (!online) return;
-    await fetch(`${API}/api/runs/${id}`, { method:'DELETE' }); load();
+    setExampleMode(false); setSel(null);
+    try { const r = await fetch(`${API}/api/latest-report?run_id=${encodeURIComponent(runId)}`);
+      const j = await r.json(); setReport(j.has_data ? j : null); } catch {}
+  };
+  const delSession = async (ids:string[]) => {
+    if (!online) return;
+    for (const id of ids) { try { await fetch(`${API}/api/runs/${id}`, { method:'DELETE' }); } catch {} }
+    load();
   };
   const addUrl = async () => {
     const el = document.getElementById('nu') as HTMLInputElement; const u = el?.value.trim(); if (!u) return;
@@ -157,15 +164,17 @@ export default function Page() {
         <div style={{ padding:'0 10px 10px', flex:1 }}>
           {!online && <Muted>백엔드 연결 후 표시됩니다</Muted>}
           {online && runs.length===0 && <Muted>아직 크롤 기록이 없습니다</Muted>}
-          {online && runs.map(r=>(
-            <div key={r.run_id} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 8px', borderRadius:9 }}
+          {online && runs.map(s=>(
+            <div key={s.session} onClick={()=>loadSession(s.run_ids[0])} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 8px', borderRadius:9, cursor:'pointer' }}
               onMouseEnter={e=>(e.currentTarget.style.background='rgba(0,0,0,.04)')}
               onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
               <div style={{ flex:1 }}>
-                <div className="mono" style={{ fontSize:11, fontWeight:600 }}>{r.timestamp?.slice(5,16).replace('T',' ')}</div>
-                <div style={{ fontSize:10.5, color:'var(--sec)' }}>{r.site} · {r.pages}p · {r.changes?`${r.changes} 변화`:'변화 없음'}</div>
+                <div className="mono" style={{ fontSize:11.5, fontWeight:600 }}>{s.timestamp}</div>
+                <div style={{ fontSize:10.5, color:'var(--sec)' }}>
+                  {s.sites.map(x=>x==='apple'?'애플':x==='samsung'?'삼성':x).join('+')} · {s.changes?`${s.changes} 변화`:'변화 없음'}</div>
               </div>
-              <button onClick={()=>delRun(r.run_id)} title="삭제" style={{ color:'var(--ter)', fontSize:15, padding:'2px 5px' }}>×</button>
+              <button onClick={(e)=>{ e.stopPropagation(); delSession(s.run_ids); }} title="삭제"
+                style={{ color:'var(--ter)', fontSize:15, padding:'2px 5px' }}>×</button>
             </div>
           ))}
         </div>
@@ -225,66 +234,71 @@ export default function Page() {
   );
 }
 
-/* ── 변경점 본문 ── */
+/* ── 변경점 본문: 좌(경쟁사 애플) / 우(당사 삼성) 2칼럼 ── */
 function Changes({ data, byCat, appleN, samsungN, highN, sel, setSel, isExample }: any) {
   const a = data.analysis;
+  const total = (Object.values(byCat) as number[]).reduce((x,y)=>x+y,0);
+  const col = (site:'apple'|'samsung') => CATS.map((cat:any)=>({
+    cat, items: data.changes.filter((c:Change)=>c.site===site && c.category===cat.key) }));
   return (
     <div style={{ padding:'18px 24px 60px' }}>
       {isExample && <div style={{ background:'#FFF8E6', border:'1px solid #FFE5A3', borderRadius:12, padding:'10px 14px', fontSize:12, color:'#8A6D00', marginBottom:14 }}>
         🔍 <b>예시 화면</b>입니다. 실제 데이터가 아니며, 크롤을 실행하면 진짜 변화로 채워집니다.</div>}
 
-      {/* 오늘의 핵심 요약 */}
+      {/* 오늘의 핵심 */}
       <div style={{ background:'#fff', borderRadius:18, padding:'18px 20px', boxShadow:'var(--shadow)' }}>
-        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:10 }}>
-          <span style={{ fontSize:13, fontWeight:700 }}>오늘의 핵심</span>
-          <span style={{ fontSize:11, color:'var(--sec)' }}>{data.timestamp?.slice(0,16).replace('T',' ')}</span>
+        <div style={{ display:'flex', gap:14, alignItems:'center', marginBottom:10 }}>
+          <span style={{ fontSize:14, fontWeight:700 }}>오늘의 핵심</span>
+          <span style={{ fontSize:11.5, color:'var(--sec)' }}>{data.timestamp}</span>
           <span style={{ flex:1 }} />
-          <Stat n={changes_total(byCat)} label="변화" />
+          <Stat n={total} label="전체 변화" />
           <Stat n={highN} label="높음" color="var(--high)" />
-          <Stat n={appleN} label="Apple" color="var(--apple)" />
-          <Stat n={samsungN} label="Samsung" color="var(--samsung)" />
         </div>
         <div style={{ fontSize:13.5, color:'var(--label2)', lineHeight:1.65 }}>
           {a?.summary || '수집된 변화 요약이 여기에 표시됩니다.'}</div>
         {a?.aeo_implications && <div style={{ fontSize:12.5, color:'var(--sec)', marginTop:8 }}>{a.aeo_implications}</div>}
       </div>
 
-      {/* 4칸 카테고리 */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginTop:14 }}>
-        {CATS.map((cat:any) => (
-          <CatCard key={cat.key} cat={cat} count={byCat[cat.key]||0}
-            items={data.changes.filter((c:Change)=>c.category===cat.key)} sel={sel} setSel={setSel} />
-        ))}
+      {/* 2칼럼: 경쟁사 vs 당사 */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginTop:14, alignItems:'start' }}>
+        <SiteColumn site="apple" title="경쟁사 · Apple" count={appleN} cols={col('apple')} sel={sel} setSel={setSel} />
+        <SiteColumn site="samsung" title="당사 · Samsung" count={samsungN} cols={col('samsung')} sel={sel} setSel={setSel} />
       </div>
     </div>
   );
 }
-function changes_total(byCat:any){ return Object.values(byCat).reduce((a:any,b:any)=>a+b,0) as number; }
 
-function CatCard({ cat, count, items, sel, setSel }: any) {
+function SiteColumn({ site, title, count, cols, sel, setSel }: any) {
+  const accent = site==='apple' ? 'var(--apple)' : 'var(--samsung)';
   return (
-    <div style={{ background:'#fff', borderRadius:18, padding:'15px 16px', boxShadow:'var(--shadow-sm)' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:items.length?11:0 }}>
-        <span style={{ width:28, height:28, borderRadius:9, background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700 }}>{cat.icon}</span>
-        <div style={{ flex:1 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-            <span style={{ fontWeight:700, fontSize:13.5 }}>{cat.key}</span><Info tip={cat.tip} /></div>
-        </div>
-        <span style={{ fontSize:20, fontWeight:800, color: count?'var(--label)':'var(--ter)' }}>{count}</span>
+    <div>
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 4px 12px' }}>
+        <span style={{ width:10, height:10, borderRadius:3, background:accent }} />
+        <span style={{ fontWeight:700, fontSize:14 }}>{title}</span>
+        <span style={{ fontSize:12, color:'var(--sec)' }}>· 변화 {count}</span>
       </div>
-      {items.length===0
-        ? <div style={{ fontSize:12, color:'var(--ter)', paddingTop:8 }}>변화 없음</div>
-        : items.map((c:Change)=>(
-          <div key={c.id} onClick={()=>setSel(c)} style={{ padding:'10px 16px', marginLeft:-16, marginRight:-16,
-            borderTop:'1px solid var(--line)', cursor:'pointer', borderRadius: sel?.id===c.id?10:0,
-            background: sel?.id===c.id?'var(--blue-soft)':'transparent' }}>
-            <div style={{ display:'flex', gap:6, marginBottom:4 }}>
-              <Badge color={LV[c.level]}>{LV_KO[c.level]}</Badge>
-              <Badge color={c.site==='apple'?'var(--apple)':'var(--samsung)'}>{c.site==='apple'?'Apple':'Samsung'}</Badge>
+      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+        {cols.map(({ cat, items }: any)=>(
+          <div key={cat.key} style={{ background:'#fff', borderRadius:16, padding:'14px 16px', boxShadow:'var(--shadow-sm)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:items.length?10:0 }}>
+              <span style={{ width:26, height:26, borderRadius:8, background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>{cat.icon}</span>
+              <span style={{ fontWeight:600, fontSize:13 }}>{cat.key}</span><Info tip={cat.tip} />
+              <span style={{ flex:1 }} />
+              <span style={{ fontSize:16, fontWeight:800, color: items.length?'var(--label)':'var(--ter)' }}>{items.length}</span>
             </div>
-            <div style={{ fontSize:12.5, lineHeight:1.5 }}>{c.summary}</div>
+            {items.length===0
+              ? <div style={{ fontSize:11.5, color:'var(--ter)' }}>변화 없음</div>
+              : items.map((c:Change)=>(
+                <div key={c.id} onClick={()=>setSel(c)} style={{ padding:'9px 16px', marginLeft:-16, marginRight:-16,
+                  borderTop:'1px solid var(--line)', cursor:'pointer', borderRadius: sel?.id===c.id?9:0,
+                  background: sel?.id===c.id?'var(--blue-soft)':'transparent' }}>
+                  <div style={{ marginBottom:4 }}><Badge color={LV[c.level]}>{LV_KO[c.level]}</Badge></div>
+                  <div style={{ fontSize:12.5, lineHeight:1.5 }}>{c.summary}</div>
+                </div>
+              ))}
           </div>
         ))}
+      </div>
     </div>
   );
 }
@@ -302,15 +316,19 @@ function Detail({ c }: { c:Change }) {
       <a href={c.url} target="_blank" rel="noreferrer" className="mono"
         style={{ fontSize:11, color:'var(--blue)', marginTop:9, display:'block', wordBreak:'break-all' }}>{c.url} ↗</a>
     </Card>
-    {c.field !== '메인 이미지' && (
+    {c.field !== '메인 이미지' && (() => {
+      const d = diffParts(c.before || '', c.after || '');
+      return (
       <Card>
-        <div style={{ fontSize:12, color:'var(--sec)', marginBottom:9 }}>이렇게 바뀌었어요</div>
+        <div style={{ fontSize:12, color:'var(--sec)', marginBottom:9 }}>실제 바뀐 내용 (원문 그대로)</div>
         <div style={{ fontSize:12, color:'var(--sec)', marginBottom:4 }}>이전</div>
-        <div className="mono" style={{ fontSize:12, background:'#F7F7F8', borderRadius:10, padding:'9px 11px', color:'var(--sec)', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>{c.before || '(없음)'}</div>
+        <div className="mono" style={{ fontSize:12, background:'#F7F7F8', borderRadius:10, padding:'9px 11px', color:'var(--sec)', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+          {c.before ? <>{d.delPre}<mark style={{ background:'#FFD9D4', color:'#8a1c12', borderRadius:3 }}>{d.delMid}</mark>{d.delPost}</> : '(없음)'}</div>
         <div style={{ fontSize:12, color:'var(--blue)', margin:'10px 0 4px' }}>현재</div>
-        <div className="mono" style={{ fontSize:12, background:'var(--blue-soft)', borderRadius:10, padding:'9px 11px', color:'var(--label)', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>{c.after || '(삭제됨)'}</div>
-      </Card>
-    )}
+        <div className="mono" style={{ fontSize:12, background:'var(--blue-soft)', borderRadius:10, padding:'9px 11px', color:'var(--label)', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+          {c.after ? <>{d.addPre}<mark style={{ background:'#B7E8C5', color:'#13642b', borderRadius:3 }}>{d.addMid}</mark>{d.addPost}</> : '(삭제됨)'}</div>
+      </Card>);
+    })()}
     {c.field === '메인 이미지' && (
       <Card><div style={{ fontSize:12, color:'var(--sec)', marginBottom:9 }}>이미지 변화</div>
         <div style={{ fontSize:12.5, color:'var(--label2)' }}>메인 화면 이미지가 바뀐 것으로 감지되었습니다. 실제 운영 시에는 이전/현재 이미지가 나란히 표시됩니다.</div></Card>
@@ -323,6 +341,15 @@ function Detail({ c }: { c:Change }) {
         ))}</Card>
     )}
   </>;
+}
+/* 이전/현재 원문에서 바뀐 구간만 찾아 강조 */
+function diffParts(a:string, b:string){
+  const A=[...a], B=[...b]; let i=0;
+  while(i<A.length&&i<B.length&&A[i]===B[i])i++;
+  let ea=A.length-1, eb=B.length-1;
+  while(ea>=i&&eb>=i&&A[ea]===B[eb]){ea--;eb--;}
+  return { delPre:A.slice(0,i).join(''), delMid:A.slice(i,ea+1).join(''), delPost:A.slice(ea+1).join(''),
+           addPre:B.slice(0,i).join(''), addMid:B.slice(i,eb+1).join(''), addPost:B.slice(eb+1).join('') };
 }
 function DetailDefault({ data, online }: any) {
   if (!online) return <Card><div style={{ fontSize:13.5, fontWeight:700 }}>연결 대기 중</div>
