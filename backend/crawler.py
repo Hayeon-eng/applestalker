@@ -61,8 +61,11 @@ class HybridCrawler:
         self.enable_screenshot = (
             enable_screenshot
             if enable_screenshot is not None
-            else os.getenv("ENABLE_SCREENSHOT", "true").lower() == "true"
+            else os.getenv("ENABLE_SCREENSHOT", "false").lower() == "true"
         )
+        # 무료 512MB 보호: 한 크롤에서 브라우저로 띄울 페이지 수 상한
+        self.browser_page_cap = int(os.getenv("BROWSER_PAGE_CAP", "8"))
+        self._browser_used = 0
         self._client: Optional[httpx.AsyncClient] = None
         self._browser = None
         self._pw = None
@@ -136,8 +139,10 @@ class HybridCrawler:
                 result["rendered_by"] = "httpx"
 
         # 2) 승격 판정: requires_js 이거나, httpx 결과가 빈약하면 Playwright
+        #    단, 무료 메모리 보호를 위해 한 크롤당 브라우저 사용 횟수를 제한
         need_js = requires_js or self._looks_empty(http_data)
-        if need_js and self.enable_playwright:
+        if need_js and self.enable_playwright and self._browser_used < self.browser_page_cap:
+            self._browser_used += 1
             pw_data = await self._fetch_playwright(url)
             if pw_data and not pw_data.get("error"):
                 result.update(pw_data)
