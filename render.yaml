@@ -1,7 +1,7 @@
 # 참고용. Render Dashboard 에서 New + 로 직접 생성 권장.
 services:
   - type: web
-    name: change-intel-backend
+    name: apple-stalker-backend
     env: python
     plan: free
     rootDir: .
@@ -23,7 +23,7 @@ services:
       - { key: SENDER_PASSWORD, sync: false }
       - { key: RECIPIENT_EMAIL, sync: false }
   - type: web
-    name: change-intel-frontend
+    name: apple-stalker-frontend
     env: node
     plan: free
     rootDir: frontend
@@ -33,5 +33,5 @@ services:
       - { key: NODE_VERSION, value: 20.x }
       - { key: NEXT_PUBLIC_API_URL, sync: false }
 databases:
-  - name: change-intel-db
+  - name: apple-stalker-db
     plan: free
