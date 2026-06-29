@@ -46,7 +46,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Apple Stalker API", version="2.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
+                   allow_headers=["*"], expose_headers=["*"])
+
+
+from fastapi.responses import JSONResponse
+from fastapi.requests import Request
+
+
+@app.exception_handler(Exception)
+async def all_errors(request: Request, exc: Exception):
+    """어떤 에러가 나도 CORS 헤더를 붙여 JSON으로 반환.
+    (이렇게 안 하면 500 응답에 CORS 헤더가 빠져 브라우저가 'CORS 차단'으로 표시함)"""
+    logger.error(f"{request.url.path} 에러: {exc}")
+    return JSONResponse(status_code=500,
+        content={"error": str(exc), "path": request.url.path},
+        headers={"Access-Control-Allow-Origin": "*"})
 
 
 def q(sql, **p):
@@ -260,9 +275,13 @@ def add_url(req: AddURL):
         raise HTTPException(400, "유효한 URL(http...) 이어야 합니다")
     sk = req.site_key or site_key_for_url(u) or "unknown"
     with sync_engine.connect() as c:
-        c.execute(text("INSERT INTO monitored_urls (site_key,url,tier_level,enabled,created_at) "
-                       "VALUES (:s,:u,:t,true,:c) ON CONFLICT (url) DO UPDATE SET enabled=true"),
-                  {"s": sk, "u": u, "t": tier_for_url(u), "c": datetime.utcnow()})
+        exists = c.execute(text("SELECT 1 FROM monitored_urls WHERE url=:u"), {"u": u}).fetchone()
+        if exists:
+            c.execute(text("UPDATE monitored_urls SET enabled=true WHERE url=:u"), {"u": u})
+        else:
+            c.execute(text("INSERT INTO monitored_urls (site_key,url,tier_level,enabled,created_at) "
+                           "VALUES (:s,:u,:t,true,:c)"),
+                      {"s": sk, "u": u, "t": tier_for_url(u), "c": datetime.utcnow()})
         c.commit()
     return {"status": "added", "url": u, "site_key": sk}
 
