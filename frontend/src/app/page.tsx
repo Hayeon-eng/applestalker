@@ -11,40 +11,58 @@ interface Report { has_data:boolean; run_id?:string; site?:string; timestamp?:st
 interface Session { session:string; run_ids:string[]; sites:string[]; pages:number; changes:number; timestamp:string; }
 
 const CATS = [
-  { key:'데이터·스키마', icon:'◧', tip:'웹페이지의 구조·코드(스키마/HTML)·메뉴 변화. 검색·AI 노출에 영향을 줍니다.' },
-  { key:'카피', icon:'¶', tip:'제목·본문·문구·FAQ 등 글로 쓰인 내용의 변화입니다.' },
-  { key:'가격·프로모션', icon:'₩', tip:'가격·구매 버튼·사전예약·보상판매(Trade-in) 등 거래 관련 변화입니다.' },
-  { key:'비주얼', icon:'▣', tip:'메인 이미지·배너 등 시각 요소의 변화입니다.' },
+  { key:'데이터·스키마', icon:'🔍', tip:'웹페이지의 구조·코드(스키마/HTML)·메뉴 변화. 검색·AI 노출에 영향을 줍니다.' },
+  { key:'카피', icon:'✍️', tip:'제목·본문·문구·FAQ 등 글로 쓰인 내용의 변화입니다.' },
+  { key:'가격·프로모션', icon:'💰', tip:'가격·구매 버튼·사전예약·보상판매(Trade-in) 등 거래 관련 변화입니다.' },
+  { key:'비주얼', icon:'🖼️', tip:'메인 이미지·배너 등 시각 요소의 변화입니다.' },
 ];
 const LV: Record<string,string> = { High:'var(--high)', Medium:'var(--med)', Low:'var(--low)' };
 const LV_KO: Record<string,string> = { High:'높음', Medium:'보통', Low:'낮음' };
 
 /* 사이드 'Example'에서만 보여줄 예시 (실제 사이트 관찰 기반) */
-const EXAMPLE: Report = {
-  has_data:true, run_id:'example', site:'samsung', timestamp:new Date().toISOString(), has_changes:true,
-  by_category:{ '데이터·스키마':2, '카피':2, '가격·프로모션':1, '비주얼':1 },
-  changes:[
-    { id:1, url:'https://www.apple.com/apple-intelligence/', site:'apple', level:'Medium', category:'카피', field:'대표 제목',
-      summary:'대표 제목이 "차세대 Apple Intelligence·Siri"로 바뀜', before:'Apple Intelligence',
-      after:'Introducing the next generation of Apple Intelligence and Siri', evidence:{ '바뀐 문장':'1개' } },
-    { id:2, url:'https://www.apple.com/apple-intelligence/', site:'apple', level:'Medium', category:'데이터·스키마', field:'메뉴/기능',
-      summary:'새 기능 안내 추가 — Safari에 "가격·재입고가 바뀌면 알려주는 기능"', before:'(없음)',
-      after:'가격·재입고 변경 알림 기능', evidence:{ '변화 유형':'새 항목 추가' } },
-    { id:6, url:'https://www.apple.com/iphone/', site:'apple', level:'High', category:'데이터·스키마', field:'구조화 데이터',
-      summary:'신제품 라인업(iPhone 17 Pro/Air/17/17e)이 페이지 구조에 반영됨', before:'제품 3종',
-      after:'제품 4종', evidence:{ '변화 유형':'항목 증가' } },
-    { id:4, url:'https://www.samsung.com/sg/galaxy-ai/', site:'samsung', level:'Medium', category:'카피', field:'대표 제목',
-      summary:'대표 제목(슬로건) 변경', before:'Galaxy AI', after:'Galaxy AI, a true AI companion', evidence:{ '바뀐 문장':'1개' } },
-    { id:3, url:'https://www.samsung.com/sg/galaxy-ai/', site:'samsung', level:'Medium', category:'가격·프로모션', field:'안내 문구',
-      summary:'"Galaxy AI 2025년 말까지 무료" 프로모션 문구 노출', before:'(없음)',
-      after:'Galaxy AI features free until the end of 2025', evidence:{ '감지된 키워드':'무료 / 2025' } },
-    { id:5, url:'https://www.samsung.com/sg/', site:'samsung', level:'Low', category:'비주얼', field:'메인 이미지',
-      summary:'메인 화면 이미지가 바뀐 것으로 감지됨', before:'(이전 이미지)', after:'(새 이미지)', evidence:{ '이미지 차이':'14 / 64' } },
-  ],
-  analysis:{
-    summary:'애플은 apple-intelligence 페이지에서 차세대 Siri를 전면에 내세우고, 가격·재입고 변동 알림 기능을 새로 강조했습니다. 당사(삼성)는 Galaxy AI 무료 기간(2025년 말) 안내 문구가 노출되어 있습니다.',
-    aeo_implications:'※ 이것은 예시입니다. 실제 크롤을 실행하면 이 자리에 진짜 분석이 들어갑니다.', insights:[], actions:[] },
+const PREV = '(예시용 가상)';
+const _changes: Change[] = [
+  { id:1, url:'https://www.apple.com/apple-intelligence/', site:'apple', level:'Medium', category:'카피', field:'대표 제목',
+    summary:'대표 제목이 "차세대 Apple Intelligence·Siri"로 바뀜', before:PREV,
+    after:'Introducing the next generation of Apple Intelligence and Siri', evidence:{ '바뀐 문장':'1개' } },
+  { id:2, url:'https://www.apple.com/apple-intelligence/', site:'apple', level:'Medium', category:'데이터·스키마', field:'메뉴/기능',
+    summary:'새 기능 안내 추가 — Safari에 "가격·재입고가 바뀌면 알려주는 기능"', before:PREV,
+    after:'Safari로 가격·재입고 변경 알림', evidence:{ '변화 유형':'새 항목 추가' } },
+  { id:6, url:'https://www.apple.com/iphone/', site:'apple', level:'High', category:'데이터·스키마', field:'구조화 데이터',
+    summary:'신제품 라인업(iPhone 17 Pro/Air/17/17e)이 페이지 구조에 반영됨', before:PREV,
+    after:'Product 스키마 4종(iPhone 17 Pro / Air / 17 / 17e)', evidence:{ '변화 유형':'항목 증가' } },
+  { id:4, url:'https://www.samsung.com/sg/galaxy-ai/', site:'samsung', level:'Medium', category:'카피', field:'대표 제목',
+    summary:'대표 제목(슬로건) 변경', before:PREV, after:'Galaxy AI, a true AI companion', evidence:{ '바뀐 문장':'1개' } },
+  { id:3, url:'https://www.samsung.com/sg/galaxy-ai/', site:'samsung', level:'Medium', category:'가격·프로모션', field:'안내 문구',
+    summary:'"Galaxy AI 2025년 말까지 무료" 프로모션 문구 노출', before:PREV,
+    after:'Galaxy AI features free until the end of 2025', evidence:{ '감지된 키워드':'무료 / 2025' } },
+  { id:5, url:'https://www.samsung.com/sg/', site:'samsung', level:'Low', category:'비주얼', field:'메인 이미지',
+    summary:'메인 화면 이미지가 바뀐 것으로 감지됨', before:PREV, after:'(새 이미지)', evidence:{ '이미지 차이':'14 / 64' } },
+];
+const _emptyCat = { '데이터·스키마':0, '카피':0, '가격·프로모션':0, '비주얼':0 };
+const _now = () => new Date().toISOString();
+
+const EXAMPLES: Record<'changes'|'nochange'|'analysis', Report> = {
+  // ① 변화 있음
+  changes: {
+    has_data:true, run_id:'ex', site:'samsung', timestamp:_now(), has_changes:true,
+    by_category:{ '데이터·스키마':2, '카피':2, '가격·프로모션':1, '비주얼':1 }, changes:_changes,
+    analysis:{ summary:'애플은 차세대 Siri를 전면에 내세우고 가격·재입고 알림 기능을 추가했습니다. 당사는 Galaxy AI 무료 기간(2025년 말) 안내 문구가 노출돼 있습니다.',
+      aeo_implications:'※ 예시 화면입니다. "이전" 값은 과거 시점을 알 수 없어 가상으로 표시했고, "현재" 값만 실제 사이트에서 관찰한 문구입니다.', insights:[], actions:[] } },
+  // ② 변화 없음
+  nochange: {
+    has_data:true, run_id:'ex0', site:'samsung', timestamp:_now(), has_changes:false,
+    by_category:{ ..._emptyCat }, changes:[],
+    analysis:{ summary:'직전 크롤 대비 새로 감지된 변화가 없습니다. (현행 유지)',
+      aeo_implications:'※ 예시 화면입니다. 변화가 없을 때의 모습입니다.', insights:[], actions:[] } },
+  // ③ 현행 분석 (변화 유무와 무관한 상태 분석)
+  analysis: {
+    has_data:true, run_id:'exa', site:'samsung', timestamp:_now(), has_changes:false,
+    by_category:{ ..._emptyCat }, changes:[],
+    analysis:{ summary:'현행 분석: 애플은 apple-intelligence 페이지에 차세대 Siri·"Notify Me"(가격·재입고 알림)를 노출 중이고, 삼성 SG는 Galaxy AI 무료 기간 안내와 Trade-in 프로모션을 노출 중입니다.',
+      aeo_implications:'※ 예시 화면입니다. 변화가 없어도 매 크롤 시 현재 상태를 이렇게 분석합니다. (현재 값은 실제 관찰 기반)', insights:[], actions:[] } },
 };
+
 
 export default function Page() {
   const [tab, setTab] = useState<'changes'|'compare'>('changes');
@@ -55,7 +73,7 @@ export default function Page() {
   const [progress, setProgress] = useState<{done:number; total:number; url:string}|null>(null);
   const [showUrl, setShowUrl] = useState(false);
   const [online, setOnline] = useState<boolean|null>(null); // 백엔드 연결 여부
-  const [exampleMode, setExampleMode] = useState(false);
+  const [exampleMode, setExampleMode] = useState<'off'|'changes'|'nochange'|'analysis'>('off');
   const [compare, setCompare] = useState<any>(null);
   const sse = useRef<EventSource|null>(null);
 
@@ -100,7 +118,7 @@ export default function Page() {
 
   const loadSession = async (runId:string) => {
     if (!online) return;
-    setExampleMode(false); setSel(null);
+    setExampleMode('off'); setSel(null);
     try { const r = await fetch(`${API}/api/latest-report?run_id=${encodeURIComponent(runId)}`);
       const j = await r.json(); setReport(j.has_data ? j : null); } catch {}
   };
@@ -115,7 +133,29 @@ export default function Page() {
     el.value=''; setShowUrl(false);
   };
 
-  const data = exampleMode ? EXAMPLE : report;
+  // 화면 캡처 (프론트에서, 서버 부담 0). html2canvas를 클릭 시 CDN에서 로드.
+  const downloadCapture = async () => {
+    const ensure = () => new Promise<any>((res, rej) => {
+      if ((window as any).html2canvas) return res((window as any).html2canvas);
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      sc.onload = () => res((window as any).html2canvas);
+      sc.onerror = () => rej(new Error('html2canvas load fail'));
+      document.body.appendChild(sc);
+    });
+    try {
+      const h2c = await ensure();
+      const el = document.getElementById('capture-area') || document.body;
+      const canvas = await h2c(el, { backgroundColor: '#F2F2F7', scale: 2, useCORS: true });
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `apple-stalker_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'')}.png`;
+      a.click();
+    } catch { alert('캡처에 실패했습니다. 잠시 후 다시 시도해 주세요.'); }
+  };
+
+  const data = exampleMode!=='off' ? EXAMPLES[exampleMode] : report;
+  const isExample = exampleMode!=='off';
   const changes = data?.changes || [];
   const byCat = data?.by_category || {};
   const appleN = changes.filter(c=>c.site==='apple').length;
@@ -131,10 +171,6 @@ export default function Page() {
           <div className="mono" style={{ fontSize:11, color:'var(--sec)', marginTop:2 }}>경쟁사 웹 변화 감지</div>
           <ConnBadge online={online} />
         </div>
-
-        <Sec t="모니터링 대상" />
-        <Row><Dot c="var(--samsung)" /><b>당사</b>&nbsp;Samsung</Row>
-        <Row><Dot c="var(--apple)" /><b>경쟁사</b>&nbsp;Apple</Row>
 
         <Sec t="중요도 기준" hint="무엇이 · 얼마나 바뀌었나로 정합니다" />
         <div style={{ padding:'0 14px 4px' }}>
@@ -179,13 +215,29 @@ export default function Page() {
           ))}
         </div>
 
-        {/* 예시 보기 (사이드 하단) */}
-        <div style={{ padding:'10px 14px 16px', borderTop:'1px solid var(--line)' }}>
-          <button onClick={()=>{ setExampleMode(v=>!v); setSel(null); }}
-            style={{ width:'100%', fontSize:12, fontWeight:600, color: exampleMode?'#fff':'var(--label2)',
-              background: exampleMode?'var(--blue)':'rgba(0,0,0,.045)', borderRadius:10, padding:'9px 0' }}>
-            {exampleMode ? '예시 닫기' : '🔍 예시 화면 보기'}</button>
-          <div style={{ fontSize:10.5, color:'var(--ter)', marginTop:6, textAlign:'center' }}>실제 데이터가 없을 때 참고용</div>
+        {/* 모니터링 대상 (좌하단, 작게) */}
+        <div style={{ padding:'10px 16px 6px', borderTop:'1px solid var(--line)' }}>
+          <div style={{ fontSize:10.5, color:'var(--sec)', fontWeight:600, marginBottom:6 }}>모니터링 대상</div>
+          <div style={{ display:'flex', gap:14 }}>
+            <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:11.5 }}>
+              <span style={{ width:7, height:7, borderRadius:'50%', background:'var(--samsung)' }} /><b>당사</b> Samsung</span>
+            <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:11.5 }}>
+              <span style={{ width:7, height:7, borderRadius:'50%', background:'var(--apple)' }} /><b>경쟁사</b> Apple</span>
+          </div>
+        </div>
+
+        {/* 예시 보기 (3상태) */}
+        <div style={{ padding:'10px 14px 16px' }}>
+          <div style={{ fontSize:10.5, color:'var(--sec)', fontWeight:600, marginBottom:6 }}>예시 화면 (참고용)</div>
+          <div style={{ display:'flex', gap:5 }}>
+            {[['changes','변화 있음'],['nochange','변화 없음'],['analysis','현행 분석']].map(([k,label])=>(
+              <button key={k} onClick={()=>{ setExampleMode(exampleMode===k?'off':k as any); setSel(null); }}
+                style={{ flex:1, fontSize:10.5, fontWeight:600, padding:'7px 0', borderRadius:9,
+                  color: exampleMode===k?'#fff':'var(--label2)',
+                  background: exampleMode===k?'var(--blue)':'rgba(0,0,0,.045)' }}>{label}</button>
+            ))}
+          </div>
+          <div style={{ fontSize:10, color:'var(--ter)', marginTop:6 }}>실제 데이터가 없을 때 참고용 (이전 값은 예시용 가상)</div>
         </div>
       </aside>
 
@@ -199,8 +251,9 @@ export default function Page() {
               <Seg on={tab==='compare'} onClick={()=>setTab('compare')}>현황 비교</Seg>
             </div>
             <span style={{ flex:1 }} />
-            {online && data?.has_data && <a href={`${API}/api/export/xlsx`} style={ghost}>Excel</a>}
-            {online && data?.has_data && <a href={`${API}/api/export/pptx`} style={ghost}>PPTX</a>}
+            {data?.has_data && <button onClick={downloadCapture} style={ghost}>화면 캡처</button>}
+            {online && data?.has_data && !isExample && <a href={`${API}/api/export/xlsx`} style={ghost}>Excel</a>}
+            {online && data?.has_data && !isExample && <a href={`${API}/api/export/pptx`} style={ghost}>PPTX</a>}
             <button onClick={startCrawl} disabled={!online||crawling}
               style={{ ...ghost, background: online&&!crawling?'var(--blue)':'var(--line2)', color:'#fff', cursor: online&&!crawling?'pointer':'default' }}>
               {crawling ? '크롤 중…' : '크롤 실행'}</button>
@@ -241,7 +294,7 @@ function Changes({ data, byCat, appleN, samsungN, highN, sel, setSel, isExample 
   const col = (site:'apple'|'samsung') => CATS.map((cat:any)=>({
     cat, items: data.changes.filter((c:Change)=>c.site===site && c.category===cat.key) }));
   return (
-    <div style={{ padding:'18px 24px 60px' }}>
+    <div id="capture-area" style={{ padding:'18px 24px 60px' }}>
       {isExample && <div style={{ background:'#FFF8E6', border:'1px solid #FFE5A3', borderRadius:12, padding:'10px 14px', fontSize:12, color:'#8A6D00', marginBottom:14 }}>
         🔍 <b>예시 화면</b>입니다. 실제 데이터가 아니며, 크롤을 실행하면 진짜 변화로 채워집니다.</div>}
 
@@ -392,7 +445,25 @@ function Badge({ color, children }: any){ return <span style={{ fontSize:10, fon
 function Stat({ n, label, color }: any){ return <div style={{ textAlign:'center', minWidth:46 }}><div style={{ fontSize:18, fontWeight:800, color:color||'var(--label)' }}>{n}</div><div style={{ fontSize:10, color:'var(--sec)' }}>{label}</div></div>; }
 function Card({ children }: any){ return <div style={{ background:'#fff', borderRadius:16, boxShadow:'var(--shadow-sm)', padding:16, marginBottom:13 }}>{children}</div>; }
 function Box({ label, v, bg }: any){ return <div style={{ background:bg, borderRadius:12, padding:'11px 13px' }}><div style={{ fontSize:11, color:'var(--sec)', fontWeight:600 }}>{label}</div><div className="mono" style={{ fontSize:15, fontWeight:700, marginTop:3 }}>{v}</div></div>; }
-function Info({ tip }: { tip:string }){ return <span title={tip} style={{ width:15, height:15, borderRadius:'50%', background:'rgba(118,118,128,.18)', color:'var(--sec)', fontSize:10, fontWeight:700, display:'inline-flex', alignItems:'center', justifyContent:'center', cursor:'help' }}>i</span>; }
+function Info({ tip }: { tip:string }){
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ position:'relative', display:'inline-flex' }}>
+      <span onClick={(e)=>{ e.stopPropagation(); setOpen(v=>!v); }}
+        style={{ width:15, height:15, borderRadius:'50%', background:'rgba(118,118,128,.18)', color:'var(--sec)',
+          fontSize:10, fontWeight:700, display:'inline-flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>i</span>
+      {open && (
+        <>
+          <span onClick={(e)=>{ e.stopPropagation(); setOpen(false); }}
+            style={{ position:'fixed', inset:0, zIndex:40 }} />
+          <span style={{ position:'absolute', top:20, left:0, zIndex:41, width:220, background:'#fff',
+            border:'1px solid var(--line)', boxShadow:'var(--shadow)', borderRadius:10, padding:'10px 12px',
+            fontSize:11.5, fontWeight:400, color:'var(--label2)', lineHeight:1.5 }}>{tip}</span>
+        </>
+      )}
+    </span>
+  );
+}
 function ConnBadge({ online }: { online:boolean|null }){
   if (online===null) return null;
   return <div style={{ marginTop:9, display:'inline-flex', alignItems:'center', gap:6, fontSize:11, fontWeight:600,
