@@ -40,33 +40,43 @@ const _changes: Change[] = [
   { id:5, url:'https://www.samsung.com/sg/', site:'samsung', level:'Low', category:'비주얼', field:'메인 이미지',
     summary:'메인 화면 이미지가 바뀐 것으로 감지됨', before:PREV, after:'(새 이미지)', evidence:{ '이미지 차이':'14 / 64' } },
 ];
-const _emptyCat = { '데이터·스키마':0, '카피':0, '가격·프로모션':0, '비주얼':0 };
 const _now = () => new Date().toISOString().slice(0,16).replace('T',' ');
 
-const EXAMPLES: Record<'changes'|'nochange', Report> = {
-  // ① 변화 있음
-  changes: {
-    has_data:true, run_id:'ex', site:'samsung', timestamp:_now(), has_changes:true,
-    by_category:{ '데이터·스키마':2, '카피':2, '가격·프로모션':1, '비주얼':1 }, changes:_changes,
-    category_summary:{
-      '데이터·스키마':'당사는 FAQ·제품 스키마가 일부 페이지에만 있고, 애플은 제품 스키마를 4종으로 확장 — 애플이 AI 검색 노출 기반을 더 촘촘히 가져가는 중',
-      '카피':'당사는 "Galaxy AI, a true AI companion"으로 동반자 컨셉, 애플은 "차세대 Siri"를 전면화 — 양사가 AI 주도권 메시지로 정면 경쟁',
-      '가격·프로모션':'당사는 "Galaxy AI 2025년 말까지 무료"·Trade-in을 노출, 애플은 가격 노출 없음 — 당사가 가격·혜택 소구가 더 적극적',
-      '비주얼':'당사는 메인 히어로 이미지를 교체, 애플은 변동 없음 — 당사 비주얼 리프레시 주기가 빠름',
-    },
-    analysis:{ summary:'', aeo_implications:'※ 예시 화면입니다. "이전" 값은 과거 시점을 알 수 없어 가상으로 표시했고, "현재" 값만 실제 사이트에서 관찰한 문구입니다.', insights:[], actions:[] } },
-  // ② 변화 없음 (= 현행 분석)
-  nochange: {
-    has_data:true, run_id:'ex0', site:'samsung', timestamp:_now(), has_changes:false,
-    by_category:{ ..._emptyCat }, changes:[],
-    category_summary:{
-      '데이터·스키마':'당사는 핵심 페이지 위주로 스키마를 두고, 애플은 제품 상세 전반에 스키마를 적용 — AI 검색 노출 구조에서 애플이 앞섬',
-      '카피':'당사는 "동반자(Companion)" 컨셉을 유지, 애플은 "차세대 Siri" 메시지를 유지 — 메시지 방향성 차이 지속',
-      '가격·프로모션':'당사는 무료 기간·Trade-in을 노출, 애플은 가격을 거의 노출하지 않음 — 가격 소구 전략이 상반됨',
-      '비주얼':'당사·애플 모두 메인 비주얼 변동 없음 — 현행 유지',
-    },
-    analysis:{ summary:'직전 크롤 대비 새로 감지된 변화가 없어 현행 상태를 비교 분석했습니다.',
-      aeo_implications:'※ 예시 화면입니다. 변화가 없을 때는 이렇게 양사 현행을 비교합니다. (현재 값은 실제 관찰 기반)', insights:[], actions:[] } },
+/* ① 변화 있음 예시 → '변경점' 탭에서 사용 */
+const CHANGES_EXAMPLE: Report = {
+  has_data:true, run_id:'ex', site:'samsung', timestamp:_now(), has_changes:true,
+  by_category:{ '데이터·스키마':2, '카피':2, '가격·프로모션':1, '비주얼':1 }, changes:_changes,
+  category_summary:{
+    '데이터·스키마':'당사는 FAQ·제품 스키마가 일부 페이지에만 있고, 애플은 제품 스키마를 4종으로 확장 — 애플이 AI 검색 노출 기반을 더 촘촘히 가져가는 중',
+    '카피':'당사는 "Galaxy AI, a true AI companion"으로 동반자 컨셉, 애플은 "차세대 Siri"를 전면화 — 양사가 AI 주도권 메시지로 정면 경쟁',
+    '가격·프로모션':'당사는 "Galaxy AI 2025년 말까지 무료"·Trade-in을 노출, 애플은 가격 노출 없음 — 당사가 가격·혜택 소구가 더 적극적',
+    '비주얼':'당사는 메인 히어로 이미지를 교체, 애플은 변동 없음 — 당사 비주얼 리프레시 주기가 빠름',
+  },
+  analysis:{ summary:'', aeo_implications:'※ 예시 화면입니다. "이전" 값은 과거 시점을 알 수 없어 가상으로 표시했고, "현재" 값만 실제 사이트에서 관찰한 문구입니다.', insights:[], actions:[] } };
+
+/* ② 변화 없음(= 현행 분석) 예시 → '현황 비교' 탭에서 사용 (Compare 형태)
+   원칙: '변동 없음'을 다시 말하지 않고, 현재 상태 자체를 영역별로 분석해 보여준다. */
+const COMPARE_EXAMPLE: any = {
+  status:'ok', _example:true,
+  overall:'직전 크롤 대비 새로 감지된 변화는 없습니다. 그래서 변화 알림 대신 양사의 현재 상태를 영역별로 비교했습니다. (예시 화면이며, 현재 값은 실제 관찰 기반입니다)',
+  comparison:[
+    { dimension:'🔍 데이터·스키마',
+      samsung:'핵심 페이지 위주 스키마',
+      apple:'제품 상세 전반 스키마(4종)',
+      action:'당사는 핵심 페이지 위주로만 스키마를 두고, 애플은 제품 상세 전반에 적용 — AI 검색 노출 구조에서 애플이 앞섬. 제품 라인업 페이지에 Product 스키마 확대를 검토할 수 있음.' },
+    { dimension:'✍️ 카피',
+      samsung:'"AI 동반자(Companion)" 컨셉',
+      apple:'"차세대 Siri" 전면화',
+      action:'당사는 동반자 메시지를, 애플은 차세대 Siri 메시지를 유지 — 방향성 차이가 고착. 동반자 컨셉의 구체적 사용 시나리오를 카피로 보강할 여지.' },
+    { dimension:'💰 가격·프로모션',
+      samsung:'무료 기간·Trade-in 노출',
+      apple:'가격 거의 비노출',
+      action:'당사는 혜택을 적극 노출, 애플은 가치·경험 중심으로 가격을 숨김 — 소구 전략이 상반. 혜택 강조가 단가 인식에 주는 영향을 모니터링.' },
+    { dimension:'🖼️ 비주얼',
+      samsung:'메인 히어로 = 제품 클로즈업 + 짧은 카피',
+      apple:'메인 히어로 = 화면을 꽉 채우는 영상형 비주얼',
+      action:'당사 메인은 제품 클로즈업과 짧은 카피로 기능을 직접 전달, 애플은 풀블리드 영상형 비주얼로 브랜드 톤을 강조 — 현재 비주얼 전략의 방향이 뚜렷이 다름. 히어로 영역에 영상·모션 도입 여부를 검토할 수 있음.' },
+  ],
 };
 
 
@@ -99,9 +109,10 @@ export default function Page() {
 
   useEffect(() => {
     if (tab !== 'compare') return;
+    if (exampleMode === 'nochange') return;   // 예시(현행 분석)는 fetch 대신 예시 데이터 사용
     (async () => { try { const r = await fetch(`${API}/api/compare`); setCompare(await r.json()); }
       catch { setCompare({ status:'insufficient_data' }); } })();
-  }, [tab]);
+  }, [tab, exampleMode]);
 
   const startCrawl = async () => {
     if (!online) return;
@@ -166,10 +177,12 @@ export default function Page() {
     } catch { alert('캡처에 실패했습니다. 잠시 후 다시 시도해 주세요.'); }
   };
 
-  const data = exampleMode!=='off' ? EXAMPLES[exampleMode as 'changes'|'nochange'] : report;
-  const isExample = exampleMode!=='off';
-  const changes = data?.changes || [];
-  const byCat = data?.by_category || {};
+  // 탭 성격에 맞춰 데이터 분리: 변화있음 예시는 '변경점' 탭, 현행분석 예시는 '현황 비교' 탭에서만.
+  const changesData = exampleMode === 'changes' ? CHANGES_EXAMPLE : report;
+  const compareData = exampleMode === 'nochange' ? COMPARE_EXAMPLE : compare;
+  const isExample = exampleMode !== 'off';
+  const changes = changesData?.changes || [];
+  const byCat = changesData?.by_category || {};
   const appleN = changes.filter(c=>c.site==='apple').length;
   const samsungN = changes.filter(c=>c.site==='samsung').length;
   const highN = changes.filter(c=>c.level==='High').length;
@@ -246,7 +259,12 @@ export default function Page() {
           <div style={{ fontSize:10.5, color:'var(--sec)', fontWeight:600, marginBottom:6 }}>예시 화면 (참고용)</div>
           <div style={{ display:'flex', gap:5 }}>
             {[['changes','변화 있음'],['nochange','변화 없음(현행 분석)']].map(([k,label])=>(
-              <button key={k} onClick={()=>{ setExampleMode(exampleMode===k?'off':k as any); setSel(null); }}
+              <button key={k} onClick={()=>{
+                const next = exampleMode===k ? 'off' : (k as 'changes'|'nochange');
+                setExampleMode(next); setSel(null);
+                if (next==='changes') setTab('changes');         // 변화 있음 → 변경점 탭
+                else if (next==='nochange') setTab('compare');   // 현행 분석 → 현황 비교 탭
+              }}
                 style={{ flex:1, fontSize:10.5, fontWeight:600, padding:'7px 0', borderRadius:9,
                   color: exampleMode===k?'#fff':'var(--label2)',
                   background: exampleMode===k?'var(--blue)':'rgba(0,0,0,.045)' }}>{label}</button>
@@ -266,9 +284,9 @@ export default function Page() {
               <Seg on={tab==='compare'} onClick={()=>setTab('compare')}>현황 비교</Seg>
             </div>
             <span style={{ flex:1 }} />
-            {data?.has_data && <button onClick={downloadCapture} style={ghost}>화면 캡처</button>}
-            {online && data?.has_data && !isExample && <a href={`${API}/api/export/xlsx`} style={ghost}>Excel</a>}
-            {online && data?.has_data && !isExample && <a href={`${API}/api/export/pptx`} style={ghost}>PPTX</a>}
+            {(isExample || report) && <button onClick={downloadCapture} style={ghost}>화면 캡처</button>}
+            {online && report && !isExample && <a href={`${API}/api/export/xlsx`} style={ghost}>Excel</a>}
+            {online && report && !isExample && <a href={`${API}/api/export/pptx`} style={ghost}>PPTX</a>}
             <button onClick={startCrawl} disabled={!online||crawling}
               style={{ ...ghost, background: online&&!crawling?'var(--blue)':'var(--line2)', color:'#fff', cursor: online&&!crawling?'pointer':'default' }}>
               {crawling ? '크롤 중…' : '크롤 실행'}</button>
@@ -285,18 +303,18 @@ export default function Page() {
         </div>
 
         {tab==='compare'
-          ? <Compare data={compare} online={online} />
+          ? <Compare data={compareData} online={online} isExample={exampleMode==='nochange'} />
           : (!online
               ? <Empty title="백엔드에 연결되지 않았습니다" desc="프론트엔드 설정(NEXT_PUBLIC_API_URL)에 백엔드 주소를 넣고 다시 배포하세요. 왼쪽 아래 '예시 화면 보기'로 미리 둘러볼 수 있습니다." />
-              : !data
+              : !changesData
                 ? <Empty title="아직 수집된 변화가 없습니다" desc="오른쪽 위 [크롤 실행]을 누르면 애플·삼성 페이지를 수집해 변화를 찾아냅니다. (페이지가 많아 몇 분 걸립니다)" cta={startCrawl} />
-                : <Changes data={data} byCat={byCat} appleN={appleN} samsungN={samsungN} highN={highN} sel={sel} setSel={setSel} isExample={exampleMode} />
+                : <Changes data={changesData} byCat={byCat} appleN={appleN} samsungN={samsungN} highN={highN} sel={sel} setSel={setSel} isExample={exampleMode==='changes'} />
             )}
       </main>
 
       {/* 우측 */}
       <aside style={{ background:'var(--rail)', borderLeft:'1px solid var(--line)', overflow:'auto', padding:'16px 14px' }}>
-        {sel ? <Detail c={sel} /> : <DetailDefault data={data} online={online} />}
+        {sel ? <Detail c={sel} /> : <DetailDefault data={tab==='compare' ? null : changesData} online={online} />}
       </aside>
     </div>
   );
@@ -438,13 +456,15 @@ function DetailDefault({ data, online }: any) {
 }
 
 /* ── 현황 비교 ── */
-function Compare({ data, online }: any) {
-  if (!online) return <Empty title="백엔드에 연결되지 않았습니다" desc="비교 데이터를 불러오려면 백엔드 연결이 필요합니다." />;
+function Compare({ data, online, isExample }: any) {
+  if (!isExample && !online) return <Empty title="백엔드에 연결되지 않았습니다" desc="비교 데이터를 불러오려면 백엔드 연결이 필요합니다." />;
   if (!data) return <Empty title="불러오는 중…" desc="" />;
-  if (data.status === 'insufficient_data')
+  if (!isExample && data.status === 'insufficient_data')
     return <Empty title="비교할 데이터가 부족합니다" desc="삼성·애플 두 사이트 모두 1회 이상 크롤이 완료되어야 비교가 가능합니다. (지어낸 숫자 없이 실제 수집값만 비교합니다)" />;
   const rows = data.comparison || [];
-  return <div style={{ padding:'18px 24px 60px' }}>
+  return <div id="capture-area" style={{ padding:'18px 24px 60px' }}>
+    {isExample && <div style={{ background:'#FFF8E6', border:'1px solid #FFE5A3', borderRadius:12, padding:'10px 14px', fontSize:12, color:'#8A6D00', marginBottom:14 }}>
+      🔍 <b>예시 화면</b>입니다. 변화가 없을 때는 이렇게 양사의 <b>현행 상태</b>를 비교 분석해 보여줍니다.</div>}
     {data.overall && <div style={{ background:'#fff', borderRadius:16, padding:'15px 17px', boxShadow:'var(--shadow-sm)', marginBottom:14, fontSize:13, lineHeight:1.6, color:'var(--label2)' }}>{data.overall}</div>}
     {rows.map((r:any,i:number)=>(
       <div key={i} style={{ background:'#fff', borderRadius:16, padding:'15px 16px', boxShadow:'var(--shadow-sm)', marginBottom:11 }}>
