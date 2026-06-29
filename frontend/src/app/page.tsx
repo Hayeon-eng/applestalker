@@ -49,10 +49,10 @@ const EXAMPLES: Record<'changes'|'nochange', Report> = {
     has_data:true, run_id:'ex', site:'samsung', timestamp:_now(), has_changes:true,
     by_category:{ '데이터·스키마':2, '카피':2, '가격·프로모션':1, '비주얼':1 }, changes:_changes,
     category_summary:{
-      '데이터·스키마':'경쟁사 2건 (높음 1) — 애플이 제품 스키마를 확장하고 변화 알림 기능을 추가',
-      '카피':'경쟁사 1건 · 당사 1건 — 양사 모두 AI 슬로건을 전면 교체',
-      '가격·프로모션':'당사 1건 — Galaxy AI 무료 기간(2025년 말) 안내 노출',
-      '비주얼':'당사 1건 — 메인 히어로 이미지 교체 감지',
+      '데이터·스키마':'당사는 FAQ·제품 스키마가 일부 페이지에만 있고, 애플은 제품 스키마를 4종으로 확장 — 애플이 AI 검색 노출 기반을 더 촘촘히 가져가는 중',
+      '카피':'당사는 "Galaxy AI, a true AI companion"으로 동반자 컨셉, 애플은 "차세대 Siri"를 전면화 — 양사가 AI 주도권 메시지로 정면 경쟁',
+      '가격·프로모션':'당사는 "Galaxy AI 2025년 말까지 무료"·Trade-in을 노출, 애플은 가격 노출 없음 — 당사가 가격·혜택 소구가 더 적극적',
+      '비주얼':'당사는 메인 히어로 이미지를 교체, 애플은 변동 없음 — 당사 비주얼 리프레시 주기가 빠름',
     },
     analysis:{ summary:'', aeo_implications:'※ 예시 화면입니다. "이전" 값은 과거 시점을 알 수 없어 가상으로 표시했고, "현재" 값만 실제 사이트에서 관찰한 문구입니다.', insights:[], actions:[] } },
   // ② 변화 없음 (= 현행 분석)
@@ -60,13 +60,13 @@ const EXAMPLES: Record<'changes'|'nochange', Report> = {
     has_data:true, run_id:'ex0', site:'samsung', timestamp:_now(), has_changes:false,
     by_category:{ ..._emptyCat }, changes:[],
     category_summary:{
-      '데이터·스키마':'변동 없음 — 현행: 애플 apple-intelligence에 차세대 Siri/Notify Me 노출',
-      '카피':'변동 없음 — 현행: 양사 AI 컴패니언 슬로건 유지',
-      '가격·프로모션':'변동 없음 — 현행: 삼성 Galaxy AI 무료 기간·Trade-in 노출',
-      '비주얼':'변동 없음',
+      '데이터·스키마':'당사는 핵심 페이지 위주로 스키마를 두고, 애플은 제품 상세 전반에 스키마를 적용 — AI 검색 노출 구조에서 애플이 앞섬',
+      '카피':'당사는 "동반자(Companion)" 컨셉을 유지, 애플은 "차세대 Siri" 메시지를 유지 — 메시지 방향성 차이 지속',
+      '가격·프로모션':'당사는 무료 기간·Trade-in을 노출, 애플은 가격을 거의 노출하지 않음 — 가격 소구 전략이 상반됨',
+      '비주얼':'당사·애플 모두 메인 비주얼 변동 없음 — 현행 유지',
     },
-    analysis:{ summary:'직전 크롤 대비 새로 감지된 변화가 없어 현행 상태를 분석했습니다.',
-      aeo_implications:'※ 예시 화면입니다. 변화가 없을 때는 이렇게 현행 분석을 보여줍니다. (현재 값은 실제 관찰 기반)', insights:[], actions:[] } },
+    analysis:{ summary:'직전 크롤 대비 새로 감지된 변화가 없어 현행 상태를 비교 분석했습니다.',
+      aeo_implications:'※ 예시 화면입니다. 변화가 없을 때는 이렇게 양사 현행을 비교합니다. (현재 값은 실제 관찰 기반)', insights:[], actions:[] } },
 };
 
 
@@ -129,8 +129,14 @@ export default function Page() {
       const j = await r.json(); setReport(j.has_data ? j : null); } catch {}
   };
   const delSession = async (ids:string[]) => {
-    if (!online) return;
-    for (const id of ids) { try { await fetch(`${API}/api/runs/${id}`, { method:'DELETE' }); } catch {} }
+    if (!online) { alert('백엔드 연결 후 삭제할 수 있습니다.'); return; }
+    setRuns(prev => prev.filter(s => !s.run_ids.some(r => ids.includes(r))));  // 화면에서 즉시 제거
+    let failed = false;
+    for (const id of ids) {
+      try { const r = await fetch(`${API}/api/runs/${id}`, { method:'DELETE' }); if (!r.ok) failed = true; }
+      catch { failed = true; }
+    }
+    if (failed) alert('일부 기록 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     load();
   };
   const addUrl = async () => {
