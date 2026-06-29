@@ -125,6 +125,11 @@ class CrawlServiceV2:
                        t=datetime.utcnow(), c=len(crawled), ch=len(all_events), r=run_id)
             # 수집된 페이지가 0개면(완전 실패/차단) 빈 기록을 남기지 않고 삭제
             if len(crawled) == 0:
+                # FK 자식/잔재(discovered_urls 등) 먼저 정리해야 부모 삭제가 롤백되지 않음
+                self._exec("DELETE FROM detected_changes WHERE crawl_run_id=:r", r=run_id)
+                self._exec("DELETE FROM page_snapshots  WHERE crawl_run_id=:r", r=run_id)
+                self._exec("DELETE FROM povs WHERE related_crawl_run_id=:r", r=run_id)
+                self._exec("DELETE FROM discovered_urls WHERE crawl_run_id=:r", r=run_id)
                 self._exec("DELETE FROM crawl_runs WHERE crawl_run_id=:r", r=run_id)
                 logger.warning(f"[{run_id}] 0 pages crawled → run record removed")
             self._emit(type="done", run_id=run_id)
