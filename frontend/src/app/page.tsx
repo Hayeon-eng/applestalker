@@ -7,6 +7,7 @@ interface Change { id:number; url:string; site:string; level:'High'|'Medium'|'Lo
   category:string; field:string; summary:string; before?:string; after?:string; evidence?:Record<string,any>; }
 interface Report { has_data:boolean; run_id?:string; site?:string; timestamp?:string;
   has_changes?:boolean; by_category?:Record<string,number>; changes?:Change[];
+  category_summary?:Record<string,string>;
   analysis?:{ summary:string; aeo_implications:string; insights:any[]; actions:any[] }; }
 interface Session { session:string; run_ids:string[]; sites:string[]; pages:number; changes:number; timestamp:string; }
 
@@ -40,27 +41,32 @@ const _changes: Change[] = [
     summary:'메인 화면 이미지가 바뀐 것으로 감지됨', before:PREV, after:'(새 이미지)', evidence:{ '이미지 차이':'14 / 64' } },
 ];
 const _emptyCat = { '데이터·스키마':0, '카피':0, '가격·프로모션':0, '비주얼':0 };
-const _now = () => new Date().toISOString();
+const _now = () => new Date().toISOString().slice(0,16).replace('T',' ');
 
-const EXAMPLES: Record<'changes'|'nochange'|'analysis', Report> = {
+const EXAMPLES: Record<'changes'|'nochange', Report> = {
   // ① 변화 있음
   changes: {
     has_data:true, run_id:'ex', site:'samsung', timestamp:_now(), has_changes:true,
     by_category:{ '데이터·스키마':2, '카피':2, '가격·프로모션':1, '비주얼':1 }, changes:_changes,
-    analysis:{ summary:'애플은 차세대 Siri를 전면에 내세우고 가격·재입고 알림 기능을 추가했습니다. 당사는 Galaxy AI 무료 기간(2025년 말) 안내 문구가 노출돼 있습니다.',
-      aeo_implications:'※ 예시 화면입니다. "이전" 값은 과거 시점을 알 수 없어 가상으로 표시했고, "현재" 값만 실제 사이트에서 관찰한 문구입니다.', insights:[], actions:[] } },
-  // ② 변화 없음
+    category_summary:{
+      '데이터·스키마':'경쟁사 2건 (높음 1) — 애플이 제품 스키마를 확장하고 변화 알림 기능을 추가',
+      '카피':'경쟁사 1건 · 당사 1건 — 양사 모두 AI 슬로건을 전면 교체',
+      '가격·프로모션':'당사 1건 — Galaxy AI 무료 기간(2025년 말) 안내 노출',
+      '비주얼':'당사 1건 — 메인 히어로 이미지 교체 감지',
+    },
+    analysis:{ summary:'', aeo_implications:'※ 예시 화면입니다. "이전" 값은 과거 시점을 알 수 없어 가상으로 표시했고, "현재" 값만 실제 사이트에서 관찰한 문구입니다.', insights:[], actions:[] } },
+  // ② 변화 없음 (= 현행 분석)
   nochange: {
     has_data:true, run_id:'ex0', site:'samsung', timestamp:_now(), has_changes:false,
     by_category:{ ..._emptyCat }, changes:[],
-    analysis:{ summary:'직전 크롤 대비 새로 감지된 변화가 없습니다. (현행 유지)',
-      aeo_implications:'※ 예시 화면입니다. 변화가 없을 때의 모습입니다.', insights:[], actions:[] } },
-  // ③ 현행 분석 (변화 유무와 무관한 상태 분석)
-  analysis: {
-    has_data:true, run_id:'exa', site:'samsung', timestamp:_now(), has_changes:false,
-    by_category:{ ..._emptyCat }, changes:[],
-    analysis:{ summary:'현행 분석: 애플은 apple-intelligence 페이지에 차세대 Siri·"Notify Me"(가격·재입고 알림)를 노출 중이고, 삼성 SG는 Galaxy AI 무료 기간 안내와 Trade-in 프로모션을 노출 중입니다.',
-      aeo_implications:'※ 예시 화면입니다. 변화가 없어도 매 크롤 시 현재 상태를 이렇게 분석합니다. (현재 값은 실제 관찰 기반)', insights:[], actions:[] } },
+    category_summary:{
+      '데이터·스키마':'변동 없음 — 현행: 애플 apple-intelligence에 차세대 Siri/Notify Me 노출',
+      '카피':'변동 없음 — 현행: 양사 AI 컴패니언 슬로건 유지',
+      '가격·프로모션':'변동 없음 — 현행: 삼성 Galaxy AI 무료 기간·Trade-in 노출',
+      '비주얼':'변동 없음',
+    },
+    analysis:{ summary:'직전 크롤 대비 새로 감지된 변화가 없어 현행 상태를 분석했습니다.',
+      aeo_implications:'※ 예시 화면입니다. 변화가 없을 때는 이렇게 현행 분석을 보여줍니다. (현재 값은 실제 관찰 기반)', insights:[], actions:[] } },
 };
 
 
@@ -73,7 +79,7 @@ export default function Page() {
   const [progress, setProgress] = useState<{done:number; total:number; url:string}|null>(null);
   const [showUrl, setShowUrl] = useState(false);
   const [online, setOnline] = useState<boolean|null>(null); // 백엔드 연결 여부
-  const [exampleMode, setExampleMode] = useState<'off'|'changes'|'nochange'|'analysis'>('off');
+  const [exampleMode, setExampleMode] = useState<'off'|'changes'|'nochange'>('off');
   const [compare, setCompare] = useState<any>(null);
   const sse = useRef<EventSource|null>(null);
 
@@ -154,7 +160,7 @@ export default function Page() {
     } catch { alert('캡처에 실패했습니다. 잠시 후 다시 시도해 주세요.'); }
   };
 
-  const data = exampleMode!=='off' ? EXAMPLES[exampleMode] : report;
+  const data = exampleMode!=='off' ? EXAMPLES[exampleMode as 'changes'|'nochange'] : report;
   const isExample = exampleMode!=='off';
   const changes = data?.changes || [];
   const byCat = data?.by_category || {};
@@ -167,7 +173,10 @@ export default function Page() {
       {/* 좌측 */}
       <aside style={{ background:'var(--rail)', borderRight:'1px solid var(--line)', overflow:'auto', display:'flex', flexDirection:'column' }}>
         <div style={{ padding:'20px 18px 8px' }}>
-          <div style={{ fontSize:19, fontWeight:700 }}>Apple Stalker</div>
+          <div style={{ fontSize:19, fontWeight:700, cursor:'pointer', userSelect:'none' }}
+            title="처음 화면으로"
+            onClick={()=>{ setExampleMode('off'); setSel(null); setTab('changes'); load(); }}>
+            <span style={{ marginRight:6 }}>🍎</span>Apple Stalker</div>
           <div className="mono" style={{ fontSize:11, color:'var(--sec)', marginTop:2 }}>경쟁사 웹 변화 감지</div>
           <ConnBadge online={online} />
         </div>
@@ -230,7 +239,7 @@ export default function Page() {
         <div style={{ padding:'10px 14px 16px' }}>
           <div style={{ fontSize:10.5, color:'var(--sec)', fontWeight:600, marginBottom:6 }}>예시 화면 (참고용)</div>
           <div style={{ display:'flex', gap:5 }}>
-            {[['changes','변화 있음'],['nochange','변화 없음'],['analysis','현행 분석']].map(([k,label])=>(
+            {[['changes','변화 있음'],['nochange','변화 없음(현행 분석)']].map(([k,label])=>(
               <button key={k} onClick={()=>{ setExampleMode(exampleMode===k?'off':k as any); setSel(null); }}
                 style={{ flex:1, fontSize:10.5, fontWeight:600, padding:'7px 0', borderRadius:9,
                   color: exampleMode===k?'#fff':'var(--label2)',
@@ -307,9 +316,20 @@ function Changes({ data, byCat, appleN, samsungN, highN, sel, setSel, isExample 
           <Stat n={total} label="전체 변화" />
           <Stat n={highN} label="높음" color="var(--high)" />
         </div>
-        <div style={{ fontSize:13.5, color:'var(--label2)', lineHeight:1.65 }}>
-          {a?.summary || '수집된 변화 요약이 여기에 표시됩니다.'}</div>
-        {a?.aeo_implications && <div style={{ fontSize:12.5, color:'var(--sec)', marginTop:8 }}>{a.aeo_implications}</div>}
+        <div style={{ display:'flex', flexDirection:'column', gap:7, marginTop:2 }}>
+          {CATS.map((cat:any)=>{
+            const line = (data.category_summary || {})[cat.key] || '변동 없음';
+            const none = line === '변동 없음';
+            return (
+              <div key={cat.key} style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
+                <span style={{ fontSize:14, flex:'0 0 auto', width:20, textAlign:'center' }}>{cat.icon}</span>
+                <span style={{ fontSize:12, color:'var(--sec)', flex:'0 0 88px', fontWeight:600 }}>{cat.key}</span>
+                <span style={{ fontSize:12.5, color: none?'var(--ter)':'var(--label2)', lineHeight:1.5 }}>{line}</span>
+              </div>
+            );
+          })}
+        </div>
+        {a?.aeo_implications && <div style={{ fontSize:11.5, color:'var(--ter)', marginTop:10 }}>{a.aeo_implications}</div>}
       </div>
 
       {/* 2칼럼: 경쟁사 vs 당사 */}
