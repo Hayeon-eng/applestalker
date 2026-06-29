@@ -241,10 +241,37 @@ def latest_report(run_id: Optional[str] = None):
             ins += _loads(pov[0][2]); act += _loads(pov[0][3])
     analysis = {"summary": " ".join(summ), "aeo_implications": " ".join(aeo),
                 "insights": ins, "actions": act}
+    # 영역별 한 줄 요약 (사실 기반: 어느 사이트가 이 영역에서 무엇을, 몇 건). 아래 카드와 중복되지 않게 '종합' 수준.
+    cat_summary = _category_summaries(changes)
     return {"has_data": True, "run_id": rids[0], "session": target_key,
             "timestamp": _kst_str(started),
             "has_changes": len(changes) > 0, "by_category": by_cat,
+            "category_summary": cat_summary,
             "changes": changes, "analysis": analysis}
+
+
+def _category_summaries(changes):
+    """4개 영역별 한 줄 요약. 데이터에 있는 사실만 사용(추측 없음)."""
+    cats = ["데이터·스키마", "카피", "가격·프로모션", "비주얼"]
+    out = {}
+    for cat in cats:
+        items = [c for c in changes if c["category"] == cat]
+        if not items:
+            out[cat] = "변동 없음"
+            continue
+        a = sum(1 for c in items if c["site"] == "apple")
+        s = sum(1 for c in items if c["site"] == "samsung")
+        high = sum(1 for c in items if c["level"] == "High")
+        parts = []
+        if a: parts.append(f"경쟁사 {a}건")
+        if s: parts.append(f"당사 {s}건")
+        line = " · ".join(parts)
+        if high:
+            line += f" (높음 {high})"
+        # 대표 변화 1건의 요약을 덧붙여 맥락 제공(겹치지 않게 1개만)
+        lead = items[0]["summary"]
+        out[cat] = f"{line} — {lead}"
+    return out
 
 
 def _loads(s):

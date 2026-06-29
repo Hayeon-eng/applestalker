@@ -52,11 +52,12 @@ class HybridCrawler:
         self.user_agent = user_agent or _DEFAULT_UA
         self.http_timeout = http_timeout
         self.js_timeout_ms = js_timeout_ms
-        # 환경변수로 제어 (Render 메모리 빠듯하면 USE_PLAYWRIGHT=false 로 끄기)
+        # 환경변수로 제어. 무료 512MB 보호를 위해 기본은 OFF(httpx 전용).
+        # 브라우저가 꼭 필요하면 USE_PLAYWRIGHT=true 로 명시적으로 켤 것.
         self.enable_playwright = (
             enable_playwright
             if enable_playwright is not None
-            else os.getenv("USE_PLAYWRIGHT", "true").lower() == "true"
+            else os.getenv("USE_PLAYWRIGHT", "false").lower() == "true"
         )
         self.enable_screenshot = (
             enable_screenshot
