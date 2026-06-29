@@ -167,13 +167,18 @@ def runs():
 
 @app.delete("/api/runs/{run_id}")
 def delete_run(run_id: str):
-    """크롤 이력 1건 삭제 (관련 변화·스냅샷·분석도 함께)."""
+    """크롤 이력 1건 삭제 (관련 변화·스냅샷·분석도 함께). 어떤 단계가 실패해도 끝까지 진행."""
     with sync_engine.connect() as c:
-        for t in ("detected_changes", "page_snapshots"):
-            c.execute(text(f"DELETE FROM {t} WHERE crawl_run_id=:r"), {"r": run_id})
-        c.execute(text("DELETE FROM povs WHERE related_crawl_run_id=:r"), {"r": run_id})
-        c.execute(text("DELETE FROM crawl_runs WHERE crawl_run_id=:r"), {"r": run_id})
-        c.commit()
+        for sql in (
+            "DELETE FROM detected_changes WHERE crawl_run_id=:r",
+            "DELETE FROM page_snapshots WHERE crawl_run_id=:r",
+            "DELETE FROM povs WHERE related_crawl_run_id=:r",
+            "DELETE FROM crawl_runs WHERE crawl_run_id=:r",
+        ):
+            try:
+                c.execute(text(sql), {"r": run_id}); c.commit()
+            except Exception as e:
+                c.rollback(); logger.warning(f"delete skip: {e}")
     return {"status": "deleted", "run_id": run_id}
 
 
