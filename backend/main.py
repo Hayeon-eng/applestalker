@@ -398,23 +398,12 @@ def screenshots(url: str = Query(...)):
     return {"status": "ok", "before": before, "after": after, "regions": regions}
 
 
-# ── Export ──
+# ── Export (화면 변경점 그대로) ──
 @app.get("/api/export/xlsx")
-def export_xlsx():
+def export_xlsx(run_id: Optional[str] = None):
     from export_service import build_xlsx, filename
-    runs_ = [dict(crawl_run_id=r[0], site_name=r[1], started_at=str(r[2]), status="completed",
-                  total_urls_crawled=r[3], total_changes_detected=r[4])
-             for r in q("SELECT crawl_run_id,site_name,started_at,total_urls_crawled,total_changes_detected "
-                        "FROM crawl_runs ORDER BY started_at DESC LIMIT 100")]
-    changes = [dict(url=r[0], severity_level=r[1], change_type=r[2], field_name=r[3],
-                    summary=r[4], before_value=r[5], after_value=r[6], detected_at=str(r[7]))
-               for r in q("SELECT url,severity_level,change_type,field_name,summary,before_value,after_value,detected_at "
-                          "FROM detected_changes ORDER BY detected_at DESC LIMIT 2000")]
-    pages = [dict(url=r[0], title=r[1], h1=r[2], word_count=r[3], faqs=[],
-                  schema_types=[], crawled_at=str(r[4]))
-             for r in q("SELECT url,title,h1,word_count,crawled_at FROM page_snapshots "
-                        "ORDER BY crawled_at DESC LIMIT 2000")]
-    data = build_xlsx(runs_, changes, pages)
+    rep = latest_report(run_id)
+    data = build_xlsx(rep.get("changes", []), title="변경점", timestamp=rep.get("timestamp", ""))
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename('apple_stalker','xlsx')}"})
@@ -424,16 +413,11 @@ def export_xlsx():
 def export_pptx(run_id: Optional[str] = None):
     from export_service import build_pptx, filename
     rep = latest_report(run_id)
-    report = {"site_name": rep.get("site", ""), "timestamp": rep.get("timestamp", ""),
-              "analysis": {"change_summary": (rep.get("analysis") or {}).get("summary", ""),
-                           "samsung_comparison": (rep.get("analysis") or {}).get("aeo_implications", ""),
-                           "insights": (rep.get("analysis") or {}).get("insights", []),
-                           "action_items": (rep.get("analysis") or {}).get("actions", [])},
-              "data_changes": [{"url": c["url"], "severity": c["level"]} for c in rep.get("changes", [])]}
-    data = build_pptx(report)
+    data = build_pptx(rep.get("changes", []), title="변경점", timestamp=rep.get("timestamp", ""),
+                      summary=(rep.get("analysis") or {}).get("summary", ""))
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f"attachment; filename={filename('report','pptx')}"})
+        headers={"Content-Disposition": f"attachment; filename={filename('apple_stalker','pptx')}"})
 
 
 # ── Cron tick (GitHub Actions) ──
