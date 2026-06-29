@@ -101,6 +101,30 @@ def q(sql, **p):
         return c.execute(text(sql), p).fetchall()
 
 
+# ── KST(한국시간) 변환 + 하루 2회 세션 구분 ──
+from datetime import timedelta, datetime as _dt
+
+def _to_kst(dt):
+    if not dt:
+        return None
+    if isinstance(dt, str):
+        try: dt = _dt.fromisoformat(dt.replace("Z", ""))
+        except Exception: return dt
+    return dt + timedelta(hours=9)
+
+def _kst_str(dt):
+    k = _to_kst(dt)
+    return k.strftime("%Y-%m-%d %H:%M") if k else ""
+
+def _session_key(dt):
+    """하루 2회 슬롯: KST 날짜 + 오전/오후. (started_at 은 UTC 저장)"""
+    k = _to_kst(dt)
+    if not k:
+        return "unknown"
+    slot = "오전" if k.hour < 12 else "오후"
+    return f"{k.strftime('%Y-%m-%d')} {slot}"
+
+
 @app.get("/")
 def root():
     """루트 접속 시 안내 (detail Not Found 방지)."""
@@ -123,9 +147,22 @@ def health():
 @app.get("/api/runs")
 def runs():
     rows = q("SELECT crawl_run_id, site_name, started_at, total_urls_crawled, total_changes_detected "
-             "FROM crawl_runs ORDER BY started_at DESC LIMIT 20")
-    return {"runs": [{"run_id": r[0], "site": r[1], "timestamp": str(r[2]),
-                      "pages": r[3] or 0, "changes": r[4] or 0} for r in rows]}
+             "FROM crawl_runs WHERE status='completed' ORDER BY started_at DESC LIMIT 60")
+    # 하루 2회(오전/오후) 세션으로 묶고 삼성+애플 합산
+    sessions = {}
+    for r in rows:
+        key = _session_key(r[2])
+        s = sessions.setdefault(key, {"session": key, "run_ids": [], "sites": set(),
+                                       "pages": 0, "changes": 0, "latest": r[2]})
+        s["run_ids"].append(r[0]); s["sites"].add(r[1])
+        s["pages"] += (r[3] or 0); s["changes"] += (r[4] or 0)
+        if r[2] and (not s["latest"] or r[2] > s["latest"]): s["latest"] = r[2]
+    out = [{"session": v["session"], "run_ids": v["run_ids"],
+            "sites": sorted(v["sites"]), "pages": v["pages"], "changes": v["changes"],
+            "timestamp": _kst_str(v["latest"])}
+           for v in sessions.values()]
+    out.sort(key=lambda x: x["timestamp"], reverse=True)
+    return {"sessions": out[:30]}
 
 
 @app.delete("/api/runs/{run_id}")
@@ -157,36 +194,50 @@ def clear_empty_runs():
 # ── 메인 데이터: 변경점(최근 1회) + 카테고리 묶음 + 현황분석 ──
 @app.get("/api/latest-report")
 def latest_report(run_id: Optional[str] = None):
-    if run_id:
-        rows = q("SELECT crawl_run_id, site_name, started_at FROM crawl_runs WHERE crawl_run_id=:r", r=run_id)
-    else:
-        rows = q("SELECT crawl_run_id, site_name, started_at FROM crawl_runs "
-                 "WHERE status='completed' ORDER BY started_at DESC LIMIT 1")
-    if not rows:
+    # 대상 run_id 목록 결정: 특정 run 지정 시 그 세션 전체, 아니면 가장 최근 세션
+    allruns = q("SELECT crawl_run_id, site_name, started_at FROM crawl_runs "
+                "WHERE status='completed' ORDER BY started_at DESC LIMIT 60")
+    if not allruns:
         return {"has_data": False, "message": "크롤 데이터가 없습니다. 크롤을 실행하세요."}
-    rid, site, started = rows[0]
-    ch = q("SELECT id,url,severity_level,change_type,field_name,summary,before_value,after_value,evidence "
-           "FROM detected_changes WHERE crawl_run_id=:r ORDER BY severity_level DESC, id DESC", r=rid)
+    # 세션키별로 묶기
+    by_sess = {}
+    for rid, site, started in allruns:
+        by_sess.setdefault(_session_key(started), []).append((rid, site, started))
+    if run_id:
+        target_key = next((_session_key(s) for r, _, s in allruns if r == run_id), None)
+    else:
+        target_key = _session_key(allruns[0][2])  # 가장 최근
+    target_runs = by_sess.get(target_key, [allruns[0]])
+    rids = [r[0] for r in target_runs]
+    started = max(r[2] for r in target_runs)
+
     changes, by_cat = [], {"데이터·스키마": 0, "카피": 0, "가격·프로모션": 0, "비주얼": 0}
-    for c in ch:
-        cat = CATEGORY.get(c[3], "데이터·스키마")
-        by_cat[cat] = by_cat.get(cat, 0) + 1
-        changes.append({
-            "id": c[0], "url": c[1], "site": site_key_for_url(c[1]) or site,
-            "level": display_level(c[3], c[4], c[2]), "level_raw": c[2],
-            "category": cat, "field": c[4], "summary": c[5],
-            "before": c[6], "after": c[7],
-            "evidence": json.loads(c[8]) if c[8] else {},
-        })
-    pov = q("SELECT observation, hypothesis, opportunity, recommended_action "
-            "FROM povs WHERE related_crawl_run_id=:r LIMIT 1", r=rid)
-    analysis = {}
-    if pov:
-        analysis = {
-            "summary": pov[0][0] or "", "aeo_implications": pov[0][1] or "",
-            "insights": _loads(pov[0][2]), "actions": _loads(pov[0][3]),
-        }
-    return {"has_data": True, "run_id": rid, "site": site, "timestamp": str(started),
+    for rid in rids:
+        ch = q("SELECT id,url,severity_level,change_type,field_name,summary,before_value,after_value,evidence "
+               "FROM detected_changes WHERE crawl_run_id=:r ORDER BY severity_level DESC, id DESC", r=rid)
+        for c in ch:
+            cat = CATEGORY.get(c[3], "데이터·스키마")
+            by_cat[cat] = by_cat.get(cat, 0) + 1
+            changes.append({
+                "id": c[0], "url": c[1], "site": site_key_for_url(c[1]) or "samsung",
+                "level": display_level(c[3], c[4], c[2]), "level_raw": c[2],
+                "category": cat, "field": c[4], "summary": c[5],
+                "before": c[6], "after": c[7],
+                "evidence": json.loads(c[8]) if c[8] else {},
+            })
+    # 분석(POV)은 세션 내 run들 중 있는 것 모으기
+    ins, act, summ, aeo = [], [], [], []
+    for rid in rids:
+        pov = q("SELECT observation, hypothesis, opportunity, recommended_action "
+                "FROM povs WHERE related_crawl_run_id=:r LIMIT 1", r=rid)
+        if pov:
+            if pov[0][0]: summ.append(pov[0][0])
+            if pov[0][1]: aeo.append(pov[0][1])
+            ins += _loads(pov[0][2]); act += _loads(pov[0][3])
+    analysis = {"summary": " ".join(summ), "aeo_implications": " ".join(aeo),
+                "insights": ins, "actions": act}
+    return {"has_data": True, "run_id": rids[0], "session": target_key,
+            "timestamp": _kst_str(started),
             "has_changes": len(changes) > 0, "by_category": by_cat,
             "changes": changes, "analysis": analysis}
 
