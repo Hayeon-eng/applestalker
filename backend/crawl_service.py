@@ -123,6 +123,10 @@ class CrawlServiceV2:
                           total_urls_crawled=:c, total_changes_detected=:ch
                           WHERE crawl_run_id=:r""",
                        t=datetime.utcnow(), c=len(crawled), ch=len(all_events), r=run_id)
+            # 수집된 페이지가 0개면(완전 실패/차단) 빈 기록을 남기지 않고 삭제
+            if len(crawled) == 0:
+                self._exec("DELETE FROM crawl_runs WHERE crawl_run_id=:r", r=run_id)
+                logger.warning(f"[{run_id}] 0 pages crawled → run record removed")
             self._emit(type="done", run_id=run_id)
             logger.info(f"[{run_id}] done: {len(crawled)} pages, {len(all_events)} events, max={summary['max_level']}")
             return {"crawl_run_id": run_id, "site_name": site_key, "status": "completed",

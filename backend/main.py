@@ -54,6 +54,19 @@ def q(sql, **p):
         return c.execute(text(sql), p).fetchall()
 
 
+@app.get("/")
+def root():
+    """루트 접속 시 안내 (detail Not Found 방지)."""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(
+        "<div style='font-family:-apple-system,sans-serif;max-width:520px;margin:60px auto;"
+        "color:#1C1C1E;line-height:1.6'>"
+        "<h2>🍎 Apple Stalker — Backend</h2>"
+        "<p>백엔드는 정상 작동 중입니다. 이 주소는 API 전용이며, 화면은 프론트엔드에서 보세요.</p>"
+        "<p style='color:#8E8E93;font-size:14px'>상태 확인: "
+        "<a href='/api/health'>/api/health</a></p></div>")
+
+
 # ── health / runs ──
 @app.get("/api/health")
 def health():
@@ -66,6 +79,32 @@ def runs():
              "FROM crawl_runs ORDER BY started_at DESC LIMIT 20")
     return {"runs": [{"run_id": r[0], "site": r[1], "timestamp": str(r[2]),
                       "pages": r[3] or 0, "changes": r[4] or 0} for r in rows]}
+
+
+@app.delete("/api/runs/{run_id}")
+def delete_run(run_id: str):
+    """크롤 이력 1건 삭제 (관련 변화·스냅샷·분석도 함께)."""
+    with sync_engine.connect() as c:
+        for t in ("detected_changes", "page_snapshots"):
+            c.execute(text(f"DELETE FROM {t} WHERE crawl_run_id=:r"), {"r": run_id})
+        c.execute(text("DELETE FROM povs WHERE related_crawl_run_id=:r"), {"r": run_id})
+        c.execute(text("DELETE FROM crawl_runs WHERE crawl_run_id=:r"), {"r": run_id})
+        c.commit()
+    return {"status": "deleted", "run_id": run_id}
+
+
+@app.delete("/api/runs")
+def clear_empty_runs():
+    """변경 0건이거나 페이지 0개인 빈 크롤 기록 일괄 정리."""
+    with sync_engine.connect() as c:
+        rows = c.execute(text("SELECT crawl_run_id FROM crawl_runs "
+                              "WHERE COALESCE(total_changes_detected,0)=0 "
+                              "AND COALESCE(total_urls_crawled,0)=0")).fetchall()
+        ids = [r[0] for r in rows]
+        for rid in ids:
+            c.execute(text("DELETE FROM crawl_runs WHERE crawl_run_id=:r"), {"r": rid})
+        c.commit()
+    return {"status": "cleared", "removed": len(ids)}
 
 
 # ── 메인 데이터: 변경점(최근 1회) + 카테고리 묶음 + 현황분석 ──
