@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 interface Change { id:number; url:string; site:string; level:'High'|'Medium'|'Low';
   category:string; field:string; summary:string; before?:string; after?:string; evidence?:Record<string,any>; }
@@ -63,9 +63,12 @@ export default function Page() {
     try {
       const h = await fetch(`${API}/api/health`); if (!h.ok) throw 0;
       setOnline(true);
-      const r = await fetch(`${API}/api/latest-report`); const j = await r.json();
-      setReport(j.has_data ? j : null);
-      const rr = await fetch(`${API}/api/runs`); setRuns((await rr.json()).runs || []);
+      try {
+        const r = await fetch(`${API}/api/latest-report`);
+        const j = await r.json();
+        setReport(r.ok && j.has_data ? j : null);   // 에러/무데이터면 빈 상태
+      } catch { setReport(null); }
+      try { const rr = await fetch(`${API}/api/runs`); setRuns((await rr.json()).runs || []); } catch { setRuns([]); }
     } catch { setOnline(false); setReport(null); }
   }, []);
   useEffect(() => { load(); }, [load]);
