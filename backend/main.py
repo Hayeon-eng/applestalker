@@ -1,0 +1,331 @@
+"""
+main.py — FastAPI 백엔드 (단일 파일에 엔드포인트 통합, 단순화)
+프론트(Next.js)는 별도 서비스. 이 백엔드는 /api/* 만 제공.
+"""
+import os, json, asyncio
+from datetime import datetime
+from typing import Optional, List
+from contextlib import asynccontextmanager
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy import text
+from loguru import logger
+
+load_dotenv()
+
+from database import engine, SessionLocal, init_db, sync_engine, prune_old_snapshots
+from crawl_service import CrawlServiceV2
+from intel_engine import IntelEngine, aeo_facts
+from email_service import EmailService
+from config import SEED_TARGETS, load_active_urls, all_site_keys, site_key_for_url, tier_for_url
+
+CRON_TOKEN = os.getenv("CRON_TOKEN", "change-me")
+SITE_KEYS = ["samsung", "apple"]
+
+# ── 카테고리/레벨 매핑 (UI 단순화: High/Med/Low, 4 카테고리) ──
+CATEGORY = {  # change_type → 화면 카테고리
+    "technical": "데이터·스키마", "navigation": "데이터·스키마",
+    "content": "카피", "commerce": "가격·프로모션", "visual": "비주얼",
+}
+LEVEL3 = {"L5": "High", "L4": "High", "L3": "Medium", "L2": "Medium", "L1": "Low", "L0": "Low"}
+
+crawl_state = {"crawling": False, "events": [], "run_id": None}
+crawl_service = CrawlServiceV2(SessionLocal, sync_engine, crawl_state)
+email_service = EmailService(sync_engine)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    logger.info("backend up")
+    yield
+
+
+app = FastAPI(title="Apple Stalker API", version="2.0", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+def q(sql, **p):
+    with sync_engine.connect() as c:
+        return c.execute(text(sql), p).fetchall()
+
+
+# ── health / runs ──
+@app.get("/api/health")
+def health():
+    return {"status": "healthy", "gemini": IntelEngine().is_available(), "ts": datetime.utcnow().isoformat()}
+
+
+@app.get("/api/runs")
+def runs():
+    rows = q("SELECT crawl_run_id, site_name, started_at, total_urls_crawled, total_changes_detected "
+             "FROM crawl_runs ORDER BY started_at DESC LIMIT 20")
+    return {"runs": [{"run_id": r[0], "site": r[1], "timestamp": str(r[2]),
+                      "pages": r[3] or 0, "changes": r[4] or 0} for r in rows]}
+
+
+# ── 메인 데이터: 변경점(최근 1회) + 카테고리 묶음 + 현황분석 ──
+@app.get("/api/latest-report")
+def latest_report(run_id: Optional[str] = None):
+    if run_id:
+        rows = q("SELECT crawl_run_id, site_name, started_at FROM crawl_runs WHERE crawl_run_id=:r", r=run_id)
+    else:
+        rows = q("SELECT crawl_run_id, site_name, started_at FROM crawl_runs "
+                 "WHERE status='completed' ORDER BY started_at DESC LIMIT 1")
+    if not rows:
+        return {"has_data": False, "message": "크롤 데이터가 없습니다. 크롤을 실행하세요."}
+    rid, site, started = rows[0]
+    ch = q("SELECT id,url,severity_level,change_type,field_name,summary,before_value,after_value,evidence "
+           "FROM detected_changes WHERE crawl_run_id=:r ORDER BY severity_level DESC, id DESC", r=rid)
+    changes, by_cat = [], {"데이터·스키마": 0, "카피": 0, "가격·프로모션": 0, "비주얼": 0}
+    for c in ch:
+        cat = CATEGORY.get(c[3], "데이터·스키마")
+        by_cat[cat] = by_cat.get(cat, 0) + 1
+        changes.append({
+            "id": c[0], "url": c[1], "site": site_key_for_url(c[1]) or site,
+            "level": LEVEL3.get(c[2], "Low"), "level_raw": c[2],
+            "category": cat, "field": c[4], "summary": c[5],
+            "before": c[6], "after": c[7],
+            "evidence": json.loads(c[8]) if c[8] else {},
+        })
+    pov = q("SELECT observation, hypothesis, opportunity, recommended_action "
+            "FROM povs WHERE related_crawl_run_id=:r LIMIT 1", r=rid)
+    analysis = {}
+    if pov:
+        analysis = {
+            "summary": pov[0][0] or "", "aeo_implications": pov[0][1] or "",
+            "insights": _loads(pov[0][2]), "actions": _loads(pov[0][3]),
+        }
+    return {"has_data": True, "run_id": rid, "site": site, "timestamp": str(started),
+            "has_changes": len(changes) > 0, "by_category": by_cat,
+            "changes": changes, "analysis": analysis}
+
+
+def _loads(s):
+    try:
+        return json.loads(s) if s else []
+    except Exception:
+        return []
+
+
+# ── 현황 비교 (삼성 ↔ 애플) ──
+@app.get("/api/compare")
+def compare(ours: str = "samsung", theirs: str = "apple"):
+    def latest_pages(sk):
+        run = q("SELECT crawl_run_id FROM crawl_runs WHERE site_name=:s AND status='completed' "
+                "ORDER BY started_at DESC LIMIT 1", s=sk)
+        if not run:
+            return []
+        rows = q("SELECT url,title,meta_description,body_content,structural_signature,word_count "
+                 "FROM page_snapshots WHERE crawl_run_id=:r", r=run[0][0])
+        out = []
+        for r in rows:
+            sig = _loads(r[4])
+            out.append({"url": r[0], "title": r[1], "meta_description": r[2],
+                        "body_content": r[3] or "", "word_count": r[5] or 0,
+                        "schema_types": sig.get("schema_types", []),
+                        "faqs": [None] * sig.get("faq_count", 0)})
+        return out
+    op, tp = latest_pages(ours), latest_pages(theirs)
+    if not op or not tp:
+        return {"status": "insufficient_data",
+                "reason": "두 사이트 모두 1회 이상 크롤이 완료되어야 비교가 가능합니다.",
+                "ours_pages": len(op), "theirs_pages": len(tp)}
+    intel = IntelEngine()
+    res = intel.compare(
+        ours={"display": SEED_TARGETS[ours].display_name, "facts": aeo_facts(op), "pages": op},
+        theirs={"display": SEED_TARGETS[theirs].display_name, "facts": aeo_facts(tp), "pages": tp})
+    res["status"] = res.get("status", "ok"); res["ours"] = ours; res["theirs"] = theirs
+    return res
+
+
+# ── 타임라인(필터) ──
+@app.get("/api/timeline")
+def timeline(level: Optional[str] = None, category: Optional[str] = None, limit: int = 100):
+    rows = q("SELECT id,url,severity_level,change_type,field_name,summary,detected_at "
+             "FROM detected_changes ORDER BY detected_at DESC LIMIT :l", l=limit)
+    items = []
+    for r in rows:
+        lv = LEVEL3.get(r[2], "Low"); cat = CATEGORY.get(r[3], "데이터·스키마")
+        if level and lv != level: continue
+        if category and cat != category: continue
+        items.append({"id": r[0], "url": r[1], "level": lv, "category": cat,
+                      "site": site_key_for_url(r[1]), "field": r[4],
+                      "summary": r[5], "detected_at": str(r[6])})
+    return {"items": items}
+
+
+# ── 크롤 트리거 / 진행률 ──
+@app.post("/trigger-crawl/all")
+async def trigger_all():
+    if crawl_state["crawling"]:
+        raise HTTPException(409, "이미 크롤 진행 중")
+    crawl_state.update(crawling=True, events=[], run_id=f"manual_{datetime.now():%Y%m%d_%H%M%S}")
+
+    async def run():
+        try:
+            for sk in SITE_KEYS:
+                await crawl_service.execute_crawl(sk)
+        finally:
+            crawl_state["crawling"] = False
+    asyncio.create_task(run())
+    return {"status": "started"}
+
+
+@app.get("/api/crawl-status")
+def crawl_status():
+    return {"crawling": crawl_state["crawling"], "run_id": crawl_state["run_id"]}
+
+
+@app.get("/api/crawl-progress")
+async def crawl_progress():
+    async def gen():
+        last = 0
+        while True:
+            evs = crawl_state["events"]
+            while last < len(evs):
+                yield f"data: {json.dumps(evs[last], ensure_ascii=False)}\n\n"; last += 1
+            if not crawl_state["crawling"] and last >= len(evs):
+                yield f"data: {json.dumps({'type':'status','crawling':False})}\n\n"; break
+            yield f"data: {json.dumps({'type':'heartbeat'})}\n\n"
+            await asyncio.sleep(1)
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ── URL 관리 ──
+class AddURL(BaseModel):
+    url: str
+    site_key: Optional[str] = None
+
+
+@app.get("/api/urls")
+def list_urls(site_key: Optional[str] = None):
+    db = {}
+    for r in q("SELECT site_key,url FROM monitored_urls WHERE enabled=true"):
+        db.setdefault(r[0], []).append(r[1])
+    keys = [site_key] if site_key else all_site_keys()
+    out = []
+    for k in keys:
+        out += load_active_urls(k, db.get(k, []))
+    return {"urls": out, "total": len(out)}
+
+
+@app.post("/api/urls")
+def add_url(req: AddURL):
+    u = req.url.strip()
+    if not u.startswith("http"):
+        raise HTTPException(400, "유효한 URL(http...) 이어야 합니다")
+    sk = req.site_key or site_key_for_url(u) or "unknown"
+    with sync_engine.connect() as c:
+        c.execute(text("INSERT INTO monitored_urls (site_key,url,tier_level,enabled,created_at) "
+                       "VALUES (:s,:u,:t,true,:c) ON CONFLICT (url) DO UPDATE SET enabled=true"),
+                  {"s": sk, "u": u, "t": tier_for_url(u), "c": datetime.utcnow()})
+        c.commit()
+    return {"status": "added", "url": u, "site_key": sk}
+
+
+@app.delete("/api/urls")
+def del_url(url: str = Query(...)):
+    with sync_engine.connect() as c:
+        c.execute(text("UPDATE monitored_urls SET enabled=false WHERE url=:u"), {"u": url}); c.commit()
+    return {"status": "disabled", "url": url}
+
+
+# ── 이미지 비교샷 ──
+@app.get("/api/snapshot/screenshots")
+def screenshots(url: str = Query(...)):
+    rows = q("SELECT screenshot_thumb, screenshot_phash, crawled_at FROM page_snapshots "
+             "WHERE url=:u AND screenshot_thumb IS NOT NULL ORDER BY crawled_at DESC LIMIT 2", u=url)
+    if not rows:
+        return {"status": "no_image"}
+    after = {"thumb": rows[0][0], "phash": rows[0][1], "at": str(rows[0][2])}
+    before = {"thumb": rows[1][0], "phash": rows[1][1], "at": str(rows[1][2])} if len(rows) > 1 else None
+    regions = []
+    if before:
+        from diff_engine import diff_regions, hamming_distance
+        regions = diff_regions(before["thumb"], after["thumb"])
+        after["hamming"] = hamming_distance(before["phash"], after["phash"])
+    return {"status": "ok", "before": before, "after": after, "regions": regions}
+
+
+# ── Export ──
+@app.get("/api/export/xlsx")
+def export_xlsx():
+    from export_service import build_xlsx, filename
+    runs_ = [dict(crawl_run_id=r[0], site_name=r[1], started_at=str(r[2]), status="completed",
+                  total_urls_crawled=r[3], total_changes_detected=r[4])
+             for r in q("SELECT crawl_run_id,site_name,started_at,total_urls_crawled,total_changes_detected "
+                        "FROM crawl_runs ORDER BY started_at DESC LIMIT 100")]
+    changes = [dict(url=r[0], severity_level=r[1], change_type=r[2], field_name=r[3],
+                    summary=r[4], before_value=r[5], after_value=r[6], detected_at=str(r[7]))
+               for r in q("SELECT url,severity_level,change_type,field_name,summary,before_value,after_value,detected_at "
+                          "FROM detected_changes ORDER BY detected_at DESC LIMIT 2000")]
+    pages = [dict(url=r[0], title=r[1], h1=r[2], word_count=r[3], faqs=[],
+                  schema_types=[], crawled_at=str(r[4]))
+             for r in q("SELECT url,title,h1,word_count,crawled_at FROM page_snapshots "
+                        "ORDER BY crawled_at DESC LIMIT 2000")]
+    data = build_xlsx(runs_, changes, pages)
+    return StreamingResponse(iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename('apple_stalker','xlsx')}"})
+
+
+@app.get("/api/export/pptx")
+def export_pptx(run_id: Optional[str] = None):
+    from export_service import build_pptx, filename
+    rep = latest_report(run_id)
+    report = {"site_name": rep.get("site", ""), "timestamp": rep.get("timestamp", ""),
+              "analysis": {"change_summary": (rep.get("analysis") or {}).get("summary", ""),
+                           "samsung_comparison": (rep.get("analysis") or {}).get("aeo_implications", ""),
+                           "insights": (rep.get("analysis") or {}).get("insights", []),
+                           "action_items": (rep.get("analysis") or {}).get("actions", [])},
+              "data_changes": [{"url": c["url"], "severity": c["level"]} for c in rep.get("changes", [])]}
+    data = build_pptx(report)
+    return StreamingResponse(iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f"attachment; filename={filename('report','pptx')}"})
+
+
+# ── Cron tick (GitHub Actions) ──
+@app.api_route("/api/cron/tick", methods=["GET", "POST"])
+async def cron_tick(token: str = Query(...), site: Optional[str] = None):
+    if token != CRON_TOKEN:
+        raise HTTPException(403, "invalid token")
+    results = []
+    for sk in ([site] if site else SITE_KEYS):
+        try:
+            r = await crawl_service.execute_crawl(sk)
+            results.append({"site": sk, "status": r.get("status"), "changes": r.get("changes_detected")})
+        except Exception as e:
+            results.append({"site": sk, "status": "failed", "error": str(e)})
+    prune_old_snapshots(int(os.getenv("KEEP_SNAPSHOTS", "5")))
+    # 크롤 후 리포트 메일
+    try:
+        rt = "morning" if datetime.utcnow().hour < 3 else "afternoon"
+        email_service.send(rt)
+    except Exception as e:
+        logger.warning(f"email skip: {e}")
+    return {"ran_at": datetime.utcnow().isoformat(), "results": results}
+
+
+# ── Email ──
+@app.post("/api/email/test")
+def email_test():
+    r = email_service.send("test")
+    if r["status"] == "sent":
+        return r
+    raise HTTPException(400 if r["status"] == "skipped" else 500, r.get("reason") or r.get("error"))
+
+
+@app.get("/api/email/report/send")
+def email_send(report_type: str = "morning"):
+    return email_service.send(report_type)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=True)
