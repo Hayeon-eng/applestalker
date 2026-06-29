@@ -251,7 +251,7 @@ def latest_report(run_id: Optional[str] = None):
 
 
 def _category_summaries(changes):
-    """4개 영역별 한 줄 요약. 데이터에 있는 사실만 사용(추측 없음)."""
+    """4개 영역별 한 줄 요약(비교형). 데이터에 있는 사실만 사용(추측 없음)."""
     cats = ["데이터·스키마", "카피", "가격·프로모션", "비주얼"]
     out = {}
     for cat in cats:
@@ -259,18 +259,18 @@ def _category_summaries(changes):
         if not items:
             out[cat] = "변동 없음"
             continue
-        a = sum(1 for c in items if c["site"] == "apple")
-        s = sum(1 for c in items if c["site"] == "samsung")
+        ours = [c for c in items if c["site"] == "samsung"]
+        theirs = [c for c in items if c["site"] == "apple"]
+        seg = []
+        if ours:
+            seg.append(f"당사는 {ours[0]['summary']}")
+        if theirs:
+            seg.append(f"애플은 {theirs[0]['summary']}")
+        line = ", ".join(seg)
         high = sum(1 for c in items if c["level"] == "High")
-        parts = []
-        if a: parts.append(f"경쟁사 {a}건")
-        if s: parts.append(f"당사 {s}건")
-        line = " · ".join(parts)
         if high:
-            line += f" (높음 {high})"
-        # 대표 변화 1건의 요약을 덧붙여 맥락 제공(겹치지 않게 1개만)
-        lead = items[0]["summary"]
-        out[cat] = f"{line} — {lead}"
+            line += f" (높음 {high}건)"
+        out[cat] = line
     return out
 
 
