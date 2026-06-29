@@ -186,26 +186,41 @@ def _delete_run_cascade(conn, run_id: str) -> bool:
     """run 1건 + 매달린 모든 자식 레코드를 '같은 트랜잭션'에서 삭제.
     crawl_runs 행이 실제로 사라졌는지(True/False) 반환. commit/rollback 은 호출측(begin) 책임."""
     is_pg = conn.dialect.name == "postgresql"
-    # 1) 앱이 직접 쓰는 자식들 (모델상 FK 제약은 없지만 같은 run 에 매달림)
+
+    # 1) 앱이 직접 쓰는 자식들
     conn.execute(text("DELETE FROM detected_changes WHERE crawl_run_id=:r"), {"r": run_id})
-    conn.execute(text("DELETE FROM page_snapshots  WHERE crawl_run_id=:r"), {"r": run_id})
+    conn.execute(text("DELETE FROM page_snapshots WHERE crawl_run_id=:r"), {"r": run_id})
     conn.execute(text("DELETE FROM povs WHERE related_crawl_run_id=:r"), {"r": run_id})
-    # 2) crawl_runs 를 FK 제약으로 참조하는 자식들 — 여기서 막혀서 부모 삭제가 롤백되던 원인.
-    #    (예: 예전 스키마의 discovered_urls. 현재 models.py 엔 없지만 운영 DB 엔 남아있음)
+
+    # 2) 🔥 핵심 추가: crawled_pages 참조 자식 먼저 삭제 (FK 충돌 방지)
+    conn.execute(text("""
+        DELETE FROM geo_signals
+        WHERE page_id IN (
+            SELECT id FROM crawled_pages WHERE crawl_run_id=:r
+        )
+    """), {"r": run_id})
+
+    # 3) crawl_runs FK로 연결된 잔여 테이블 자동 삭제
     if is_pg:
         for tbl, col in _fk_child_tables(conn):
             conn.execute(text(f'DELETE FROM "{tbl}" WHERE "{col}"=:r'), {"r": run_id})
     else:
-        # sqlite 등 메타 조회 불가 환경: 알려진 잔재 테이블만 방어적으로 시도
         try:
-            conn.execute(text("DELETE FROM discovered_urls WHERE crawl_run_id=:r"), {"r": run_id})
+            conn.execute(
+                text("DELETE FROM discovered_urls WHERE crawl_run_id=:r"),
+                {"r": run_id}
+            )
         except Exception:
             pass
-    # 3) 부모 삭제
+
+    # 4) 부모 삭제
     conn.execute(text("DELETE FROM crawl_runs WHERE crawl_run_id=:r"), {"r": run_id})
-    # 4) 실제로 지워졌는지 확인 (응답에 사실대로 반영하기 위함)
-    return conn.execute(text("SELECT 1 FROM crawl_runs WHERE crawl_run_id=:r"),
-                        {"r": run_id}).first() is None
+
+    # 5) 실제 삭제 여부 확인
+    return conn.execute(
+        text("SELECT 1 FROM crawl_runs WHERE crawl_run_id=:r"),
+        {"r": run_id}
+    ).first() is None
 
 
 @app.delete("/api/runs/{run_id}")
