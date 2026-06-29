@@ -1,4 +1,3 @@
-
 """
 crawl_service_v2.py — 이벤트 기반 파이프라인 (안정화 + 디버그 유지 버전)
 ================================================================
@@ -6,6 +5,7 @@ crawl_service_v2.py — 이벤트 기반 파이프라인 (안정화 + 디버그 
 ✔ 0 pages → DELETE RUN 제거 (디버깅 가능)
 ✔ 실패해도 run 유지
 ✔ AEO 분석 유지
+✔ [FIX] _load_db_urls: SEED URL + DB URL 머지 (load_active_urls 활용)
 """
 
 from __future__ import annotations
@@ -325,7 +325,12 @@ class CrawlServiceV2:
         except Exception as e:
             logger.warning(f"sql failed: {e}")
 
-    def _load_db_urls(self, site_key):
+    def _load_db_urls(self, site_key: str) -> List[Dict]:
+        """
+        [FIX] SEED URL(config.py) + DB 등록 URL(monitored_urls 테이블) 머지.
+        기존 코드는 DB만 조회해서 monitored_urls가 비어 있으면 0 URLs 반환했음.
+        load_active_urls()가 시드 + DB를 중복 제거 후 합산해 반환.
+        """
         try:
             with self.sync_engine.connect() as conn:
                 rows = conn.execute(text("""
@@ -333,7 +338,11 @@ class CrawlServiceV2:
                     WHERE enabled=true AND site_key=:s
                 """), {"s": site_key}).fetchall()
 
-            return [{"url": r[0], "tier_level": "default"} for r in rows]
+            db_urls = [r[0] for r in rows]
 
-        except Exception:
-            return []
+        except Exception as e:
+            logger.warning(f"monitored_urls query failed ({site_key}): {e} — seed only")
+            db_urls = []
+
+        # SEED_TARGETS의 seed_urls + DB 등록분 머지 (중복 제거, tier 자동 계산)
+        return load_active_urls(site_key, db_urls if db_urls else None)
