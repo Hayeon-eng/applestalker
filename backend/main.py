@@ -31,7 +31,39 @@ CATEGORY = {  # change_type → 화면 카테고리
     "technical": "데이터·스키마", "navigation": "데이터·스키마",
     "content": "카피", "commerce": "가격·프로모션", "visual": "비주얼",
 }
-LEVEL3 = {"L5": "High", "L4": "High", "L3": "Medium", "L2": "Medium", "L1": "Low", "L0": "Low"}
+
+
+def display_level(change_type: str, field_name: str, severity_level: str) -> str:
+    """
+    화면 표시 등급(높음/보통/낮음) — 마케팅·AEO 기준.
+    핵심: '무엇이(어디가)' + '얼마나(폭, L0~L5)' 를 함께 본다.
+      - 구조(스키마/레이아웃) = 높음  (AI 검색 노출에 직접 영향)
+      - 메뉴/메타 등 부분 구조, 문장·슬로건, 거래(가격·구매) = 보통
+      - 단어·미세·작은 이미지 = 낮음
+    """
+    lv = severity_level or "L0"
+    f = field_name or ""
+    # 거래(가격·구매·프로모션)는 마케팅 관점상 '보통'
+    if change_type == "commerce":
+        return "Medium"
+    # 구조: 스키마 추가/삭제, 레이아웃(DOM) 재편 = 높음
+    if f in ("schema_type", "dom"):
+        return "High"
+    # 부분 구조(메뉴/정규URL/메타)는 보통
+    if f in ("navigation", "canonical_url", "meta_description"):
+        return "Medium"
+    if change_type == "technical":
+        return "High" if lv in ("L4", "L5") else "Medium"
+    # 카피: 여러 섹션 동시 변화(L3+)=높음, 문장/문구=보통, 단어/미세=낮음
+    if change_type == "content":
+        if f == "body_content" and lv in ("L3", "L4", "L5"):
+            return "High"
+        return "Medium" if lv in ("L2", "L3", "L4", "L5") else "Low"
+    # 비주얼: 큰 변화=보통, 작은 변화=낮음
+    if change_type == "visual":
+        return "Medium" if lv in ("L3", "L4", "L5") else "Low"
+    return {"L5": "High", "L4": "High", "L3": "Medium",
+            "L2": "Medium", "L1": "Low", "L0": "Low"}.get(lv, "Low")
 
 crawl_state = {"crawling": False, "events": [], "run_id": None}
 crawl_service = CrawlServiceV2(SessionLocal, sync_engine, crawl_state)
@@ -141,7 +173,7 @@ def latest_report(run_id: Optional[str] = None):
         by_cat[cat] = by_cat.get(cat, 0) + 1
         changes.append({
             "id": c[0], "url": c[1], "site": site_key_for_url(c[1]) or site,
-            "level": LEVEL3.get(c[2], "Low"), "level_raw": c[2],
+            "level": display_level(c[3], c[4], c[2]), "level_raw": c[2],
             "category": cat, "field": c[4], "summary": c[5],
             "before": c[6], "after": c[7],
             "evidence": json.loads(c[8]) if c[8] else {},
@@ -204,7 +236,7 @@ def timeline(level: Optional[str] = None, category: Optional[str] = None, limit:
              "FROM detected_changes ORDER BY detected_at DESC LIMIT :l", l=limit)
     items = []
     for r in rows:
-        lv = LEVEL3.get(r[2], "Low"); cat = CATEGORY.get(r[3], "데이터·스키마")
+        lv = display_level(r[3], r[4], r[2]); cat = CATEGORY.get(r[3], "데이터·스키마")
         if level and lv != level: continue
         if category and cat != category: continue
         items.append({"id": r[0], "url": r[1], "level": lv, "category": cat,
