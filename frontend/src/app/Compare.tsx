@@ -1,0 +1,1 @@
+function Compare({ data, online, isExample, dataTab, pagesBySite, onPickPage, selPageUrl }

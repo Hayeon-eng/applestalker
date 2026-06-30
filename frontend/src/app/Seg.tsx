@@ -1,0 +1,1 @@
+function Seg({ on, onClick, children }

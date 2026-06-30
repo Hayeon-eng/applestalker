@@ -1,0 +1,1 @@
+function DetailDefault({ data, online, tab }
