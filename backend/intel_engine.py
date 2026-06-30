@@ -258,14 +258,16 @@ def _narrate_schema_completeness(schema: Dict[str, Any]) -> List[str]:
         else:
             lines.append(f"{typ} 스키마는 필수 속성을 빠짐없이 충족")
 
+    # [재정립] @id 연결성은 '구조적 특성'으로만 서술. Linked=좋음/Inline=나쁨이 아니라
+    # 사이트가 어떤 스키마 아키텍처를 택했는지를 보여주는 참고 정보일 뿐 — 점수화하지 않음.
     lk = schema["id_linkage"]
     if lk["total_id_nodes"]:
         if lk["linkage_pattern"].startswith("Linked"):
-            lines.append(f"@id 기반 연결형 구조 — {lk['linked_ids']}/{lk['total_id_nodes']}개 노드가 상호 참조됨 "
-                         f"(플랫폼 단위 그래프 연결성 확보)")
+            lines.append(f"스키마 아키텍처: @id 기반 연결형(Linked) — {lk['linked_ids']}/{lk['total_id_nodes']}개 노드가 "
+                         f"상호 참조됨. (참고: 연결형 자체가 우열 기준은 아니며, 완결성은 위 충족률로 별도 판단)")
         else:
-            lines.append(f"개별 페이지 인라인 임베딩형 — {lk['total_id_nodes']}개 @id 노드가 모두 고립 "
-                         f"(페이지 간 연결성 없음)")
+            lines.append(f"스키마 아키텍처: 개별 페이지 인라인 임베딩형(Inline) — {lk['total_id_nodes']}개 @id 노드가 "
+                         f"페이지별로 독립 적용됨. (참고: 임베딩형 자체가 열위 기준은 아니며, 완결성은 위 충족률로 별도 판단)")
 
     if not lines:
         lines.append(base)
@@ -289,16 +291,60 @@ def _density_tier(wc: int) -> str:
 COMPARISON_KW = ("비교", "vs", "차이", "compared", "versus")
 EVIDENCE_KW = ("스펙", "사양", "spec", "성능", "테스트", "research", "benchmark")
 
+# 정량 클레임 탐지: 숫자+단위 패턴 (스펙/가격/용량 등 '구체적 근거'의 대리 지표)
+QUANT_UNIT_RE = re.compile(
+    r"\d+(\.\d+)?\s?(GB|TB|MB|MP|mAh|mm|cm|kg|g|%|원|만원|시간|분|배|개|fps|nit|Hz|인치|inch)",
+    re.IGNORECASE,
+)
+# 100단어당 정량표현 몇 개면 만점(100점)으로 칠지 — 임계값. 과도한 나열은 cap.
+QUANT_TARGET_PER_100W = 3.0
+
+# 카피 풍부성 = 4개 하위지표 가중합산. 가중치 명시(투명성 확보용, 합 1.0).
+COPY_RICHNESS_WEIGHTS = {"quant": 0.35, "structure": 0.25, "evidence_kw": 0.20, "faq_presence": 0.20}
+COPY_RICHNESS_TIERS = [(70, "우수"), (40, "보통"), (0, "미흡")]
+
+# FAQ 품질 = 3개 하위지표 가중합산. 가중치 명시(합 1.0).
+FAQ_SCORE_WEIGHTS = {"specificity": 0.4, "question_realism": 0.3, "citability": 0.3}
+FAQ_QUESTION_PARTICLES = ("나요", "까요", "인가요", "입니까", "어떻게", "무엇", "왜", "언제", "어디", "얼마",
+                          "how", "what", "why", "when", "where", "does", "is it", "can i")
+
+
+def _tier(score: float, tiers=COPY_RICHNESS_TIERS) -> str:
+    for th, label in tiers:
+        if score >= th:
+            return label
+    return tiers[-1][1]
+
+
+def _faq_item_score(question: str, answer: str) -> Dict[str, Any]:
+    """FAQ 1문항 품질 점수 (0~100). 가중치: 구체성40 / 질문현실성30 / AI인용적합성30."""
+    q, a = _s(question).strip(), _s(answer).strip()
+
+    specificity = 1.0 if QUANT_UNIT_RE.search(a) else 0.0
+
+    q_lower = q.lower()
+    question_realism = 1.0 if (len(q) >= 8 and (q.rstrip().endswith("?") or
+                               any(p in q_lower for p in FAQ_QUESTION_PARTICLES))) else 0.0
+
+    first_sentence = re.split(r"(?<=[.!?。])\s|\n", a, maxsplit=1)[0] if a else ""
+    citability = 1.0 if 20 <= len(first_sentence) <= 180 else 0.0
+
+    score = (specificity * FAQ_SCORE_WEIGHTS["specificity"]
+             + question_realism * FAQ_SCORE_WEIGHTS["question_realism"]
+             + citability * FAQ_SCORE_WEIGHTS["citability"]) * 100
+    return {"score": round(score, 1), "specificity": bool(specificity),
+            "question_realism": bool(question_realism), "citability": bool(citability)}
+
 
 def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
     density_dist: Dict[str, int] = {}
     thin_pages, rich_pages = [], []
-    faq_quality = []
+    faq_page_results = []
     richness_pages = []
     intent_gap_pages = []
 
     for p in pages:
-        wc = p.get("word_count") or 0
+        wc = max(p.get("word_count") or 0, 1)
         tier = _density_tier(wc)
         density_dist[tier] = density_dist.get(tier, 0) + 1
         if wc < 150:
@@ -306,33 +352,56 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         if wc >= 800:
             rich_pages.append(p.get("url"))
 
-        body = (p.get("body_content") or "").lower()
-        has_comparison = any(k in body for k in COMPARISON_KW)
-        has_evidence = any(k in body for k in EVIDENCE_KW)
+        body = p.get("body_content") or ""
+        body_lower = body.lower()
+        has_comparison = any(k in body_lower for k in COMPARISON_KW)
+        has_evidence = any(k in body_lower for k in EVIDENCE_KW)
         faqs = p.get("faqs") or []
         has_faq = bool(faqs)
+        h2 = p.get("h2") or []
+        h3 = p.get("h3") or []
+        has_cta = bool(p.get("ctas") or [])
 
-        richness_score = sum([has_comparison, has_evidence, has_faq, wc >= 400])
-        if richness_score >= 3:
-            richness_pages.append({"url": p.get("url"), "score": richness_score})
+        # ── 정량지표: 100단어당 숫자+단위 출현 빈도 (cap 후 0~100 스케일) ──
+        quant_count = len(QUANT_UNIT_RE.findall(body))
+        quant_per_100w = quant_count / wc * 100
+        quant_score = min(quant_per_100w / QUANT_TARGET_PER_100W, 1.0) * 100
 
-        if not (has_comparison or has_evidence or has_faq):
-            intent_gap_pages.append(p.get("url"))
+        # ── 구조지표: H2 보유 / H3 고립(H2 없이 H3만) 여부 / CTA / FAQ 4요소 ──
+        structure_components = [bool(h2), not (h3 and not h2), has_cta, has_faq]
+        structure_score = sum(structure_components) / len(structure_components) * 100
 
+        evidence_kw_score = 100.0 if (has_comparison or has_evidence) else 0.0
+        faq_presence_score = 100.0 if has_faq else 0.0
+
+        richness = (quant_score * COPY_RICHNESS_WEIGHTS["quant"]
+                    + structure_score * COPY_RICHNESS_WEIGHTS["structure"]
+                    + evidence_kw_score * COPY_RICHNESS_WEIGHTS["evidence_kw"]
+                    + faq_presence_score * COPY_RICHNESS_WEIGHTS["faq_presence"])
+
+        entry = {"url": p.get("url"), "score": round(richness, 1), "tier": _tier(richness),
+                  "quant_score": round(quant_score, 1), "structure_score": round(structure_score, 1)}
+        if richness >= 70:
+            richness_pages.append(entry)
+        if richness < 40:
+            intent_gap_pages.append(entry)
+
+        # ── FAQ 품질: 문항별 가중점수 → 페이지 평균 ──
+        item_scores = []
         for faq in faqs:
             main_entity = faq.get("mainEntity") if isinstance(faq, dict) else None
             items = main_entity if isinstance(main_entity, list) else ([main_entity] if main_entity else [])
-            shallow = 0
             for it in items:
                 if not isinstance(it, dict):
                     continue
+                q_text = it.get("name") or ""
                 ans = ((it.get("acceptedAnswer") or {}).get("text") or "") if isinstance(it.get("acceptedAnswer"), dict) else ""
-                if len(_s(ans)) < 40:
-                    shallow += 1
-            if items:
-                faq_quality.append({"url": p.get("url"), "items": len(items),
-                                    "shallow_answers": shallow,
-                                    "quality": "낮음" if shallow > len(items) / 2 else "양호"})
+                item_scores.append(_faq_item_score(q_text, ans))
+        if item_scores:
+            avg = sum(s["score"] for s in item_scores) / len(item_scores)
+            faq_page_results.append({"url": p.get("url"), "items": len(item_scores),
+                                     "avg_score": round(avg, 1), "tier": _tier(avg),
+                                     "weak_items": sum(1 for s in item_scores if s["score"] < 40)})
 
     return {
         "content_density": {
@@ -341,12 +410,14 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
             "rich_pages": rich_pages[:10],
         },
         "copy_richness": {
-            "rich_pages": richness_pages[:10],
-            "intent_gap_pages": intent_gap_pages[:10],   # 비교/근거/FAQ 어느 것도 없는 페이지
+            "weights": COPY_RICHNESS_WEIGHTS,
+            "rich_pages": sorted(richness_pages, key=lambda x: -x["score"])[:10],
+            "intent_gap_pages": sorted(intent_gap_pages, key=lambda x: x["score"])[:10],
         },
         "faq": {
-            "pages_with_faq": len(faq_quality),
-            "detail": faq_quality[:10],
+            "weights": FAQ_SCORE_WEIGHTS,
+            "pages_with_faq": len(faq_page_results),
+            "detail": sorted(faq_page_results, key=lambda x: x["avg_score"])[:10],
         },
     }
 
@@ -357,6 +428,9 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 LIFESTYLE_KW = ("lifestyle", "life", "people", "family", "outdoor", "hand", "person", "scene", "moment")
 PRODUCT_KW = ("product", "device", "render", "studio", "front", "back", "angle", "colorway", "spec")
+# alt 텍스트가 비어있지 않아도 의미 없는 placeholder 인 경우가 많아 별도 필터링
+GENERIC_ALT_WORDS = ("image", "photo", "picture", "img", "banner", "icon", "사진", "이미지", "배너", "아이콘")
+ALT_RICH_MIN_LEN = 15   # 이 길이 이상 + generic 단어 아니면 '설명적'으로 분류
 
 
 def _classify_image(img: Dict[str, Any]) -> str:
@@ -368,14 +442,29 @@ def _classify_image(img: Dict[str, Any]) -> str:
     return "unclassified"
 
 
+def _alt_quality(img: Dict[str, Any]) -> str:
+    """alt 텍스트 품질만 별도 지표로 — 분류(product/lifestyle)와 독립적으로 평가.
+    비용 0(텍스트 길이/제네릭 단어 체크)이며, 실제 이미지 시각 내용 분석은 아님(한계 명시)."""
+    alt = _s(img.get("alt")).strip()
+    if not alt:
+        return "비어있음"
+    alt_lower = alt.lower()
+    if len(alt) < ALT_RICH_MIN_LEN or any(w == alt_lower or w in alt_lower.split() for w in GENERIC_ALT_WORDS):
+        return "일반적"
+    return "설명적"
+
+
 def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
     total_images = 0
     lifestyle = 0
     product = 0
     unclassified = 0
+    alt_desc = alt_generic = alt_empty = 0
     per_page_counts = []
     storytelling_pages = []
     image_heavy_pages = []
+    all_srcs: List[str] = []
+    all_alts: List[str] = []
 
     for p in pages:
         imgs = p.get("images") or []
@@ -393,8 +482,22 @@ def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
                 product += 1
             else:
                 unclassified += 1
-            if len(_s(img.get("alt"))) >= 15:
-                alt_rich += 1
+
+            aq = _alt_quality(img)
+            if aq == "설명적":
+                alt_desc += 1; alt_rich += 1
+            elif aq == "일반적":
+                alt_generic += 1
+            else:
+                alt_empty += 1
+
+            src = _s(img.get("src")).strip()
+            if src:
+                all_srcs.append(src)
+            alt_txt = _s(img.get("alt")).strip()
+            if alt_txt:
+                all_alts.append(alt_txt)
+
         if n >= 6:
             image_heavy_pages.append({"url": p.get("url"), "count": n})
         if {"lifestyle", "product"}.issubset(page_types) and alt_rich >= 2:
@@ -404,11 +507,26 @@ def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
     max_count = max(per_page_counts) if per_page_counts else 0
     concentration = round((max_count / total_images) * 100, 1) if total_images else 0
 
+    # ── 이미지 자체 다양성(저비용 대리지표): 같은 이미지가 여러 페이지에 재사용되는지(src 중복),
+    #    alt 문구가 천편일률적인지(alt 중복). Vision 분석이 아니라 '템플릿 재사용도' 추정치임을 명시.
+    unique_src_ratio = round(len(set(all_srcs)) / len(all_srcs) * 100, 1) if all_srcs else 0
+    unique_alt_ratio = round(len(set(all_alts)) / len(all_alts) * 100, 1) if all_alts else 0
+
     return {
         "image_diversity": {
             "total_images": total_images,
             "product": product, "lifestyle": lifestyle, "unclassified": unclassified,
             "lifestyle_ratio_pct": round(lifestyle / total_images * 100, 1) if total_images else 0,
+        },
+        "alt_text_quality": {
+            "_note": "alt 텍스트 길이/제네릭 단어 기반 판정. 실제 이미지 시각 내용 분석(Vision)은 아님.",
+            "설명적": alt_desc, "일반적": alt_generic, "비어있음": alt_empty,
+            "descriptive_ratio_pct": round(alt_desc / total_images * 100, 1) if total_images else 0,
+        },
+        "image_uniqueness": {
+            "_note": "src/alt 중복도 기반 추정치. 같은 이미지·문구 재사용(템플릿화) 정도를 가늠하는 보조지표.",
+            "unique_src_ratio_pct": unique_src_ratio,
+            "unique_alt_ratio_pct": unique_alt_ratio,
         },
         "concentration": {
             "avg_per_page": round(avg, 1),
@@ -541,13 +659,21 @@ class IntelEngine:
             lines.append(f"콘텐츠 밀도 분포: {dist_str}")
         if c["content_density"]["thin_pages"]:
             lines.append(f"빈약 콘텐츠(150단어 미만) {len(c['content_density']['thin_pages'])}+ 페이지")
+
+        w = c["copy_richness"]["weights"]
+        lines.append(f"카피 풍부성 점수 = 정량지표×{w['quant']} + 구조지표×{w['structure']} + "
+                     f"비교/근거키워드×{w['evidence_kw']} + FAQ보유×{w['faq_presence']} (0~100, 70+우수/40~69보통/40미만미흡)")
         gap = c["copy_richness"]["intent_gap_pages"]
         if gap:
-            lines.append(f"비교/근거/FAQ 모두 없음(intent 미충족) {len(gap)}+ 페이지")
+            lines.append(f"풍부성 점수 40 미만(미흡) {len(gap)}+ 페이지 — 정량 근거·구조·FAQ 모두 약함")
+
         faq = c["faq"]
         if faq["pages_with_faq"]:
-            low_q = sum(1 for f in faq["detail"] if f["quality"] == "낮음")
-            lines.append(f"FAQ 보유 {faq['pages_with_faq']}페이지 중 답변 부실 {low_q}건")
+            weak = sum(f["weak_items"] for f in faq["detail"])
+            fw = faq["weights"]
+            lines.append(f"FAQ 보유 {faq['pages_with_faq']}페이지, 문항 품질 = 구체성×{fw['specificity']} + "
+                         f"질문현실성×{fw['question_realism']} + AI인용적합성×{fw['citability']} "
+                         f"— 미흡(40점 미만) 문항 {weak}건")
         else:
             lines.append("FAQ 전무 — AI 답변 직접 인용 구조 부재")
         return lines
@@ -557,9 +683,20 @@ class IntelEngine:
         idv = v["image_diversity"]
         lines.append(f"이미지 {idv['total_images']}장 중 product {idv['product']} / "
                      f"lifestyle {idv['lifestyle']} ({idv['lifestyle_ratio_pct']}%) / 미분류 {idv['unclassified']}")
+
+        alt = v["alt_text_quality"]
+        lines.append(f"alt 텍스트 품질 — 설명적 {alt['설명적']} / 일반적(제네릭) {alt['일반적']} / "
+                     f"비어있음 {alt['비어있음']} (설명적 비율 {alt['descriptive_ratio_pct']}%)")
+
+        uniq = v["image_uniqueness"]
+        if uniq["unique_src_ratio_pct"] < 60:
+            lines.append(f"이미지 재사용도 높음 — 고유 이미지 비율 {uniq['unique_src_ratio_pct']}% "
+                         f"(같은 이미지가 여러 페이지에 반복 사용, 템플릿화 추정)")
+
         conc = v["concentration"]
         if conc["max_single_page_pct"] >= 40:
             lines.append(f"이미지 편중 — 단일 페이지에 전체의 {conc['max_single_page_pct']}% 집중")
+
         story = v["storytelling"]
         if story["count"]:
             lines.append(f"제품+라이프스타일 혼합 스토리텔링 페이지 {story['count']}건")
@@ -577,22 +714,31 @@ class IntelEngine:
         of_c, tf_c = copy_facts(ours["pages"]), copy_facts(theirs["pages"])
         of_v, tf_v = visual_facts(ours["pages"]), visual_facts(theirs["pages"])
 
+        def _avg_richness(f):
+            rp = f["copy_richness"]["rich_pages"] + f["copy_richness"]["intent_gap_pages"]
+            return round(sum(x["score"] for x in rp) / len(rp), 1) if rp else "N/A"
+
+        def _avg_faq(f):
+            d = f["faq"]["detail"]
+            return round(sum(x["avg_score"] for x in d) / len(d), 1) if d else "N/A"
+
         return {
             "status": "ok",
             "data": self._compare_rows("DATA", of_d, tf_d, [
                 ("Schema Coverage", lambda f: f"{f['schema']['coverage_pct']}%"),
-                ("Schema 연결 패턴", lambda f: f['schema']['id_linkage']['linkage_pattern']),
+                # [재정립] 연결 패턴은 우열 비교가 아니라 구조적 차이 참고용으로만 표기
+                ("Schema 아키텍처(참고용, 우열 아님)", lambda f: f['schema']['id_linkage']['linkage_pattern']),
                 ("meta description 누락", lambda f: f"{len(f['html_structure']['pages_missing_meta_description'])}+"),
             ]),
             "copy": self._compare_rows("COPY", of_c, tf_c, [
-                ("빈약 콘텐츠 페이지", lambda f: f"{len(f['content_density']['thin_pages'])}+"),
-                ("FAQ 보유 페이지", lambda f: f"{f['faq']['pages_with_faq']}"),
-                ("intent 미충족 페이지", lambda f: f"{len(f['copy_richness']['intent_gap_pages'])}+"),
+                ("카피 풍부성 평균점수(0~100)", _avg_richness),
+                ("FAQ 평균 품질점수(0~100)", _avg_faq),
+                ("빈약 콘텐츠 페이지(150단어 미만)", lambda f: f"{len(f['content_density']['thin_pages'])}+"),
             ]),
             "visual": self._compare_rows("VISUAL", of_v, tf_v, [
                 ("Lifestyle 이미지 비율", lambda f: f"{f['image_diversity']['lifestyle_ratio_pct']}%"),
-                ("이미지 편중도(최대 페이지 비중)", lambda f: f"{f['concentration']['max_single_page_pct']}%"),
-                ("스토리텔링 페이지", lambda f: f"{f['storytelling']['count']}"),
+                ("alt 텍스트 설명적 비율", lambda f: f"{f['alt_text_quality']['descriptive_ratio_pct']}%"),
+                ("고유 이미지 비율(재사용도 역지표)", lambda f: f"{f['image_uniqueness']['unique_src_ratio_pct']}%"),
             ]),
             "_source": "rule_based",
         }

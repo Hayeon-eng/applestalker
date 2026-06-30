@@ -477,6 +477,17 @@ def page_detail(url: str = Query(...)):
     }
 
 
+# ── [PHASE2 신규] 사이트별 최신 크롤 페이지 목록 (현황 비교 탭 페이지 브라우징용) ──
+@app.get("/api/pages")
+def list_pages(site: str = "samsung"):
+    run = q("SELECT crawl_run_id FROM crawl_runs WHERE site_name=:s AND status='completed' "
+            "ORDER BY started_at DESC LIMIT 1", s=site)
+    if not run:
+        return {"pages": []}
+    rows = q("SELECT url,title,word_count FROM page_snapshots WHERE crawl_run_id=:r ORDER BY url", r=run[0][0])
+    return {"pages": [{"url": r[0], "title": r[1] or r[0], "word_count": r[2] or 0} for r in rows]}
+
+
 # ── URL 관리 ──
 class AddURL(BaseModel):
     url: str
@@ -551,7 +562,8 @@ def screenshots(url: str = Query(...)):
 def export_xlsx(run_id: Optional[str] = None):
     from export_service import build_xlsx, filename
     rep = latest_report(run_id)
-    data = build_xlsx(rep.get("changes", []), title="변경점", timestamp=rep.get("timestamp", ""))
+    data = build_xlsx(rep.get("changes", []), title="변경점", timestamp=rep.get("timestamp", ""),
+                       dcv=rep.get("dcv"))
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename('apple_stalker','xlsx')}"})
@@ -562,7 +574,7 @@ def export_pptx(run_id: Optional[str] = None):
     from export_service import build_pptx, filename
     rep = latest_report(run_id)
     data = build_pptx(rep.get("changes", []), title="변경점", timestamp=rep.get("timestamp", ""),
-                      summary=(rep.get("analysis") or {}).get("summary", ""))
+                      summary=(rep.get("analysis") or {}).get("summary", ""), dcv=rep.get("dcv"))
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f"attachment; filename={filename('apple_stalker','pptx')}"})
