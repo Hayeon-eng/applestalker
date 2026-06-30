@@ -1,1 +1,0 @@
-function Empty({ title, desc, cta }

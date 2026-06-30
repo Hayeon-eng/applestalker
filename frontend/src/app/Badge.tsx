@@ -1,1 +1,0 @@
-function Badge({ color, children }

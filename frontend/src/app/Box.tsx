@@ -1,1 +1,0 @@
-function Box({ label, v, bg }

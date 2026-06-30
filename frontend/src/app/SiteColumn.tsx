@@ -1,1 +1,0 @@
-function SiteColumn({ site, title, count, cols, sel, setSel }

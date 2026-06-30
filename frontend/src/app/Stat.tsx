@@ -1,1 +1,0 @@
-function Stat({ n, label, color }
