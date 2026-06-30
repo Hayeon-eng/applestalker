@@ -1,3 +1,5 @@
+
+
 """
 Hybrid Crawler — FULL RESTORED (AEO + 403 bypass + Render-safe)
 ================================================================
@@ -5,6 +7,7 @@ Hybrid Crawler — FULL RESTORED (AEO + 403 bypass + Render-safe)
 ✔ HTTPX 우선 + Playwright fallback
 ✔ 403 / 429 대응 headers 강화
 ✔ Render 512MB safe 구조 유지
+[FIX] requires_js=True여도 HTTP 항상 먼저 시도 → Playwright는 선택적 업그레이드
 """
 
 from __future__ import annotations
@@ -150,16 +153,16 @@ class HybridCrawler:
             "screenshot_phash": None,
         }
 
-        http_data = None
+        # ✅ [FIX] HTTP는 requires_js 무관하게 항상 먼저 시도
+        # 기존: if not requires_js → Samsung/Apple(requires_js=True)에서 HTTP 완전 건너뜀
+        #       + USE_PLAYWRIGHT=false(기본) → Playwright도 건너뜀 → "empty result" 100%
+        http_data = await self._fetch_http(url)
+        if http_data and not http_data.get("error"):
+            result.update(http_data)
+            result["rendered_by"] = "httpx"
 
-        # 1) HTTP FIRST
-        if not requires_js:
-            http_data = await self._fetch_http(url)
-            if http_data and not http_data.get("error"):
-                result.update(http_data)
-                result["rendered_by"] = "httpx"
-
-        # 2) JS UPGRADE
+        # Playwright 업그레이드 조건:
+        # requires_js=True 이거나 HTTP 결과가 빈 경우 AND Playwright 활성화된 경우만
         need_js = requires_js or self._looks_empty(http_data)
 
         if need_js and self.enable_playwright and self._browser_used < self.browser_page_cap:
@@ -170,14 +173,9 @@ class HybridCrawler:
             if pw and not pw.get("error"):
                 result.update(pw)
                 result["rendered_by"] = "playwright"
+            # playwright 실패해도 http_data 결과는 result에 이미 반영됨 (위에서 update)
 
-            elif http_data:
-                result.update(http_data)
-                result["rendered_by"] = "httpx-fallback"
-
-            else:
-                result["error"] = "render failed"
-
+        # HTTP 결과라도 있으면 최종 fallback
         if result.get("html_content") is None and http_data:
             result.update(http_data)
 
@@ -357,3 +355,4 @@ class HybridCrawler:
     def _images(self, soup):
         return [{"src": i.get("src"), "alt": i.get("alt")}
                 for i in soup.find_all("img")][:50]
+
