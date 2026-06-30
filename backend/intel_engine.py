@@ -1,18 +1,18 @@
 """
-Intel Engine — 할루시네이션 차단형 분석 (요구사항 1,6 + 사용자 핵심 불만 해결)
+Intel Engine — DATA / COPY / VISUAL 3분류 분석 (할루시네이션 차단형)
 ================================================================
-문제(사용자 지적): 크롤은 사이트 1개씩 도는데, LLM 에게 "삼성 vs 애플 비교"를
-시키면 모델이 갖지 않은 데이터를 지어낸다.
+요구사항 1.1~1.5 반영:
+  - 모든 분석 결과는 DATA / COPY / VISUAL 3개 카테고리로 "중복 없이" 분리.
+  - 각 인사이트는 정확히 하나의 카테고리에만 귀속.
+  - Schema 완결성은 단일 페이지가 아니라 "플랫폼 단위" — 페이지 간 @id 연결성
+    (Samsung 식 linked schema vs Apple 식 inline 임베딩)을 기준으로 판단.
 
-해결 원칙 (strict, 근거기반):
+원칙(기존 유지):
   1) LLM 에는 "이번 크롤에서 실제로 추출된 데이터"만 컨텍스트로 준다.
-  2) 비교 분석은 두 사이트 데이터가 모두 있을 때만 수행. 없으면 단일 사이트
-     현황/AEO 분석만 하고, 비교 필드는 'insufficient_data' 로 명시.
-  3) 모든 인사이트는 evidence (url + field + 실제 값)에 바인딩. 근거 없는 주장 금지.
-  4) 출력은 엄격한 JSON 스키마. 파싱 실패 시 규칙기반 fallback (지어내지 않음).
-  5) 변화 크기(max_level)에 따라 분석 깊이 자동 조절 (요구사항 6).
-
-이 엔진은 "현황 분석"도 담당한다 (요구사항: 변경 없어도 정해진 시간에 분석).
+  2) 비교 분석은 두 사이트 데이터가 모두 있을 때만 수행.
+  3) 모든 인사이트는 evidence(url+field+실제값)에 바인딩.
+  4) 출력은 엄격한 JSON. 파싱 실패 시 규칙기반 fallback.
+  5) 규칙기반 facts는 LLM 유무와 무관하게 항상 계산 — 핵심 사실은 AI 없이도 100% 정확.
 """
 
 from __future__ import annotations
@@ -28,55 +28,403 @@ except Exception:
     _GENAI = False
 
 
-# AEO(Answer Engine Optimization) 관점 — 당사(삼성)에 시사점을 주는 체크리스트.
-# LLM 없이도 사실 기반으로 계산 가능한 항목들(지어내지 않음).
-def aeo_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """크롤 데이터에서 '사실'만 집계 (AI 아님). 모든 인사이트의 근거 토대."""
-    schema_types: Dict[str, int] = {}
-    faq_pages = 0
-    total_faq = 0
-    pages_with_breadcrumb = 0
-    pages_with_product = 0
-    missing_meta = []
-    thin_content = []
+# ════════════════════════════════════════════════════════════════
+# 공통 유틸
+# ════════════════════════════════════════════════════════════════
+
+def _s(v) -> str:
+    return v if isinstance(v, str) else ("" if v is None else str(v))
+
+
+def _template_key(url: str) -> str:
+    """URL 경로의 첫 세그먼트를 '템플릿' 단위로 취급 (숫자/슬러그는 # 처리)."""
+    try:
+        after_host = url.split("//", 1)[-1]
+        path = after_host.split("/", 1)[1] if "/" in after_host else ""
+    except Exception:
+        path = ""
+    path = path.strip("/")
+    if not path:
+        return "홈"
+    seg = path.split("/")[0]
+    seg = re.sub(r"\d+", "#", seg)
+    return seg or "홈"
+
+
+def _expected_schema_type(url: str) -> Optional[str]:
+    """URL 패턴 기반 '이 페이지엔 이 schema가 있어야 한다' 휴리스틱 (Alignment 판단용)."""
+    u = url.lower().rstrip("/")
+    after_host = u.split("//", 1)[-1]
+    depth = after_host.count("/")
+    if depth <= 1:
+        return "WebSite"
+    if "faq" in u:
+        return "FAQPage"
+    if any(k in u for k in ("galaxy-", "iphone", "smartphone", "product", "/buy", "macbook", "ipad", "watch")):
+        return "Product"
+    return None
+
+
+def _walk_schema_nodes(sd: Any) -> List[Dict[str, Any]]:
+    """JSON-LD 리스트에서 @graph 까지 펼친 평탄화 노드 리스트."""
+    nodes: List[Dict[str, Any]] = []
+
+    def add(n):
+        if not isinstance(n, dict):
+            return
+        nodes.append(n)
+        for g in (n.get("@graph") or []):
+            add(g)
+
+    for item in (sd or []):
+        add(item)
+    return nodes
+
+
+def _node_types(n: Dict[str, Any]) -> List[str]:
+    t = n.get("@type")
+    if isinstance(t, list):
+        return [str(x) for x in t]
+    return [str(t)] if t else []
+
+
+# 카테고리별 필수 속성 (없으면 '완결성 미흡'으로 판단)
+REQUIRED_PROPS = {
+    "Product": ["name", "image", "description", "brand", "offers", "aggregateRating", "review"],
+    "FAQPage": ["mainEntity"],
+    "Organization": ["name", "url", "logo", "sameAs"],
+    "BreadcrumbList": ["itemListElement"],
+    "WebSite": ["name", "url"],
+}
+PROP_KO = {
+    "aggregateRating": "aggregateRating(평점)", "offers": "offers(가격/재고)",
+    "review": "review(리뷰)", "brand": "brand(브랜드)", "image": "image(이미지)",
+    "description": "description(설명)", "name": "name(이름)", "logo": "logo(로고)",
+    "sameAs": "sameAs(SNS 연결)", "url": "url", "mainEntity": "mainEntity(FAQ 본문)",
+    "itemListElement": "itemListElement(목록)",
+}
+
+
+# ════════════════════════════════════════════════════════════════
+# DATA — Schema(플랫폼 단위 Qid 연결성) + HTML 구조 + Meta + H-tag
+# ════════════════════════════════════════════════════════════════
+
+def data_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
+    total = len(pages)
+    pages_with_schema = 0
+    type_counts: Dict[str, int] = {}
+    template_buckets: Dict[str, Dict[str, int]] = {}
+    all_nodes: List[Any] = []          # (url, node)
+    id_index: Dict[str, Any] = {}      # "@id" -> (url, node)
+
     for p in pages:
-        sd = p.get("structured_data") or p.get("schema_types") or []
-        types = []
-        for s in sd:
-            if isinstance(s, dict):
-                t = s.get("@type")
-                types += (t if isinstance(t, list) else [t]) if t else []
-                for g in (s.get("@graph") or []):
-                    if isinstance(g, dict) and g.get("@type"):
-                        gt = g["@type"]
-                        types += gt if isinstance(gt, list) else [gt]
-            elif isinstance(s, str):
-                types.append(s)
-        for t in types:
-            t = str(t)
-            schema_types[t] = schema_types.get(t, 0) + 1
-        if "FAQPage" in types:
-            faq_pages += 1
-        if "BreadcrumbList" in types:
-            pages_with_breadcrumb += 1
-        if "Product" in types:
-            pages_with_product += 1
-        total_faq += len(p.get("faqs") or [])
-        if not (p.get("meta_description") or "").strip():
-            missing_meta.append(p.get("url"))
-        if (p.get("word_count") or 0) < 150:
-            thin_content.append(p.get("url"))
-    return {
-        "page_count": len(pages),
-        "schema_type_counts": dict(sorted(schema_types.items(), key=lambda x: -x[1])),
-        "faqpage_count": faq_pages,
-        "faq_item_total": total_faq,
-        "breadcrumb_pages": pages_with_breadcrumb,
-        "product_schema_pages": pages_with_product,
-        "pages_missing_meta_description": missing_meta[:10],
-        "thin_content_pages": thin_content[:10],
+        url = p.get("url", "")
+        sd = p.get("structured_data") or []
+        nodes = _walk_schema_nodes(sd)
+        tmpl = _template_key(url)
+        b = template_buckets.setdefault(tmpl, {"pages": 0, "with_schema": 0})
+        b["pages"] += 1
+        if nodes:
+            pages_with_schema += 1
+            b["with_schema"] += 1
+        for n in nodes:
+            for t in _node_types(n):
+                type_counts[t] = type_counts.get(t, 0) + 1
+            nid = n.get("@id")
+            if nid:
+                id_index[nid] = (url, n)
+            all_nodes.append((url, n))
+
+    # ── @id 연결성(Qid) 스캔: 다른 노드 안에서 이 @id 가 참조되는가 ──
+    referenced_ids = set()
+    for _, n in all_nodes:
+        for k, v in n.items():
+            if k == "@id":
+                continue
+            if isinstance(v, dict) and "@id" in v and v["@id"] in id_index:
+                referenced_ids.add(v["@id"])
+            elif isinstance(v, str) and v in id_index:
+                referenced_ids.add(v)
+            elif isinstance(v, list):
+                for item in v:
+                    if isinstance(item, dict) and item.get("@id") in id_index:
+                        referenced_ids.add(item["@id"])
+                    elif isinstance(item, str) and item in id_index:
+                        referenced_ids.add(item)
+
+    isolated_ids = set(id_index.keys()) - referenced_ids
+    if id_index:
+        linkage_pattern = "Linked(@id 기반 연결형)" if referenced_ids else "Inline(개별 페이지 임베딩형)"
+    else:
+        linkage_pattern = "스키마 없음"
+
+    # ── Completeness: 타입별 필수 속성 충족률 ──
+    completeness: Dict[str, Any] = {}
+    for typ, req in REQUIRED_PROPS.items():
+        matching = [n for _, n in all_nodes if typ in _node_types(n)]
+        if not matching:
+            continue
+        missing_counter: Dict[str, int] = {}
+        for n in matching:
+            for prop in req:
+                if not n.get(prop):
+                    missing_counter[prop] = missing_counter.get(prop, 0) + 1
+        filled_ratio = 1 - (sum(missing_counter.values()) / (len(matching) * len(req)))
+        completeness[typ] = {
+            "instances": len(matching),
+            "filled_ratio": round(filled_ratio, 2),
+            "missing_properties": sorted(missing_counter.keys(), key=lambda k: -missing_counter[k]),
+        }
+
+    # ── Distribution: 템플릿(페이지 유형)별 schema 적용 고르기 ──
+    distribution = {
+        tmpl: {"pages": b["pages"], "with_schema": b["with_schema"],
+               "coverage_pct": round(b["with_schema"] / b["pages"] * 100, 1) if b["pages"] else 0}
+        for tmpl, b in template_buckets.items()
     }
 
+    # ── Alignment: 페이지 목적과 schema 타입 불일치 ──
+    mismatches = []
+    for p in pages:
+        url = p.get("url", "")
+        nodes = _walk_schema_nodes(p.get("structured_data") or [])
+        found_types = {t for n in nodes for t in _node_types(n)}
+        expected = _expected_schema_type(url)
+        if expected and expected not in found_types:
+            mismatches.append({"url": url, "expected": expected, "found": sorted(found_types) or ["없음"]})
+
+    # ── HTML 구조: heading depth, semantic 비율(nav 보유율), p-tag 활용(=본문 비율) ──
+    heading_issues = []
+    semantic_pages = 0
+    for p in pages:
+        h1 = p.get("h1")
+        h2 = p.get("h2") or []
+        h3 = p.get("h3") or []
+        if not h1:
+            heading_issues.append({"url": p.get("url"), "issue": "H1 없음"})
+        if h3 and not h2:
+            heading_issues.append({"url": p.get("url"), "issue": "H2 없이 H3만 존재 (depth 불연속)"})
+        nav = p.get("navigation") or {}
+        if (nav.get("main") or []):
+            semantic_pages += 1
+
+    # ── Meta 상태 ──
+    missing_meta = [p.get("url") for p in pages if not _s(p.get("meta_description")).strip()]
+    missing_title = [p.get("url") for p in pages if not _s(p.get("title")).strip()]
+
+    return {
+        "schema": {
+            "coverage_pct": round(pages_with_schema / total * 100, 1) if total else 0,
+            "pages_with_schema": pages_with_schema, "total_pages": total,
+            "schema_type_counts": dict(sorted(type_counts.items(), key=lambda x: -x[1])),
+            "distribution": distribution,
+            "completeness": completeness,
+            "alignment_mismatches": mismatches[:10],
+            "id_linkage": {
+                "total_id_nodes": len(id_index),
+                "linked_ids": len(referenced_ids),
+                "isolated_ids": len(isolated_ids),
+                "linkage_pattern": linkage_pattern,
+            },
+        },
+        "html_structure": {
+            "semantic_nav_pages": semantic_pages,
+            "heading_issues": heading_issues[:10],
+            "pages_missing_meta_description": missing_meta[:10],
+            "pages_missing_title": missing_title[:10],
+        },
+    }
+
+
+def _narrate_schema_completeness(schema: Dict[str, Any]) -> List[str]:
+    """규칙기반 자연어 서술 — 'Schema 완결성 전반적으로 우수하나 aggregateRating 누락' 패턴."""
+    lines = []
+    cov = schema["coverage_pct"]
+    if cov >= 80:
+        base = f"Schema 적용 범위는 전체 페이지의 {cov}%로 우수"
+    elif cov >= 40:
+        base = f"Schema 적용 범위는 전체 페이지의 {cov}%로 부분적"
+    else:
+        base = f"Schema 적용 범위는 전체 페이지의 {cov}%로 미흡"
+
+    for typ, c in schema["completeness"].items():
+        if c["missing_properties"]:
+            missing_ko = ", ".join(PROP_KO.get(m, m) for m in c["missing_properties"][:3])
+            ratio_pct = round(c["filled_ratio"] * 100)
+            if ratio_pct >= 70:
+                lines.append(f"{base}하나, {typ} 스키마는 {missing_ko} 등 상세 속성 누락 (충족률 {ratio_pct}%)")
+            else:
+                lines.append(f"{typ} 스키마 완결성 미흡 — {missing_ko} 등 다수 속성 누락 (충족률 {ratio_pct}%)")
+        else:
+            lines.append(f"{typ} 스키마는 필수 속성을 빠짐없이 충족")
+
+    lk = schema["id_linkage"]
+    if lk["total_id_nodes"]:
+        if lk["linkage_pattern"].startswith("Linked"):
+            lines.append(f"@id 기반 연결형 구조 — {lk['linked_ids']}/{lk['total_id_nodes']}개 노드가 상호 참조됨 "
+                         f"(플랫폼 단위 그래프 연결성 확보)")
+        else:
+            lines.append(f"개별 페이지 인라인 임베딩형 — {lk['total_id_nodes']}개 @id 노드가 모두 고립 "
+                         f"(페이지 간 연결성 없음)")
+
+    if not lines:
+        lines.append(base)
+    return lines
+
+
+# ════════════════════════════════════════════════════════════════
+# COPY — 콘텐츠 밀도 / FAQ 질 / 카피 풍부성 / intent fulfillment
+# ════════════════════════════════════════════════════════════════
+
+def _density_tier(wc: int) -> str:
+    if wc < 150:
+        return "빈약(thin, <150)"
+    if wc < 400:
+        return "경량(light, 150~400)"
+    if wc < 800:
+        return "적정(moderate, 400~800)"
+    return "풍부(rich, 800+)"
+
+
+COMPARISON_KW = ("비교", "vs", "차이", "compared", "versus")
+EVIDENCE_KW = ("스펙", "사양", "spec", "성능", "테스트", "research", "benchmark")
+
+
+def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
+    density_dist: Dict[str, int] = {}
+    thin_pages, rich_pages = [], []
+    faq_quality = []
+    richness_pages = []
+    intent_gap_pages = []
+
+    for p in pages:
+        wc = p.get("word_count") or 0
+        tier = _density_tier(wc)
+        density_dist[tier] = density_dist.get(tier, 0) + 1
+        if wc < 150:
+            thin_pages.append(p.get("url"))
+        if wc >= 800:
+            rich_pages.append(p.get("url"))
+
+        body = (p.get("body_content") or "").lower()
+        has_comparison = any(k in body for k in COMPARISON_KW)
+        has_evidence = any(k in body for k in EVIDENCE_KW)
+        faqs = p.get("faqs") or []
+        has_faq = bool(faqs)
+
+        richness_score = sum([has_comparison, has_evidence, has_faq, wc >= 400])
+        if richness_score >= 3:
+            richness_pages.append({"url": p.get("url"), "score": richness_score})
+
+        if not (has_comparison or has_evidence or has_faq):
+            intent_gap_pages.append(p.get("url"))
+
+        for faq in faqs:
+            main_entity = faq.get("mainEntity") if isinstance(faq, dict) else None
+            items = main_entity if isinstance(main_entity, list) else ([main_entity] if main_entity else [])
+            shallow = 0
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                ans = ((it.get("acceptedAnswer") or {}).get("text") or "") if isinstance(it.get("acceptedAnswer"), dict) else ""
+                if len(_s(ans)) < 40:
+                    shallow += 1
+            if items:
+                faq_quality.append({"url": p.get("url"), "items": len(items),
+                                    "shallow_answers": shallow,
+                                    "quality": "낮음" if shallow > len(items) / 2 else "양호"})
+
+    return {
+        "content_density": {
+            "distribution": density_dist,
+            "thin_pages": thin_pages[:10],
+            "rich_pages": rich_pages[:10],
+        },
+        "copy_richness": {
+            "rich_pages": richness_pages[:10],
+            "intent_gap_pages": intent_gap_pages[:10],   # 비교/근거/FAQ 어느 것도 없는 페이지
+        },
+        "faq": {
+            "pages_with_faq": len(faq_quality),
+            "detail": faq_quality[:10],
+        },
+    }
+
+
+# ════════════════════════════════════════════════════════════════
+# VISUAL — 이미지 다양성 / lifestyle 비율 / 편중도 / 스토리텔링
+# ════════════════════════════════════════════════════════════════
+
+LIFESTYLE_KW = ("lifestyle", "life", "people", "family", "outdoor", "hand", "person", "scene", "moment")
+PRODUCT_KW = ("product", "device", "render", "studio", "front", "back", "angle", "colorway", "spec")
+
+
+def _classify_image(img: Dict[str, Any]) -> str:
+    blob = (_s(img.get("alt")) + " " + _s(img.get("src"))).lower()
+    if any(k in blob for k in LIFESTYLE_KW):
+        return "lifestyle"
+    if any(k in blob for k in PRODUCT_KW):
+        return "product"
+    return "unclassified"
+
+
+def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
+    total_images = 0
+    lifestyle = 0
+    product = 0
+    unclassified = 0
+    per_page_counts = []
+    storytelling_pages = []
+    image_heavy_pages = []
+
+    for p in pages:
+        imgs = p.get("images") or []
+        n = len(imgs)
+        total_images += n
+        per_page_counts.append(n)
+        page_types = set()
+        alt_rich = 0
+        for img in imgs:
+            cls = _classify_image(img)
+            page_types.add(cls)
+            if cls == "lifestyle":
+                lifestyle += 1
+            elif cls == "product":
+                product += 1
+            else:
+                unclassified += 1
+            if len(_s(img.get("alt"))) >= 15:
+                alt_rich += 1
+        if n >= 6:
+            image_heavy_pages.append({"url": p.get("url"), "count": n})
+        if {"lifestyle", "product"}.issubset(page_types) and alt_rich >= 2:
+            storytelling_pages.append(p.get("url"))
+
+    avg = (sum(per_page_counts) / len(per_page_counts)) if per_page_counts else 0
+    max_count = max(per_page_counts) if per_page_counts else 0
+    concentration = round((max_count / total_images) * 100, 1) if total_images else 0
+
+    return {
+        "image_diversity": {
+            "total_images": total_images,
+            "product": product, "lifestyle": lifestyle, "unclassified": unclassified,
+            "lifestyle_ratio_pct": round(lifestyle / total_images * 100, 1) if total_images else 0,
+        },
+        "concentration": {
+            "avg_per_page": round(avg, 1),
+            "max_single_page_pct": concentration,   # 한 페이지에 몰린 비중 — 높을수록 편중
+            "image_heavy_pages": image_heavy_pages[:10],
+        },
+        "storytelling": {
+            "pages_with_storytelling": storytelling_pages[:10],
+            "count": len(storytelling_pages),
+        },
+    }
+
+
+# ════════════════════════════════════════════════════════════════
+# IntelEngine — DATA/COPY/VISUAL 출력 + LLM 보강(옵션)
+# ════════════════════════════════════════════════════════════════
 
 class IntelEngine:
     def __init__(self, api_key: Optional[str] = None):
@@ -95,7 +443,7 @@ class IntelEngine:
     def is_available(self) -> bool:
         return self.ready
 
-    # ── 메인: 단일 사이트 현황/변화 분석 (근거기반) ──────────────
+    # ── 메인: 한 사이트의 DATA/COPY/VISUAL 분석 (근거기반) ──────
 
     def analyze_site(
         self,
@@ -105,120 +453,159 @@ class IntelEngine:
         change_events: List[Dict[str, Any]],
         max_level: str = "L0",
     ) -> Dict[str, Any]:
-        """
-        한 사이트의 이번 크롤 결과를 분석.
-        change_events: diff_engine.ChangeEvent.to_dict() 리스트 (실제 변화만).
-        반환: 엄격 JSON. 근거 없는 비교는 하지 않음.
-        """
-        facts = aeo_facts(pages)
-        depth = self._depth_for(max_level, len(change_events))
+        d_facts = data_facts(pages)
+        c_facts = copy_facts(pages)
+        v_facts = visual_facts(pages)
 
-        if not self.ready:
-            return self._fallback(site_display, is_ours, facts, change_events, depth)
+        data_block = self._build_category("DATA", site_display, is_ours, d_facts,
+                                            _narrate_schema_completeness(d_facts["schema"]),
+                                            [e for e in change_events if self._bucket(e) == "DATA"])
+        copy_block = self._build_category("COPY", site_display, is_ours, c_facts,
+                                           self._narrate_copy(c_facts),
+                                           [e for e in change_events if self._bucket(e) == "COPY"])
+        visual_block = self._build_category("VISUAL", site_display, is_ours, v_facts,
+                                             self._narrate_visual(v_facts),
+                                             [e for e in change_events if self._bucket(e) == "VISUAL"])
 
-        # LLM 에 주는 컨텍스트 = 사실 + 실제 변화 이벤트만 (지어낼 여지 차단)
-        evidence_block = {
-            "site": site_display,
-            "is_samsung(ours)": is_ours,
-            "aeo_facts": facts,
-            "detected_changes": [
-                {"url": e.get("url"), "field": e.get("field_name"),
-                 "level": e.get("severity_level"), "summary": e.get("summary"),
-                 "before": (e.get("before_value") or "")[:160],
-                 "after": (e.get("after_value") or "")[:160]}
-                for e in change_events[:25]
-            ],
+        return {
+            "summary": f"{site_display} {len(pages)}개 페이지 분석 (DATA/COPY/VISUAL). "
+                       f"변화 {len(change_events)}건.",
+            "data": data_block,
+            "copy": copy_block,
+            "visual": visual_block,
+            "_evidence_bound": True,
         }
 
+    def _bucket(self, e: Dict[str, Any]) -> str:
+        """변경 이벤트를 DATA/COPY/VISUAL 중 정확히 하나로 귀속 (중복 금지)."""
+        ct = e.get("change_type") or e.get("field_name") or ""
+        field = e.get("field_name") or ""
+        if ct == "visual" or field in ("screenshot", "image"):
+            return "VISUAL"
+        if ct in ("technical", "navigation") or field in ("schema_type", "dom", "canonical_url"):
+            return "DATA"
+        return "COPY"   # content, commerce(가격 텍스트) 포함
+
+    def _build_category(self, name, site_display, is_ours, facts, narrative_lines, events) -> Dict[str, Any]:
+        insights = [{"point": line, "evidence_url": "(집계)", "evidence": name} for line in narrative_lines]
+        for e in events[:8]:
+            insights.append({"point": e.get("summary"), "evidence_url": e.get("url"),
+                             "evidence": f"{e.get('field_name')} [{e.get('severity_level')}]"})
+
+        if self.ready:
+            llm_out = self._llm_enrich(name, site_display, is_ours, facts, narrative_lines, events)
+            if llm_out:
+                llm_out["facts"] = facts
+                llm_out["_source"] = "gemini"
+                return llm_out
+
+        return {
+            "facts": facts,
+            "insights": insights,
+            "confidence": 0.7,
+            "_source": "rule_based",
+        }
+
+    def _llm_enrich(self, category, site_display, is_ours, facts, narrative_lines, events) -> Optional[Dict[str, Any]]:
+        evidence_block = {
+            "category": category, "site": site_display, "is_samsung(ours)": is_ours,
+            "facts": facts, "rule_based_findings": narrative_lines,
+            "related_changes": [{"url": e.get("url"), "summary": e.get("summary")} for e in events[:15]],
+        }
         guard = (
-            "너는 삼성전자 디지털마케팅팀의 경쟁 인텔리전스 분석가다.\n"
+            f"너는 삼성전자 디지털마케팅팀의 {category} 영역 분석가다.\n"
             "절대 규칙:\n"
             "1) 아래 EVIDENCE 에 실제로 존재하는 데이터만 근거로 삼아라.\n"
-            "2) EVIDENCE 에 없는 수치/문구/경쟁사 상태를 추측하거나 지어내지 마라.\n"
-            "3) 근거가 부족하면 해당 항목 값에 \"insufficient_data\" 라고 써라.\n"
-            "4) 모든 insight 는 반드시 'evidence_url' 과 'evidence' 를 포함한다.\n"
-            "5) 이 크롤에는 한 사이트 데이터만 있으므로, 경쟁사 직접 비교는 하지 말고 "
-            "   '당사(삼성) AEO 관점 시사점'에 집중하라.\n"
+            "2) EVIDENCE 에 없는 내용을 지어내지 마라. 근거 부족 시 'insufficient_data'.\n"
+            f"3) {category} 카테고리에만 집중하라. 다른 카테고리(DATA/COPY/VISUAL) 내용은 언급하지 마라.\n"
+            "4) 모든 insight 는 'evidence_url' 과 'evidence' 를 포함한다.\n"
         )
         schema = (
-            '{\n'
-            '  "summary": "이번 크롤 핵심 1-2문장 (사실 기반)",\n'
-            '  "aeo_implications_for_samsung": "당사 AEO 관점 시사점 2-3문장",\n'
-            '  "insights": [{"point":"...", "evidence_url":"...", "evidence":"실제 추출값/변화"}],\n'
-            '  "action_items": [{"action":"...", "priority":"critical|high|medium|low", "evidence_url":"..."}],\n'
-            '  "confidence": 0.0\n'
-            '}'
+            '{"insights":[{"point":"...", "evidence_url":"...", "evidence":"..."}],'
+            '"action_items":[{"action":"...", "priority":"high|medium|low", "evidence_url":"..."}],'
+            '"confidence":0.0}'
         )
-        prompt = (
-            f"{guard}\nEVIDENCE(JSON):\n"
-            f"{json.dumps(evidence_block, ensure_ascii=False)[:7000]}\n\n"
-            f"분석 깊이: {depth} (insights {depth['insights']}개, actions {depth['actions']}개).\n"
-            f"다음 JSON 스키마로만 응답(마크다운 금지):\n{schema}"
-        )
+        prompt = f"{guard}\nEVIDENCE(JSON):\n{json.dumps(evidence_block, ensure_ascii=False)[:6500]}\n\nJSON 만 응답:\n{schema}"
         try:
             resp = self.model.generate_content(prompt)
-            out = self._parse_json(resp.text)
-            if out is None:
-                return self._fallback(site_display, is_ours, facts, change_events, depth)
-            out["_source"] = "gemini"
-            out["_facts"] = facts
-            out["_evidence_bound"] = True
-            return out
+            return self._parse_json(resp.text)
         except Exception as e:
-            print(f"[intel] gemini analyze failed: {e}")
-            return self._fallback(site_display, is_ours, facts, change_events, depth)
+            print(f"[intel] {category} llm enrich failed: {e}")
+            return None
 
-    # ── 비교 분석: 두 사이트 데이터가 모두 있을 때만 ─────────────
+    def _narrate_copy(self, c: Dict[str, Any]) -> List[str]:
+        lines = []
+        dist = c["content_density"]["distribution"]
+        if dist:
+            dist_str = ", ".join(f"{k} {v}페이지" for k, v in dist.items())
+            lines.append(f"콘텐츠 밀도 분포: {dist_str}")
+        if c["content_density"]["thin_pages"]:
+            lines.append(f"빈약 콘텐츠(150단어 미만) {len(c['content_density']['thin_pages'])}+ 페이지")
+        gap = c["copy_richness"]["intent_gap_pages"]
+        if gap:
+            lines.append(f"비교/근거/FAQ 모두 없음(intent 미충족) {len(gap)}+ 페이지")
+        faq = c["faq"]
+        if faq["pages_with_faq"]:
+            low_q = sum(1 for f in faq["detail"] if f["quality"] == "낮음")
+            lines.append(f"FAQ 보유 {faq['pages_with_faq']}페이지 중 답변 부실 {low_q}건")
+        else:
+            lines.append("FAQ 전무 — AI 답변 직접 인용 구조 부재")
+        return lines
 
-    def compare(
-        self,
-        ours: Dict[str, Any],            # {"display","facts","pages"} 삼성
-        theirs: Dict[str, Any],          # 애플
-    ) -> Dict[str, Any]:
-        """
-        양사 크롤 데이터가 모두 존재할 때만 호출. 둘 다 실제 facts 를 근거로 비교.
-        한쪽이라도 비면 insufficient_data 반환 (지어내지 않음).
-        """
-        if not ours.get("facts") or not theirs.get("facts"):
-            return {"status": "insufficient_data",
-                    "reason": "비교하려면 양사 모두 크롤 데이터가 필요합니다."}
-        if not self.ready:
-            return self._fallback_compare(ours, theirs)
+    def _narrate_visual(self, v: Dict[str, Any]) -> List[str]:
+        lines = []
+        idv = v["image_diversity"]
+        lines.append(f"이미지 {idv['total_images']}장 중 product {idv['product']} / "
+                     f"lifestyle {idv['lifestyle']} ({idv['lifestyle_ratio_pct']}%) / 미분류 {idv['unclassified']}")
+        conc = v["concentration"]
+        if conc["max_single_page_pct"] >= 40:
+            lines.append(f"이미지 편중 — 단일 페이지에 전체의 {conc['max_single_page_pct']}% 집중")
+        story = v["storytelling"]
+        if story["count"]:
+            lines.append(f"제품+라이프스타일 혼합 스토리텔링 페이지 {story['count']}건")
+        else:
+            lines.append("제품/라이프스타일 혼합형 스토리텔링 페이지 없음 — 시각적 서사 단조로움")
+        return lines
 
-        block = {"samsung_facts": ours["facts"], "apple_facts": theirs["facts"]}
-        guard = (
-            "너는 삼성 경쟁 인텔리전스 분석가다. 아래 두 사실집합(facts)만 근거로 "
-            "AEO/스키마/콘텐츠 구조를 비교하라. facts 에 없는 내용은 지어내지 말고 "
-            "insufficient_data 로 표기하라. 모든 비교 항목에 수치 근거를 붙여라.\n"
-        )
-        schema = (
-            '{"comparison":[{"dimension":"스키마 커버리지|FAQ|메타|콘텐츠 깊이",'
-            '"samsung":"수치 근거","apple":"수치 근거","gap":"당사 격차/우위",'
-            '"action":"당사 액션"}],"overall":"2-3문장","confidence":0.0}'
-        )
-        prompt = f"{guard}FACTS:\n{json.dumps(block, ensure_ascii=False)[:6000]}\n\nJSON 만:\n{schema}"
-        try:
-            out = self._parse_json(self.model.generate_content(prompt).text)
-            if out is None:
-                return self._fallback_compare(ours, theirs)
-            out["_source"] = "gemini"
-            return out
-        except Exception as e:
-            print(f"[intel] compare failed: {e}")
-            return self._fallback_compare(ours, theirs)
+    # ── 비교 분석: DATA/COPY/VISUAL 각각 양사 facts 비교 ──────
 
-    # ── 깊이 자동 조절 (요구사항 6) ──────────────────────────────
+    def compare(self, ours: Dict[str, Any], theirs: Dict[str, Any]) -> Dict[str, Any]:
+        if not ours.get("pages") or not theirs.get("pages"):
+            return {"status": "insufficient_data", "reason": "비교하려면 양사 모두 크롤 데이터가 필요합니다."}
 
-    def _depth_for(self, max_level: str, n_changes: int) -> Dict[str, int]:
-        order = ["L0", "L1", "L2", "L3", "L4", "L5"]
-        lvl = order.index(max_level) if max_level in order else 0
-        if lvl >= 5 or n_changes >= 15:
-            return {"insights": 6, "actions": 5}
-        if lvl >= 3 or n_changes >= 5:
-            return {"insights": 4, "actions": 3}
-        return {"insights": 3, "actions": 2}
+        of_d, tf_d = data_facts(ours["pages"]), data_facts(theirs["pages"])
+        of_c, tf_c = copy_facts(ours["pages"]), copy_facts(theirs["pages"])
+        of_v, tf_v = visual_facts(ours["pages"]), visual_facts(theirs["pages"])
 
-    # ── JSON 파서 (엄격) ─────────────────────────────────────────
+        return {
+            "status": "ok",
+            "data": self._compare_rows("DATA", of_d, tf_d, [
+                ("Schema Coverage", lambda f: f"{f['schema']['coverage_pct']}%"),
+                ("Schema 연결 패턴", lambda f: f['schema']['id_linkage']['linkage_pattern']),
+                ("meta description 누락", lambda f: f"{len(f['html_structure']['pages_missing_meta_description'])}+"),
+            ]),
+            "copy": self._compare_rows("COPY", of_c, tf_c, [
+                ("빈약 콘텐츠 페이지", lambda f: f"{len(f['content_density']['thin_pages'])}+"),
+                ("FAQ 보유 페이지", lambda f: f"{f['faq']['pages_with_faq']}"),
+                ("intent 미충족 페이지", lambda f: f"{len(f['copy_richness']['intent_gap_pages'])}+"),
+            ]),
+            "visual": self._compare_rows("VISUAL", of_v, tf_v, [
+                ("Lifestyle 이미지 비율", lambda f: f"{f['image_diversity']['lifestyle_ratio_pct']}%"),
+                ("이미지 편중도(최대 페이지 비중)", lambda f: f"{f['concentration']['max_single_page_pct']}%"),
+                ("스토리텔링 페이지", lambda f: f"{f['storytelling']['count']}"),
+            ]),
+            "_source": "rule_based",
+        }
+
+    def _compare_rows(self, category, of, tf, dims):
+        rows = []
+        for label, fn in dims:
+            sv, av = fn(of), fn(tf)
+            rows.append({"dimension": label, "samsung": sv, "apple": av,
+                        "gap": "insufficient_data" if sv == av else "차이 존재"})
+        return {"comparison": rows}
+
+    # ── JSON 파서 ────────────────────────────────────────────
 
     def _parse_json(self, text: str) -> Optional[Dict[str, Any]]:
         if not text:
@@ -233,74 +620,18 @@ class IntelEngine:
         except Exception:
             return None
 
-    # ── Fallback (규칙기반, 지어내지 않음) ──────────────────────
 
-    def _fallback(self, site, is_ours, facts, events, depth) -> Dict[str, Any]:
-        sc = facts["schema_type_counts"]
-        insights = []
-        if facts["faqpage_count"]:
-            insights.append({"point": f"FAQPage 스키마 {facts['faqpage_count']}개 페이지 보유 — AI 답변 노출 토대 존재",
-                             "evidence_url": "(집계)", "evidence": f"FAQPage×{facts['faqpage_count']}"})
-        else:
-            insights.append({"point": "FAQPage 스키마 미보유 — AI Overview 직접 노출 구조 부재",
-                             "evidence_url": "(집계)", "evidence": "FAQPage=0"})
-        if facts["pages_missing_meta_description"]:
-            insights.append({"point": f"meta description 누락 {len(facts['pages_missing_meta_description'])}+ 페이지",
-                             "evidence_url": facts["pages_missing_meta_description"][0] or "(집계)",
-                             "evidence": "meta description empty"})
-        if facts["thin_content_pages"]:
-            insights.append({"point": f"본문 빈약(150단어 미만) {len(facts['thin_content_pages'])}+ 페이지",
-                             "evidence_url": facts["thin_content_pages"][0] or "(집계)",
-                             "evidence": "word_count<150"})
-        for e in events[:depth["insights"]]:
-            insights.append({"point": e.get("summary"), "evidence_url": e.get("url"),
-                             "evidence": f"{e.get('field_name')} [{e.get('severity_level')}]"})
-
-        actions = []
-        if is_ours and facts["faqpage_count"] == 0:
-            actions.append({"action": "주요 제품 페이지에 FAQPage JSON-LD 인라인 임베드 적용",
-                            "priority": "high", "evidence_url": "(집계)"})
-        if facts["pages_missing_meta_description"]:
-            actions.append({"action": "meta description 누락 페이지 보강",
-                            "priority": "medium",
-                            "evidence_url": facts["pages_missing_meta_description"][0] or "(집계)"})
-
-        return {
-            "summary": f"{site} {facts['page_count']}개 페이지 크롤 완료. "
-                       f"변화 {len(events)}건. 스키마 타입 {len(sc)}종.",
-            "aeo_implications_for_samsung":
-                ("당사 사이트 분석: " if is_ours else "경쟁사 분석(당사 시사점): ") +
-                (f"FAQPage {facts['faqpage_count']}개, Breadcrumb {facts['breadcrumb_pages']}개, "
-                 f"Product {facts['product_schema_pages']}개 페이지. "
-                 "GEMINI_API_KEY 설정 시 더 정밀한 시사점 제공."),
-            "insights": insights[:depth["insights"] + 3],
-            "action_items": actions[:depth["actions"]] or
-                            [{"action": "현 상태 양호 — 정기 모니터링 유지",
-                              "priority": "low", "evidence_url": "(집계)"}],
-            "confidence": 0.55,
-            "_source": "fallback",
-            "_facts": facts,
-            "_evidence_bound": True,
-        }
-
-    def _fallback_compare(self, ours, theirs) -> Dict[str, Any]:
-        of, tf = ours["facts"], theirs["facts"]
-        rows = []
-        rows.append({"dimension": "FAQPage 스키마",
-                     "samsung": f"{of['faqpage_count']}개 페이지",
-                     "apple": f"{tf['faqpage_count']}개 페이지",
-                     "gap": "당사 부족" if of['faqpage_count'] < tf['faqpage_count'] else "당사 우위/동등",
-                     "action": "FAQPage 인라인 임베드 확대" if of['faqpage_count'] < tf['faqpage_count'] else "현 수준 유지"})
-        rows.append({"dimension": "스키마 타입 다양성",
-                     "samsung": f"{len(of['schema_type_counts'])}종",
-                     "apple": f"{len(tf['schema_type_counts'])}종",
-                     "gap": "당사 부족" if len(of['schema_type_counts']) < len(tf['schema_type_counts']) else "당사 우위/동등",
-                     "action": "누락 스키마 타입 보강"})
-        rows.append({"dimension": "meta description 누락",
-                     "samsung": f"{len(of['pages_missing_meta_description'])}+",
-                     "apple": f"{len(tf['pages_missing_meta_description'])}+",
-                     "gap": "insufficient_data",
-                     "action": "누락 페이지 보강"})
-        return {"comparison": rows,
-                "overall": "규칙기반 비교(수치 근거). 정밀 분석은 GEMINI_API_KEY 설정 후 제공.",
-                "confidence": 0.5, "_source": "fallback"}
+# ── 하위호환: 기존 aeo_facts() 를 쓰는 코드(email_service 등)를 위해 유지 ──
+def aeo_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
+    d = data_facts(pages)
+    sc = d["schema"]
+    return {
+        "page_count": len(pages),
+        "schema_type_counts": sc["schema_type_counts"],
+        "faqpage_count": sc["schema_type_counts"].get("FAQPage", 0),
+        "faq_item_total": sum(len(p.get("faqs") or []) for p in pages),
+        "breadcrumb_pages": sc["schema_type_counts"].get("BreadcrumbList", 0),
+        "product_schema_pages": sc["schema_type_counts"].get("Product", 0),
+        "pages_missing_meta_description": d["html_structure"]["pages_missing_meta_description"],
+        "thin_content_pages": [p.get("url") for p in pages if (p.get("word_count") or 0) < 150][:10],
+    }

@@ -1,3 +1,4 @@
+
 """
 crawl_service_v2.py — 이벤트 기반 파이프라인 (안정화 + 디버그 유지 버전)
 ================================================================
@@ -193,6 +194,12 @@ class CrawlServiceV2:
     # INTEL
     # ─────────────────────────────────────────────
     def _run_intel(self, run_id, site_key, target, pages, event_dicts, max_level):
+        """
+        [PHASE1 변경] analyze_site()가 이제 {"data":..,"copy":..,"visual":..} 구조로
+        반환되므로, povs 테이블의 신규 컬럼(data_analysis/copy_analysis/visual_analysis)에
+        각각 분리 저장. 기존 observation/hypothesis/opportunity 는 이메일 등 하위호환용으로
+        요약만 채워 유지.
+        """
         try:
             res = self.intel.analyze_site(
                 site_display=target.display_name,
@@ -202,20 +209,32 @@ class CrawlServiceV2:
                 max_level=max_level
             )
 
+            data_b = res.get("data", {})
+            copy_b = res.get("copy", {})
+            visual_b = res.get("visual", {})
+
+            # 하위호환 필드(이메일 리포트 등에서 사용)
+            legacy_insights = (data_b.get("insights", []) + copy_b.get("insights", []) +
+                               visual_b.get("insights", []))[:10]
+
             self._exec("""
                 INSERT INTO povs
                 (pov_run_id, related_crawl_run_id, observation, hypothesis,
-                 opportunity, recommended_action, priority, functional_area, created_at)
-                VALUES (:p,:r,:o,:h,:op,:a,:pr,:fa,:c)
+                 opportunity, recommended_action, priority, functional_area,
+                 data_analysis, copy_analysis, visual_analysis, created_at)
+                VALUES (:p,:r,:o,:h,:op,:a,:pr,:fa,:da,:co,:vi,:c)
             """,
             p=f"pov_{run_id}",
             r=run_id,
             o=_s(res.get("summary"))[:1900],
-            h=_s(res.get("aeo_implications_for_samsung"))[:1900],
-            op=_s(json.dumps(res.get("insights", []), ensure_ascii=False))[:1900],
-            a=_s(json.dumps(res.get("action_items", []), ensure_ascii=False))[:1900],
+            h="",
+            op=_s(json.dumps(legacy_insights, ensure_ascii=False))[:1900],
+            a="[]",
             pr="high" if max_level in ("L4", "L5") else "medium",
-            fa="AEO",
+            fa="DATA/COPY/VISUAL",
+            da=json.dumps(data_b, ensure_ascii=False)[:200000],
+            co=json.dumps(copy_b, ensure_ascii=False)[:200000],
+            vi=json.dumps(visual_b, ensure_ascii=False)[:200000],
             c=datetime.utcnow())
 
         except Exception as e:
@@ -256,6 +275,12 @@ class CrawlServiceV2:
             return {}
 
     def _save_snapshot(self, run_id, site_key, url, page):
+        """
+        [PHASE1 변경] DATA/COPY/VISUAL 상세 분석에 필요한 원본(JSON-LD, h2/h3,
+        이미지, FAQ, 내비, CTA)을 함께 영구 저장. 기존엔 이 데이터가 크롤
+        도중에만 메모리에 존재하고 버려져서, 크롤 끝난 뒤 페이지를 클릭해도
+        근거 데이터가 DB에 없어 상세를 재구성할 수 없었음.
+        """
         try:
             sig = structural_signature(page)
 
@@ -264,8 +289,10 @@ class CrawlServiceV2:
                 (crawl_run_id, url, site_key, title, h1, meta_description,
                  canonical_url, body_content, structural_signature,
                  screenshot_phash, screenshot_thumb, content_hash,
-                 word_count, crawled_at)
-                VALUES (:r,:u,:s,:t,:h1,:md,:cu,:bc,:sig,:ph,:thumb,:ch,:wc,:ts)
+                 word_count, raw_h2, raw_h3, raw_structured_data,
+                 raw_faqs, raw_images, raw_navigation, raw_ctas, crawled_at)
+                VALUES (:r,:u,:s,:t,:h1,:md,:cu,:bc,:sig,:ph,:thumb,:ch,:wc,
+                        :h2,:h3,:sd,:faqs,:img,:nav,:cta,:ts)
             """,
             r=run_id, u=url, s=site_key,
             t=_s(page.get("title")),
@@ -278,6 +305,13 @@ class CrawlServiceV2:
             thumb=page.get("screenshot_thumb"),
             ch=_content_hash(page),
             wc=int(page.get("word_count") or 0),
+            h2=json.dumps(page.get("h2") or [], ensure_ascii=False),
+            h3=json.dumps(page.get("h3") or [], ensure_ascii=False),
+            sd=json.dumps(page.get("structured_data") or [], ensure_ascii=False)[:200000],
+            faqs=json.dumps(page.get("faqs") or [], ensure_ascii=False)[:50000],
+            img=json.dumps(page.get("images") or [], ensure_ascii=False)[:50000],
+            nav=json.dumps(page.get("navigation") or {}, ensure_ascii=False)[:20000],
+            cta=json.dumps(page.get("ctas") or [], ensure_ascii=False)[:20000],
             ts=datetime.utcnow())
 
         except Exception as e:
@@ -285,14 +319,24 @@ class CrawlServiceV2:
 
     def _save_event(self, run_id, ev):
         try:
+            # [PHASE1 신규] 변경사항을 DATA/COPY/VISUAL 중 정확히 하나로 귀속
+            ct = ev.change_type or ""
+            field = ev.field_name or ""
+            if ct == "visual" or field in ("screenshot", "image"):
+                bucket = "VISUAL"
+            elif ct in ("technical", "navigation") or field in ("schema_type", "dom", "canonical_url"):
+                bucket = "DATA"
+            else:
+                bucket = "COPY"
+
             self._exec("""
                 INSERT INTO detected_changes
                 (crawl_run_id, url, change_type, change_category,
                  field_name, before_value, after_value,
                  severity, severity_level, severity_reason,
                  summary, char_added, char_removed,
-                 diff_ratio, evidence, tier_level, detected_at)
-                VALUES (:r,:u,:ct,:cc,:fn,:bv,:av,:sev,:lv,:sr,:sm,:ca,:cr,:dr,:evd,:tl,:ts)
+                 diff_ratio, evidence, tier_level, analysis_bucket, detected_at)
+                VALUES (:r,:u,:ct,:cc,:fn,:bv,:av,:sev,:lv,:sr,:sm,:ca,:cr,:dr,:evd,:tl,:bk,:ts)
             """,
             r=run_id, u=ev.url,
             ct=ev.change_type,
@@ -309,6 +353,7 @@ class CrawlServiceV2:
             dr=ev.diff_ratio,
             evd=json.dumps(ev.evidence, ensure_ascii=False),
             tl=ev.tier_level,
+            bk=bucket,
             ts=ev.detected_at)
 
         except Exception as e:

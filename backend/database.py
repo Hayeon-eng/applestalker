@@ -70,13 +70,26 @@ def ensure_schema():
         "ALTER TABLE detected_changes ADD COLUMN IF NOT EXISTS diff_ratio DOUBLE PRECISION DEFAULT 0",
         "ALTER TABLE detected_changes ADD COLUMN IF NOT EXISTS evidence TEXT",
         "ALTER TABLE detected_changes ADD COLUMN IF NOT EXISTS tier_level INTEGER DEFAULT 3",
+        "ALTER TABLE detected_changes ADD COLUMN IF NOT EXISTS analysis_bucket VARCHAR(10) DEFAULT 'DATA'",
         # page_snapshots
         "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS structural_signature TEXT",
         "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS screenshot_phash VARCHAR(64)",
         "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS screenshot_thumb TEXT",
         "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64)",
+        # [PHASE1 신규] page_snapshots 원본 보존 컬럼
+        "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_h2 TEXT",
+        "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_h3 TEXT",
+        "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_structured_data TEXT",
+        "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_faqs TEXT",
+        "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_images TEXT",
+        "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_navigation TEXT",
+        "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_ctas TEXT",
         # povs
         "ALTER TABLE povs ADD COLUMN IF NOT EXISTS functional_area VARCHAR(50)",
+        # [PHASE1 신규] povs DATA/COPY/VISUAL 분리 컬럼
+        "ALTER TABLE povs ADD COLUMN IF NOT EXISTS data_analysis TEXT",
+        "ALTER TABLE povs ADD COLUMN IF NOT EXISTS copy_analysis TEXT",
+        "ALTER TABLE povs ADD COLUMN IF NOT EXISTS visual_analysis TEXT",
     ]
     with engine.connect() as conn:
         for st in stmts:
