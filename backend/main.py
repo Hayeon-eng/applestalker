@@ -24,6 +24,7 @@ from email_service import EmailService
 from config import SEED_TARGETS, load_active_urls, all_site_keys, site_key_for_url, tier_for_url
 
 CRON_TOKEN = os.getenv("CRON_TOKEN", "change-me")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "0108")   # [PHASE1 신규] URL 추가/삭제 게이트
 SITE_KEYS = ["samsung", "apple"]
 
 # ── 카테고리/레벨 매핑 (UI 단순화: High/Med/Low, 4 카테고리) ──
@@ -294,22 +295,35 @@ def latest_report(run_id: Optional[str] = None):
             })
     # 분석(POV)은 세션 내 run들 중 있는 것 모으기
     ins, act, summ, aeo = [], [], [], []
+    data_by_rid, copy_by_rid, visual_by_rid = {}, {}, {}
     for rid in rids:
-        pov = q("SELECT observation, hypothesis, opportunity, recommended_action "
+        pov = q("SELECT observation, hypothesis, opportunity, recommended_action, "
+                "data_analysis, copy_analysis, visual_analysis "
                 "FROM povs WHERE related_crawl_run_id=:r LIMIT 1", r=rid)
         if pov:
             if pov[0][0]: summ.append(pov[0][0])
             if pov[0][1]: aeo.append(pov[0][1])
             ins += _loads(pov[0][2]); act += _loads(pov[0][3])
+            if pov[0][4]: data_by_rid[rid] = _loads(pov[0][4])
+            if pov[0][5]: copy_by_rid[rid] = _loads(pov[0][5])
+            if pov[0][6]: visual_by_rid[rid] = _loads(pov[0][6])
     analysis = {"summary": " ".join(summ), "aeo_implications": " ".join(aeo),
                 "insights": ins, "actions": act}
+    # [PHASE1 신규] DATA/COPY/VISUAL — 사이트(samsung/apple)별로 묶어 반환.
+    # 세션에 두 사이트(run) 결과가 섞여 있을 수 있으므로 site_name 으로 매핑.
+    site_by_rid = {r[0]: r[1] for r in target_runs}
+    def _by_site(blocks_by_rid):
+        return {site_by_rid.get(rid, rid): blk for rid, blk in blocks_by_rid.items()}
+    dcv = {"data": _by_site(data_by_rid), "copy": _by_site(copy_by_rid),
+           "visual": _by_site(visual_by_rid)}
     # 영역별 한 줄 요약 (사실 기반: 어느 사이트가 이 영역에서 무엇을, 몇 건). 아래 카드와 중복되지 않게 '종합' 수준.
     cat_summary = _category_summaries(changes)
     return {"has_data": True, "run_id": rids[0], "session": target_key,
             "timestamp": _kst_str(started),
             "has_changes": len(changes) > 0, "by_category": by_cat,
             "category_summary": cat_summary,
-            "changes": changes, "analysis": analysis}
+            "changes": changes, "analysis": analysis,
+            "dcv": dcv}
 
 
 def _category_summaries(changes):
@@ -427,10 +441,53 @@ async def crawl_progress():
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
+# ── [PHASE1 신규] 페이지 단위 상세 (현행 분석 탭 클릭 시 사이드바) ──
+@app.get("/api/page-detail")
+def page_detail(url: str = Query(...)):
+    """
+    page_snapshots 의 raw_* 컬럼(JSON-LD, h2/h3, 이미지, FAQ, 내비, CTA)을 복원해
+    그 페이지 1건만의 DATA/COPY/VISUAL 분석을 즉석에서 계산해 반환.
+    크롤 시점 분석(POV, 사이트 전체 집계)과 달리 '이 페이지 단독' 근거를 보여준다.
+    """
+    rows = q("SELECT title,h1,meta_description,canonical_url,body_content,word_count,"
+             "raw_h2,raw_h3,raw_structured_data,raw_faqs,raw_images,raw_navigation,"
+             "raw_ctas,crawled_at FROM page_snapshots WHERE url=:u "
+             "ORDER BY crawled_at DESC LIMIT 1", u=url)
+    if not rows:
+        raise HTTPException(404, "해당 URL의 크롤 기록이 없습니다")
+    r = rows[0]
+    page = {
+        "url": url, "title": r[0], "h1": r[1], "meta_description": r[2],
+        "canonical_url": r[3], "body_content": r[4] or "", "word_count": r[5] or 0,
+        "h2": _loads(r[6]), "h3": _loads(r[7]),
+        "structured_data": _loads(r[8]), "faqs": _loads(r[9]),
+        "images": _loads(r[10]), "navigation": _loads(r[11]) or {},
+        "ctas": _loads(r[12]),
+    }
+    from intel_engine import data_facts, copy_facts, visual_facts, _narrate_schema_completeness
+    intel = IntelEngine()
+    d = data_facts([page])
+    c = copy_facts([page])
+    v = visual_facts([page])
+    return {
+        "url": url, "crawled_at": str(r[13]),
+        "data": {"facts": d, "narrative": _narrate_schema_completeness(d["schema"])},
+        "copy": {"facts": c, "narrative": intel._narrate_copy(c)},
+        "visual": {"facts": v, "narrative": intel._narrate_visual(v)},
+    }
+
+
 # ── URL 관리 ──
 class AddURL(BaseModel):
     url: str
     site_key: Optional[str] = None
+    admin_password: str = ""
+
+
+def _check_admin(pw: str):
+    """[PHASE1 신규] URL 추가/삭제는 관리자 비밀번호 필요."""
+    if pw != ADMIN_PASSWORD:
+        raise HTTPException(403, "관리자 비밀번호가 올바르지 않습니다")
 
 
 @app.get("/api/urls")
@@ -447,6 +504,7 @@ def list_urls(site_key: Optional[str] = None):
 
 @app.post("/api/urls")
 def add_url(req: AddURL):
+    _check_admin(req.admin_password)
     u = req.url.strip()
     if not u.startswith("http"):
         raise HTTPException(400, "유효한 URL(http...) 이어야 합니다")
@@ -464,7 +522,8 @@ def add_url(req: AddURL):
 
 
 @app.delete("/api/urls")
-def del_url(url: str = Query(...)):
+def del_url(url: str = Query(...), admin_password: str = Query("")):
+    _check_admin(admin_password)
     with sync_engine.connect() as c:
         c.execute(text("UPDATE monitored_urls SET enabled=false WHERE url=:u"), {"u": url}); c.commit()
     return {"status": "disabled", "url": url}
