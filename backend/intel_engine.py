@@ -569,7 +569,7 @@ class IntelEngine:
 
     # ── 비교 분석: DATA/COPY/VISUAL 각각 양사 facts 비교 ──────
 
-def compare(self, ours: Dict[str, Any], theirs: Dict[str, Any]) -> Dict[str, Any]:
+    def compare(self, ours: Dict[str, Any], theirs: Dict[str, Any]) -> Dict[str, Any]:
     """
     AEO Insight 기반 비교 엔진 (v2)
     - 단순 수치 비교 제거
@@ -577,7 +577,7 @@ def compare(self, ours: Dict[str, Any], theirs: Dict[str, Any]) -> Dict[str, Any
     - actionable insight 생성
     """
 
-    if not ours.get("pages") or not theirs.get("pages"):
+        if not ours.get("pages") or not theirs.get("pages"):
         return {
             "status": "insufficient_data",
             "reason": "두 사이트 모두 크롤 데이터가 필요합니다."
