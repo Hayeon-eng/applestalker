@@ -1,15 +1,18 @@
 name: scheduled-crawl
+
 on:
   schedule:
     - cron: "0 0 * * *"   # 09:00 KST
     - cron: "0 5 * * *"   # 14:00 KST
   workflow_dispatch: {}
+
 jobs:
   crawl:
     runs-on: ubuntu-latest
     steps:
-      - name: Wake backend & crawl (samsung + apple)
+      - name: Wake backend and run crawl
         run: |
-          curl -sS --max-time 600 \
-            "${{ secrets.BACKEND_URL }}/api/cron/tick?token=${{ secrets.CRON_TOKEN }}" \
-            -w "\nHTTP %{http_code}\n" || echo "tick failed (will retry next schedule)"
+          test -n "${{ secrets.BACKEND_URL }}" || (echo "BACKEND_URL secret is missing" && exit 1)
+          test -n "${{ secrets.CRON_TOKEN }}" || (echo "CRON_TOKEN secret is missing" && exit 1)
+          curl -fsS --retry 2 --retry-delay 10 --max-time 900 \
+            "${{ secrets.BACKEND_URL }}/api/cron/tick?token=${{ secrets.CRON_TOKEN }}"
