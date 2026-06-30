@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -86,12 +86,12 @@ export const DTABS: { key: "data" | "copy" | "visual"; label: string; icon: stri
   { key: "copy", label: "COPY", icon: "✍️" },
   { key: "visual", label: "VISUAL", icon: "🖼️" },
 ];
-const LV: Record<string, string> = { High: "var(--high)", Medium: "var(--med)", Low: "var(--low)" };
-const LV_KO: Record<string, string> = { High: "높음", Medium: "보통", Low: "낮음" };
+export const LV: Record<string, string> = { High: "var(--high)", Medium: "var(--med)", Low: "var(--low)" };
+export const LV_KO: Record<string, string> = { High: "높음", Medium: "보통", Low: "낮음" };
 
 /* 사이드 'Example'에서만 보여줄 예시 (실제 사이트 관찰 기반) */
-const PREV = "(예시용 가상)";
-const _changes: Change[] = [
+export const PREV = "(예시용 가상)";
+export const _changes: Change[] = [
   {
     id: 1,
     url: "https://www.apple.com/apple-intelligence/",
@@ -165,10 +165,10 @@ const _changes: Change[] = [
     evidence: { "이미지 차이": "14 / 64" },
   },
 ];
-const _now = () => new Date().toISOString().slice(0, 16).replace("T", " ");
+export const _now = () => new Date().toISOString().slice(0, 16).replace("T", " ");
 
 /* ① 변화 있음 예시 → '변경점' 탭에서 사용 */
-const CHANGES_EXAMPLE: Report = {
+export const CHANGES_EXAMPLE: Report = {
   has_data: true,
   run_id: "ex",
   site: "samsung",
@@ -194,7 +194,7 @@ const CHANGES_EXAMPLE: Report = {
 };
 
 /* ② 변화 없음(= 현행 분석) 예시 → '현황 비교' 탭에서 사용 */
-const COMPARE_EXAMPLE: any = {
+export const COMPARE_EXAMPLE: any = {
   status: "ok",
   _example: true,
   overall:
@@ -910,7 +910,7 @@ export function Compare({ data, online, isExample, dataTab, pagesBySite, onPickP
 }
 
 /* ── 공통 작은 컴포넌트 ── */
-const ghost: React.CSSProperties = {
+export const ghost: React.CSSProperties = {
   background: "#fff",
   color: "var(--label)",
   borderRadius: 11,
@@ -920,7 +920,7 @@ const ghost: React.CSSProperties = {
   boxShadow: "var(--shadow-sm)",
   textDecoration: "none",
 };
-const pillBtn: React.CSSProperties = {
+export const pillBtn: React.CSSProperties = {
   fontSize: 11,
   color: "var(--sec)",
   fontWeight: 600,

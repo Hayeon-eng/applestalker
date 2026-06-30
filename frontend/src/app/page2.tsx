@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { API,BUCKET_OF,CATS,DTABS,Changes,SiteColumn,Detail,PageDetailPanel,diffParts,DetailDefault,Compare,Seg,Muted,Badge,Stat,Card,Box,Info,ConnBadge,Empty, Change, Report, Session, PageLite, PageDetail } from "./page1";
+"use client";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { API, BUCKET_OF, Badge, Box, CATS, CHANGES_EXAMPLE, COMPARE_EXAMPLE, Card, Change, Changes, Compare, ConnBadge, DTABS, Detail, DetailDefault, Empty, Info, LV, LV_KO, Muted, PREV, PageDetail, PageDetailPanel, PageLite, Report, Seg, Session, SiteColumn, Stat, _changes, _now, diffParts, ghost, pillBtn } from "./page1";
 
-export default function PageContent() {
+export default function Page() {
   const [tab, setTab] = useState<"changes" | "compare">("changes");
   const [dataTab, setDataTab] = useState<"data" | "copy" | "visual">("data");
   const [report, setReport] = useState<Report | null>(null);
