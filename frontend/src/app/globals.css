@@ -1,0 +1,17 @@
+:root{
+  --bg:#F2F2F7;--card:#fff;--rail:#FBFBFD;--label:#1C1C1E;--label2:#3A3A3C;
+  --sec:#8E8E93;--ter:#C7C7CC;--line:#E5E5EA;--line2:#D1D1D6;
+  --blue:#007AFF;--blue-soft:#EAF3FF;
+  --high:#FF3B30;--med:#FF9F0A;--low:#34C759;
+  --apple:#1C1C1E;--samsung:#007AFF;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px rgba(0,0,0,.05);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--label);
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;
+  font-size:13.5px;line-height:1.5;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+a{color:inherit}
+.mono{font-family:'SF Mono',ui-monospace,Menlo,monospace}
