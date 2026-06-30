@@ -570,142 +570,40 @@ class IntelEngine:
     # ── 비교 분석: DATA/COPY/VISUAL 각각 양사 facts 비교 ──────
 
     def compare(self, ours: Dict[str, Any], theirs: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    AEO Insight 기반 비교 엔진 (v2)
-    - 단순 수치 비교 제거
-    - 의미 중심 비교 (왜 중요한지 포함)
-    - actionable insight 생성
-    """
-
         if not ours.get("pages") or not theirs.get("pages"):
+            return {"status": "insufficient_data", "reason": "비교하려면 양사 모두 크롤 데이터가 필요합니다."}
+
+        of_d, tf_d = data_facts(ours["pages"]), data_facts(theirs["pages"])
+        of_c, tf_c = copy_facts(ours["pages"]), copy_facts(theirs["pages"])
+        of_v, tf_v = visual_facts(ours["pages"]), visual_facts(theirs["pages"])
+
         return {
-            "status": "insufficient_data",
-            "reason": "두 사이트 모두 크롤 데이터가 필요합니다."
+            "status": "ok",
+            "data": self._compare_rows("DATA", of_d, tf_d, [
+                ("Schema Coverage", lambda f: f"{f['schema']['coverage_pct']}%"),
+                ("Schema 연결 패턴", lambda f: f['schema']['id_linkage']['linkage_pattern']),
+                ("meta description 누락", lambda f: f"{len(f['html_structure']['pages_missing_meta_description'])}+"),
+            ]),
+            "copy": self._compare_rows("COPY", of_c, tf_c, [
+                ("빈약 콘텐츠 페이지", lambda f: f"{len(f['content_density']['thin_pages'])}+"),
+                ("FAQ 보유 페이지", lambda f: f"{f['faq']['pages_with_faq']}"),
+                ("intent 미충족 페이지", lambda f: f"{len(f['copy_richness']['intent_gap_pages'])}+"),
+            ]),
+            "visual": self._compare_rows("VISUAL", of_v, tf_v, [
+                ("Lifestyle 이미지 비율", lambda f: f"{f['image_diversity']['lifestyle_ratio_pct']}%"),
+                ("이미지 편중도(최대 페이지 비중)", lambda f: f"{f['concentration']['max_single_page_pct']}%"),
+                ("스토리텔링 페이지", lambda f: f"{f['storytelling']['count']}"),
+            ]),
+            "_source": "rule_based",
         }
 
-    of_d, tf_d = data_facts(ours["pages"]), data_facts(theirs["pages"])
-    of_c, tf_c = copy_facts(ours["pages"]), copy_facts(theirs["pages"])
-    of_v, tf_v = visual_facts(ours["pages"]), visual_facts(theirs["pages"])
-
-    # -----------------------------
-    # 1. DATA INSIGHT LAYER
-    # -----------------------------
-    data_insights = []
-
-    cov_gap = of_d["schema"]["coverage_pct"] - tf_d["schema"]["coverage_pct"]
-
-    data_insights.append({
-        "dimension": "Schema Coverage",
-        "samsung": f"{of_d['schema']['coverage_pct']}%",
-        "apple": f"{tf_d['schema']['coverage_pct']}%",
-        "insight": (
-            "스키마 커버리지가 낮으면 AI 검색(AEO) 노출 구조가 약화됨. "
-            + ("삼성 우위" if cov_gap > 0 else "애플 우위" if cov_gap < 0 else "유사 수준")
-        )
-    })
-
-    data_insights.append({
-        "dimension": "Schema 연결 구조 (@id linkage)",
-        "samsung": of_d["schema"]["id_linkage"]["linkage_pattern"],
-        "apple": tf_d["schema"]["id_linkage"]["linkage_pattern"],
-        "insight": (
-            "Linked 구조일수록 사이트 전체를 하나의 지식 그래프로 인식 → AI 검색 유리"
-        )
-    })
-
-    data_insights.append({
-        "dimension": "Meta Description 누락",
-        "samsung": f"{len(of_d['html_structure']['pages_missing_meta_description'])}+",
-        "apple": f"{len(tf_d['html_structure']['pages_missing_meta_description'])}+",
-        "insight": (
-            "메타 디스크립션 누락은 CTR 감소 + 검색 스니펫 품질 저하로 직접 영향"
-        )
-    })
-
-    # -----------------------------
-    # 2. COPY INSIGHT LAYER
-    # -----------------------------
-    copy_insights = []
-
-    copy_insights.append({
-        "dimension": "콘텐츠 깊이 (Intent 충족)",
-        "samsung": f"{len(of_c['copy_richness']['intent_gap_pages'])}+ gap pages",
-        "apple": f"{len(tf_c['copy_richness']['intent_gap_pages'])}+ gap pages",
-        "insight": (
-            "비교/근거/FAQ가 없는 페이지는 검색 의도 충족 실패 → AI 답변 노출 불리"
-        )
-    })
-
-    copy_insights.append({
-        "dimension": "FAQ Coverage",
-        "samsung": of_c["faq"]["pages_with_faq"],
-        "apple": tf_c["faq"]["pages_with_faq"],
-        "insight": (
-            "FAQ는 AI Overview / Answer Engine 직접 소스 역할 → 많을수록 유리"
-        )
-    })
-
-    # -----------------------------
-    # 3. VISUAL INSIGHT LAYER
-    # -----------------------------
-    visual_insights = []
-
-    visual_insights.append({
-        "dimension": "Lifestyle 이미지 비율",
-        "samsung": f"{of_v['image_diversity']['lifestyle_ratio_pct']}%",
-        "apple": f"{tf_v['image_diversity']['lifestyle_ratio_pct']}%",
-        "insight": (
-            "라이프스타일 이미지 비율이 높을수록 브랜드 컨텍스트 이해도 증가"
-        )
-    })
-
-    visual_insights.append({
-        "dimension": "이미지 스토리텔링 페이지",
-        "samsung": of_v["storytelling"]["count"],
-        "apple": tf_v["storytelling"]["count"],
-        "insight": (
-            "제품+라이프스타일 혼합은 전환 중심 UX 신호로 작동"
-        )
-    })
-
-    # -----------------------------
-    # 4. OVERALL INSIGHT
-    # -----------------------------
-    def score(d, c, v):
-        return (
-            d["schema"]["coverage_pct"]
-            + len(c["copy_richness"]["rich_pages"])
-            + v["image_diversity"]["lifestyle_ratio_pct"]
-        )
-
-    s_score = score(of_d, of_c, of_v)
-    a_score = score(tf_d, tf_c, tf_v)
-
-    overall = {
-        "summary": (
-            "삼성 우위" if s_score > a_score else "애플 우위" if a_score > s_score else "유사 수준"
-        ),
-        "samsung_score": s_score,
-        "apple_score": a_score,
-        "interpretation": (
-            "이 점수는 SEO가 아니라 AEO 구조 완성도를 반영한 종합 지표"
-        )
-    }
-
-    # -----------------------------
-    # FINAL RETURN
-    # -----------------------------
-    return {
-        "status": "ok",
-
-        "data": data_insights,
-        "copy": copy_insights,
-        "visual": visual_insights,
-
-        "overall": overall,
-
-        "_source": "insight_v2"
-    }
+    def _compare_rows(self, category, of, tf, dims):
+        rows = []
+        for label, fn in dims:
+            sv, av = fn(of), fn(tf)
+            rows.append({"dimension": label, "samsung": sv, "apple": av,
+                        "gap": "insufficient_data" if sv == av else "차이 존재"})
+        return {"comparison": rows}
 
     # ── JSON 파서 ────────────────────────────────────────────
 
