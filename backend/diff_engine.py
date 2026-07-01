@@ -331,11 +331,27 @@ class DiffEngine:
             out.append(self._mk(url, site_key, tier, "navigation", "navigation", "L4",
                                  f"내비 항목 제거: {t}", before=t))
         # DOM 골격 해시 변화 (텍스트 변화 없이 레이아웃만 바뀐 경우 포착)
+        # ── 보강: dom_hash 자체는 뭉뚱그린 지문이라 "무엇이" 바뀌었는지 알려주지 않지만,
+        #    같은 structural_signature 안에 이미 h2/h3/cta/faq/이미지 개수가 있으므로
+        #    새 크롤링 없이 그 필드들을 비교해 구체적인 변화 내역을 evidence에 담는다.
         if cs.get("dom_hash") and ps.get("dom_hash") and cs["dom_hash"] != ps["dom_hash"]:
-            out.append(self._mk(url, site_key, tier, "dom", "technical", "L4",
-                                 "DOM 구조(레이아웃 골격) 변화",
-                                 evidence={"dom_hash_before": ps["dom_hash"][:12],
-                                           "dom_hash_after": cs["dom_hash"][:12]}))
+            count_fields = [
+                ("h2_count", "H2 제목"), ("h3_count", "H3 제목"),
+                ("cta_count", "CTA 버튼"), ("faq_count", "FAQ 문항"), ("img_count", "이미지"),
+            ]
+            deltas, parts = {}, []
+            for key, label in count_fields:
+                b, a = ps.get(key), cs.get(key)
+                if isinstance(b, int) and isinstance(a, int) and b != a:
+                    diff = a - b
+                    deltas[key] = {"label": label, "before": b, "after": a, "diff": diff}
+                    parts.append(f"{label} {'+' if diff > 0 else ''}{diff}")
+            summary = "DOM 구조(레이아웃 골격) 변화" + (f" — {', '.join(parts)}" if parts else
+                       " (h2/h3/CTA/FAQ/이미지 개수는 동일 — 순서·배치만 바뀐 것으로 추정)")
+            evidence = {"dom_hash_before": ps["dom_hash"][:12], "dom_hash_after": cs["dom_hash"][:12]}
+            if deltas:
+                evidence["count_deltas"] = deltas
+            out.append(self._mk(url, site_key, tier, "dom", "technical", "L4", summary, evidence=evidence))
         return out
 
     def _list_field_events(self, url, site_key, tier, fld, key, ctype,
