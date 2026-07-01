@@ -5,9 +5,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 /* ── 타입 */
+type View = "home" | "dashboard";
 type MainTab = "overview" | "pages";
 type MetricTab = "data" | "copy" | "visual";
 type SiteKey = "samsung" | "apple";
+type CrawlProgress = {
+  active: boolean; site?: string; total: number; done: number;
+  currentUrl?: string; error?: string;
+};
 type Change = {
   id: number; url: string; site?: string; level?: "High" | "Medium" | "Low";
   category?: string; field?: string; summary?: string; before?: string; after?: string;
@@ -166,59 +171,111 @@ const captureScreen = async () => {
    메인 컴포넌트
 ════════════════════════════════════════════════════ */
 export default function Page() {
+  const [view, setView] = useState<View>("home");
   const [mainTab, setMainTab] = useState<MainTab>("overview");
   const [metricTab, setMetricTab] = useState<MetricTab>("data");
   const [online, setOnline] = useState<boolean | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [runs, setRuns] = useState<Session[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [pages, setPages] = useState<Record<SiteKey, PageLite[]>>({ samsung: [], apple: [] });
   const [urls, setUrls] = useState<UrlRow[]>([]);
   const [urlQuery, setUrlQuery] = useState("");
+  const [urlAccordionOpen, setUrlAccordionOpen] = useState(false);
   const [selectedChange, setSelectedChange] = useState<Change | null>(null);
   const [selectedPage, setSelectedPage] = useState<PageDetail | null>(null);
   const [selectedUrl, setSelectedUrl] = useState("");
   const [loadingPage, setLoadingPage] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(false);
   const [crawling, setCrawling] = useState(false);
+  const [progress, setProgress] = useState<CrawlProgress>({ active: false, total: 0, done: 0 });
   const [emailState, setEmailState] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerSection, setDrawerSection] = useState<string | null>(null);
   const [showUrlAdd, setShowUrlAdd] = useState(false);
   const newUrlRef = useRef<HTMLInputElement>(null);
+  const esRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
     try {
       const h = await fetch(API + "/api/health", { cache: "no-store" });
       if (!h.ok) throw new Error("offline");
       setOnline(true);
-      const [rRep, rRuns, rSam, rApp, rUrls] = await Promise.all([
+      const [rRep, rRuns, rSam, rApp, rUrls, rStatus] = await Promise.all([
         fetch(API + "/api/latest-report", { cache: "no-store" }).catch(() => null),
         fetch(API + "/api/runs", { cache: "no-store" }).catch(() => null),
         fetch(API + "/api/pages?site=samsung", { cache: "no-store" }).catch(() => null),
         fetch(API + "/api/pages?site=apple", { cache: "no-store" }).catch(() => null),
         fetch(API + "/api/urls", { cache: "no-store" }).catch(() => null),
+        fetch(API + "/api/crawl-status", { cache: "no-store" }).catch(() => null),
       ]);
       const jRep = rRep ? await rRep.json() : null;
       setReport(jRep?.has_data ? jRep : null);
+      setActiveSessionId(jRep?.run_id || null);
       setRuns(rRuns ? (await rRuns.json()).sessions || [] : []);
       setPages({
         samsung: rSam ? (await rSam.json()).pages || [] : [],
         apple: rApp ? (await rApp.json()).pages || [] : [],
       });
       setUrls(rUrls ? (await rUrls.json()).urls || [] : []);
+      const jStatus = rStatus ? await rStatus.json() : null;
+      if (jStatus?.crawling) {
+        setCrawling(true);
+        connectProgress();
+      }
     } catch {
       setOnline(false);
       setReport(null);
     }
   }, []);
 
+  // ── 크롤 진행률 SSE 연결 (수집 실행 버튼 눌렀을 때 + 이미 다른 곳에서 크롤 중일 때 둘 다 사용) ──
+  const connectProgress = useCallback(() => {
+    if (esRef.current) return; // 이미 연결됨
+    setProgress({ active: true, total: 0, done: 0 });
+    const es = new EventSource(API + "/api/crawl-progress");
+    esRef.current = es;
+    es.onmessage = (ev) => {
+      try {
+        const d = JSON.parse(ev.data);
+        if (d.type === "start") {
+          setProgress((p) => ({ ...p, active: true, site: d.site, total: d.total || 0, done: 0 }));
+        } else if (d.type === "page_done") {
+          setProgress((p) => ({ ...p, active: true, done: p.done + 1, currentUrl: d.url,
+            error: d.status === "error" ? d.error : undefined }));
+        } else if (d.type === "done") {
+          setProgress((p) => ({ ...p, currentUrl: undefined }));
+        } else if (d.type === "status" && d.crawling === false) {
+          es.close(); esRef.current = null;
+          setProgress((p) => ({ ...p, active: false }));
+          setCrawling(false);
+          load();
+        }
+      } catch { /* heartbeat 등 무시 */ }
+    };
+    es.onerror = () => { es.close(); esRef.current = null; setProgress((p) => ({ ...p, active: false })); };
+  }, [load]);
+
+  useEffect(() => () => { esRef.current?.close(); }, []);
+
+
   useEffect(() => { load(); }, [load]);
 
   const loadSession = async (runId: string) => {
-    const r = await fetch(API + "/api/latest-report?run_id=" + encodeURIComponent(runId));
-    const j = await r.json();
-    setReport(j?.has_data ? j : null);
-    setSelectedChange(null);
-    setSelectedPage(null);
+    setLoadingSession(true);
+    setActiveSessionId(runId);
+    try {
+      const r = await fetch(API + "/api/latest-report?run_id=" + encodeURIComponent(runId), { cache: "no-store" });
+      const j = await r.json();
+      setReport(j?.has_data ? j : null);
+      setSelectedChange(null);
+      setSelectedPage(null);
+      setMainTab("overview"); // 이력 데이터는 '현황 및 변경점' 탭에 표시되므로 그쪽으로 전환
+    } catch {
+      alert("수집 이력을 불러오지 못했습니다. 네트워크 상태를 확인해주세요.");
+    } finally {
+      setLoadingSession(false);
+    }
   };
 
   const deleteSession = async (runIds: string[], e: React.MouseEvent) => {
@@ -236,8 +293,8 @@ export default function Page() {
     setCrawling(true);
     try {
       await fetch(API + "/trigger-crawl/all", { method: "POST" });
-      setTimeout(load, 4000);
-    } finally {
+      connectProgress();
+    } catch {
       setCrawling(false);
     }
   };
@@ -308,11 +365,17 @@ export default function Page() {
   const avgSamsung = metricAverage(pages.samsung, siteBlocks.samsung);
   const avgApple = metricAverage(pages.apple, siteBlocks.apple);
 
+  if (view === "home") {
+    return <Landing onEnter={() => setView("dashboard")} />;
+  }
+
   return (
     <div className="appShell">
       {/* ── 좌측 레일 */}
       <aside className="sidebar">
-        <div className="brand">🍎 Apple Stalker</div>
+        <div className="brand" style={{ cursor: "pointer" }} onClick={() => setView("home")} title="홈으로">
+          🍎 Apple Stalker
+        </div>
         <div className="brandSub">당사 vs 경쟁사 페이지 변화 감지</div>
         <div className={`connBadge ${online === true ? "ok" : "bad"}`}>
           <span className="connDot" />
@@ -320,20 +383,33 @@ export default function Page() {
         </div>
 
         <div className="sideScroll">
-          <div className="sideLabel">수집 이력</div>
+          <div className="sideLabel">수집 이력{loadingSession && " · 불러오는 중…"}</div>
           {runs.length === 0 && <p className="muted" style={{ padding: "4px 6px" }}>아직 이력이 없습니다</p>}
-          {runs.map((run) => (
-            <button key={run.session} className="runItem" onClick={() => loadSession(run.run_ids[0])}>
-              <div className="runMeta">
-                <span className="runTs">{run.timestamp}</span>
-                <span className="runDesc">
-                  {run.sites.map((s) => (s === "apple" ? "애플" : "삼성")).join("+")}
-                  &nbsp;·&nbsp;변경 {run.changes}건
-                </span>
+          {runs.map((run) => {
+            const isActive = run.run_ids.includes(activeSessionId || "");
+            return (
+              <div
+                key={run.session}
+                className={`runItem ${isActive ? "active" : ""}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => loadSession(run.run_ids[0])}
+                onKeyDown={(e) => { if (e.key === "Enter") loadSession(run.run_ids[0]); }}
+              >
+                <div className="runMeta">
+                  <span className="runTs">{run.timestamp}</span>
+                  <span className="runDesc">
+                    {run.sites.map((s) => (s === "apple" ? "애플" : "삼성")).join("+")}
+                    &nbsp;·&nbsp;변경 {run.changes}건
+                  </span>
+                </div>
+                <span className="runDel" role="button" tabIndex={0}
+                  onClick={(e) => deleteSession(run.run_ids, e)}
+                  onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") deleteSession(run.run_ids, e as any); }}
+                  title="삭제">×</span>
               </div>
-              <button className="runDel" onClick={(e) => deleteSession(run.run_ids, e)} title="삭제">×</button>
-            </button>
-          ))}
+            );
+          })}
 
           <div className="sideLabel" style={{ marginTop: 8 }}>URL 관리</div>
           <button className="runItem" onClick={() => setShowUrlAdd((v) => !v)}>
@@ -349,14 +425,23 @@ export default function Page() {
               </div>
             </div>
           )}
-          {urls.slice(0, 12).map((u) => (
-            <div key={u.url} className="urlListItem" style={{ padding: "4px 6px" }}>
-              <span className="urlListUrl" title={u.url}>{shortUrl(u.url)}</span>
-              <button className="urlDelBtn" onClick={() => deleteUrl(u.url)} title="삭제(관리자 비번)">×</button>
+
+          <button className="urlAccordionToggle" onClick={() => setUrlAccordionOpen((v) => !v)}>
+            <span>{urlAccordionOpen ? "▾" : "▸"} 모니터링 URL 목록</span>
+            <span className="urlAccordionCount">{urls.length}개</span>
+          </button>
+          {urlAccordionOpen && (
+            <div className="urlAccordionBody">
+              {urls.map((u) => (
+                <div key={u.url} className="urlListItem">
+                  <span className={`badge ${siteClass(u.site_key)}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                    {u.site_key === "apple" ? "Apple" : "Samsung"}
+                  </span>
+                  <span className="urlListUrl" title={u.url}>{u.url}</span>
+                  <button className="urlDelBtn" onClick={() => deleteUrl(u.url)} title="삭제(관리자 비번)">×</button>
+                </div>
+              ))}
             </div>
-          ))}
-          {urls.length > 12 && (
-            <p className="muted" style={{ padding: "2px 6px" }}>+{urls.length - 12}개 더 있음</p>
           )}
         </div>
 
@@ -403,6 +488,24 @@ export default function Page() {
               </button>
             </div>
           </div>
+
+          {progress.active && (
+            <div className="progressWrap">
+              <div className="progressTopRow">
+                <span className="progressTitle">
+                  🔄 수집 중{progress.site ? ` — ${siteName(progress.site)}` : ""}
+                </span>
+                <span className="progressCount">{progress.done}{progress.total ? ` / ${progress.total}` : ""}</span>
+              </div>
+              <div className="progressBar">
+                <div
+                  className="progressFill"
+                  style={{ width: progress.total ? `${Math.min(100, (progress.done / progress.total) * 100)}%` : "8%" }}
+                />
+              </div>
+              {progress.currentUrl && <p className="progressLabel">{shortUrl(progress.currentUrl)}</p>}
+            </div>
+          )}
 
           {/* 메트릭 탭 + ⓘ */}
           <div className="topbarRow2">
@@ -731,6 +834,32 @@ function PagesTab({
 /* ════════════════════════════════════════════════════
    서브 컴포넌트
 ════════════════════════════════════════════════════ */
+function Landing({ onEnter }: { onEnter: () => void }) {
+  return (
+    <div className="landingShell">
+      <div className="landingInner">
+        <span className="landingLogo">🍎</span>
+        <h1 className="landingTitle">Apple Stalker</h1>
+        <p className="landingSub">경쟁사(애플)와 당사(삼성) 웹사이트를 매일 자동으로 들여다보고, 무엇이 바뀌었는지 중요도·카테고리로 정리해 보여주는 웹 변화 감시 도구입니다.</p>
+
+        <div className="landingCardGrid">
+          <div className="landingCard">
+            <p className="landingCardTitle">🔎 무엇을 감시하나요</p>
+            <p className="landingCardBody">삼성·애플 공식 사이트 45개 URL을 매일 오전 9시·오후 2시에 자동 수집해, 데이터·스키마 / 카피 / 가격·프로모션 / 비주얼 변화를 감지합니다.</p>
+          </div>
+          <div className="landingCard">
+            <p className="landingCardTitle">🚦 어떻게 보여주나요</p>
+            <p className="landingCardBody">변화는 High·Medium·Low 중요도로 표시되고, 실제 수집값만으로 삼성↔애플 현황을 비교합니다. 지어낸 숫자는 사용하지 않습니다.</p>
+          </div>
+        </div>
+
+        <button className="landingCTA" onClick={onEnter}>현황 보기 →</button>
+        <p className="landingFoot">이미 수집된 데이터가 있다면 바로 최신 현황과 변경점을 확인할 수 있어요.</p>
+      </div>
+    </div>
+  );
+}
+
 function AverageBox({
   title, site, data, metric,
 }: {
