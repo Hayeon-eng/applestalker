@@ -38,6 +38,32 @@ def _s(v) -> str:
     return v if isinstance(v, str) else ("" if v is None else str(v))
 
 
+def _report_tone(text: Any) -> Any:
+    """대시보드 분석 문구를 존댓말/대화체가 아닌 보고서체로 정규화."""
+    if not isinstance(text, str):
+        return text
+    out = text.strip()
+    replacements = [
+        ("필요합니다", "필요"), ("가능합니다", "가능"), ("불가능합니다", "불가"),
+        ("확인되었습니다", "확인"), ("감지되었습니다", "감지"), ("판단됩니다", "판단"),
+        ("추정됩니다", "추정"), ("예상됩니다", "예상"), ("권장됩니다", "권장"),
+        ("나타납니다", "나타남"), ("보입니다", "보임"), ("됩니다", "됨"),
+        ("합니다", "함"), ("있습니다", "있음"), ("없습니다", "없음"),
+        ("주세요", "필요"), ("하십시오", "필요"),
+    ]
+    for a, b in replacements:
+        out = out.replace(a, b)
+    return out
+
+
+def _normalize_report_tone(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {k: _normalize_report_tone(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_normalize_report_tone(v) for v in obj]
+    return _report_tone(obj)
+
+
 def _template_key(url: str) -> str:
     """URL 경로의 첫 세그먼트를 '템플릿' 단위로 취급 (숫자/슬러그는 # 처리)."""
     try:
@@ -715,9 +741,9 @@ class IntelEngine:
         return out
 
     def _build_category(self, name, site_display, is_ours, facts, narrative_lines, events) -> Dict[str, Any]:
-        insights = [{"point": line, "evidence_url": "(집계)", "evidence": name} for line in narrative_lines]
+        insights = [{"point": _report_tone(line), "evidence_url": "(집계)", "evidence": name} for line in narrative_lines]
         for e in events[:8]:
-            insights.append({"point": e.get("summary"), "evidence_url": e.get("url"),
+            insights.append({"point": _report_tone(e.get("summary")), "evidence_url": e.get("url"),
                              "evidence": f"{e.get('field_name')} [{e.get('severity_level')}]"})
         rule_actions = self._rule_actions(is_ours, events)
 
@@ -736,6 +762,7 @@ class IntelEngine:
                 if attempt < 2:
                     time.sleep(1.5 * (attempt + 1))  # 1.5s, 3s backoff
             if llm_out:
+                llm_out = _normalize_report_tone(llm_out)
                 llm_out["facts"] = facts
                 llm_out.setdefault("action_items", rule_actions)
                 llm_out["_source"] = "gemini"
@@ -745,8 +772,8 @@ class IntelEngine:
 
         return {
             "facts": facts,
-            "insights": insights,
-            "action_items": rule_actions,
+            "insights": _normalize_report_tone(insights),
+            "action_items": _normalize_report_tone(rule_actions),
             "confidence": 0.7,
             "_source": "rule_based",
         }
@@ -764,6 +791,7 @@ class IntelEngine:
             "2) EVIDENCE 에 없는 내용을 지어내지 마라. 근거 부족 시 'insufficient_data'.\n"
             f"3) {category} 카테고리에만 집중하라. 다른 카테고리(DATA/COPY/VISUAL) 내용은 언급하지 마라.\n"
             "4) 모든 insight 는 'evidence_url' 과 'evidence' 를 포함한다.\n"
+            "5) 문체는 대시보드 보고서체로 통일한다. '~합니다/~됩니다/~주세요' 같은 존댓말·대화체를 쓰지 말고 '~확인/~필요/~판단/~없음'처럼 간결하게 쓴다.\n"
         )
         schema = (
             '{"insights":[{"point":"...", "evidence_url":"...", "evidence":"..."}],'
@@ -857,7 +885,7 @@ class IntelEngine:
 
     def compare(self, ours: Dict[str, Any], theirs: Dict[str, Any]) -> Dict[str, Any]:
         if not ours.get("pages") or not theirs.get("pages"):
-            return {"status": "insufficient_data", "reason": "비교하려면 양사 모두 크롤 데이터가 필요합니다."}
+            return {"status": "insufficient_data", "reason": "양사 크롤 데이터 모두 필요"}
 
         of_d, tf_d = data_facts(ours["pages"]), data_facts(theirs["pages"])
         of_c, tf_c = copy_facts(ours["pages"]), copy_facts(theirs["pages"])
