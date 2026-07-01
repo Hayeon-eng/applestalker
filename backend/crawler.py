@@ -17,6 +17,7 @@ import os
 import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import urljoin
 
 import httpx
 from bs4 import BeautifulSoup
@@ -215,7 +216,7 @@ class HybridCrawler:
                     }
 
                 soup = BeautifulSoup(r.text or "", "lxml")
-                data = self._extract(soup)
+                data = self._extract(soup, url)
 
                 data["html_content"] = r.text
                 data["status_code"] = r.status_code
@@ -258,7 +259,7 @@ class HybridCrawler:
                 html = await page.content()
                 soup = BeautifulSoup(html, "lxml")
 
-                data = self._extract(soup)
+                data = self._extract(soup, url)
                 data["html_content"] = html
                 data["status_code"] = 200
 
@@ -274,7 +275,7 @@ class HybridCrawler:
     # ─────────────────────────────────────────────
     # AEO EXTRACTION (FULL RESTORED)
     # ─────────────────────────────────────────────
-    def _extract(self, soup: BeautifulSoup) -> Dict[str, Any]:
+    def _extract(self, soup: BeautifulSoup, page_url: str = "") -> Dict[str, Any]:
         d: Dict[str, Any] = {}
 
         d["title"] = soup.title.get_text(strip=True) if soup.title else None
@@ -296,7 +297,7 @@ class HybridCrawler:
         d["structured_data"] = self._jsonld(soup)
         d["navigation"] = self._nav(soup)
         d["internal_links"] = self._links(soup)
-        d["images"] = self._images(soup)
+        d["images"] = self._images(soup, page_url)
 
         body = soup.find("body")
         if body:
@@ -352,7 +353,124 @@ class HybridCrawler:
         return [{"href": a.get("href"), "text": a.get_text(strip=True)}
                 for a in soup.find_all("a", href=True)][:100]
 
-    def _images(self, soup):
-        return [{"src": i.get("src"), "alt": i.get("alt")}
-                for i in soup.find_all("img")][:50]
+    def _img_attr(self, tag, *names):
+        for name in names:
+            v = tag.get(name)
+            if isinstance(v, list):
+                v = " ".join(str(x) for x in v)
+            if v:
+                v = str(v).strip()
+                if v:
+                    return v
+        return ""
+
+    def _src_from_srcset(self, srcset: str) -> str:
+        if not srcset:
+            return ""
+        candidates = []
+        for part in str(srcset).split(","):
+            chunk = part.strip()
+            if not chunk:
+                continue
+            bits = chunk.split()
+            url = bits[0].strip() if bits else ""
+            if not url:
+                continue
+            score = 1.0
+            if len(bits) > 1:
+                m = re.search(r"([0-9.]+)(x|w)$", bits[1])
+                if m:
+                    try:
+                        score = float(m.group(1))
+                    except Exception:
+                        score = 1.0
+            candidates.append((score, url))
+        if not candidates:
+            return ""
+        return sorted(candidates, key=lambda x: x[0], reverse=True)[0][1]
+
+    def _normalize_img_url(self, src: str, page_url: str = "") -> str:
+        src = (src or "").strip()
+        if not src:
+            return ""
+        if src.startswith("data:"):
+            return ""
+        if src.startswith("//"):
+            return "https:" + src
+        if page_url and not re.match(r"^[a-z]+://", src, re.I):
+            try:
+                return urljoin(page_url, src)
+            except Exception:
+                return src
+        return src
+
+    def _image_context(self, tag) -> Dict[str, str]:
+        parent = tag.find_parent(["picture", "figure", "section", "article", "a", "div"])
+        context_text = ""
+        parent_class = ""
+        parent_id = ""
+        if parent:
+            context_text = parent.get_text(" ", strip=True)[:240]
+            pc = parent.get("class") or []
+            parent_class = " ".join(str(x) for x in pc) if isinstance(pc, list) else str(pc or "")
+            parent_id = str(parent.get("id") or "")
+        cls = tag.get("class") or []
+        tag_class = " ".join(str(x) for x in cls) if isinstance(cls, list) else str(cls or "")
+        return {
+            "title": self._img_attr(tag, "title", "aria-label"),
+            "class": tag_class,
+            "id": str(tag.get("id") or ""),
+            "parent_class": parent_class,
+            "parent_id": parent_id,
+            "context": context_text,
+        }
+
+    def _images(self, soup, page_url: str = ""):
+        """이미지 추출. 기존 src/alt는 유지하면서 Samsung lazy-load/srcset/picture 구조를 보강한다."""
+        out = []
+        seen = set()
+
+        def add_image(tag, source_type: str = "img"):
+            raw_src = self._img_attr(
+                tag,
+                "src", "data-src", "data-original", "data-lazy", "data-url", "data-image",
+                "data-desktop-src", "data-mobile-src", "data-src-desktop", "data-src-mobile",
+                "data-img-src", "data-media-desktop", "data-media-mobile", "data-lazy-src",
+            )
+            srcset = self._img_attr(tag, "srcset", "data-srcset", "data-desktop-srcset", "data-mobile-srcset")
+            if not raw_src and srcset:
+                raw_src = self._src_from_srcset(srcset)
+
+            src = self._normalize_img_url(raw_src, page_url)
+            alt = self._img_attr(tag, "alt", "title", "aria-label")
+            if not src and not alt and not srcset:
+                return
+
+            ctx = self._image_context(tag)
+            key = src or f"{alt}|{ctx.get('context','')[:60]}|{source_type}"
+            if key in seen:
+                return
+            seen.add(key)
+
+            item = {"src": src, "alt": alt}
+            if srcset:
+                item["srcset"] = srcset[:1000]
+            for k, v in ctx.items():
+                if v:
+                    item[k] = v
+            item["source_type"] = source_type
+            out.append(item)
+
+        for i in soup.find_all("img"):
+            add_image(i, "img")
+            if len(out) >= 50:
+                return out[:50]
+
+        # Samsung/Apple 모두 <picture><source srcset=...>에 실제 이미지가 있는 경우가 있어 보조 추출
+        for source in soup.find_all("source"):
+            add_image(source, "source")
+            if len(out) >= 50:
+                break
+
+        return out[:50]
 

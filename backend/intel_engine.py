@@ -20,6 +20,7 @@ import json
 import os
 import re
 import time
+from urllib.parse import unquote
 from typing import Any, Dict, List, Optional
 
 try:
@@ -437,45 +438,96 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
 # ════════════════════════════════════════════════════════════════
 
 LIFESTYLE_KW = (
-    "lifestyle", "life", "people", "family", "outdoor", "hand", "hands", "person", "scene", "moment",
-    "woman", "man", "girl", "boy", "couple", "portrait", "selfie", "using", "usecase", "daily",
-    "travel", "gaming", "workout", "kitchen", "home", "office", "night", "camera-sample",
-    "라이프", "사람", "가족", "손", "일상", "야외", "사용", "여행", "셀피", "게임",
+    "lifestyle", "life-style", "life_style", "people", "family", "outdoor", "hand", "hands",
+    "person", "scene", "moment", "woman", "man", "girl", "boy", "couple", "portrait",
+    "selfie", "using", "usecase", "use-case", "daily", "travel", "gaming", "workout",
+    "kitchen", "living", "laundry", "bedroom", "home-living", "office", "night",
+    "camera-sample", "experience", "story", "with-galaxy", "hands-on", "in-use", "use-case",
+    "라이프", "사람", "가족", "손", "일상", "야외", "사용", "사용성", "여행", "셀피", "게임",
 )
 PRODUCT_KW = (
-    "product", "device", "render", "studio", "front", "back", "angle", "colorway", "spec", "gallery",
-    "kv", "keyvisual", "key-visual", "design", "color", "colors", "exclusive", "carousel",
-    "galaxy", "iphone", "ipad", "macbook", "watch", "buds", "airpods", "phone", "smartphone", "tablet",
-    "fold", "flip", "ultra", "plus", "edge", "s25", "s24", "z-fold", "z-flip",
-    "제품", "기기", "스펙", "색상", "디자인", "갤럭시", "워치", "버즈",
+    "product", "device", "render", "studio", "front", "back", "angle", "colorway", "spec",
+    "gallery", "pdp", "pcd", "pf", "kv", "keyvisual", "key-visual", "design", "color",
+    "colors", "exclusive", "carousel", "buy", "shop", "offer", "model",
+    "galaxy", "iphone", "ipad", "macbook", "watch", "buds", "airpods", "phone", "smartphone",
+    "tablet", "fold", "flip", "ultra", "plus", "edge", "s25", "s24", "z-fold", "z-flip",
+    "mobile", "tv", "qled", "oled", "neo-qled", "the-frame", "soundbar", "audio", "monitor",
+    "odyssey", "refrigerator", "fridge", "washing-machine", "washer", "dryer", "vacuum",
+    "air-conditioner", "bespoke", "sm-", "qa", "qe", "ww", "dv", "rs", "rf", "lc", "ls",
+    "제품", "기기", "스펙", "색상", "디자인", "갤럭시", "워치", "버즈", "티비", "냉장고",
+)
+SAMSUNG_PRODUCT_PATH_KW = (
+    "/sg/mobile", "/sg/tvs", "/sg/audio-sound", "/sg/home-appliances", "/sg/computing",
+    "/sg/monitors", "/sg/watches", "/sg/tablets", "/sg/smartphones", "/sg/shop",
 )
 # alt 텍스트가 비어있지 않아도 의미 없는 placeholder 인 경우가 많아 별도 필터링
 GENERIC_ALT_WORDS = ("image", "photo", "picture", "img", "banner", "icon", "사진", "이미지", "배너", "아이콘")
 ALT_RICH_MIN_LEN = 15   # 이 길이 이상 + generic 단어 아니면 '설명적'으로 분류
 
 
-def _classify_image(img: Dict[str, Any], page_url: str = "") -> str:
-    alt = _s(img.get("alt")).lower()
-    src = _s(img.get("src")).lower()
-    blob = f"{alt} {src}"
+def _image_blob(img: Dict[str, Any], page_url: str = "") -> str:
+    fields = [
+        page_url,
+        img.get("alt"), img.get("src"), img.get("srcset"), img.get("title"),
+        img.get("aria_label"), img.get("class"), img.get("id"),
+        img.get("parent_class"), img.get("parent_id"), img.get("context"),
+    ]
+    raw = " ".join(_s(v) for v in fields if v)
+    try:
+        raw = unquote(raw)
+    except Exception:
+        pass
+    return raw.lower().replace("_", "-")
 
-    lifestyle_hit = any(k in blob for k in LIFESTYLE_KW)
-    product_hit = any(k in blob for k in PRODUCT_KW)
 
-    # Samsung CDN/페이지는 alt가 브랜드·모델명 위주인 경우가 많아 product 신호를 넓게 잡는다.
-    # 단, 사람/손/사용 장면 신호가 있으면 lifestyle을 우선한다.
-    if lifestyle_hit:
+def _keyword_score(blob: str, keywords) -> int:
+    return sum(1 for k in keywords if k and k in blob)
+
+
+def _is_samsung_context(blob: str) -> bool:
+    return "samsung.com" in blob or "images.samsung.com" in blob or "/samsung/" in blob or "galaxy" in blob
+
+
+def _page_default_image_class(page: Dict[str, Any]) -> str:
+    url = _s(page.get("url")).lower()
+    text = " ".join([
+        _s(page.get("url")), _s(page.get("title")), _s(page.get("h1")),
+        " ".join(page.get("h2") or []), " ".join(page.get("h3") or []),
+    ]).lower().replace("_", "-")
+
+    if any(k in text for k in LIFESTYLE_KW) and not any(k in url for k in SAMSUNG_PRODUCT_PATH_KW):
         return "lifestyle"
-    if product_hit:
+    if any(k in text for k in PRODUCT_KW) or any(k in url for k in SAMSUNG_PRODUCT_PATH_KW):
         return "product"
-
-    # 파일명만으로도 제품 컷임을 알 수 있는 패턴
-    if re.search(r"(?:^|[-_/])(kv|pf|pdp|gallery|design|color|spec|front|back|device)(?:[-_/]|\.)", blob):
-        return "product"
-    if re.search(r"(?:galaxy|samsung|iphone|ipad|macbook|watch|buds|airpods)", page_url.lower() + " " + blob):
+    if "samsung.com/sg" in url:
+        # Singapore 사이트의 lazy-loaded/KV 이미지는 파일 힌트가 비어도 당사 제품/브랜드 비주얼로 취급
         return "product"
     return "unclassified"
 
+
+def _classify_image(img: Dict[str, Any], page_url: str = "", page_default: str = "unclassified") -> str:
+    blob = _image_blob(img, "")
+    fallback_blob = _image_blob(img, page_url)
+
+    lifestyle_score = _keyword_score(blob, LIFESTYLE_KW)
+    product_score = _keyword_score(blob, PRODUCT_KW)
+
+    # Samsung Singapore는 srcset/data-src/picture 구조와 모델 코드 중심 파일명이 많다.
+    # 주변 class/context/title까지 합산해 사람·사용 장면이 더 강하면 lifestyle, 모델·제품·카테고리 신호가 강하면 product.
+    if lifestyle_score > 0 and lifestyle_score >= product_score:
+        return "lifestyle"
+    if product_score > 0:
+        return "product"
+    if lifestyle_score > 0:
+        return "lifestyle"
+
+    if re.search(r"(?:^|[-_/])(kv|pcd|pf|pdp|gallery|design|color|spec|front|back|device|product|model)(?:[-_/]|\.)", blob):
+        return "product"
+    if re.search(r"(?:sm-[a-z0-9]+|galaxy-s\d+|s2[0-9]|z-fold|z-flip|qled|oled|bespoke|odyssey|soundbar)", blob):
+        return "product"
+    if _is_samsung_context(fallback_blob) and page_default in ("product", "lifestyle"):
+        return page_default
+    return page_default if page_default in ("product", "lifestyle") else "unclassified"
 
 def _alt_quality(img: Dict[str, Any]) -> str:
     """alt 텍스트 품질만 별도 지표로 — 분류(product/lifestyle)와 독립적으로 평가.
@@ -508,8 +560,9 @@ def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         per_page_counts.append(n)
         page_types = set()
         alt_rich = 0
+        page_default = _page_default_image_class(p)
         for img in imgs:
-            cls = _classify_image(img, p.get("url", ""))
+            cls = _classify_image(img, p.get("url", ""), page_default)
             page_types.add(cls)
             if cls == "lifestyle":
                 lifestyle += 1
@@ -549,7 +602,7 @@ def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     return {
         "image_diversity": {
-            "_note": "alt/src/파일명/페이지 URL 텍스트 기반 분류. Vision 분석은 아니지만 Samsung 모델명·KV·gallery 패턴을 제품 이미지로 인식하도록 보강.",
+            "_note": "alt/src/srcset/data-src/파일명/페이지 URL/주변 텍스트 기반 분류. Vision 분석은 아니지만 Samsung Singapore의 lazy-loaded 이미지와 모델명·KV·gallery 패턴을 제품/라이프스타일 이미지로 인식하도록 보강.",
             "total_images": total_images,
             "product": product, "lifestyle": lifestyle, "unclassified": unclassified,
             "lifestyle_ratio_pct": round(lifestyle / total_images * 100, 1) if total_images else 0,
