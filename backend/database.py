@@ -55,6 +55,7 @@ def ensure_schema():
     stmts = [
         # crawl_runs
         "ALTER TABLE crawl_runs ADD COLUMN IF NOT EXISTS total_urls_discovered INTEGER DEFAULT 0",
+        "ALTER TABLE crawl_runs ADD COLUMN IF NOT EXISTS session_id VARCHAR(100)",
         "ALTER TABLE crawl_runs ADD COLUMN IF NOT EXISTS total_urls_crawled INTEGER DEFAULT 0",
         "ALTER TABLE crawl_runs ADD COLUMN IF NOT EXISTS total_changes_detected INTEGER DEFAULT 0",
         "ALTER TABLE crawl_runs ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP",

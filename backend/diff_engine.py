@@ -27,6 +27,8 @@ from __future__ import annotations
 import difflib
 import hashlib
 import re
+from collections import Counter
+from urllib.parse import urlsplit, urlunsplit
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -115,20 +117,101 @@ def token_sentence_diff(before: str, after: str) -> Dict[str, Any]:
     }
 
 
+
+# ──────────────────────────────────────────────────────────────
+# 안정화 유틸: 크롤 때마다 바뀌는 타임스탬프/쿼리/추적 요소 노이즈 축소
+# ──────────────────────────────────────────────────────────────
+
+_VOLATILE_TEXT_PATTERNS = [
+    re.compile(r"\b\d{4}[-./]\d{1,2}[-./]\d{1,2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?\b"),
+    re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM|KST|UTC)?\b", re.IGNORECASE),
+    re.compile(r"\b(?:last updated|updated at|as of|generated at)\b[^.。\n]{0,80}", re.IGNORECASE),
+]
+
+
+def stable_text(text: str) -> str:
+    """비교용 텍스트 정규화. 가격/스펙 숫자는 보존하고 명백한 수집시각류만 제거한다."""
+    out = _s(text).replace("\u200b", " ").replace("\xa0", " ")
+    for pat in _VOLATILE_TEXT_PATTERNS:
+        out = pat.sub(" ", out)
+    out = re.sub(r"\s+", " ", out).strip()
+    return out
+
+
+def _short_list_delta(before: List[str], after: List[str], limit: int = 5) -> Dict[str, List[str]]:
+    b, a = list(before or []), list(after or [])
+    bset, aset = set(b), set(a)
+    return {
+        "added": sorted(aset - bset)[:limit],
+        "removed": sorted(bset - aset)[:limit],
+    }
+
+
+def _tag_count_delta(prev_counts: Dict[str, int], cur_counts: Dict[str, int], limit: int = 8) -> Dict[str, Dict[str, int]]:
+    out: Dict[str, Dict[str, int]] = {}
+    keys = sorted(set(prev_counts or {}) | set(cur_counts or {}))
+    for k in keys:
+        b, a = int((prev_counts or {}).get(k, 0)), int((cur_counts or {}).get(k, 0))
+        if b != a:
+            out[k] = {"before": b, "after": a, "diff": a - b}
+    return dict(list(out.items())[:limit])
+
 # ──────────────────────────────────────────────────────────────
 # DOM / structure fingerprint
 # ──────────────────────────────────────────────────────────────
 
 def dom_fingerprint(html: str) -> str:
     """
-    태그 시퀀스 기반 구조 지문. 본문 텍스트가 아니라 '레이아웃 골격'만 본다.
-    BeautifulSoup 없이도 동작하도록 정규식 태그 시퀀스를 해시.
+    의미 있는 구조 태그만 남긴 DOM 지문.
+    광고/스크립트/SVG/path/스타일/트래킹처럼 크롤 때마다 흔들리는 요소는 제외한다.
     """
     html = _s(html)
-    tags = re.findall(r"<\s*([a-zA-Z][a-zA-Z0-9]*)", html)
-    skeleton = ">".join(t.lower() for t in tags
-                         if t.lower() not in ("script", "style", "noscript", "path", "svg"))
+    structural_tags = {
+        "html", "body", "main", "section", "article", "aside", "header", "footer", "nav",
+        "h1", "h2", "h3", "h4", "h5", "h6", "p", "ul", "ol", "li", "a", "button",
+        "form", "input", "select", "textarea", "table", "thead", "tbody", "tr", "th", "td",
+        "figure", "picture", "img", "video", "source", "details", "summary",
+    }
+    volatile = {"script", "style", "noscript", "path", "svg", "meta", "link", "template"}
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "lxml")
+        for node in soup.find_all(list(volatile)):
+            node.decompose()
+        tokens: List[str] = []
+        for el in soup.find_all(True):
+            name = (el.name or "").lower()
+            if name not in structural_tags:
+                continue
+            if el.get("aria-hidden") == "true" or "display:none" in _s(el.get("style")).replace(" ", "").lower():
+                continue
+            depth = len(list(el.parents))
+            tokens.append(f"{min(depth, 8)}:{name}")
+    except Exception:
+        tags = re.findall(r"<\s*([a-zA-Z][a-zA-Z0-9]*)", html)
+        tokens = [t.lower() for t in tags if t.lower() in structural_tags and t.lower() not in volatile]
+    skeleton = ">".join(tokens)
     return hashlib.sha1(skeleton.encode("utf-8", "ignore")).hexdigest()
+
+
+def _html_tag_counts(html: str) -> Dict[str, int]:
+    tags = re.findall(r"<\s*([a-zA-Z][a-zA-Z0-9]*)", _s(html))
+    keep = {"main", "section", "article", "aside", "header", "footer", "nav", "h1", "h2", "h3", "h4", "h5", "h6",
+            "ul", "ol", "li", "a", "button", "form", "table", "figure", "picture", "img", "video"}
+    return dict(Counter(t.lower() for t in tags if t.lower() in keep))
+
+
+def _normalize_list_text(items: Any, limit: int = 30) -> List[str]:
+    out: List[str] = []
+    for x in (items or []):
+        if isinstance(x, dict):
+            val = x.get("text") or x.get("question") or x.get("name") or x.get("alt") or x.get("src") or ""
+        else:
+            val = x
+        val = re.sub(r"\s+", " ", _s(val)).strip()
+        if val:
+            out.append(val[:160])
+    return out[:limit]
 
 
 def structural_signature(page: Dict[str, Any]) -> Dict[str, Any]:
@@ -149,16 +232,25 @@ def structural_signature(page: Dict[str, Any]) -> Dict[str, Any]:
         return sorted(set(map(str, out)))
 
     nav = page.get("navigation") or {}
+    ctas = _normalize_list_text(page.get("ctas"), 20)
+    h2 = _normalize_list_text(page.get("h2"), 30)
+    h3 = _normalize_list_text(page.get("h3"), 30)
+    imgs = page.get("images") or []
     return {
         "h2_count": len(page.get("h2") or []),
         "h3_count": len(page.get("h3") or []),
         "cta_count": len(page.get("ctas") or []),
         "faq_count": len(page.get("faqs") or []),
-        "img_count": len(page.get("images") or []),
+        "img_count": len(imgs),
         "nav_items": sorted({_s(i.get("text") if isinstance(i, dict) else i)
                              for i in (nav.get("main") or [])} - {""}),
         "schema_types": _schema_types(page.get("structured_data")),
         "dom_hash": dom_fingerprint(page.get("html_content") or ""),
+        "tag_counts": _html_tag_counts(page.get("html_content") or ""),
+        "h2_texts": h2,
+        "h3_texts": h3,
+        "cta_texts": ctas,
+        "image_keys": sorted({_normalize_image_src(_s(im.get("src"))) for im in imgs if isinstance(im, dict) and im.get("src")})[:50],
     }
 
 
@@ -191,6 +283,21 @@ def hamming_distance(h1: Optional[str], h2: Optional[str]) -> Optional[int]:
         return bin(int(h1, 16) ^ int(h2, 16)).count("1")
     except Exception:
         return None
+
+
+def _normalize_image_src(src: str) -> str:
+    """CDN querystring/width/format 파라미터처럼 매번 달라지는 값 제거."""
+    src = _s(src).strip()
+    if not src or src.startswith("data:"):
+        return ""
+    try:
+        sp = urlsplit(src)
+        path = re.sub(r"/(?:w|h|q|f)_\d+(?=/)", "", sp.path)
+        path = re.sub(r"([_-])\d{2,5}x\d{2,5}(?=\.)", "", path, flags=re.IGNORECASE)
+        path = re.sub(r"([_-])(?:mo|pc|desktop|mobile|tablet)(?=\.)", "", path, flags=re.IGNORECASE)
+        return urlunsplit((sp.scheme, sp.netloc, path, "", "")) or path
+    except Exception:
+        return re.sub(r"[?#].*$", "", src)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -256,13 +363,14 @@ class DiffEngine:
         # 1) 텍스트 필드 (char + token/sentence)
         for fld, ctype in self.TEXT_FIELDS.items():
             b, a = _s(previous.get(fld)), _s(current.get(fld))
-            if b == a:
+            b_cmp, a_cmp = stable_text(b), stable_text(a)
+            if b_cmp == a_cmp:
                 continue
-            cd = char_diff(b, a)
-            if cd["diff_ratio"] < self.min_diff_ratio and not _is_critical(fld, b, a, self.critical_keywords):
+            cd = char_diff(b_cmp, a_cmp)
+            if cd["diff_ratio"] < self.min_diff_ratio and not _is_critical(fld, b_cmp, a_cmp, self.critical_keywords):
                 continue                  # noise 게이트
-            ts = token_sentence_diff(b, a)
-            sev = classify_text_severity(fld, b, a, cd, ts, self.critical_keywords)
+            ts = token_sentence_diff(b_cmp, a_cmp)
+            sev = classify_text_severity(fld, b_cmp, a_cmp, cd, ts, self.critical_keywords)
             ctype2 = "commerce" if sev == "L5" else ctype
             events.append(ChangeEvent(
                 url=url, site_key=site_key, tier_level=tier_level,
@@ -334,10 +442,8 @@ class DiffEngine:
         for t in sorted(p_nav - c_nav):
             out.append(self._mk(url, site_key, tier, "navigation", "navigation", "L4",
                                  f"내비 항목 제거: {t}", before=t))
-        # DOM 골격 해시 변화 (텍스트 변화 없이 레이아웃만 바뀐 경우 포착)
-        # ── 보강: dom_hash 자체는 뭉뚱그린 지문이라 "무엇이" 바뀌었는지 알려주지 않지만,
-        #    같은 structural_signature 안에 이미 h2/h3/cta/faq/이미지 개수가 있으므로
-        #    새 크롤링 없이 그 필드들을 비교해 구체적인 변화 내역을 evidence에 담는다.
+        # DOM 골격 해시 변화. 단순 해시값 차이만으로는 알림을 만들지 않고,
+        # 저장된 구조 지표에서 실제로 설명 가능한 변화가 있을 때만 이벤트화한다.
         if cs.get("dom_hash") and ps.get("dom_hash") and cs["dom_hash"] != ps["dom_hash"]:
             count_fields = [
                 ("h2_count", "H2 제목"), ("h3_count", "H3 제목"),
@@ -350,11 +456,35 @@ class DiffEngine:
                     diff = a - b
                     deltas[key] = {"label": label, "before": b, "after": a, "diff": diff}
                     parts.append(f"{label} {'+' if diff > 0 else ''}{diff}")
-            summary = "DOM 구조(레이아웃 골격) 변화" + (f" — {', '.join(parts)}" if parts else
-                       " (h2/h3/CTA/FAQ/이미지 개수는 동일 — 순서·배치만 바뀐 것으로 추정)")
-            evidence = {"dom_hash_before": ps["dom_hash"][:12], "dom_hash_after": cs["dom_hash"][:12]}
+
+            tag_deltas = _tag_count_delta(ps.get("tag_counts") or {}, cs.get("tag_counts") or {}) if ps.get("tag_counts") and cs.get("tag_counts") else {}
+            if tag_deltas:
+                parts.append("태그 구성 변경")
+
+            heading_delta = _short_list_delta(ps.get("h2_texts") or [], cs.get("h2_texts") or []) if ps.get("h2_texts") is not None and cs.get("h2_texts") is not None else {"added": [], "removed": []}
+            cta_delta = _short_list_delta(ps.get("cta_texts") or [], cs.get("cta_texts") or []) if ps.get("cta_texts") is not None and cs.get("cta_texts") is not None else {"added": [], "removed": []}
+            if heading_delta["added"] or heading_delta["removed"]:
+                parts.append("H2 문구 변경")
+            if cta_delta["added"] or cta_delta["removed"]:
+                parts.append("CTA 문구 변경")
+
+            # 해시만 바뀌고 카운트/태그/H2/CTA 근거가 없으면 동적 마크업 노이즈로 간주해 숨김
+            if not (deltas or tag_deltas or heading_delta["added"] or heading_delta["removed"] or cta_delta["added"] or cta_delta["removed"]):
+                return out
+
+            summary = "DOM 구조(레이아웃 골격) 변화" + (f" — {', '.join(parts[:4])}" if parts else "")
+            evidence = {
+                "dom_hash_before": ps["dom_hash"][:12], "dom_hash_after": cs["dom_hash"][:12],
+                "structure_note": "저장된 구조 지표 기준으로 설명 가능한 변화만 표시",
+            }
             if deltas:
                 evidence["count_deltas"] = deltas
+            if tag_deltas:
+                evidence["tag_deltas"] = tag_deltas
+            if heading_delta["added"] or heading_delta["removed"]:
+                evidence["heading_deltas"] = heading_delta
+            if cta_delta["added"] or cta_delta["removed"]:
+                evidence["cta_deltas"] = cta_delta
             out.append(self._mk(url, site_key, tier, "dom", "technical", "L4", summary, evidence=evidence))
         return out
 
@@ -383,8 +513,8 @@ class DiffEngine:
             for im in (imgs or []):
                 if not isinstance(im, dict):
                     continue
-                src = _s(im.get("src"))
-                if not src:
+                src = _normalize_image_src(_s(im.get("src")))
+                if not src or re.search(r"(?:pixel|tracking|spacer|blank|1x1)", src, re.IGNORECASE):
                     continue
                 out[src] = _s(im.get("alt"))
             return out

@@ -343,6 +343,7 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
     faq_page_results = []
     richness_pages = []
     intent_gap_pages = []
+    all_richness_pages = []
 
     for p in pages:
         wc = max(p.get("word_count") or 0, 1)
@@ -364,7 +365,7 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         has_cta = bool(p.get("ctas") or [])
 
         # ── 정량지표: 100단어당 숫자+단위 출현 빈도 (cap 후 0~100 스케일) ──
-        quant_count = len(QUANT_UNIT_RE.findall(body))
+        quant_count = len(list(QUANT_UNIT_RE.finditer(body)))
         quant_per_100w = quant_count / wc * 100
         quant_score = min(quant_per_100w / QUANT_TARGET_PER_100W, 1.0) * 100
 
@@ -380,8 +381,14 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
                     + evidence_kw_score * COPY_RICHNESS_WEIGHTS["evidence_kw"]
                     + faq_presence_score * COPY_RICHNESS_WEIGHTS["faq_presence"])
 
-        entry = {"url": p.get("url"), "score": round(richness, 1), "tier": _tier(richness),
-                  "quant_score": round(quant_score, 1), "structure_score": round(structure_score, 1)}
+        entry = {
+            "url": p.get("url"), "score": round(richness, 1), "tier": _tier(richness),
+            "word_count": wc, "quant_count": quant_count, "quant_per_100w": round(quant_per_100w, 2),
+            "quant_score": round(quant_score, 1), "structure_score": round(structure_score, 1),
+            "has_comparison": has_comparison, "has_evidence_keyword": has_evidence,
+            "has_faq": has_faq, "h2_count": len(h2), "cta_count": len(p.get("ctas") or []),
+        }
+        all_richness_pages.append(entry)
         if richness >= 70:
             richness_pages.append(entry)
         if richness < 40:
@@ -412,12 +419,14 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         },
         "copy_richness": {
             "weights": COPY_RICHNESS_WEIGHTS,
+            "all_pages": sorted(all_richness_pages, key=lambda x: x["score"]),
             "rich_pages": sorted(richness_pages, key=lambda x: -x["score"])[:10],
             "intent_gap_pages": sorted(intent_gap_pages, key=lambda x: x["score"])[:10],
         },
         "faq": {
             "weights": FAQ_SCORE_WEIGHTS,
             "pages_with_faq": len(faq_page_results),
+            "total_items": sum(x["items"] for x in faq_page_results),
             "detail": sorted(faq_page_results, key=lambda x: x["avg_score"])[:10],
         },
     }
@@ -427,18 +436,43 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
 # VISUAL — 이미지 다양성 / lifestyle 비율 / 편중도 / 스토리텔링
 # ════════════════════════════════════════════════════════════════
 
-LIFESTYLE_KW = ("lifestyle", "life", "people", "family", "outdoor", "hand", "person", "scene", "moment")
-PRODUCT_KW = ("product", "device", "render", "studio", "front", "back", "angle", "colorway", "spec")
+LIFESTYLE_KW = (
+    "lifestyle", "life", "people", "family", "outdoor", "hand", "hands", "person", "scene", "moment",
+    "woman", "man", "girl", "boy", "couple", "portrait", "selfie", "using", "usecase", "daily",
+    "travel", "gaming", "workout", "kitchen", "home", "office", "night", "camera-sample",
+    "라이프", "사람", "가족", "손", "일상", "야외", "사용", "여행", "셀피", "게임",
+)
+PRODUCT_KW = (
+    "product", "device", "render", "studio", "front", "back", "angle", "colorway", "spec", "gallery",
+    "kv", "keyvisual", "key-visual", "design", "color", "colors", "exclusive", "carousel",
+    "galaxy", "iphone", "ipad", "macbook", "watch", "buds", "airpods", "phone", "smartphone", "tablet",
+    "fold", "flip", "ultra", "plus", "edge", "s25", "s24", "z-fold", "z-flip",
+    "제품", "기기", "스펙", "색상", "디자인", "갤럭시", "워치", "버즈",
+)
 # alt 텍스트가 비어있지 않아도 의미 없는 placeholder 인 경우가 많아 별도 필터링
 GENERIC_ALT_WORDS = ("image", "photo", "picture", "img", "banner", "icon", "사진", "이미지", "배너", "아이콘")
 ALT_RICH_MIN_LEN = 15   # 이 길이 이상 + generic 단어 아니면 '설명적'으로 분류
 
 
-def _classify_image(img: Dict[str, Any]) -> str:
-    blob = (_s(img.get("alt")) + " " + _s(img.get("src"))).lower()
-    if any(k in blob for k in LIFESTYLE_KW):
+def _classify_image(img: Dict[str, Any], page_url: str = "") -> str:
+    alt = _s(img.get("alt")).lower()
+    src = _s(img.get("src")).lower()
+    blob = f"{alt} {src}"
+
+    lifestyle_hit = any(k in blob for k in LIFESTYLE_KW)
+    product_hit = any(k in blob for k in PRODUCT_KW)
+
+    # Samsung CDN/페이지는 alt가 브랜드·모델명 위주인 경우가 많아 product 신호를 넓게 잡는다.
+    # 단, 사람/손/사용 장면 신호가 있으면 lifestyle을 우선한다.
+    if lifestyle_hit:
         return "lifestyle"
-    if any(k in blob for k in PRODUCT_KW):
+    if product_hit:
+        return "product"
+
+    # 파일명만으로도 제품 컷임을 알 수 있는 패턴
+    if re.search(r"(?:^|[-_/])(kv|pf|pdp|gallery|design|color|spec|front|back|device)(?:[-_/]|\.)", blob):
+        return "product"
+    if re.search(r"(?:galaxy|samsung|iphone|ipad|macbook|watch|buds|airpods)", page_url.lower() + " " + blob):
         return "product"
     return "unclassified"
 
@@ -475,7 +509,7 @@ def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         page_types = set()
         alt_rich = 0
         for img in imgs:
-            cls = _classify_image(img)
+            cls = _classify_image(img, p.get("url", ""))
             page_types.add(cls)
             if cls == "lifestyle":
                 lifestyle += 1
@@ -515,6 +549,7 @@ def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     return {
         "image_diversity": {
+            "_note": "alt/src/파일명/페이지 URL 텍스트 기반 분류. Vision 분석은 아니지만 Samsung 모델명·KV·gallery 패턴을 제품 이미지로 인식하도록 보강.",
             "total_images": total_images,
             "product": product, "lifestyle": lifestyle, "unclassified": unclassified,
             "lifestyle_ratio_pct": round(lifestyle / total_images * 100, 1) if total_images else 0,
@@ -605,11 +640,33 @@ class IntelEngine:
             return "DATA"
         return "COPY"   # content, commerce(가격 텍스트) 포함
 
+    def _rule_actions(self, is_ours: bool, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """LLM 없이도 변화 등급에 맞춘 액션을 생성한다."""
+        if not events:
+            return [{"action": "정기 모니터링 유지", "priority": "low", "evidence_url": "(집계)"}]
+        rank = {"L5": 5, "L4": 4, "L3": 3, "L2": 2, "L1": 1, "L0": 0}
+        top = sorted(events, key=lambda e: rank.get(e.get("severity_level") or "L0", 0), reverse=True)[:5]
+        out = []
+        for e in top:
+            lv = e.get("severity_level") or "L0"
+            if lv in ("L5", "L4"):
+                action = "즉시 변경사항 확인 및 대응 필요" if is_ours else "경쟁사 핵심 변경 즉시 확인 및 당사 영향 검토"
+                priority = "high"
+            elif lv in ("L3", "L2"):
+                action = "지속 모니터링 및 필요 시 후속 점검" if is_ours else "경쟁사 변화 지속 모니터링"
+                priority = "medium"
+            else:
+                action = "참고용 기록 유지 및 다음 수집에서 재확인"
+                priority = "low"
+            out.append({"action": action, "priority": priority, "evidence_url": e.get("url")})
+        return out
+
     def _build_category(self, name, site_display, is_ours, facts, narrative_lines, events) -> Dict[str, Any]:
         insights = [{"point": line, "evidence_url": "(집계)", "evidence": name} for line in narrative_lines]
         for e in events[:8]:
             insights.append({"point": e.get("summary"), "evidence_url": e.get("url"),
                              "evidence": f"{e.get('field_name')} [{e.get('severity_level')}]"})
+        rule_actions = self._rule_actions(is_ours, events)
 
         if self.ready:
             # 일시적 오류(레이트리밋/타임아웃/JSON 파싱 실패) 대비 최대 3회 시도
@@ -627,6 +684,7 @@ class IntelEngine:
                     time.sleep(1.5 * (attempt + 1))  # 1.5s, 3s backoff
             if llm_out:
                 llm_out["facts"] = facts
+                llm_out.setdefault("action_items", rule_actions)
                 llm_out["_source"] = "gemini"
                 return llm_out
             if last_err:
@@ -635,6 +693,7 @@ class IntelEngine:
         return {
             "facts": facts,
             "insights": insights,
+            "action_items": rule_actions,
             "confidence": 0.7,
             "_source": "rule_based",
         }
@@ -669,28 +728,50 @@ class IntelEngine:
     def _narrate_copy(self, c: Dict[str, Any]) -> List[str]:
         lines = []
         dist = c["content_density"]["distribution"]
+        total_pages = sum(dist.values()) if dist else 0
         if dist:
             dist_str = ", ".join(f"{k} {v}페이지" for k, v in dist.items())
-            lines.append(f"콘텐츠 밀도 분포: {dist_str}")
-        if c["content_density"]["thin_pages"]:
-            lines.append(f"빈약 콘텐츠(150단어 미만) {len(c['content_density']['thin_pages'])}+ 페이지")
+            lines.append(f"콘텐츠 밀도 분포: 총 {total_pages}페이지 — {dist_str}")
 
-        w = c["copy_richness"]["weights"]
-        lines.append(f"카피 풍부성 점수 = 정량지표×{w['quant']} + 구조지표×{w['structure']} + "
-                     f"비교/근거키워드×{w['evidence_kw']} + FAQ보유×{w['faq_presence']} (0~100, 70+우수/40~69보통/40미만미흡)")
-        gap = c["copy_richness"]["intent_gap_pages"]
+        all_pages = c["copy_richness"].get("all_pages") or []
+        if all_pages:
+            avg_score = round(sum(p["score"] for p in all_pages) / len(all_pages), 1)
+            avg_quant = round(sum(p.get("quant_per_100w", 0) for p in all_pages) / len(all_pages), 2)
+            with_faq = sum(1 for p in all_pages if p.get("has_faq"))
+            with_cta = sum(1 for p in all_pages if p.get("cta_count", 0) > 0)
+            lines.append(f"카피 풍부성 평균 {avg_score}점 — 100단어당 정량 근거 평균 {avg_quant}개, FAQ 보유 {with_faq}페이지, CTA 보유 {with_cta}페이지")
+
+        thin = c["content_density"].get("thin_pages") or []
+        if thin:
+            sample = ", ".join(_template_key(u) for u in thin[:3])
+            lines.append(f"빈약 콘텐츠(150단어 미만) {len(thin)}페이지 — 대표: {sample}")
+
+        gap = c["copy_richness"].get("intent_gap_pages") or []
         if gap:
-            lines.append(f"풍부성 점수 40 미만(미흡) {len(gap)}+ 페이지 — 정량 근거·구조·FAQ 모두 약함")
+            sample = []
+            for g in gap[:3]:
+                reasons = []
+                if g.get("quant_count", 0) == 0:
+                    reasons.append("정량 근거 없음")
+                if not g.get("has_faq"):
+                    reasons.append("FAQ 없음")
+                if g.get("cta_count", 0) == 0:
+                    reasons.append("CTA 없음")
+                sample.append(f"{_template_key(g.get('url',''))} {g.get('score')}점({', '.join(reasons) or '구조 약함'})")
+            lines.append("풍부성 미흡 페이지: " + " / ".join(sample))
+        else:
+            rich = c["copy_richness"].get("rich_pages") or []
+            if rich:
+                sample = ", ".join(f"{_template_key(x.get('url',''))} {x.get('score')}점" for x in rich[:3])
+                lines.append(f"풍부성 우수 페이지: {sample}")
 
         faq = c["faq"]
         if faq["pages_with_faq"]:
             weak = sum(f["weak_items"] for f in faq["detail"])
-            fw = faq["weights"]
-            lines.append(f"FAQ 보유 {faq['pages_with_faq']}페이지, 문항 품질 = 구체성×{fw['specificity']} + "
-                         f"질문현실성×{fw['question_realism']} + AI인용적합성×{fw['citability']} "
-                         f"— 미흡(40점 미만) 문항 {weak}건")
+            avg_faq = round(sum(f["avg_score"] for f in faq["detail"]) / len(faq["detail"]), 1) if faq["detail"] else 0
+            lines.append(f"FAQ {faq['pages_with_faq']}페이지 / {faq.get('total_items', 0)}문항 — 평균 품질 {avg_faq}점, 미흡 문항 {weak}건")
         else:
-            lines.append("FAQ 전무 — AI 답변 직접 인용 구조 부재")
+            lines.append("FAQ 전무 — 문답형 검색/AI 답변에 직접 인용할 구조가 없음")
         return lines
 
     def _narrate_visual(self, v: Dict[str, Any]) -> List[str]:

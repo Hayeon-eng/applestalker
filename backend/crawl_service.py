@@ -20,7 +20,7 @@ from sqlalchemy import text
 
 from config import SEED_TARGETS, load_active_urls, tier_for_url, target_for_url
 from crawler import HybridCrawler
-from diff_engine import DiffEngine, structural_signature, summarize_events
+from diff_engine import DiffEngine, structural_signature, summarize_events, stable_text
 from intel_engine import IntelEngine, aeo_facts
 
 
@@ -30,7 +30,7 @@ def _s(v) -> str:
 
 def _content_hash(page: Dict[str, Any]) -> str:
     import hashlib
-    blob = "|".join(_s(page.get(k)) for k in ("title", "h1", "meta_description", "body_content"))
+    blob = "|".join(stable_text(_s(page.get(k))) for k in ("title", "h1", "meta_description", "body_content"))
     return hashlib.sha1(blob.encode("utf-8", "ignore")).hexdigest()
 
 
@@ -51,11 +51,12 @@ class CrawlServiceV2:
     # ─────────────────────────────────────────────
     # MAIN
     # ─────────────────────────────────────────────
-    async def execute_crawl(self, site_key: str) -> Dict[str, Any]:
+    async def execute_crawl(self, site_key: str, session_id: str = None) -> Dict[str, Any]:
         target = SEED_TARGETS.get(site_key)
         if not target:
             raise ValueError(f"unknown site: {site_key}")
 
+        session_id = session_id or f"crawl_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
         run_id = f"{site_key}_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
         urls = self._load_db_urls(site_key)
 
@@ -65,9 +66,9 @@ class CrawlServiceV2:
         # run 생성
         self._exec("""
             INSERT INTO crawl_runs
-            (crawl_run_id, site_name, started_at, status, total_urls_discovered)
-            VALUES (:r,:s,:t,'running',:n)
-        """, r=run_id, s=site_key, t=datetime.utcnow(), n=len(urls))
+            (crawl_run_id, site_name, session_id, started_at, status, total_urls_discovered)
+            VALUES (:r,:s,:sid,:t,'running',:n)
+        """, r=run_id, s=site_key, sid=session_id, t=datetime.utcnow(), n=len(urls))
 
         crawler = HybridCrawler()
         await crawler.start()
@@ -229,8 +230,9 @@ class CrawlServiceV2:
             o=_s(res.get("summary"))[:1900],
             h="",
             op=_s(json.dumps(legacy_insights, ensure_ascii=False))[:1900],
-            a="[]",
-            pr="high" if max_level in ("L4", "L5") else "medium",
+            a=json.dumps((data_b.get("action_items", []) + copy_b.get("action_items", []) +
+                          visual_b.get("action_items", []))[:12], ensure_ascii=False)[:1900],
+            pr="high" if max_level in ("L4", "L5") else ("medium" if max_level in ("L2", "L3") else "low"),
             fa="DATA/COPY/VISUAL",
             da=json.dumps(data_b, ensure_ascii=False)[:200000],
             co=json.dumps(copy_b, ensure_ascii=False)[:200000],
@@ -336,14 +338,14 @@ class CrawlServiceV2:
 
             self._exec("""
                 INSERT INTO detected_changes
-                (crawl_run_id, url, change_type, change_category,
+                (crawl_run_id, url, site_key, change_type, change_category,
                  field_name, before_value, after_value,
                  severity, severity_level, severity_reason,
                  summary, char_added, char_removed,
                  diff_ratio, evidence, tier_level, analysis_bucket, detected_at)
-                VALUES (:r,:u,:ct,:cc,:fn,:bv,:av,:sev,:lv,:sr,:sm,:ca,:cr,:dr,:evd,:tl,:bk,:ts)
+                VALUES (:r,:u,:sk,:ct,:cc,:fn,:bv,:av,:sev,:lv,:sr,:sm,:ca,:cr,:dr,:evd,:tl,:bk,:ts)
             """,
-            r=run_id, u=ev.url,
+            r=run_id, u=ev.url, sk=ev.site_key,
             ct=ev.change_type,
             cc=ev.severity_level,
             fn=ev.field_name,

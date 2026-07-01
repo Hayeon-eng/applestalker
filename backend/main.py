@@ -2,7 +2,7 @@
 main.py — FastAPI 백엔드 (단일 파일에 엔드포인트 통합, 단순화)
 프론트(Next.js)는 별도 서비스. 이 백엔드는 /api/* 만 제공.
 """
-import os, json, asyncio
+import os, json, asyncio, uuid
 from datetime import datetime
 from typing import Optional, List
 from contextlib import asynccontextmanager
@@ -117,13 +117,20 @@ def _kst_str(dt):
     k = _to_kst(dt)
     return k.strftime("%Y-%m-%d %H:%M") if k else ""
 
-def _session_key(dt):
-    """하루 2회 슬롯: KST 날짜 + 오전/오후. (started_at 은 UTC 저장)"""
+def _session_key(dt, explicit: Optional[str] = None):
+    """수집 배치 키. 신규 데이터는 session_id, 과거 데이터는 20분 단위 근접 수집으로 묶음."""
+    if explicit:
+        return explicit
     k = _to_kst(dt)
     if not k:
         return "unknown"
-    slot = "오전" if k.hour < 12 else "오후"
-    return f"{k.strftime('%Y-%m-%d')} {slot}"
+    bucket_min = (k.minute // 20) * 20
+    return f"legacy_{k.strftime('%Y%m%d_%H')}{bucket_min:02d}"
+
+
+def _session_label(dt):
+    k = _to_kst(dt)
+    return k.strftime('%Y-%m-%d %H:%M') if k else ""
 
 
 @app.get("/")
@@ -147,18 +154,18 @@ def health():
 
 @app.get("/api/runs")
 def runs():
-    rows = q("SELECT crawl_run_id, site_name, started_at, total_urls_crawled, total_changes_detected "
-             "FROM crawl_runs WHERE status='completed' ORDER BY started_at DESC LIMIT 60")
-    # 하루 2회(오전/오후) 세션으로 묶고 삼성+애플 합산
+    rows = q("SELECT crawl_run_id, site_name, started_at, total_urls_crawled, total_changes_detected, session_id "
+             "FROM crawl_runs WHERE status='completed' ORDER BY started_at DESC LIMIT 120")
+    # 같은 수집 배치(session_id)끼리 묶고 삼성+애플 합산
     sessions = {}
     for r in rows:
-        key = _session_key(r[2])
+        key = _session_key(r[2], r[5])
         s = sessions.setdefault(key, {"session": key, "run_ids": [], "sites": set(),
                                        "pages": 0, "changes": 0, "latest": r[2]})
         s["run_ids"].append(r[0]); s["sites"].add(r[1])
         s["pages"] += (r[3] or 0); s["changes"] += (r[4] or 0)
         if r[2] and (not s["latest"] or r[2] > s["latest"]): s["latest"] = r[2]
-    out = [{"session": v["session"], "run_ids": v["run_ids"],
+    out = [{"session": _session_label(v["latest"]), "session_id": v["session"], "run_ids": v["run_ids"],
             "sites": sorted(v["sites"]), "pages": v["pages"], "changes": v["changes"],
             "timestamp": _kst_str(v["latest"])}
            for v in sessions.values()]
@@ -263,18 +270,18 @@ def clear_empty_runs():
 @app.get("/api/latest-report")
 def latest_report(run_id: Optional[str] = None):
     # 대상 run_id 목록 결정: 특정 run 지정 시 그 세션 전체, 아니면 가장 최근 세션
-    allruns = q("SELECT crawl_run_id, site_name, started_at FROM crawl_runs "
-                "WHERE status='completed' ORDER BY started_at DESC LIMIT 60")
+    allruns = q("SELECT crawl_run_id, site_name, started_at, session_id FROM crawl_runs "
+                "WHERE status='completed' ORDER BY started_at DESC LIMIT 120")
     if not allruns:
         return {"has_data": False, "message": "크롤 데이터가 없습니다. 크롤을 실행하세요."}
     # 세션키별로 묶기
     by_sess = {}
-    for rid, site, started in allruns:
-        by_sess.setdefault(_session_key(started), []).append((rid, site, started))
+    for rid, site, started, sid in allruns:
+        by_sess.setdefault(_session_key(started, sid), []).append((rid, site, started, sid))
     if run_id:
-        target_key = next((_session_key(s) for r, _, s in allruns if r == run_id), None)
+        target_key = next((_session_key(s, sid) for r, _, s, sid in allruns if r == run_id), None)
     else:
-        target_key = _session_key(allruns[0][2])  # 가장 최근
+        target_key = _session_key(allruns[0][2], allruns[0][3])  # 가장 최근 수집 배치
     target_runs = by_sess.get(target_key, [allruns[0]])
     rids = [r[0] for r in target_runs]
     started = max(r[2] for r in target_runs)
@@ -409,12 +416,13 @@ def timeline(level: Optional[str] = None, category: Optional[str] = None, limit:
 async def trigger_all():
     if crawl_state["crawling"]:
         raise HTTPException(409, "이미 크롤 진행 중")
-    crawl_state.update(crawling=True, events=[], run_id=f"manual_{datetime.now():%Y%m%d_%H%M%S}")
+    batch_id = f"manual_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+    crawl_state.update(crawling=True, events=[], run_id=batch_id)
 
     async def run():
         try:
             for sk in SITE_KEYS:
-                await crawl_service.execute_crawl(sk)
+                await crawl_service.execute_crawl(sk, session_id=batch_id)
         finally:
             crawl_state["crawling"] = False
     asyncio.create_task(run())
@@ -585,10 +593,11 @@ def export_pptx(run_id: Optional[str] = None):
 async def cron_tick(token: str = Query(...), site: Optional[str] = None):
     if token != CRON_TOKEN:
         raise HTTPException(403, "invalid token")
+    batch_id = f"cron_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
     results = []
     for sk in ([site] if site else SITE_KEYS):
         try:
-            r = await crawl_service.execute_crawl(sk)
+            r = await crawl_service.execute_crawl(sk, session_id=batch_id)
             results.append({"site": sk, "status": r.get("status"), "changes": r.get("changes_detected")})
         except Exception as e:
             results.append({"site": sk, "status": "failed", "error": str(e)})
@@ -599,7 +608,7 @@ async def cron_tick(token: str = Query(...), site: Optional[str] = None):
         email_service.send(rt)
     except Exception as e:
         logger.warning(f"email skip: {e}")
-    return {"ran_at": datetime.utcnow().isoformat(), "results": results}
+    return {"ran_at": datetime.utcnow().isoformat(), "session_id": batch_id, "results": results}
 
 
 # ── Email ──

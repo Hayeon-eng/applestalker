@@ -22,6 +22,7 @@ class CrawlRun(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     crawl_run_id = Column(String(100), unique=True, index=True, nullable=False)
     site_name = Column(String(50), index=True)                 # samsung / apple
+    session_id = Column(String(100), index=True)                # 같은 수집 배치(samsung+apple)를 묶는 키
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     status = Column(String(20), default="running")             # running/completed/failed
