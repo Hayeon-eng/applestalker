@@ -208,6 +208,29 @@ export const metricAverage = (sitePages: PageLite[], block?: AnalysisBlock) => {
   };
 };
 
+// 지표(DATA/COPY/VISUAL) 하나를 핵심 한줄 + 숫자 통계로 요약. 실제 facts/changes만 사용(생성 없음).
+export const metricOneLiner = (
+  metric: MetricTab,
+  dcvForMetric: Record<string, AnalysisBlock> | undefined,
+  changes: Change[]
+): string => {
+  const af = dcvForMetric?.apple?.facts || {};
+  const sf = dcvForMetric?.samsung?.facts || {};
+  const high = changes.filter((c) => c.level === "High").length;
+  let statLine = "";
+  if (metric === "data") {
+    const a = af.schema?.coverage_pct, s = sf.schema?.coverage_pct;
+    statLine = `Schema 적용률 Apple ${a ?? "-"}% · Samsung ${s ?? "-"}%`;
+  } else if (metric === "copy") {
+    const a = af.content_density?.thin_pages?.length, s = sf.content_density?.thin_pages?.length;
+    statLine = `빈약 콘텐츠 Apple ${a ?? "-"}개 · Samsung ${s ?? "-"}개`;
+  } else {
+    const a = af.image_diversity?.lifestyle_ratio_pct, s = sf.image_diversity?.lifestyle_ratio_pct;
+    statLine = `Lifestyle 이미지 Apple ${a ?? "-"}% · Samsung ${s ?? "-"}%`;
+  }
+  return `${statLine} · 변경 ${changes.length}건 (High ${high})`;
+};
+
 /* ── 화면 캡처 */
 export const captureScreen = async () => {
   const load = () =>

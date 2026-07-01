@@ -177,7 +177,21 @@ input, select { font-family: inherit; }
 /* ── SEVERITY 범례 */
 .severityLegend { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 7px; }
 .severityLegendTitle { font-size: 11px; font-weight: 600; color: var(--sec); margin-bottom: 2px; }
-.sevRow { display: flex; align-items: flex-start; gap: 10px; }
+.sevRow { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left;
+  background: none; border: none; font: inherit; color: inherit; }
+.sevRowClickable { cursor: pointer; padding: 6px 8px; border-radius: 8px; }
+.sevRowClickable:hover { background: rgba(0,0,0,.03); }
+.sevRowGo { margin-left: auto; flex-shrink: 0; font-size: 11px; color: var(--blue); font-weight: 600;
+  align-self: center; }
+
+/* ── '전체요약' 탭의 지표별 축약 카드 (클릭 → 해당 지표 탭으로 이동) ── */
+.metricSummaryCard { display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--surface); border: none; }
+.metricSummaryCard:hover { box-shadow: var(--shadow); }
+.metricSummaryCard .cardTitle { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.metricSummaryGo { font-size: 11.5px; color: var(--blue); font-weight: 600; }
+.metricSummaryLine { font-size: 13px; color: var(--label); margin-top: 8px; }
+.metricSummarySub { font-size: 11.5px; color: var(--high); margin-top: 6px; font-weight: 600; }
 .sevBadge { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700;
   padding: 2px 8px; border-radius: 6px; flex-shrink: 0; width: 44px; justify-content: center; }
 .sevBadge.high { background: var(--high-soft); color: var(--high); }

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report, UrlRow, PageLite, PageDetail,
   CRITERIA, METRICS, TIER_META,
-  siteName, siteClass, levelKo, levelClass, shortUrl, linesFromBlock, tierForUrl, tagForLine, metricAverage, bucketOf,
+  siteName, siteClass, levelKo, levelClass, shortUrl, linesFromBlock, tierForUrl, tagForLine,
+  metricAverage, metricOneLiner, bucketOf,
 } from "./shared";
 
 /* ════════════════════════════════════════════════════
@@ -30,10 +31,8 @@ function FindingList({ metric, lines }: { metric: MetricTab; lines: string[] }) 
 function AverageBox({
   title, site, data, metric,
 }: {
-  title: string; site: SiteKey; data: ReturnType<typeof metricAverage>; metric: MetricTab;
+  title: string; site: SiteKey; data: ReturnType<typeof metricAverage>; metric: MetricView;
 }) {
-  const mv = metric === "data" ? data.schema : metric === "copy" ? data.thin : data.lifestyle;
-  const ml = metric === "data" ? "Schema 적용률" : metric === "copy" ? "빈약 콘텐츠" : "Lifestyle 이미지";
   return (
     <div className="avgBox">
       <p className="avgBoxTitle">
@@ -42,7 +41,18 @@ function AverageBox({
       </p>
       <div className="avgStat"><span>{data.pages}페이지 수집</span><span className="avgStatVal">{data.pages}</span></div>
       <div className="avgStat"><span>평균 단어 수</span><span className="avgStatVal">{data.avgWords}</span></div>
-      <div className="avgStat"><span>{ml}</span><span className="avgStatVal">{mv}</span></div>
+      {metric === "all" ? (
+        <>
+          <div className="avgStat"><span>Schema 적용률</span><span className="avgStatVal">{data.schema}</span></div>
+          <div className="avgStat"><span>빈약 콘텐츠</span><span className="avgStatVal">{data.thin}</span></div>
+          <div className="avgStat"><span>Lifestyle 이미지</span><span className="avgStatVal">{data.lifestyle}</span></div>
+        </>
+      ) : (
+        <div className="avgStat">
+          <span>{metric === "data" ? "Schema 적용률" : metric === "copy" ? "빈약 콘텐츠" : "Lifestyle 이미지"}</span>
+          <span className="avgStatVal">{metric === "data" ? data.schema : metric === "copy" ? data.thin : data.lifestyle}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -272,18 +282,21 @@ function MetricSection({
 
 export function Overview({
   report, metricTab, dcv, changes, allChanges, selectedChange, setSelectedChange,
-  urls, totalUrls, urlQuery, setUrlQuery, onOpenDrawer,
+  urls, totalUrls, urlQuery, setUrlQuery, onOpenDrawer, onJumpToMetric,
 }: {
   report: Report | null; metricTab: MetricView; dcv?: Report["dcv"];
   changes: Change[]; allChanges: Change[];
   selectedChange: Change | null; setSelectedChange: (c: Change | null) => void;
   urls: UrlRow[]; totalUrls: number; urlQuery: string; setUrlQuery: (s: string) => void;
   onOpenDrawer: (id: string) => void;
+  onJumpToMetric: (m: MetricTab, change?: Change) => void;
 }) {
   const high = allChanges.filter((c) => c.level === "High").length;
   const apple = allChanges.filter((c) => c.site === "apple").length;
   const samsung = allChanges.filter((c) => c.site === "samsung").length;
   const highChanges = allChanges.filter((c) => c.level === "High").slice(0, 3);
+  const appleN = new Set(allChanges.filter((c) => c.site === "apple").map((c) => c.url)).size;
+  const samsungN = new Set(allChanges.filter((c) => c.site === "samsung").map((c) => c.url)).size;
 
   return (
     <div className="panelStack">
@@ -296,7 +309,9 @@ export function Overview({
               {report ? (allChanges.length > 0 ? `변화 ${allChanges.length}건 감지` : "변화 없음 — 현행 유지") : "수집 데이터 없음"}
             </h1>
             <p className="summaryDesc">
-              {report?.analysis?.summary || (metricTab === "all" ? "DATA·COPY·VISUAL 전체 현황입니다." : METRICS[metricTab].plain)}
+              {metricTab === "all"
+                ? `Apple 변경 ${apple}건 · Samsung 변경 ${samsung}건 — 아래에서 DATA/COPY/VISUAL 영역별 요약을 확인하세요.`
+                : metricOneLiner(metricTab, dcv?.[metricTab], changes)}
             </p>
           </div>
           <div className="statsRow">
@@ -307,19 +322,20 @@ export function Overview({
           </div>
         </div>
 
-        {/* High 변화 요약 + 액션 제시 */}
+        {/* High 변화 요약 + 액션 제시 — 클릭하면 해당 영역 탭으로 이동해 상세가 열림 */}
         {highChanges.length > 0 && (
           <div className="severityLegend">
-            <p className="severityLegendTitle">🔴 높음(High) 변화 — 우선 확인 필요</p>
+            <p className="severityLegendTitle">🔴 높음(High) 변화 — 우선 확인 필요 (클릭하면 상세로 이동)</p>
             {highChanges.map((c) => (
-              <div key={c.id} className="sevRow">
+              <button key={c.id} className="sevRow sevRowClickable" onClick={() => onJumpToMetric(bucketOf(c), c)}>
                 <span className={`badge ${siteClass(c.site)}`}>{siteName(c.site)}</span>
                 <span className="sevDesc">
                   <b>{c.summary || c.field}</b> — {shortUrl(c.url)}
                   <br />
                   <span style={{ color: "var(--sec)" }}>액션: {c.site === "apple" ? "경쟁사 변화이므로 당사 대응 필요 여부 검토" : "당사 페이지 변경 — 의도된 변경인지 확인"}</span>
                 </span>
-              </div>
+                <span className="sevRowGo">상세보기 →</span>
+              </button>
             ))}
           </div>
         )}
@@ -345,20 +361,23 @@ export function Overview({
         </div>
       </div>
 
-      {/* ② 분석기준 → 현황요약 → 변경점목록 — 단일 메트릭 or 전체요약(3개 반복) */}
+      {/* ② '전체요약'이면 DATA/COPY/VISUAL 축약카드(클릭→해당 탭 상세로 이동, 정보 중복 없음)
+             특정 지표 탭이면 분석기준→현황요약→변경점목록 풀 디테일 */}
       {metricTab === "all" ? (
-        (["data", "copy", "visual"] as MetricTab[]).map((m) => (
-          <MetricSection
-            key={m}
-            metric={m}
-            changes={allChanges.filter((c) => bucketOf(c) === m)}
-            siteBlocks={dcv?.[m] || {}}
-            selectedChange={selectedChange}
-            setSelectedChange={setSelectedChange}
-            onOpenDrawer={onOpenDrawer}
-            showHeading
-          />
-        ))
+        (["data", "copy", "visual"] as MetricTab[]).map((m) => {
+          const mChanges = allChanges.filter((c) => bucketOf(c) === m);
+          const mHigh = mChanges.filter((c) => c.level === "High").length;
+          return (
+            <button key={m} className="card metricSummaryCard" onClick={() => onJumpToMetric(m)}>
+              <p className="cardTitle">
+                <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
+                <span className="metricSummaryGo">자세히 보기 →</span>
+              </p>
+              <p className="metricSummaryLine">{metricOneLiner(m, dcv?.[m], mChanges)}</p>
+              {mHigh > 0 && <p className="metricSummarySub">🔴 높음 변화 {mHigh}건 포함</p>}
+            </button>
+          );
+        })
       ) : (
         <MetricSection
           metric={metricTab}
@@ -405,13 +424,14 @@ export function Overview({
    Pages 탭 — Apple/Samsung 전체요약 + Tier(0~4)별 요약 + Tier 기준 설명
 ════════════════════════════════════════════════════ */
 export function PagesTab({
-  metricTab, pages, urls, avgSamsung, avgApple,
-  selectedUrl, selectedPage, loadingPage, onPick,
+  metricTab, pages, urls, dcv, allChanges,
+  selectedUrl, selectedPage, loadingPage, onPick, onOpenDrawer,
 }: {
-  metricTab: MetricTab; pages: Record<SiteKey, PageLite[]>; urls: UrlRow[];
-  avgSamsung: ReturnType<typeof metricAverage>; avgApple: ReturnType<typeof metricAverage>;
+  metricTab: MetricView; pages: Record<SiteKey, PageLite[]>; urls: UrlRow[];
+  dcv?: Report["dcv"]; allChanges: Change[];
   selectedUrl: string;
   selectedPage: PageDetail | null; loadingPage: boolean; onPick: (url: string) => void;
+  onOpenDrawer: (id?: string) => void;
 }) {
   const pageRows = useMemo(
     () => [
@@ -451,6 +471,19 @@ export function PagesTab({
       };
     });
 
+  // Apple/Samsung 요약 통계 — '전체'면 DATA·COPY·VISUAL 세 지표를 각각의 facts에서 모아 병합
+  const avgFor = (site: SiteKey): ReturnType<typeof metricAverage> => {
+    if (metricTab === "all") {
+      const d = metricAverage(pages[site], dcv?.data?.[site]);
+      const c = metricAverage(pages[site], dcv?.copy?.[site]);
+      const v = metricAverage(pages[site], dcv?.visual?.[site]);
+      return { pages: d.pages, avgWords: d.avgWords, schema: d.schema, thin: c.thin, lifestyle: v.lifestyle };
+    }
+    return metricAverage(pages[site], dcv?.[metricTab]?.[site]);
+  };
+  const avgApple = avgFor("apple");
+  const avgSamsung = avgFor("samsung");
+
   // 페이지 목록이 준비되면 대표 1개(첫 페이지)를 자동 선택해 상세 근거를 바로 펼쳐서 보여줌
   useEffect(() => {
     if (!selectedUrl && pageRows.length > 0) {
@@ -461,15 +494,34 @@ export function PagesTab({
 
   return (
     <div className="panelStack">
-      {/* 요약 카드 — Apple / Samsung 전체 요약 + Tier별 통계·인사이트 */}
+      {/* 요약 카드 — Apple / Samsung 전체 요약 + 인사이트 한줄 + Tier별 통계 */}
       <div className="summaryCard">
         <div className="summaryTop">
           <div className="summaryText">
             <p className="summaryEyebrow">페이지별 현재 상태</p>
-            <h1 className="summaryH1">{METRICS[metricTab].label} — Apple / Samsung 전체 요약</h1>
-            <p className="summaryDesc">페이지를 선택하면 아래에 DATA/COPY/VISUAL 상세 근거가 펼쳐집니다.</p>
+            <h1 className="summaryH1">
+              {metricTab === "all" ? "전체요약" : METRICS[metricTab].label} — Apple / Samsung
+            </h1>
+            <p className="summaryDesc">
+              {metricTab === "all"
+                ? "DATA·COPY·VISUAL 세 지표를 모두 모은 전체 통계입니다. 자세한 근거는 아래 지표 탭에서 확인하세요."
+                : METRICS[metricTab].plain}
+            </p>
           </div>
         </div>
+
+        {/* '전체'면 DATA/COPY/VISUAL 각각의 한줄 인사이트(클릭 가능한 안내), 특정 지표면 그 지표 한줄만 */}
+        <div className="severityLegend">
+          {(metricTab === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [metricTab]).map((m) => (
+            <div key={m} className="sevRow">
+              <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
+              <span className="sevDesc">
+                {metricOneLiner(m, dcv?.[m], allChanges.filter((c) => bucketOf(c) === m))}
+              </span>
+            </div>
+          ))}
+        </div>
+
         <div className="avgGrid" style={{ marginTop: 14 }}>
           <AverageBox title="Apple 경쟁사" site="apple" data={avgApple} metric={metricTab} />
           <AverageBox title="Samsung 당사" site="samsung" data={avgSamsung} metric={metricTab} />
@@ -563,7 +615,12 @@ export function PagesTab({
 
       {/* 선택 페이지 상세 — 대표 1개가 자동 선택되어 기본적으로 펼쳐진 상태 */}
       <div className="card">
-        <p className="cardTitle">선택 페이지 상세 근거</p>
+        <p className="cardTitle">
+          선택 페이지 상세 근거 &nbsp;
+          <button style={{ fontSize: 11, color: "var(--blue)", fontWeight: 400 }} onClick={() => onOpenDrawer()}>
+            분석 기준 보기 ↗
+          </button>
+        </p>
         {loadingPage && <p className="muted">불러오는 중…</p>}
         {!loadingPage && !selectedPage && (
           <p className="muted">위 목록에서 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>

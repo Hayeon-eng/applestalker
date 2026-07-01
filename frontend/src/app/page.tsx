@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View, MainTab, MetricTab, MetricView, SiteKey, CrawlProgress, Change, Report, Session,
   PageLite, PageDetail, UrlRow,
-  METRICS, siteName, siteClass, shortUrl, bucketOf, metricAverage, captureScreen,
+  METRICS, siteName, siteClass, shortUrl, bucketOf, captureScreen,
 } from "./shared";
 import { Landing, Overview, PagesTab, CriteriaDrawer } from "./sections";
 
@@ -198,15 +198,18 @@ export default function Page() {
     setDrawerOpen(true);
   };
 
+  // 요약(High 변화 목록 / 전체요약 축약카드)에서 클릭하면 해당 지표 탭으로 이동 + 필요시 그 변경점을 펼침
+  const jumpToMetric = (m: MetricTab, change?: Change) => {
+    setMetricTab(m);
+    setSelectedChange(change || null);
+  };
+
   const allChanges = report?.changes || [];
   const effectiveMetric: MetricTab = metricTab === "all" ? "data" : metricTab;
   const metricChanges = allChanges.filter((c) => bucketOf(c) === effectiveMetric);
   const filteredUrls = urls.filter((u) =>
     ((u.site_key || "") + " " + u.url).toLowerCase().includes(urlQuery.toLowerCase())
   );
-  const siteBlocks = report?.dcv?.[effectiveMetric] || {};
-  const avgSamsung = metricAverage(pages.samsung, siteBlocks.samsung);
-  const avgApple = metricAverage(pages.apple, siteBlocks.apple);
 
   if (view === "home") {
     return <Landing onEnter={() => setView("dashboard")} />;
@@ -350,9 +353,15 @@ export default function Page() {
             </div>
           )}
 
-          {/* 메트릭 탭 + ⓘ */}
+          {/* 메트릭 탭 + ⓘ — 전체요약 > DATA > COPY > VISUAL 순서, 두 메인탭 공통 */}
           <div className="topbarRow2">
             <div className="metricGroup">
+              <button
+                className={`metricBtn ${metricTab === "all" ? "on" : ""}`}
+                onClick={() => setMetricTab("all")}
+              >
+                전체요약
+              </button>
               {(Object.keys(METRICS) as MetricTab[]).map((key) => (
                 <button
                   key={key}
@@ -362,14 +371,6 @@ export default function Page() {
                   {METRICS[key].label}
                 </button>
               ))}
-              {mainTab === "overview" && (
-                <button
-                  className={`metricBtn ${metricTab === "all" ? "on" : ""}`}
-                  onClick={() => setMetricTab("all")}
-                >
-                  전체요약
-                </button>
-              )}
             </div>
             {metricTab === "all" ? (
               <>
@@ -377,7 +378,7 @@ export default function Page() {
                   ⓘ 전체 기준
                 </button>
                 <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 6 }}>
-                  DATA·COPY·VISUAL 세 영역을 각각의 현황·기준·변경점으로 한 화면에 모아 보여줍니다.
+                  DATA·COPY·VISUAL 세 영역을 요약해서 한 화면에 모아 보여줍니다. 자세히 보려면 각 탭을 선택하세요.
                 </span>
               </>
             ) : (
@@ -413,18 +414,20 @@ export default function Page() {
               urlQuery={urlQuery}
               setUrlQuery={setUrlQuery}
               onOpenDrawer={openDrawer}
+              onJumpToMetric={jumpToMetric}
             />
           ) : (
             <PagesTab
-              metricTab={effectiveMetric}
+              metricTab={metricTab}
               pages={pages}
               urls={urls}
-              avgSamsung={avgSamsung}
-              avgApple={avgApple}
+              dcv={report?.dcv}
+              allChanges={allChanges}
               selectedUrl={selectedUrl}
               selectedPage={selectedPage}
               loadingPage={loadingPage}
               onPick={openPage}
+              onOpenDrawer={openDrawer}
             />
           )}
         </div>
