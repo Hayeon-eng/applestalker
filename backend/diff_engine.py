@@ -319,15 +319,84 @@ def _is_critical(field_name: str, before: str, after: str, critical_keywords: Li
     return any(k.lower() in blob for k in critical_keywords)
 
 
+# 카피 변경 중요도 보정: 캠페인/전환 문구는 우선 감지하고,
+# 짧은 메뉴·탭·네비게이션 라벨은 낮은 등급으로 제한한다.
+_CAMPAIGN_COPY_RE = re.compile(
+    r"("
+    r"campaign|promo(?:tion)?|offer|deal|sale|save|discount|coupon|voucher|bundle|bonus|cashback|"
+    r"launch|new|introduc|announce|available|limited|exclusive|event|unpacked|"
+    r"pre[- ]?order|reserve|trade[- ]?in|switch|compare|upgrade|buy|shop|cart|checkout|"
+    r"galaxy ai|apple intelligence|one ui|bespoke|fold|flip|ultra|qled|oled|"
+    r"캠페인|프로모션|혜택|할인|쿠폰|세일|무료|증정|사은품|이벤트|한정|단독|"
+    r"출시|런칭|신규|신제품|공개|사전예약|예약|구매|장바구니|보상판매|업그레이드|비교|"
+    r"갤럭시 ai|애플 인텔리전스"
+    r")",
+    re.IGNORECASE,
+)
+
+_MINOR_UI_RE = re.compile(
+    r"^("
+    r"overview|features?|specs?|specifications?|design|gallery|reviews?|support|learn more|view more|see more|"
+    r"home|shop|mobile|tv|audio|accessories|for business|search|menu|close|open|next|previous|"
+    r"전체|개요|특징|기능|스펙|사양|디자인|갤러리|리뷰|지원|더 알아보기|자세히 보기|"
+    r"홈|모바일|티비|오디오|액세서리|검색|메뉴|닫기|열기|다음|이전|탭"
+    r")$",
+    re.IGNORECASE,
+)
+
+def _is_campaign_copy(text: str) -> bool:
+    return bool(_CAMPAIGN_COPY_RE.search(stable_text(text)))
+
+
+def _is_minor_ui_text(text: str) -> bool:
+    txt = stable_text(text).strip(" -–—|·•:[]()")
+    if not txt:
+        return True
+    words = _tokens(txt)
+    if len(txt) <= 32 and len(words) <= 5:
+        return True
+    return bool(_MINOR_UI_RE.match(txt))
+
+
+def _copy_importance_note(field_name: str, before: str, after: str) -> str:
+    blob = f"{before} {after}"
+    if _is_campaign_copy(blob):
+        return "campaign_or_conversion_copy"
+    if field_name in ("navigation", "ctas") or _is_minor_ui_text(before) or _is_minor_ui_text(after):
+        return "minor_ui_or_menu_copy"
+    return "general_copy"
+
+
 def classify_text_severity(field_name: str, before: str, after: str,
                            cd: Dict[str, Any], ts: Dict[str, Any],
                            critical_keywords: List[str]) -> str:
-    """텍스트 변화의 L0~L5."""
+    """텍스트 변화의 L0~L5.
+
+    COPY 영역은 캠페인/전환 문구 중심으로 등급을 올리고,
+    메뉴·탭·짧은 UI 라벨성 문구는 기본적으로 Low 수준으로 제한한다.
+    """
     if _is_critical(field_name, before, after, critical_keywords):
         return "L5"
+
     sent_changed = len(ts["sentences_added"]) + len(ts["sentences_removed"])
     word_changed = len(ts["words_added"]) + len(ts["words_removed"])
     total_chars = cd["char_added"] + cd["char_removed"]
+    is_copy_field = field_name in ("h1", "body_content", "meta_description")
+    campaign_copy = _is_campaign_copy(f"{before} {after}")
+    minor_ui_copy = _is_minor_ui_text(before) or _is_minor_ui_text(after)
+
+    if is_copy_field:
+        # 캠페인/프로모션/전환에 직접 닿는 문구는 일반 문장 변경보다 우선 감지
+        if campaign_copy:
+            if sent_changed >= 3 or total_chars > 300:
+                return "L3"
+            return "L2"
+        # 메뉴 탭·짧은 안내 라벨·소폭 문구 변경은 Low로 제한
+        if minor_ui_copy or (sent_changed <= 1 and total_chars <= 180):
+            return "L1" if (word_changed >= 1 or total_chars > 2 or sent_changed) else "L0"
+        # 캠페인성이 없는 본문 대량 변경도 곧바로 High로 보지 않고 Medium 수준에서 관찰
+        if sent_changed >= 4 or total_chars > 500:
+            return "L2"
 
     if sent_changed >= 4 or total_chars > 400:
         return "L3"                       # 섹션급
@@ -362,6 +431,7 @@ class DiffEngine:
         self.critical_keywords = critical_keywords or [
             "price", "$", "₩", "월", "할부", "trade-in", "보상",
             "sold out", "품절", "out of stock", "pre-order", "사전예약",
+            "buy now", "add to cart", "purchase", "order now", "checkout", "구매하기", "장바구니",
         ]
         self.min_diff_ratio = min_diff_ratio
 
@@ -391,7 +461,8 @@ class DiffEngine:
                 char_added=cd["char_added"], char_removed=cd["char_removed"],
                 diff_ratio=cd["diff_ratio"],
                 evidence={"sentences_added": ts["sentences_added"][:5],
-                          "sentences_removed": ts["sentences_removed"][:5]},
+                          "sentences_removed": ts["sentences_removed"][:5],
+                          "copy_importance": _copy_importance_note(fld, b_cmp, a_cmp)},
             ))
 
         # 2) 구조 (DOM / nav / schema) — L4
@@ -447,11 +518,15 @@ class DiffEngine:
         # 내비게이션 항목 변화
         c_nav, p_nav = set(cs.get("nav_items", [])), set(ps.get("nav_items", []))
         for t in sorted(c_nav - p_nav):
-            out.append(self._mk(url, site_key, tier, "navigation", "navigation", "L4",
-                                 f"내비 항목 추가: {t}", after=t))
+            sev = "L3" if _is_campaign_copy(t) else "L1"
+            out.append(self._mk(url, site_key, tier, "navigation", "navigation", sev,
+                                 f"내비 항목 추가: {t}", after=t,
+                                 evidence={"copy_importance": _copy_importance_note("navigation", "", t)}))
         for t in sorted(p_nav - c_nav):
-            out.append(self._mk(url, site_key, tier, "navigation", "navigation", "L4",
-                                 f"내비 항목 제거: {t}", before=t))
+            sev = "L3" if _is_campaign_copy(t) else "L1"
+            out.append(self._mk(url, site_key, tier, "navigation", "navigation", sev,
+                                 f"내비 항목 제거: {t}", before=t,
+                                 evidence={"copy_importance": _copy_importance_note("navigation", t, "")}))
         # DOM 골격 해시 변화. 단순 해시값 차이만으로는 알림을 만들지 않고,
         # 저장된 구조 지표에서 실제로 설명 가능한 변화가 있을 때만 이벤트화한다.
         if cs.get("dom_hash") and ps.get("dom_hash") and cs["dom_hash"] != ps["dom_hash"]:
@@ -502,16 +577,32 @@ class DiffEngine:
                            cur, prev, added_sev, removed_sev) -> List[ChangeEvent]:
         def texts(p):
             return {_s(x.get(key) if isinstance(x, dict) else x) for x in (p.get(fld) or [])} - {""}
+
+        def sev_for(text: str, default: str) -> str:
+            if _is_critical(fld, "", text, self.critical_keywords):
+                return "L5"
+            if fld == "ctas":
+                if _is_campaign_copy(text):
+                    return "L2"
+                return "L1"
+            if fld == "faqs":
+                if _is_campaign_copy(text):
+                    return "L2"
+                return "L1" if _is_minor_ui_text(text) else default
+            return default
+
         c, p = texts(cur), texts(prev)
         out = []
         for t in sorted(c - p):
-            sev = "L5" if _is_critical(fld, "", t, self.critical_keywords) else added_sev
+            sev = sev_for(t, added_sev)
             out.append(self._mk(url, site_key, tier, fld, ctype, sev,
-                                 f"{fld} 추가: {t[:60]}", after=t))
+                                 f"{fld} 추가: {t[:60]}", after=t,
+                                 evidence={"copy_importance": _copy_importance_note(fld, "", t)}))
         for t in sorted(p - c):
-            sev = "L5" if _is_critical(fld, t, "", self.critical_keywords) else removed_sev
+            sev = sev_for(t, removed_sev)
             out.append(self._mk(url, site_key, tier, fld, ctype, sev,
-                                 f"{fld} 제거: {t[:60]}", before=t))
+                                 f"{fld} 제거: {t[:60]}", before=t,
+                                 evidence={"copy_importance": _copy_importance_note(fld, t, "")}))
         return out
 
     def _image_list_events(self, url, site_key, tier, cur, prev) -> List[ChangeEvent]:

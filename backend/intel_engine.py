@@ -314,7 +314,7 @@ def _narrate_schema_completeness(schema: Dict[str, Any]) -> List[str]:
 
 
 # ════════════════════════════════════════════════════════════════
-# COPY — 콘텐츠 밀도 / FAQ 질 / 카피 풍부성 / intent fulfillment
+# COPY — 콘텐츠 양 / FAQ 질 / 카피 구체성 / intent fulfillment
 # ════════════════════════════════════════════════════════════════
 
 def _density_tier(wc: int) -> str:
@@ -330,15 +330,15 @@ def _density_tier(wc: int) -> str:
 COMPARISON_KW = ("비교", "vs", "차이", "compared", "versus")
 EVIDENCE_KW = ("스펙", "사양", "spec", "성능", "테스트", "research", "benchmark")
 
-# 정량 클레임 탐지: 숫자+단위 패턴 (스펙/가격/용량 등 '구체적 근거'의 대리 지표)
+# 구체 근거 탐지: 숫자+단위 패턴 (스펙/가격/용량 등 '구체적 근거'의 대리 지표)
 QUANT_UNIT_RE = re.compile(
     r"\d+(\.\d+)?\s?(GB|TB|MB|MP|mAh|mm|cm|kg|g|%|원|만원|시간|분|배|개|fps|nit|Hz|인치|inch)",
     re.IGNORECASE,
 )
-# 100단어당 정량표현 몇 개면 만점(100점)으로 칠지 — 임계값. 과도한 나열은 cap.
+# 100단어당 구체 근거가 몇 개면 만점(100점)으로 칠지 — 임계값. 과도한 나열은 cap.
 QUANT_TARGET_PER_100W = 3.0
 
-# 카피 풍부성 = 4개 하위지표 가중합산. 가중치 명시(투명성 확보용, 합 1.0).
+# 카피 구체성 = 4개 하위지표 가중합산. 가중치 명시(투명성 확보용, 합 1.0).
 COPY_RICHNESS_WEIGHTS = {"quant": 0.35, "structure": 0.25, "evidence_kw": 0.20, "faq_presence": 0.20}
 COPY_RICHNESS_TIERS = [(70, "우수"), (40, "보통"), (0, "미흡")]
 
@@ -402,7 +402,7 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         h3 = p.get("h3") or []
         has_cta = bool(p.get("ctas") or [])
 
-        # ── 정량지표: 100단어당 숫자+단위 출현 빈도 (cap 후 0~100 스케일) ──
+        # ── 구체 근거 밀도: 100단어당 숫자+단위 출현 빈도 (cap 후 0~100 스케일) ──
         quant_count = len(list(QUANT_UNIT_RE.finditer(body)))
         quant_per_100w = quant_count / wc * 100
         quant_score = min(quant_per_100w / QUANT_TARGET_PER_100W, 1.0) * 100
@@ -940,7 +940,7 @@ class IntelEngine:
                 ("meta description 누락", lambda f: f"{len(f['html_structure']['pages_missing_meta_description'])}+"),
             ]),
             "copy": self._compare_rows("COPY", of_c, tf_c, [
-                ("카피 풍부성 평균점수(0~100)", _avg_richness),
+                ("카피 구체성 평균점수(0~100)", _avg_richness),
                 ("FAQ 평균 품질점수(0~100)", _avg_faq),
                 ("빈약 콘텐츠 페이지(150단어 미만)", lambda f: f"{len(f['content_density']['thin_pages'])}+"),
             ]),
