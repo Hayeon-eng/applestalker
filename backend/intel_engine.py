@@ -79,6 +79,17 @@ def _template_key(url: str) -> str:
     return seg or "홈"
 
 
+def _readable_path(url: str) -> str:
+    """대시보드 인사이트용 짧은 URL 표기."""
+    try:
+        after_host = _s(url).split("//", 1)[-1]
+        path = after_host.split("/", 1)[1] if "/" in after_host else ""
+        path = "/" + path.strip("/")
+        return path if path != "/" else "홈"
+    except Exception:
+        return _template_key(url)
+
+
 def _expected_schema_type(url: str) -> Optional[str]:
     """URL 패턴 기반 '이 페이지엔 이 schema가 있어야 한다' 휴리스틱 (Alignment 판단용)."""
     u = url.lower().rstrip("/")
@@ -792,6 +803,7 @@ class IntelEngine:
             f"3) {category} 카테고리에만 집중하라. 다른 카테고리(DATA/COPY/VISUAL) 내용은 언급하지 마라.\n"
             "4) 모든 insight 는 'evidence_url' 과 'evidence' 를 포함한다.\n"
             "5) 문체는 대시보드 보고서체로 통일한다. '~합니다/~됩니다/~주세요' 같은 존댓말·대화체를 쓰지 말고 '~확인/~필요/~판단/~없음'처럼 간결하게 쓴다.\n"
+            "6) word_count, quant_per_100w, quant_score 같은 내부 지표명은 그대로 쓰지 말고 '텍스트 양', '100단어당 구체 근거 수', '카피 구체성 점수'처럼 풀어서 설명한다.\n"
         )
         schema = (
             '{"insights":[{"point":"...", "evidence_url":"...", "evidence":"..."}],'
@@ -812,7 +824,7 @@ class IntelEngine:
         total_pages = sum(dist.values()) if dist else 0
         if dist:
             dist_str = ", ".join(f"{k} {v}페이지" for k, v in dist.items())
-            lines.append(f"콘텐츠 밀도 분포: 총 {total_pages}페이지 — {dist_str}")
+            lines.append(f"콘텐츠 양 기준 분포: 총 {total_pages}페이지 — {dist_str}")
 
         all_pages = c["copy_richness"].get("all_pages") or []
         if all_pages:
@@ -820,12 +832,32 @@ class IntelEngine:
             avg_quant = round(sum(p.get("quant_per_100w", 0) for p in all_pages) / len(all_pages), 2)
             with_faq = sum(1 for p in all_pages if p.get("has_faq"))
             with_cta = sum(1 for p in all_pages if p.get("cta_count", 0) > 0)
-            lines.append(f"카피 풍부성 평균 {avg_score}점 — 100단어당 정량 근거 평균 {avg_quant}개, FAQ 보유 {with_faq}페이지, CTA 보유 {with_cta}페이지")
+            lines.append(
+                f"카피 구체성 평균 {avg_score}점 — 숫자·스펙·가격·기간 등 구체 근거가 "
+                f"100단어당 평균 {avg_quant}개 확인, FAQ 보유 {with_faq}페이지, CTA 보유 {with_cta}페이지"
+            )
+
+            low_quant_dense = [
+                p for p in all_pages
+                if p.get("word_count", 0) >= 400 and p.get("quant_per_100w", 0) < 1.0
+            ]
+            if low_quant_dense:
+                sample = []
+                for g in sorted(low_quant_dense, key=lambda x: (-x.get("word_count", 0), x.get("quant_per_100w", 0)))[:3]:
+                    sample.append(
+                        f"{_readable_path(g.get('url',''))} — 텍스트 {g.get('word_count', 0)}단어, "
+                        f"구체 근거 {g.get('quant_count', 0)}개"
+                    )
+                lines.append(
+                    "텍스트는 충분하지만 숫자·스펙·지원 조건 같은 구체 정보가 적은 페이지 확인: "
+                    + " / ".join(sample)
+                    + " — 카피 근거 보강 검토"
+                )
 
         thin = c["content_density"].get("thin_pages") or []
         if thin:
-            sample = ", ".join(_template_key(u) for u in thin[:3])
-            lines.append(f"빈약 콘텐츠(150단어 미만) {len(thin)}페이지 — 대표: {sample}")
+            sample = ", ".join(_readable_path(u) for u in thin[:3])
+            lines.append(f"텍스트 양이 부족한 페이지(150단어 미만) {len(thin)}건 — 대표: {sample}")
 
         gap = c["copy_richness"].get("intent_gap_pages") or []
         if gap:
@@ -833,26 +865,26 @@ class IntelEngine:
             for g in gap[:3]:
                 reasons = []
                 if g.get("quant_count", 0) == 0:
-                    reasons.append("정량 근거 없음")
+                    reasons.append("숫자·스펙 등 구체 근거 부족")
                 if not g.get("has_faq"):
                     reasons.append("FAQ 없음")
                 if g.get("cta_count", 0) == 0:
                     reasons.append("CTA 없음")
-                sample.append(f"{_template_key(g.get('url',''))} {g.get('score')}점({', '.join(reasons) or '구조 약함'})")
-            lines.append("풍부성 미흡 페이지: " + " / ".join(sample))
+                sample.append(f"{_readable_path(g.get('url',''))} {g.get('score')}점({', '.join(reasons) or '구조 약함'})")
+            lines.append("카피 구체성 미흡 페이지: " + " / ".join(sample))
         else:
             rich = c["copy_richness"].get("rich_pages") or []
             if rich:
-                sample = ", ".join(f"{_template_key(x.get('url',''))} {x.get('score')}점" for x in rich[:3])
-                lines.append(f"풍부성 우수 페이지: {sample}")
+                sample = ", ".join(f"{_readable_path(x.get('url',''))} {x.get('score')}점" for x in rich[:3])
+                lines.append(f"카피 구체성 우수 페이지: {sample}")
 
         faq = c["faq"]
         if faq["pages_with_faq"]:
             weak = sum(f["weak_items"] for f in faq["detail"])
             avg_faq = round(sum(f["avg_score"] for f in faq["detail"]) / len(faq["detail"]), 1) if faq["detail"] else 0
-            lines.append(f"FAQ {faq['pages_with_faq']}페이지 / {faq.get('total_items', 0)}문항 — 평균 품질 {avg_faq}점, 미흡 문항 {weak}건")
+            lines.append(f"FAQ {faq['pages_with_faq']}페이지 / {faq.get('total_items', 0)}문항 — 평균 품질 {avg_faq}점, 보강 필요 문항 {weak}건")
         else:
-            lines.append("FAQ 전무 — 문답형 검색/AI 답변에 직접 인용할 구조가 없음")
+            lines.append("FAQ 없음 — 문답형 검색/AI 답변에서 직접 인용할 수 있는 구조 부족")
         return lines
 
     def _narrate_visual(self, v: Dict[str, Any]) -> List[str]:

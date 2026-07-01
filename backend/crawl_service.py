@@ -250,7 +250,8 @@ class CrawlServiceV2:
             with self.sync_engine.connect() as conn:
                 row = conn.execute(text("""
                     SELECT title,h1,meta_description,canonical_url,body_content,
-                           structural_signature,screenshot_phash,raw_images
+                           structural_signature,screenshot_phash,raw_images,
+                           raw_faqs,raw_ctas,raw_navigation,raw_h2,raw_h3
                     FROM page_snapshots
                     WHERE url=:u
                     ORDER BY crawled_at DESC
@@ -260,11 +261,28 @@ class CrawlServiceV2:
             if not row:
                 return {}
 
-            sig = json.loads(row[5]) if row[5] else {}
-            try:
-                images = json.loads(row[7]) if row[7] else []
-            except Exception:
-                images = []
+            def _json_list(value, default=None):
+                if default is None:
+                    default = []
+                try:
+                    parsed = json.loads(value) if value else default
+                    return parsed if parsed is not None else default
+                except Exception:
+                    return default
+
+            sig = _json_list(row[5], {})
+            images = _json_list(row[7], [])
+            faqs = _json_list(row[8], [])
+            ctas = _json_list(row[9], [])
+            navigation = _json_list(row[10], {})
+            h2 = _json_list(row[11], [])
+            h3 = _json_list(row[12], [])
+
+            # 구버전 스냅샷에 raw_ctas가 비어 있어도 structural_signature에는
+            # cta_texts가 남아 있을 수 있어, 즉시 재크롤 때 CTA가 전부 신규로 잡히는
+            # 현상을 줄이기 위해 최소한의 복원값을 만든다.
+            if not ctas and isinstance(sig, dict) and sig.get("cta_texts"):
+                ctas = [{"text": t} for t in sig.get("cta_texts") or [] if t]
 
             return {
                 "title": row[0],
@@ -275,6 +293,11 @@ class CrawlServiceV2:
                 "_sig": sig,
                 "screenshot_phash": row[6],
                 "images": images,
+                "faqs": faqs,
+                "ctas": ctas,
+                "navigation": navigation,
+                "h2": h2,
+                "h3": h3,
             }
 
         except Exception as e:
