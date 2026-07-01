@@ -289,10 +289,14 @@ class DiffEngine:
             url, site_key, tier_level, "faqs", "question", "content",
             current, previous, added_sev="L3", removed_sev="L3"))
 
-        # 4) 이미지 perceptual hash — visual / L0~L3
+        # 4) 이미지 perceptual hash — visual / L0~L3 (스크린샷이 있을 때만 동작)
         ev = self._image_event(url, site_key, tier_level, current, previous)
         if ev:
             events.append(ev)
+
+        # 4b) 이미지 src/alt 기반 시각 변화 — 스크린샷 없이도 감지 가능한 우회 경로.
+        #     이미지 추가/제거(src 기준)와 동일 이미지의 alt 텍스트 변경을 잡는다.
+        events.extend(self._image_list_events(url, site_key, tier_level, current, previous))
 
         return events
 
@@ -368,6 +372,55 @@ class DiffEngine:
             sev = "L5" if _is_critical(fld, t, "", self.critical_keywords) else removed_sev
             out.append(self._mk(url, site_key, tier, fld, ctype, sev,
                                  f"{fld} 제거: {t[:60]}", before=t))
+        return out
+
+    def _image_list_events(self, url, site_key, tier, cur, prev) -> List[ChangeEvent]:
+        """스크린샷(perceptual hash) 없이도 이미지 변화를 감지하는 우회 경로.
+        crawler.py가 이미 모든 <img>의 src/alt를 추출해 저장하고 있으므로,
+        그 목록을 이전/현재 스냅샷 간에 비교해 추가·제거·alt 텍스트 변경을 잡는다."""
+        def _norm(imgs) -> Dict[str, str]:
+            out: Dict[str, str] = {}
+            for im in (imgs or []):
+                if not isinstance(im, dict):
+                    continue
+                src = _s(im.get("src"))
+                if not src:
+                    continue
+                out[src] = _s(im.get("alt"))
+            return out
+
+        c_imgs, p_imgs = _norm(cur.get("images")), _norm(prev.get("images"))
+        if not c_imgs and not p_imgs:
+            return []
+        out: List[ChangeEvent] = []
+
+        added = sorted(set(c_imgs) - set(p_imgs))
+        for src in added[:5]:
+            out.append(self._mk(url, site_key, tier, "image", "visual", "L1",
+                                 f"이미지 추가: {src[-60:]}", after=src))
+        if len(added) > 5:
+            out.append(self._mk(url, site_key, tier, "image", "visual", "L1",
+                                 f"이미지 {len(added)}개 추가됨 (대표 5개만 상세 표시)"))
+
+        removed = sorted(set(p_imgs) - set(c_imgs))
+        for src in removed[:5]:
+            out.append(self._mk(url, site_key, tier, "image", "visual", "L1",
+                                 f"이미지 제거: {src[-60:]}", before=src))
+        if len(removed) > 5:
+            out.append(self._mk(url, site_key, tier, "image", "visual", "L1",
+                                 f"이미지 {len(removed)}개 제거됨 (대표 5개만 상세 표시)"))
+
+        # 같은 이미지(src 동일)인데 alt 텍스트가 바뀐 경우
+        alt_changed = [(src, p_imgs[src], c_imgs[src])
+                        for src in (set(c_imgs) & set(p_imgs)) if p_imgs[src] != c_imgs[src]]
+        for src, b, a in sorted(alt_changed)[:5]:
+            out.append(self._mk(url, site_key, tier, "image_alt", "visual", "L1",
+                                 f"alt 텍스트 변경: {src[-40:]}",
+                                 before=b or "(비어있음)", after=a or "(비어있음)"))
+        if len(alt_changed) > 5:
+            out.append(self._mk(url, site_key, tier, "image_alt", "visual", "L1",
+                                 f"alt 텍스트가 바뀐 이미지 {len(alt_changed)}개 (대표 5개만 상세 표시)"))
+
         return out
 
     def _image_event(self, url, site_key, tier, cur, prev) -> Optional[ChangeEvent]:

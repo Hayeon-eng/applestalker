@@ -248,7 +248,7 @@ class CrawlServiceV2:
             with self.sync_engine.connect() as conn:
                 row = conn.execute(text("""
                     SELECT title,h1,meta_description,canonical_url,body_content,
-                           structural_signature,screenshot_phash
+                           structural_signature,screenshot_phash,raw_images
                     FROM page_snapshots
                     WHERE url=:u
                     ORDER BY crawled_at DESC
@@ -259,6 +259,10 @@ class CrawlServiceV2:
                 return {}
 
             sig = json.loads(row[5]) if row[5] else {}
+            try:
+                images = json.loads(row[7]) if row[7] else []
+            except Exception:
+                images = []
 
             return {
                 "title": row[0],
@@ -267,7 +271,8 @@ class CrawlServiceV2:
                 "canonical_url": row[3],
                 "body_content": row[4],
                 "_sig": sig,
-                "screenshot_phash": row[6]
+                "screenshot_phash": row[6],
+                "images": images,
             }
 
         except Exception as e:
