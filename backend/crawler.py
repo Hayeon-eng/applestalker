@@ -299,16 +299,80 @@ class HybridCrawler:
         d["internal_links"] = self._links(soup)
         d["images"] = self._images(soup, page_url)
 
-        body = soup.find("body")
-        if body:
-            for t in body(["script", "style", "noscript"]):
-                t.decompose()
-            d["body_content"] = body.get_text(" ", strip=True)[:120000]
-        else:
-            d["body_content"] = ""
-
+        d["body_content"] = self._body_copy_text(soup)
         d["word_count"] = len(d["body_content"].split())
         return d
+
+    def _body_copy_text(self, soup: BeautifulSoup) -> str:
+        """반복 크롤 안정화를 위한 본문 카피 추출.
+
+        기존 body 전체 텍스트는 헤더/푸터/메뉴/쿠키/추천 영역까지 포함해
+        같은 페이지를 바로 다시 크롤해도 텍스트 순서와 항목 수가 흔들릴 수 있었다.
+        CTA/내비/이미지/FAQ는 별도 필드로 이미 수집하므로, body_content는
+        핵심 랜딩 카피 중심으로 정리해 저장한다.
+        """
+        root = soup.find("main") or soup.find("body")
+        if not root:
+            return ""
+
+        # 원본 soup를 훼손하지 않도록 복제한 뒤 노이즈 영역 제거
+        clean = BeautifulSoup(str(root), "lxml")
+        noisy_tags = [
+            "script", "style", "noscript", "svg", "path", "template", "iframe",
+            "header", "footer", "nav", "form", "select", "option",
+        ]
+        for t in clean.find_all(noisy_tags):
+            t.decompose()
+
+        noisy_re = re.compile(
+            r"(cookie|consent|privacy|legal|footer|header|nav|menu|gnb|breadcrumb|"
+            r"modal|popup|overlay|drawer|tooltip|pagination|carousel-control|"
+            r"recommend|related|recently|compare|support|search|login|account|"
+            r"쿠키|동의|개인정보|약관|푸터|헤더|메뉴|내비|모달|팝업|추천|관련|검색|로그인)",
+            re.IGNORECASE,
+        )
+        for el in list(clean.find_all(True)):
+            cls = el.get("class") or []
+            cls_txt = " ".join(str(x) for x in cls) if isinstance(cls, list) else str(cls or "")
+            attrs = " ".join([
+                str(el.get("id") or ""),
+                cls_txt,
+                str(el.get("role") or ""),
+                str(el.get("aria-label") or ""),
+            ])
+            style = str(el.get("style") or "").replace(" ", "").lower()
+            if el.get("aria-hidden") == "true" or "display:none" in style or noisy_re.search(attrs):
+                el.decompose()
+
+        pieces: List[str] = []
+        campaign_re = re.compile(
+            r"(sale|offer|deal|save|new|launch|pre[- ]?order|buy|shop|promo|"
+            r"할인|혜택|출시|사전예약|구매|프로모션|신제품|이벤트)",
+            re.IGNORECASE,
+        )
+        for el in clean.find_all(["h1", "h2", "h3", "h4", "p", "li", "figcaption", "blockquote"]):
+            txt = re.sub(r"\s+", " ", el.get_text(" ", strip=True)).strip()
+            if not txt:
+                continue
+            if len(txt) < 18 and not campaign_re.search(txt):
+                continue
+            pieces.append(txt)
+
+        if not pieces:
+            text = clean.get_text(" ", strip=True)
+            return re.sub(r"\s+", " ", text).strip()[:120000]
+
+        seen = set()
+        out: List[str] = []
+        for txt in pieces:
+            key = txt.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(txt)
+            if len(out) >= 260:
+                break
+        return " ".join(out)[:120000]
 
     # ─────────────────────────────────────────────
     # CTA / FAQ / JSONLD / NAV / LINKS / IMAGES

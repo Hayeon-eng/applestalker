@@ -47,9 +47,12 @@ def display_level(change_type: str, field_name: str, severity_level: str) -> str
     # 거래(가격·구매·프로모션)는 마케팅 관점상 '보통'
     if change_type == "commerce":
         return "Medium"
-    # 구조: 스키마 추가/삭제, 레이아웃(DOM) 재편 = 높음
-    if f in ("schema_type", "dom"):
+    # 구조: 스키마는 AI 검색 노출 영향이 커서 높음.
+    # DOM은 diff_engine에서 이미 노이즈를 줄인 뒤 L단계로 넘기므로 단계에 맞춰 표시.
+    if f == "schema_type":
         return "High"
+    if f == "dom":
+        return "Medium" if lv in ("L3", "L4", "L5") else "Low"
     # 부분 구조(메뉴/정규URL/메타)는 보통
     if f in ("navigation", "canonical_url", "meta_description"):
         return "Medium"

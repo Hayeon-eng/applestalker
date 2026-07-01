@@ -205,6 +205,97 @@ def _dom_severity_level(
         return "L2"
     return "L1"
 
+
+
+# ──────────────────────────────────────────────────────────────
+# 반복 크롤 안정화: 메뉴/푸터/쿠키/추천 영역처럼 매번 달라지는 텍스트 제외
+# ──────────────────────────────────────────────────────────────
+_COPY_NOISE_RE = re.compile(
+    r"(cookie|cookies|privacy|terms|legal|copyright|all rights reserved|"
+    r"sign in|login|logout|account|cart|bag|search|menu|breadcrumb|"
+    r"recommended|related|recently viewed|compare|support|contact us|"
+    r"쿠키|개인정보|약관|저작권|로그인|로그아웃|계정|장바구니|검색|메뉴|"
+    r"추천|관련|최근 본|비교하기|고객지원|문의)",
+    re.IGNORECASE,
+)
+
+
+def _stable_copy_units(text: str, limit: int = 220) -> List[str]:
+    """본문 비교용 단위.
+
+    전체 body 텍스트를 그대로 비교하면 헤더/푸터/추천 링크/쿠키 문구 때문에
+    같은 페이지를 연속 크롤해도 변경점이 흔들린다. 캠페인·프로모션·제품 설명처럼
+    의미 있는 문장/문구만 안정적으로 남긴다.
+    """
+    raw = stable_text(text)
+    if not raw:
+        return []
+
+    # 문장부호가 적은 랜딩 페이지까지 고려해 구분자 단위와 길이 단위 둘 다 사용한다.
+    rough = re.split(r"(?<=[.!?。！？])\s+|\s{2,}|\s[•·|]\s", raw)
+    units: List[str] = []
+    for chunk in rough:
+        chunk = re.sub(r"\s+", " ", chunk).strip(" -–—|·•\t\n\r")
+        if not chunk:
+            continue
+        if _COPY_NOISE_RE.search(chunk):
+            continue
+        words = _tokens(chunk)
+        if len(chunk) < 24 and not _is_campaign_copy(chunk):
+            continue
+        if len(words) <= 3 and not _is_campaign_copy(chunk):
+            continue
+        if len(chunk) > 360:
+            # 긴 덩어리는 같은 문구가 약간만 밀려도 전체가 변경처럼 보이므로 고정 길이로 분할한다.
+            for i in range(0, len(chunk), 220):
+                sub = chunk[i:i + 260].strip()
+                if len(sub) >= 24:
+                    units.append(sub)
+        else:
+            units.append(chunk)
+
+    # 중복 제거하되 순서는 유지한다.
+    seen = set()
+    out: List[str] = []
+    for u in units:
+        key = u.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(u)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _comparison_text(field_name: str, value: str) -> str:
+    if field_name == "body_content":
+        return "\n".join(_stable_copy_units(value))
+    return stable_text(value)
+
+
+def _copy_change_is_meaningful(field_name: str, before_cmp: str, after_cmp: str, cd: Dict[str, Any], ts: Dict[str, Any]) -> bool:
+    """저장할 만한 카피 변화인지 판단.
+
+    메뉴 탭/짧은 라벨/렌더링 노이즈는 변경점 수를 흔드는 주범이라 제외하고,
+    캠페인·프로모션·제품 메시지 변화 또는 충분한 문장 단위 변화만 남긴다.
+    """
+    if field_name != "body_content":
+        return True
+    blob = f"{before_cmp} {after_cmp}"
+    if _is_campaign_copy(blob):
+        return True
+    sent_changed = len(ts.get("sentences_added", [])) + len(ts.get("sentences_removed", []))
+    word_changed = len(ts.get("words_added", [])) + len(ts.get("words_removed", []))
+    total_chars = int(cd.get("char_added", 0)) + int(cd.get("char_removed", 0))
+    # 캠페인성이 없는 소폭 본문 흔들림은 반복 크롤 노이즈로 본다.
+    if sent_changed <= 2 and word_changed <= 18 and total_chars <= 420:
+        return False
+    # 비교용 본문 자체가 거의 없으면 안정적으로 판단하기 어렵다.
+    if len(after_cmp) < 80 and len(before_cmp) < 80:
+        return False
+    return True
+
 # ──────────────────────────────────────────────────────────────
 # DOM / structure fingerprint
 # ──────────────────────────────────────────────────────────────
@@ -492,26 +583,30 @@ class DiffEngine:
         # 1) 텍스트 필드 (char + token/sentence)
         for fld, ctype in self.TEXT_FIELDS.items():
             b, a = _s(previous.get(fld)), _s(current.get(fld))
-            b_cmp, a_cmp = stable_text(b), stable_text(a)
+            b_cmp, a_cmp = _comparison_text(fld, b), _comparison_text(fld, a)
             if b_cmp == a_cmp:
                 continue
             cd = char_diff(b_cmp, a_cmp)
             if cd["diff_ratio"] < self.min_diff_ratio and not _is_critical(fld, b_cmp, a_cmp, self.critical_keywords):
                 continue                  # noise 게이트
             ts = token_sentence_diff(b_cmp, a_cmp)
+            if not _copy_change_is_meaningful(fld, b_cmp, a_cmp, cd, ts):
+                continue
             sev = classify_text_severity(fld, b_cmp, a_cmp, cd, ts, self.critical_keywords)
             ctype2 = "commerce" if sev == "L5" else ctype
             events.append(ChangeEvent(
                 url=url, site_key=site_key, tier_level=tier_level,
                 field_name=fld, change_type=ctype2,
                 severity_level=sev, severity_legacy=SEVERITY_TO_LEGACY[sev],
-                summary=self._text_summary(fld, b, a, ts),
-                before_value=b[:1000] or None, after_value=a[:1000] or None,
+                summary=self._text_summary(fld, b_cmp, a_cmp, ts),
+                before_value=(b_cmp if fld == "body_content" else b)[:1000] or None,
+                after_value=(a_cmp if fld == "body_content" else a)[:1000] or None,
                 char_added=cd["char_added"], char_removed=cd["char_removed"],
                 diff_ratio=cd["diff_ratio"],
                 evidence={"sentences_added": ts["sentences_added"][:5],
                           "sentences_removed": ts["sentences_removed"][:5],
-                          "copy_importance": _copy_importance_note(fld, b_cmp, a_cmp)},
+                          "copy_importance": _copy_importance_note(fld, b_cmp, a_cmp),
+                          "comparison_note": "본문은 헤더/푸터/메뉴/쿠키/추천 영역을 제외한 안정화 카피 기준으로 비교" if fld == "body_content" else ""},
             ))
 
         # 2) 구조 (DOM / nav / schema) — L4
@@ -565,17 +660,23 @@ class DiffEngine:
                                  f"스키마 제거: {t}", before=t,
                                  evidence={"kind": "schema_removed", "type": t}))
         # 내비게이션 항목 변화
+        # 메뉴/푸터/국가 선택 등은 매번 흔들리기 쉬워 변경점 수를 과도하게 만든다.
+        # 캠페인·구매전환성 내비 문구만 저장한다.
         c_nav, p_nav = set(cs.get("nav_items", [])), set(ps.get("nav_items", []))
         for t in sorted(c_nav - p_nav):
-            sev = "L3" if _is_campaign_copy(t) else "L1"
-            out.append(self._mk(url, site_key, tier, "navigation", "navigation", sev,
-                                 f"내비 항목 추가: {t}", after=t,
-                                 evidence={"copy_importance": _copy_importance_note("navigation", "", t)}))
+            if not _is_campaign_copy(t):
+                continue
+            out.append(self._mk(url, site_key, tier, "navigation", "navigation", "L2",
+                                 f"주요 내비 캠페인 문구 추가: {t}", after=t,
+                                 evidence={"copy_importance": _copy_importance_note("navigation", "", t),
+                                           "counting_note": "일반 메뉴/푸터 라벨은 반복 크롤 노이즈로 제외"}))
         for t in sorted(p_nav - c_nav):
-            sev = "L3" if _is_campaign_copy(t) else "L1"
-            out.append(self._mk(url, site_key, tier, "navigation", "navigation", sev,
-                                 f"내비 항목 제거: {t}", before=t,
-                                 evidence={"copy_importance": _copy_importance_note("navigation", t, "")}))
+            if not _is_campaign_copy(t):
+                continue
+            out.append(self._mk(url, site_key, tier, "navigation", "navigation", "L2",
+                                 f"주요 내비 캠페인 문구 제거: {t}", before=t,
+                                 evidence={"copy_importance": _copy_importance_note("navigation", t, ""),
+                                           "counting_note": "일반 메뉴/푸터 라벨은 반복 크롤 노이즈로 제외"}))
         # DOM 골격 해시 변화. 단순 해시값 차이만으로는 알림을 만들지 않고,
         # 저장된 구조 지표에서 실제로 설명 가능한 변화가 있을 때만 이벤트화한다.
         if cs.get("dom_hash") and ps.get("dom_hash") and cs["dom_hash"] != ps["dom_hash"]:
@@ -588,6 +689,13 @@ class DiffEngine:
                 b, a = ps.get(key), cs.get(key)
                 if isinstance(b, int) and isinstance(a, int) and b != a:
                     diff = a - b
+                    # 이미지/CTA/H3 같은 반복 요소의 1~2개 차이는 동적 렌더링 노이즈일 가능성이 높다.
+                    if key == "img_count" and abs(diff) < 5:
+                        continue
+                    if key in ("cta_count", "h3_count") and abs(diff) < 3:
+                        continue
+                    if key == "faq_count" and abs(diff) < 2:
+                        continue
                     deltas[key] = {"label": label, "before": b, "after": a, "diff": diff}
                     parts.append(f"{label} {'+' if diff > 0 else ''}{diff}")
 
@@ -598,10 +706,18 @@ class DiffEngine:
 
             heading_delta = _short_list_delta(ps.get("h2_texts") or [], cs.get("h2_texts") or []) if ps.get("h2_texts") is not None and cs.get("h2_texts") is not None else {"added": [], "removed": []}
             cta_delta = _short_list_delta(ps.get("cta_texts") or [], cs.get("cta_texts") or []) if ps.get("cta_texts") is not None and cs.get("cta_texts") is not None else {"added": [], "removed": []}
+            heading_delta = {
+                "added": [t for t in heading_delta["added"] if _is_campaign_copy(t) or not _is_minor_ui_text(t)],
+                "removed": [t for t in heading_delta["removed"] if _is_campaign_copy(t) or not _is_minor_ui_text(t)],
+            }
+            cta_delta = {
+                "added": [t for t in cta_delta["added"] if _is_campaign_copy(t) or _is_critical("ctas", "", t, self.critical_keywords)],
+                "removed": [t for t in cta_delta["removed"] if _is_campaign_copy(t) or _is_critical("ctas", t, "", self.critical_keywords)],
+            }
             if heading_delta["added"] or heading_delta["removed"]:
-                parts.append("H2 문구 변경")
+                parts.append("핵심 H2 문구 변경")
             if cta_delta["added"] or cta_delta["removed"]:
-                parts.append("CTA 문구 변경")
+                parts.append("구매/캠페인 CTA 문구 변경")
 
             # 해시만 바뀌었거나 li/a/button 같은 반복 태그 1~2개 차이만 있으면
             # 메뉴·푸터·캐러셀·동적 렌더링 노이즈로 간주해 변경점에서 제외한다.
@@ -645,16 +761,34 @@ class DiffEngine:
 
         c, p = texts(cur), texts(prev)
         out = []
+
+        def keep_list_change(text: str) -> bool:
+            if _is_critical(fld, "", text, self.critical_keywords):
+                return True
+            if fld == "ctas":
+                # Learn more / Explore 같은 일반 버튼은 크롤마다 출현 위치가 흔들리므로 제외.
+                return _is_campaign_copy(text)
+            if fld == "faqs":
+                # FAQ는 실제 문항 변화만 남기고 짧은 탭/라벨성 노이즈는 제외.
+                return not _is_minor_ui_text(text)
+            return True
+
         for t in sorted(c - p):
+            if not keep_list_change(t):
+                continue
             sev = sev_for(t, added_sev)
             out.append(self._mk(url, site_key, tier, fld, ctype, sev,
                                  f"{fld} 추가: {t[:60]}", after=t,
-                                 evidence={"copy_importance": _copy_importance_note(fld, "", t)}))
+                                 evidence={"copy_importance": _copy_importance_note(fld, "", t),
+                                           "counting_note": "일반 메뉴/탭/짧은 CTA 라벨은 변경점 집계에서 제외" if fld == "ctas" else ""}))
         for t in sorted(p - c):
+            if not keep_list_change(t):
+                continue
             sev = sev_for(t, removed_sev)
             out.append(self._mk(url, site_key, tier, fld, ctype, sev,
                                  f"{fld} 제거: {t[:60]}", before=t,
-                                 evidence={"copy_importance": _copy_importance_note(fld, t, "")}))
+                                 evidence={"copy_importance": _copy_importance_note(fld, t, ""),
+                                           "counting_note": "일반 메뉴/탭/짧은 CTA 라벨은 변경점 집계에서 제외" if fld == "ctas" else ""}))
         return out
 
     def _image_list_events(self, url, site_key, tier, cur, prev) -> List[ChangeEvent]:
@@ -695,7 +829,20 @@ class DiffEngine:
             return []
 
         total_delta = len(added) + len(removed) + len(alt_changed)
-        sev = "L2" if total_delta >= 8 else "L1"
+        total_known = max(len(c_imgs), len(p_imgs), 1)
+        overlap = len(set(c_imgs) & set(p_imgs))
+        overlap_ratio = overlap / total_known
+
+        # 동일 페이지 연속 크롤에서 lazy-load/srcset/추천 이미지가 1~3장 흔들리는 경우는 제외한다.
+        # 대량 변화 또는 겹침이 낮은 경우만 실제 비주얼 구성 변화로 본다.
+        if total_delta <= 2 and not alt_changed:
+            return []
+        if total_delta <= 3 and overlap_ratio >= 0.85:
+            return []
+        if total_delta <= 5 and overlap_ratio >= 0.92 and not alt_changed:
+            return []
+
+        sev = "L2" if total_delta >= 8 or overlap_ratio < 0.70 else "L1"
         parts = []
         if added:
             parts.append(f"추가 {len(added)}개")
@@ -715,7 +862,8 @@ class DiffEngine:
                 {"src": src, "before": b, "after": a}
                 for src, b, a in alt_changed[:5]
             ],
-            "counting_note": "이미지 단위가 아닌 URL 단위 1건으로 집계",
+            "counting_note": "이미지 단위가 아닌 URL 단위 1건으로 집계. 1~3장 수준의 lazy-load/srcset 흔들림은 제외",
+            "overlap_ratio": round(overlap_ratio, 4),
         }
         return [self._mk(
             url, site_key, tier, "image", "visual", sev,
