@@ -71,12 +71,16 @@ const EVIDENCE_LABELS: Record<string, string> = {
   kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
   phash_before: "이전 이미지 해시", phash_after: "이후 이미지 해시", sentences_added: "추가된 문장",
   structure_note: "구조 비교 기준", tag_deltas: "태그 구성 변화", heading_deltas: "H2 문구 변화", cta_deltas: "CTA 문구 변화",
+  copy_importance: "카피 중요도 판단",
 };
 const EVIDENCE_KIND_LABELS: Record<string, string> = {
   schema_added: "스키마 추가됨", schema_removed: "스키마 제거됨",
 };
 
 function evidenceValueToText(v: any): string {
+  if (v === "campaign_or_conversion_copy") return "캠페인·프로모션·구매 전환 관련 문구";
+  if (v === "minor_ui_or_menu_copy") return "메뉴·탭·짧은 UI 라벨성 문구";
+  if (v === "general_copy") return "일반 본문 문구";
   if (Array.isArray(v)) return v.join(", ");
   if (v && typeof v === "object") {
     if ("added" in v || "removed" in v) {

@@ -84,14 +84,15 @@ export const CRITERIA: {
   },
   {
     id: "copy",
-    title: "COPY — 카피 풍부성 / FAQ 품질",
-    note: "⚖️ 표시된 2개(카피 풍부성 점수, FAQ 품질 점수)만 가중합산 공식이 있고, 나머지(정량지표·빈약 콘텐츠)는 단순 집계입니다.",
+    title: "COPY — 카피 구체성 / FAQ 품질",
+    note: "⚖️ 표시된 2개(카피 구체성 점수, FAQ 품질 점수)만 가중합산 공식이 있고, 나머지(구체 근거 밀도·텍스트 부족 페이지)는 단순 집계입니다.",
     items: [
-      { q: "카피 풍부성 점수 (0~100)", a: "정량지표(숫자+단위 밀도) 35% + 구조지표(H2·CTA·FAQ 보유) 25% + 비교·근거 키워드 20% + FAQ 보유 20%. 70+ 우수, 40~69 보통, 40 미만 미흡.",
+      { q: "카피 구체성 점수 (0~100)", a: "숫자·스펙·가격·기간 같은 구체 근거 밀도 35% + 구조지표(H2·CTA·FAQ 보유) 25% + 비교·근거 키워드 20% + FAQ 보유 20%. 70+ 우수, 40~69 보통, 40 미만 미흡.",
         scoring: "weighted",
         detail: "'구조지표'는 본문에 소제목(H2)·행동유도버튼(CTA, 예: '구매하기' 버튼)·FAQ가 있는지를 보는 지표입니다. CTA는 Call To Action(행동을 유도하는 버튼·문구)의 줄임말입니다." },
-      { q: "정량지표", a: "본문 100단어당 숫자+단위(GB·mAh·mm·% 등) 출현량. 목표 3개/100단어 기준으로 스케일." },
-      { q: "빈약 콘텐츠", a: "150단어 미만은 빈약(thin) 콘텐츠로 분류합니다. 단순 수치 기준이 아닌 밀도 4단계 분포로 판단.",
+      { q: "구체 근거 밀도", a: "본문 100단어당 숫자·스펙·가격·기간·용량·성능 단위가 몇 번 나오는지 보는 지표입니다. 예: GB, mAh, mm, %, 시간, 가격, 지원 언어 수 등. 목표는 100단어당 3개 수준입니다." },
+      { q: "카피 구체성 점수", a: "구체 근거 밀도를 0~100점으로 환산한 뒤, H2·CTA·FAQ 구조와 근거 키워드까지 함께 반영한 점수입니다. 요약 화면에서는 이 값을 내부 지표명이 아니라 “카피 구체성 점수”로 표시합니다." },
+      { q: "텍스트 부족 페이지", a: "150단어 미만은 설명 정보가 부족한 페이지로 분류합니다. 단순 수치 기준이 아닌 밀도 4단계 분포로 함께 판단.",
         detail: "'thin content(빈약 콘텐츠)'는 SEO 업계 용어로, 분량이 적어 검색엔진이 페이지의 가치를 판단하기 어려운 콘텐츠를 말합니다." },
       { q: "FAQ 품질 점수 (0~100)", a: "구체성(수치·스펙 포함) 40% + 질문현실성(실제 의문형) 30% + AI인용적합성(첫 문장 인용 가능) 30%.",
         scoring: "weighted" },
@@ -114,7 +115,7 @@ export const CRITERIA: {
 /* ── 상수 */
 export const METRICS: Record<MetricTab, { label: string; plain: string; criteriaId: string }> = {
   data: { label: "DATA 구조", plain: "Schema·HTML·Meta·H-tag를 분석합니다.", criteriaId: "data" },
-  copy: { label: "COPY 문구", plain: "카피 풍부성·FAQ 품질·콘텐츠 밀도를 분석합니다.", criteriaId: "copy" },
+  copy: { label: "COPY 문구", plain: "카피 구체성·FAQ 품질·콘텐츠 양을 분석합니다.", criteriaId: "copy" },
   visual: { label: "VISUAL 이미지", plain: "이미지 다양성·alt 품질·스토리텔링을 분석합니다.", criteriaId: "visual" },
 };
 export const CATEGORY_BUCKETS: Record<string, MetricTab> = {
@@ -141,9 +142,9 @@ export const DATA_LINE_TAGS: [RegExp, LineTag][] = [
   [/meta description|메타 디스크립션/i, { label: "Meta description", cls: "c6" }],
 ];
 export const COPY_LINE_TAGS: [RegExp, LineTag][] = [
-  [/콘텐츠 밀도 분포/, { label: "콘텐츠 밀도", cls: "c1" }],
-  [/빈약 콘텐츠/, { label: "빈약 콘텐츠", cls: "c3" }],
-  [/카피 풍부성|풍부성 점수/, { label: "카피 풍부성", cls: "c2" }],
+  [/콘텐츠 양 기준 분포|콘텐츠 밀도 분포/, { label: "콘텐츠 양", cls: "c1" }],
+  [/텍스트 양이 부족|빈약 콘텐츠/, { label: "텍스트 부족", cls: "c3" }],
+  [/카피 구체성|카피 풍부성|풍부성 점수|구체 근거/, { label: "카피 구체성", cls: "c2" }],
   [/FAQ/, { label: "FAQ 품질", cls: "c4" }],
 ];
 export const VISUAL_LINE_TAGS: [RegExp, LineTag][] = [
@@ -259,8 +260,15 @@ export const metricOneLiner = (
     const a = af.schema?.coverage_pct, s = sf.schema?.coverage_pct;
     statLine = `Schema 적용률 Apple ${a ?? "-"}% · Samsung ${s ?? "-"}%`;
   } else if (metric === "copy") {
-    const a = af.content_density?.thin_pages?.length, s = sf.content_density?.thin_pages?.length;
-    statLine = `빈약 콘텐츠 Apple ${a ?? "-"}개 · Samsung ${s ?? "-"}개`;
+    const copyAvg = (f: any, key: "score" | "quant_per_100w") => {
+      const pages = f.copy_richness?.all_pages || [];
+      if (!Array.isArray(pages) || pages.length === 0) return "-";
+      const total = pages.reduce((sum: number, p: any) => sum + (Number(p?.[key]) || 0), 0);
+      return Math.round((total / pages.length) * 10) / 10;
+    };
+    const aScore = copyAvg(af, "score"), sScore = copyAvg(sf, "score");
+    const aEvidence = copyAvg(af, "quant_per_100w"), sEvidence = copyAvg(sf, "quant_per_100w");
+    statLine = `카피 구체성 Apple ${aScore}점 · Samsung ${sScore}점 / 구체 근거 밀도 Apple ${aEvidence}개 · Samsung ${sEvidence}개(100단어당)`;
   } else {
     const a = af.image_diversity?.lifestyle_ratio_pct, s = sf.image_diversity?.lifestyle_ratio_pct;
     statLine = `Lifestyle 이미지 Apple ${a ?? "-"}% · Samsung ${s ?? "-"}%`;
