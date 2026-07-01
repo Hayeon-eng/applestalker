@@ -70,14 +70,23 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: "re
 const EVIDENCE_LABELS: Record<string, string> = {
   kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
   phash_before: "이전 이미지 해시", phash_after: "이후 이미지 해시", sentences_added: "추가된 문장",
-  structure_note: "구조 비교 기준", tag_deltas: "태그 구성 변화", heading_deltas: "H2 문구 변화", cta_deltas: "CTA 문구 변화",
+  structure_note: "구조 비교 기준", tag_deltas: "핵심 태그 구성 변화", heading_deltas: "H2 문구 변화", cta_deltas: "CTA 문구 변화",
   copy_importance: "카피 중요도 판단",
 };
 const EVIDENCE_KIND_LABELS: Record<string, string> = {
   schema_added: "스키마 추가됨", schema_removed: "스키마 제거됨",
 };
 
-function evidenceValueToText(v: any): string {
+const TAG_NAME_LABELS: Record<string, string> = {
+  main: "본문 영역(main)", section: "섹션(section)", article: "콘텐츠 블록(article)",
+  header: "헤더(header)", footer: "푸터(footer)", nav: "내비게이션(nav)",
+  h1: "H1 제목", h2: "H2 제목", h3: "H3 제목", ul: "목록 묶음(ul)", ol: "목록 묶음(ol)",
+  li: "목록 항목(li)", a: "링크(a)", button: "버튼(button)", form: "폼(form)",
+  table: "표(table)", figure: "이미지 영역(figure)", picture: "반응형 이미지(picture)",
+  img: "이미지(img)", video: "영상(video)",
+};
+
+function evidenceValueToText(v: any, evidenceKey?: string): string {
   if (v === "campaign_or_conversion_copy") return "캠페인·프로모션·구매 전환 관련 문구";
   if (v === "minor_ui_or_menu_copy") return "메뉴·탭·짧은 UI 라벨성 문구";
   if (v === "general_copy") return "일반 본문 문구";
@@ -91,8 +100,12 @@ function evidenceValueToText(v: any): string {
     return Object.entries(v)
       .map(([k, val]: [string, any]) => {
         if (val && typeof val === "object" && "before" in val && "after" in val) {
-          const diff = typeof val.diff === "number" ? ` (${val.diff > 0 ? "+" : ""}${val.diff})` : "";
-          return `${k}: ${val.before} → ${val.after}${diff}`;
+          const diffNum = typeof val.diff === "number" ? val.diff : Number(val.after) - Number(val.before);
+          const diff = Number.isFinite(diffNum) ? ` (${diffNum > 0 ? "+" : ""}${diffNum})` : "";
+          const label = evidenceKey === "tag_deltas" ? (TAG_NAME_LABELS[k] || `${k} 태그`) : k;
+          const isMinorRepeatTag = evidenceKey === "tag_deltas" && ["li", "a", "button", "ul", "ol"].includes(k) && Math.abs(diffNum || 0) <= 2;
+          const note = isMinorRepeatTag ? " · 반복 UI 항목의 소폭 차이로 참고 수준" : "";
+          return `${label}: ${val.before} → ${val.after}${diff}${note}`;
         }
         return `${k}: ${String(val)}`;
       })
@@ -189,7 +202,7 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
             .map(([k, v]) => (
               <>
                 <span key={k + "_k"} className="evidenceKey">{EVIDENCE_LABELS[k] || k}</span>
-                <span key={k + "_v"} className="evidenceVal">{evidenceValueToText(v)}</span>
+                <span key={k + "_v"} className="evidenceVal">{evidenceValueToText(v, k)}</span>
               </>
             ))}
         </div>
