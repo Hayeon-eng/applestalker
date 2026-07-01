@@ -102,8 +102,8 @@ export const CRITERIA: {
     title: "VISUAL — 이미지 분석",
     note: "가중치 없음 — 모두 개수·비율 집계입니다. 종합 'VISUAL 점수'는 없습니다.",
     items: [
-      { q: "이미지 분류", a: "alt+src 텍스트 기반 휴리스틱. lifestyle(사람이 쓰는 상황) / product(제품 자체) / unclassified 3종.",
-        detail: "alt는 이미지에 붙이는 대체 텍스트(alt text)로, 이미지가 안 보일 때/화면낭독기가 읽을 때 대신 나오는 설명입니다. src는 이미지 파일 경로(주소)입니다. 이 둘의 텍스트 안에 있는 단어를 보고 '사람이 제품을 쓰는 모습(lifestyle)'인지 '제품 단독 사진(product)'인지를 추정합니다." },
+      { q: "이미지 분류", a: "alt+src+파일명+페이지 URL 텍스트 기반 휴리스틱. lifestyle(사람이 쓰는 상황) / product(제품 자체) / unclassified 3종.",
+        detail: "alt는 이미지에 붙이는 대체 텍스트(alt text)이고, src는 이미지 파일 경로입니다. Samsung처럼 모델명·KV·gallery 중심으로 표기되는 파일명도 product 신호로 함께 봅니다. 실제 이미지 픽셀을 읽는 Vision 분석은 아닙니다." },
       { q: "alt 텍스트 품질", a: "비어있음·일반적(image/photo/배너 등)·설명적(15자 이상, 제네릭 아님) 3단계. Vision AI 분석이 아닌 텍스트 기반 판정입니다." },
       { q: "이미지 고유성", a: "src/alt 중복도 기반 추정치. 같은 이미지·문구가 여러 페이지에 반복 사용되는 템플릿화 정도." },
       { q: "스토리텔링", a: "product+lifestyle 혼합이면서 설명적 alt가 2개 이상인 페이지를 스토리텔링 페이지로 분류합니다." },
@@ -161,6 +161,18 @@ export const siteClass = (s?: string) => (s === "apple" ? "apple" : "samsung");
 export const levelKo = (l?: string) => l === "High" ? "높음" : l === "Medium" ? "보통" : "낮음";
 export const levelClass = (l?: string) => l === "High" ? "high" : l === "Medium" ? "med" : "low";
 export const severityEmoji = (l?: string) => l === "High" ? "🔴" : l === "Medium" ? "🟠" : "🟢";
+
+export const actionForChange = (c: Change): string => {
+  const level = c.level || "Low";
+  const isApple = c.site === "apple";
+  if (level === "High") {
+    return isApple ? "경쟁사 핵심 변경 즉시 확인 및 당사 영향 검토" : "즉시 변경사항 확인 및 대응 필요";
+  }
+  if (level === "Medium") {
+    return isApple ? "경쟁사 변화 지속 모니터링" : "지속 모니터링 및 필요 시 후속 점검";
+  }
+  return "참고용 기록 유지 및 다음 수집에서 재확인";
+};
 // 이 목록 안에서 가장 심각한 등급의 변화만 골라 반환 (High가 없으면 Medium, 그마저 없으면 Low)
 export const topSeverityChanges = (pool: Change[], n = 3): { level: "High" | "Medium" | "Low"; changes: Change[] } | null => {
   for (const lvl of ["High", "Medium", "Low"] as const) {

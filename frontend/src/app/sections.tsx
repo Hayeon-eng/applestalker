@@ -6,7 +6,7 @@ import {
   CRITERIA, METRICS, TIER_META,
   siteName, siteClass, levelKo, levelClass, severityEmoji, topSeverityChanges, groupByUrl,
   shortUrl, linesFromBlock, tierForUrl, tagForLine,
-  metricAverage, metricOneLiner, bucketOf,
+  metricAverage, metricOneLiner, bucketOf, actionForChange,
 } from "./shared";
 
 /* ════════════════════════════════════════════════════
@@ -70,10 +70,32 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: "re
 const EVIDENCE_LABELS: Record<string, string> = {
   kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
   phash_before: "이전 이미지 해시", phash_after: "이후 이미지 해시", sentences_added: "추가된 문장",
+  structure_note: "구조 비교 기준", tag_deltas: "태그 구성 변화", heading_deltas: "H2 문구 변화", cta_deltas: "CTA 문구 변화",
 };
 const EVIDENCE_KIND_LABELS: Record<string, string> = {
   schema_added: "스키마 추가됨", schema_removed: "스키마 제거됨",
 };
+
+function evidenceValueToText(v: any): string {
+  if (Array.isArray(v)) return v.join(", ");
+  if (v && typeof v === "object") {
+    if ("added" in v || "removed" in v) {
+      const added = Array.isArray(v.added) && v.added.length ? `추가: ${v.added.join(", ")}` : "";
+      const removed = Array.isArray(v.removed) && v.removed.length ? `제거: ${v.removed.join(", ")}` : "";
+      return [added, removed].filter(Boolean).join(" / ") || "변화 있음";
+    }
+    return Object.entries(v)
+      .map(([k, val]: [string, any]) => {
+        if (val && typeof val === "object" && "before" in val && "after" in val) {
+          const diff = typeof val.diff === "number" ? ` (${val.diff > 0 ? "+" : ""}${val.diff})` : "";
+          return `${k}: ${val.before} → ${val.after}${diff}`;
+        }
+        return `${k}: ${String(val)}`;
+      })
+      .join(" / ");
+  }
+  return String(v);
+}
 
 function ChangeDrilldown({ change: c }: { change: Change }) {
   const ev: Record<string, any> = c.evidence || {};
@@ -81,7 +103,8 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
     ev.count_deltas;
   const sentencesAdded: string[] = Array.isArray(ev.sentences_added) ? ev.sentences_added : [];
   const sentencesRemoved: string[] = Array.isArray(ev.sentences_removed) ? ev.sentences_removed : [];
-  const isDomHashOnly = "dom_hash_before" in ev && !("kind" in ev) && !countDeltas;
+  const hasStructureDetail = !!(countDeltas || ev.tag_deltas || ev.heading_deltas || ev.cta_deltas);
+  const isDomHashOnly = "dom_hash_before" in ev && !("kind" in ev) && !hasStructureDetail;
   const hasKindLabel = !!(ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string]);
   return (
     <div className="drilldown">
@@ -150,9 +173,8 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
       )}
       {isDomHashOnly && (
         <p className="termDetail" style={{ marginTop: 8 }}>
-          이 변화는 페이지 구조를 해시값으로만 비교해 감지했습니다. 값이 달라졌다는 것만 알 수 있고,
-          구체적으로 어떤 요소가 추가·삭제·이동됐는지는 현재 저장돼 있지 않습니다.
-          더 상세한 구조 diff가 필요하면 백엔드에 구조 비교 로직 보강이 필요합니다.
+          저장된 구조 지표 기준으로 DOM 골격 변화가 감지되었습니다. H2/H3·CTA·FAQ·이미지 개수 변화가 없다면
+          요소의 순서, 중첩, 속성 또는 배치가 달라진 케이스로 표시됩니다.
         </p>
       )}
       {Object.keys(ev).length > 0 && (
@@ -163,7 +185,7 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
             .map(([k, v]) => (
               <>
                 <span key={k + "_k"} className="evidenceKey">{EVIDENCE_LABELS[k] || k}</span>
-                <span key={k + "_v"} className="evidenceVal">{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+                <span key={k + "_v"} className="evidenceVal">{evidenceValueToText(v)}</span>
               </>
             ))}
         </div>
@@ -423,7 +445,7 @@ export function Overview({
                 <span className="sevDesc">
                   <b>{c.summary || c.field}</b> — {shortUrl(c.url)}
                   <br />
-                  <span style={{ color: "var(--sec)" }}>액션: {c.site === "apple" ? "경쟁사 변화이므로 당사 대응 필요 여부 검토" : "당사 페이지 변경 — 의도된 변경인지 확인"}</span>
+                  <span style={{ color: "var(--sec)" }}>액션: {actionForChange(c)}</span>
                 </span>
                 <span className="sevRowGo">상세보기 →</span>
               </button>
