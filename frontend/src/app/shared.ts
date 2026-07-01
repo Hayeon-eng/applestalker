@@ -160,6 +160,15 @@ export const siteName = (s?: string) =>
 export const siteClass = (s?: string) => (s === "apple" ? "apple" : "samsung");
 export const levelKo = (l?: string) => l === "High" ? "높음" : l === "Medium" ? "보통" : "낮음";
 export const levelClass = (l?: string) => l === "High" ? "high" : l === "Medium" ? "med" : "low";
+export const severityEmoji = (l?: string) => l === "High" ? "🔴" : l === "Medium" ? "🟠" : "🟢";
+// 이 목록 안에서 가장 심각한 등급의 변화만 골라 반환 (High가 없으면 Medium, 그마저 없으면 Low)
+export const topSeverityChanges = (pool: Change[], n = 3): { level: "High" | "Medium" | "Low"; changes: Change[] } | null => {
+  for (const lvl of ["High", "Medium", "Low"] as const) {
+    const matches = pool.filter((c) => c.level === lvl);
+    if (matches.length) return { level: lvl, changes: matches.slice(0, n) };
+  }
+  return null;
+};
 export const shortUrl = (u: string) => {
   try { const x = new URL(u); return (x.hostname + x.pathname).replace(/\/$/, ""); } catch { return u; }
 };
