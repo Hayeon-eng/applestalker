@@ -147,7 +147,7 @@ def _short_list_delta(before: List[str], after: List[str], limit: int = 5) -> Di
     }
 
 
-def _tag_count_delta(prev_counts: Dict[str, int], cur_counts: Dict[str, int], limit: int = 8) -> Dict[str, Dict[str, int]]:
+def _tag_count_delta(prev_counts: Dict[str, int], cur_counts: Dict[str, int], limit: int = 12) -> Dict[str, Dict[str, int]]:
     out: Dict[str, Dict[str, int]] = {}
     keys = sorted(set(prev_counts or {}) | set(cur_counts or {}))
     for k in keys:
@@ -155,6 +155,55 @@ def _tag_count_delta(prev_counts: Dict[str, int], cur_counts: Dict[str, int], li
         if b != a:
             out[k] = {"before": b, "after": a, "diff": a - b}
     return dict(list(out.items())[:limit])
+
+
+def _meaningful_tag_deltas(tag_deltas: Dict[str, Dict[str, int]], limit: int = 8) -> Dict[str, Dict[str, int]]:
+    """
+    DOM hash는 태그 순서/중첩이 조금만 달라도 바뀐다.
+    li/a/button처럼 반복되는 메뉴·푸터·캐러셀 태그 1~2개 차이는
+    실제 캠페인/페이지 구조 변경이라기보다 동적 렌더링 노이즈인 경우가 많아 제외한다.
+    """
+    if not tag_deltas:
+        return {}
+
+    core_tags = {
+        "main", "section", "article", "aside", "header", "footer", "nav",
+        "h1", "h2", "h3", "h4", "h5", "h6", "form", "table", "video",
+    }
+    visual_tags = {"figure", "picture", "img"}
+    repeat_tags = {"li", "a", "button", "ul", "ol"}
+
+    out: Dict[str, Dict[str, int]] = {}
+    for tag, delta in tag_deltas.items():
+        diff = abs(int((delta or {}).get("diff", 0)))
+        if diff <= 0:
+            continue
+        if tag in core_tags:
+            out[tag] = delta
+        elif tag in visual_tags and diff >= 3:
+            out[tag] = delta
+        elif tag in repeat_tags and diff >= 5:
+            out[tag] = delta
+        elif diff >= 8:
+            out[tag] = delta
+    return dict(list(out.items())[:limit])
+
+
+def _dom_severity_level(
+    count_deltas: Dict[str, Dict[str, Any]],
+    tag_deltas: Dict[str, Dict[str, int]],
+    heading_delta: Dict[str, List[str]],
+    cta_delta: Dict[str, List[str]],
+) -> str:
+    if cta_delta.get("added") or cta_delta.get("removed") or "cta_count" in count_deltas:
+        return "L3"
+    if heading_delta.get("added") or heading_delta.get("removed") or "h2_count" in count_deltas or "h3_count" in count_deltas:
+        return "L3"
+    if "faq_count" in count_deltas or "img_count" in count_deltas:
+        return "L2"
+    if any(tag in tag_deltas for tag in ("main", "section", "article", "header", "footer", "nav", "form", "table", "video")):
+        return "L2"
+    return "L1"
 
 # ──────────────────────────────────────────────────────────────
 # DOM / structure fingerprint
@@ -542,9 +591,10 @@ class DiffEngine:
                     deltas[key] = {"label": label, "before": b, "after": a, "diff": diff}
                     parts.append(f"{label} {'+' if diff > 0 else ''}{diff}")
 
-            tag_deltas = _tag_count_delta(ps.get("tag_counts") or {}, cs.get("tag_counts") or {}) if ps.get("tag_counts") and cs.get("tag_counts") else {}
+            raw_tag_deltas = _tag_count_delta(ps.get("tag_counts") or {}, cs.get("tag_counts") or {}) if ps.get("tag_counts") and cs.get("tag_counts") else {}
+            tag_deltas = _meaningful_tag_deltas(raw_tag_deltas)
             if tag_deltas:
-                parts.append("태그 구성 변경")
+                parts.append("핵심 태그 구성 변경")
 
             heading_delta = _short_list_delta(ps.get("h2_texts") or [], cs.get("h2_texts") or []) if ps.get("h2_texts") is not None and cs.get("h2_texts") is not None else {"added": [], "removed": []}
             cta_delta = _short_list_delta(ps.get("cta_texts") or [], cs.get("cta_texts") or []) if ps.get("cta_texts") is not None and cs.get("cta_texts") is not None else {"added": [], "removed": []}
@@ -553,14 +603,16 @@ class DiffEngine:
             if cta_delta["added"] or cta_delta["removed"]:
                 parts.append("CTA 문구 변경")
 
-            # 해시만 바뀌고 카운트/태그/H2/CTA 근거가 없으면 동적 마크업 노이즈로 간주해 숨김
+            # 해시만 바뀌었거나 li/a/button 같은 반복 태그 1~2개 차이만 있으면
+            # 메뉴·푸터·캐러셀·동적 렌더링 노이즈로 간주해 변경점에서 제외한다.
             if not (deltas or tag_deltas or heading_delta["added"] or heading_delta["removed"] or cta_delta["added"] or cta_delta["removed"]):
                 return out
 
-            summary = "DOM 구조(레이아웃 골격) 변화" + (f" — {', '.join(parts[:4])}" if parts else "")
+            dom_sev = _dom_severity_level(deltas, tag_deltas, heading_delta, cta_delta)
+            summary = "DOM 구조 참고 변화" + (f" — {', '.join(parts[:4])}" if parts else "")
             evidence = {
                 "dom_hash_before": ps["dom_hash"][:12], "dom_hash_after": cs["dom_hash"][:12],
-                "structure_note": "저장된 구조 지표 기준으로 설명 가능한 변화만 표시",
+                "structure_note": "H2/CTA/FAQ/이미지 개수, 핵심 구조 태그처럼 설명 가능한 변화만 표시. li/a/button 등 반복 태그의 소폭 차이는 제외",
             }
             if deltas:
                 evidence["count_deltas"] = deltas
@@ -570,7 +622,7 @@ class DiffEngine:
                 evidence["heading_deltas"] = heading_delta
             if cta_delta["added"] or cta_delta["removed"]:
                 evidence["cta_deltas"] = cta_delta
-            out.append(self._mk(url, site_key, tier, "dom", "technical", "L4", summary, evidence=evidence))
+            out.append(self._mk(url, site_key, tier, "dom", "technical", dom_sev, summary, evidence=evidence))
         return out
 
     def _list_field_events(self, url, site_key, tier, fld, key, ctype,
