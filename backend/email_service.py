@@ -98,8 +98,8 @@ class EmailService:
         msg["Subject"] = "[Apple Stalker] " + report_type + " report " + datetime.now().strftime("%Y-%m-%d")
         msg["From"] = self.sender
         msg["To"] = self.recipient
-        msg.attach(MIMEText(self.build_html(report_type), "html", "utf-8"))
         try:
+            msg.attach(MIMEText(self.build_html(report_type), "html", "utf-8"))
             if self.port == 465:
                 with smtplib.SMTP_SSL(self.server, self.port, context=ssl.create_default_context(), timeout=30) as smtp:
                     smtp.login(self.sender, self.password)

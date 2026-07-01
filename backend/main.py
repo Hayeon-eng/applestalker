@@ -605,7 +605,11 @@ async def cron_tick(token: str = Query(...), site: Optional[str] = None):
 # ── Email ──
 @app.post("/api/email/test")
 def email_test():
-    r = email_service.send("test")
+    try:
+        r = email_service.send("test")
+    except Exception as exc:
+        # send() 내부에서 못 잡은 예외까지 여기서 한 번 더 방어 (빈 500 대신 실제 원인 표시)
+        raise HTTPException(500, type(exc).__name__ + ": " + str(exc))
     if r["status"] == "sent":
         return r
     raise HTTPException(400 if r["status"] == "skipped" else 500, r.get("reason") or r.get("error"))
