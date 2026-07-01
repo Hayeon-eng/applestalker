@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report, UrlRow, PageLite, PageDetail,
   CRITERIA, METRICS, TIER_META,
-  siteName, siteClass, levelKo, levelClass, shortUrl, linesFromBlock, tierForUrl, tagForLine,
+  siteName, siteClass, levelKo, levelClass, severityEmoji, topSeverityChanges,
+  shortUrl, linesFromBlock, tierForUrl, tagForLine,
   metricAverage, metricOneLiner, bucketOf,
 } from "./shared";
 
@@ -75,8 +76,10 @@ const EVIDENCE_KIND_LABELS: Record<string, string> = {
 };
 
 function ChangeDrilldown({ change: c }: { change: Change }) {
-  const ev = c.evidence || {};
-  const isDomHashOnly = "dom_hash_before" in ev && !("kind" in ev);
+  const ev: Record<string, any> = c.evidence || {};
+  const countDeltas: Record<string, { label: string; before: number; after: number; diff: number }> | undefined =
+    ev.count_deltas;
+  const isDomHashOnly = "dom_hash_before" in ev && !("kind" in ev) && !countDeltas;
   const hasKindLabel = !!(ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string]);
   return (
     <div className="drilldown">
@@ -103,6 +106,23 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
           {EVIDENCE_KIND_LABELS[ev.kind as string]}{ev.type ? ` — ${ev.type}` : ""}
         </p>
       )}
+      {countDeltas && (
+        <div style={{ marginTop: 8 }}>
+          <p style={{ fontSize: 11.5, fontWeight: 600, color: "var(--sec)", marginBottom: 4 }}>
+            구조 세부 변화 (h2/h3/CTA/FAQ/이미지 개수 비교)
+          </p>
+          <div className="evidenceGrid">
+            {Object.values(countDeltas).map((d) => (
+              <>
+                <span key={d.label + "_k"} className="evidenceKey">{d.label}</span>
+                <span key={d.label + "_v"} className="evidenceVal">
+                  {d.before} → {d.after} ({d.diff > 0 ? "+" : ""}{d.diff})
+                </span>
+              </>
+            ))}
+          </div>
+        </div>
+      )}
       {isDomHashOnly && (
         <p className="termDetail" style={{ marginTop: 8 }}>
           이 변화는 페이지 구조를 해시값으로만 비교해 감지했습니다. 값이 달라졌다는 것만 알 수 있고,
@@ -113,7 +133,7 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
       {Object.keys(ev).length > 0 && (
         <div className="evidenceGrid" style={{ marginTop: 8 }}>
           {Object.entries(ev)
-            .filter(([k]) => !(hasKindLabel && (k === "kind" || k === "type")))
+            .filter(([k]) => k !== "count_deltas" && !(hasKindLabel && (k === "kind" || k === "type")))
             .map(([k, v]) => (
               <>
                 <span key={k + "_k"} className="evidenceKey">{EVIDENCE_LABELS[k] || k}</span>
@@ -306,9 +326,10 @@ export function Overview({
   const high = allChanges.filter((c) => c.level === "High").length;
   const apple = allChanges.filter((c) => c.site === "apple").length;
   const samsung = allChanges.filter((c) => c.site === "samsung").length;
-  // '전체요약' 탭이면 전체 기준 Top3, 특정 지표 탭이면 그 지표 안에서만 Top3 (탭마다 다른 항목이 보여야 함)
+  // '전체요약' 탭이면 전체 기준, 특정 지표 탭이면 그 지표 안에서만 — High가 없으면 그 다음으로 심각한 등급을 보여줌
   const highSource = metricTab === "all" ? allChanges : changes;
-  const highChanges = highSource.filter((c) => c.level === "High").slice(0, 3);
+  const topSev = topSeverityChanges(highSource, 3);
+  const highChanges = topSev?.changes || [];
   const [urlFilter, setUrlFilter] = useState<string | null>(null);
   const displayedChanges = urlFilter ? changes.filter((c) => c.url === urlFilter) : changes;
 
@@ -351,10 +372,15 @@ export function Overview({
           </div>
         </div>
 
-        {/* High 변화 요약 + 액션 제시 — 클릭하면 해당 영역 탭으로 이동해 상세가 열림 */}
-        {highChanges.length > 0 && (
+        {/* High(또는 그 다음 등급) 변화 요약 + 액션 제시 — 클릭하면 해당 영역 탭으로 이동해 상세가 열림 */}
+        {highChanges.length > 0 && topSev && (
           <div className="severityLegend">
-            <p className="severityLegendTitle">🔴 높음(High) 변화 — 우선 확인 필요 (클릭하면 상세로 이동)</p>
+            <p className="severityLegendTitle">
+              {severityEmoji(topSev.level)} {levelKo(topSev.level)}({topSev.level}) 변화 — 우선 확인 필요 (클릭하면 상세로 이동)
+              {topSev.level !== "High" && (
+                <span style={{ color: "var(--sec)", fontWeight: 400 }}> · 이 범위엔 High 변화가 없어 가장 심각한 등급을 보여줍니다</span>
+              )}
+            </p>
             {highChanges.map((c) => (
               <button key={c.id} className="sevRow sevRowClickable" onClick={() => onJumpToMetric(bucketOf(c), c)}>
                 <span className={`badge ${siteClass(c.site)}`}>{siteName(c.site)}</span>
@@ -370,12 +396,23 @@ export function Overview({
         )}
       </div>
 
+      {/* ①.5 가장 심각한 변화의 상세 근거를 요약카드 바로 아래에 펼쳐서 노출 (스크롤 없이 바로 보이게) */}
+      {highChanges.length > 0 && topSev && (
+        <div className="card">
+          <p className="cardTitle">
+            상세 근거 — {severityEmoji(topSev.level)} {levelKo(topSev.level)} 최우선 변화
+          </p>
+          <ChangeDrilldown change={highChanges[0]} />
+        </div>
+      )}
+
       {/* ② '전체요약'이면 DATA/COPY/VISUAL 축약카드(클릭→해당 탭 상세로 이동, 정보 중복 없음)
              특정 지표 탭이면 분석기준→현황요약→변경점목록 풀 디테일 */}
       {metricTab === "all" ? (
         (["data", "copy", "visual"] as MetricTab[]).map((m) => {
           const mChanges = allChanges.filter((c) => bucketOf(c) === m);
-          const mHigh = mChanges.filter((c) => c.level === "High").length;
+          const mTopSev = topSeverityChanges(mChanges, 0);
+          const mHighCount = mChanges.filter((c) => c.level === "High").length;
           return (
             <button key={m} className="card metricSummaryCard" onClick={() => onJumpToMetric(m)}>
               <p className="cardTitle">
@@ -383,7 +420,15 @@ export function Overview({
                 <span className="metricSummaryGo">자세히 보기 →</span>
               </p>
               <p className="metricSummaryLine">{metricOneLiner(m, dcv?.[m], mChanges)}</p>
-              {mHigh > 0 && <p className="metricSummarySub">🔴 높음 변화 {mHigh}건 포함</p>}
+              {mTopSev && (
+                <p
+                  className="metricSummarySub"
+                  style={{ color: mTopSev.level === "High" ? "var(--high)" : mTopSev.level === "Medium" ? "var(--med)" : "var(--tier-good)" }}
+                >
+                  {severityEmoji(mTopSev.level)} {levelKo(mTopSev.level)} 변화 {mChanges.filter((c) => c.level === mTopSev.level).length}건
+                  {mTopSev.level !== "High" && mHighCount === 0 && " (High 없음, 최고 심각도)"}
+                </p>
+              )}
             </button>
           );
         })
@@ -764,3 +809,4 @@ export function CriteriaDrawer({
     </>
   );
 }
+
