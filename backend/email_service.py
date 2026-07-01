@@ -100,12 +100,15 @@ class EmailService:
         msg["To"] = self.recipient
         try:
             msg.attach(MIMEText(self.build_html(report_type), "html", "utf-8"))
+            # [FIX] 타임아웃을 30s→10s로 줄임 — Render 게이트웨이가 먼저 타임아웃시켜
+            # "빈 500"이 뜨는 것을 방지. SMTP가 진짜 안 되면 10초 안에 우리 코드가
+            # 먼저 TimeoutError를 잡아 실제 원인을 응답한다.
             if self.port == 465:
-                with smtplib.SMTP_SSL(self.server, self.port, context=ssl.create_default_context(), timeout=30) as smtp:
+                with smtplib.SMTP_SSL(self.server, self.port, context=ssl.create_default_context(), timeout=10) as smtp:
                     smtp.login(self.sender, self.password)
                     smtp.sendmail(self.sender, [self.recipient], msg.as_string())
             else:
-                with smtplib.SMTP(self.server, self.port, timeout=30) as smtp:
+                with smtplib.SMTP(self.server, self.port, timeout=10) as smtp:
                     smtp.ehlo()
                     smtp.starttls(context=ssl.create_default_context())
                     smtp.ehlo()

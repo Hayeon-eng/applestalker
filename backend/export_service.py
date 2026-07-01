@@ -42,6 +42,19 @@ def _narrative_lines(dcv: Dict[str, Any], bucket: str) -> List[Dict[str, str]]:
     return out
 
 
+def _group_by_page(changes: List[Dict[str, Any]]):
+    """변경점을 URL(페이지) 단위로 그룹핑. 등장 순서를 유지한다."""
+    groups: Dict[str, List[Dict[str, Any]]] = {}
+    order: List[str] = []
+    for c in changes:
+        url = c.get("url") or "(URL 없음)"
+        if url not in groups:
+            groups[url] = []
+            order.append(url)
+        groups[url].append(c)
+    return [(u, groups[u]) for u in order]
+
+
 def build_xlsx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = "",
                 dcv: Dict[str, Any] | None = None) -> bytes:
     from openpyxl import Workbook
@@ -70,6 +83,47 @@ def build_xlsx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
     ws.freeze_panes = "A4"
     if not changes:
         ws.append(["변경 없음 — 아래 DATA/COPY/VISUAL 시트에서 현행 분석을 확인하세요"])
+
+    # ── [신규] 시트: 페이지별 변경점 — 같은 URL의 변경들을 한 데 묶어서, 페이지 단위로
+    #    "무엇이 이전→이후로 바뀌었는지" 한눈에 보이게 함 (기존 '변경점' 시트는 flat이라
+    #    여러 페이지가 뒤섞여 보기 어려웠음) ──
+    ws3 = wb.create_sheet("페이지별 변경점")
+    ws3.append([f"페이지별 변경점 ({timestamp})"])
+    ws3.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
+    ws3["A1"].font = Font(bold=True, size=13)
+    ws3.append([])
+    page_groups = _group_by_page(changes)
+    if not page_groups:
+        ws3.append(["이 수집에서는 페이지별 변경점이 없습니다."])
+    else:
+        sub_head = PatternFill("solid", fgColor="EEF1F5")
+        page_head = PatternFill("solid", fgColor="111318")
+        for url, items in page_groups:
+            site_ko = SITE_KO.get(items[0].get("site"), items[0].get("site") or "")
+            ws3.append([f"{site_ko} · {url}  —  {len(items)}건 변경"])
+            r = ws3.max_row
+            ws3.merge_cells(start_row=r, start_column=1, end_row=r, end_column=5)
+            ws3.cell(r, 1).font = Font(bold=True, size=11, color="FFFFFF")
+            ws3.cell(r, 1).fill = page_head
+            ws3.append(["카테고리", "중요도", "항목", "이전 원문", "현재 원문"])
+            r2 = ws3.max_row
+            for c in range(1, 6):
+                cell = ws3.cell(r2, c); cell.font = Font(bold=True, size=9); cell.fill = sub_head
+            for it in items:
+                ws3.append([
+                    it.get("category") or "", LV_KO.get(it.get("level"), it.get("level") or ""),
+                    it.get("field") or "", it.get("before") or "", it.get("after") or "",
+                ])
+            ws3.append([])  # 페이지 구분 빈 줄
+        ws3.column_dimensions["A"].width = 16
+        ws3.column_dimensions["B"].width = 10
+        ws3.column_dimensions["C"].width = 18
+        ws3.column_dimensions["D"].width = 50
+        ws3.column_dimensions["E"].width = 50
+        for r in ws3.iter_rows(min_row=4):
+            for cell in r:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+        ws3.freeze_panes = "A4"
 
     # ── 시트2~4: [PHASE3 신규] DATA / COPY / VISUAL 현행 분석 (변화 유무 무관, 항상 생성) ──
     for bucket, sheet_name in [("data", "DATA"), ("copy", "COPY"), ("visual", "VISUAL")]:
@@ -132,6 +186,40 @@ def build_pptx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
             b2 = bf.add_paragraph(); b2.text = f"   현재: {(ch.get('after') or '(삭제됨)')[:140]}"; b2.font.size = Pt(11); b2.font.color.rgb = INK
             b3 = bf.add_paragraph(); b3.text = f"   {ch.get('url','')}"; b3.font.size = Pt(9); b3.font.color.rgb = GRAY
             bf.add_paragraph()
+
+    # ── [신규] 페이지별 변경점 슬라이드 — 같은 페이지의 변경들을 한 슬라이드에 모아서
+    #    "이 페이지에서 무엇이 이전→이후로 바뀌었는지" 한눈에 보이게 함 ──
+    page_groups = _group_by_page(changes)
+    if page_groups:
+        divider = prs.slides.add_slide(prs.slide_layouts[6])
+        dtb = divider.shapes.add_textbox(Inches(0.7), Inches(3.0), Inches(12), Inches(1.2))
+        dtb.text_frame.text = "페이지별 변경점"
+        dtb.text_frame.paragraphs[0].font.size = Pt(30); dtb.text_frame.paragraphs[0].font.bold = True
+        dtb.text_frame.paragraphs[0].font.color.rgb = INK
+        for url, items in page_groups:
+            sl = prs.slides.add_slide(prs.slide_layouts[6])
+            head = sl.shapes.add_textbox(Inches(0.6), Inches(0.4), Inches(12.1), Inches(0.9))
+            site_ko = SITE_KO.get(items[0].get("site"), items[0].get("site") or "")
+            head.text_frame.word_wrap = True
+            head.text_frame.text = f"{site_ko} — {len(items)}건 변경"
+            head.text_frame.paragraphs[0].font.size = Pt(18); head.text_frame.paragraphs[0].font.bold = True
+            head.text_frame.paragraphs[0].font.color.rgb = INK
+            urlp = head.text_frame.add_paragraph(); urlp.text = url
+            urlp.font.size = Pt(11); urlp.font.color.rgb = GRAY
+
+            body = sl.shapes.add_textbox(Inches(0.6), Inches(1.5), Inches(12.1), Inches(5.6)); bf = body.text_frame; bf.word_wrap = True
+            shown, extra = items[:8], max(0, len(items) - 8)
+            for j, ch in enumerate(shown):
+                headp = bf.paragraphs[0] if j == 0 else bf.add_paragraph()
+                headp.text = f"[{LV_KO.get(ch.get('level'),'')}] {ch.get('category','')} · {ch.get('field','')}"
+                headp.font.size = Pt(12); headp.font.bold = True
+                headp.font.color.rgb = LVC.get(ch.get("level"), INK)
+                b1 = bf.add_paragraph(); b1.text = f"   이전: {(ch.get('before') or '(없음)')[:130]}"; b1.font.size = Pt(10.5); b1.font.color.rgb = GRAY
+                b2 = bf.add_paragraph(); b2.text = f"   현재: {(ch.get('after') or '(삭제됨)')[:130]}"; b2.font.size = Pt(10.5); b2.font.color.rgb = INK
+                bf.add_paragraph()
+            if extra:
+                more = bf.add_paragraph(); more.text = f"...외 {extra}건 더 (Excel 내보내기에서 전체 확인)"
+                more.font.size = Pt(10.5); more.font.color.rgb = GRAY
 
     # ── [PHASE3 신규] DATA/COPY/VISUAL 현행 분석 슬라이드 (변화 유무 무관, 항상 생성) ──
     for bucket, label in [("data", "DATA"), ("copy", "COPY"), ("visual", "VISUAL")]:
