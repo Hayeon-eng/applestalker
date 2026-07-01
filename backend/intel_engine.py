@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from typing import Any, Dict, List, Optional
 
 try:
@@ -611,11 +612,25 @@ class IntelEngine:
                              "evidence": f"{e.get('field_name')} [{e.get('severity_level')}]"})
 
         if self.ready:
-            llm_out = self._llm_enrich(name, site_display, is_ours, facts, narrative_lines, events)
+            # 일시적 오류(레이트리밋/타임아웃/JSON 파싱 실패) 대비 최대 3회 시도
+            llm_out = None
+            last_err = None
+            for attempt in range(3):
+                try:
+                    llm_out = self._llm_enrich(name, site_display, is_ours, facts, narrative_lines, events)
+                except Exception as e:
+                    last_err = e
+                    llm_out = None
+                if llm_out:
+                    break
+                if attempt < 2:
+                    time.sleep(1.5 * (attempt + 1))  # 1.5s, 3s backoff
             if llm_out:
                 llm_out["facts"] = facts
                 llm_out["_source"] = "gemini"
                 return llm_out
+            if last_err:
+                print(f"[intel] {name} llm enrich gave up after retries: {last_err}")
 
         return {
             "facts": facts,
