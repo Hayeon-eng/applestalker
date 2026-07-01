@@ -7,6 +7,7 @@
 export type View = "home" | "dashboard";
 export type MainTab = "overview" | "pages";
 export type MetricTab = "data" | "copy" | "visual";
+export type MetricView = MetricTab | "all";
 export type SiteKey = "samsung" | "apple";
 export type CrawlProgress = {
   active: boolean; site?: string; total: number; done: number;
@@ -21,6 +22,7 @@ export type AnalysisBlock = {
   facts?: Record<string, any>;
   insights?: { point?: string; evidence_url?: string }[];
   narrative?: string[];
+  _source?: "gemini" | "rule_based";
 };
 export type Report = {
   has_data?: boolean; timestamp?: string; has_changes?: boolean;

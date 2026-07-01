@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  MetricTab, SiteKey, Change, AnalysisBlock, Report, UrlRow, PageLite, PageDetail,
+  MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report, UrlRow, PageLite, PageDetail,
   CRITERIA, METRICS, TIER_META,
-  siteName, siteClass, levelKo, levelClass, shortUrl, linesFromBlock, tierForUrl, tagForLine, metricAverage,
+  siteName, siteClass, levelKo, levelClass, shortUrl, linesFromBlock, tierForUrl, tagForLine, metricAverage, bucketOf,
 } from "./shared";
 
 /* ════════════════════════════════════════════════════
@@ -159,13 +159,124 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
 /* ════════════════════════════════════════════════════
    Overview 탭 — 순서: ①변화N건+액션 ②분석기준 ③현황요약(Apple좌/Samsung우) ④변경점목록(Apple좌/Samsung우)
 ════════════════════════════════════════════════════ */
-export function Overview({
-  report, metricTab, changes, allChanges, selectedChange, setSelectedChange,
-  siteBlocks, urls, totalUrls, urlQuery, setUrlQuery, onOpenDrawer,
+/* ── 한 메트릭(DATA/COPY/VISUAL)의 [분석기준 → 현황요약 → 변경점목록] 3장 세트.
+   단일 메트릭 탭에서도, '전체요약' 탭에서 3번 반복할 때도 이 컴포넌트 하나로 재사용 ── */
+function MetricSection({
+  metric, changes, siteBlocks, selectedChange, setSelectedChange, onOpenDrawer, showHeading,
 }: {
-  report: Report | null; metricTab: MetricTab; changes: Change[]; allChanges: Change[];
+  metric: MetricTab; changes: Change[]; siteBlocks: Record<string, AnalysisBlock>;
   selectedChange: Change | null; setSelectedChange: (c: Change | null) => void;
-  siteBlocks: Record<string, AnalysisBlock>;
+  onOpenDrawer: (id: string) => void; showHeading?: boolean;
+}) {
+  const changesBySite = (site: SiteKey) => changes.filter((c) => c.site === site);
+  return (
+    <>
+      {showHeading && (
+        <p className="metricSectionHeading">
+          <span className={`badge ${metric === "data" ? "c1" : metric === "copy" ? "c2" : "c4"}`}>
+            {METRICS[metric].label}
+          </span>
+        </p>
+      )}
+
+      {/* 분석 기준 */}
+      <div className="card">
+        <p className="cardTitle">
+          분석 기준 — {METRICS[metric].label} &nbsp;
+          <button style={{ fontSize: 11, color: "var(--blue)", fontWeight: 400 }} onClick={() => onOpenDrawer(METRICS[metric].criteriaId)}>
+            전체 보기(용어 설명 포함) ↗
+          </button>
+        </p>
+        <div className="grid2">
+          {CRITERIA.find((c) => c.id === METRICS[metric].criteriaId)?.items.slice(0, 4).map((item) => (
+            <div key={item.q} className="catLine">
+              <p className="catLineHead" style={{ fontSize: 12 }}>
+                {item.q}
+                {item.scoring === "weighted" && <span className="badge c2" style={{ marginLeft: 6 }}>⚖️ 가중합산</span>}
+              </p>
+              <p className="catLineBody">{item.a}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 현황 요약 — 변경 유무 관계없는 현재 상태 (Apple 좌 / Samsung 우) */}
+      <div className="card">
+        <p className="cardTitle">현황 요약 — {METRICS[metric].label} (변경 유무 무관, 현재 상태)</p>
+        <div className="siteSplit">
+          {(["apple", "samsung"] as SiteKey[]).map((site) => (
+            <div key={site}>
+              <p className="siteSplitHead">
+                <span className={`badge ${site}`}>{siteName(site)}</span>
+                {siteBlocks[site]?._source === "gemini" ? (
+                  <span className="badge c2" title="Gemini가 근거 기반으로 서술 — evidence 없는 내용은 생성하지 않음">🤖 AI 분석 기반</span>
+                ) : siteBlocks[site]?._source === "rule_based" ? (
+                  <span className="badge c6" title="AI 분석 실패 또는 미설정 — 규칙기반 집계로 대체됨">📐 규칙기반 (AI 분석 실패)</span>
+                ) : null}
+              </p>
+              <FindingList metric={metric} lines={linesFromBlock(siteBlocks[site])} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 변경점 목록 (Apple 좌 / Samsung 우) */}
+      <div className="card">
+        <p className="cardTitle">변경점 목록 — {METRICS[metric].label} ({changes.length}건)</p>
+        {changes.length === 0 ? (
+          <p className="muted">이 영역에서 변경된 항목이 없습니다. 위 현황 요약에서 현재 상태를 확인하세요.</p>
+        ) : (
+          <div className="siteSplit">
+            {(["apple", "samsung"] as SiteKey[]).map((site) => {
+              const list = changesBySite(site);
+              return (
+                <div key={site}>
+                  <p className="siteSplitHead">
+                    <span className={`badge ${site}`}>{siteName(site)}</span>
+                    <span style={{ fontSize: 11, color: "var(--sec)", fontWeight: 400 }}>{list.length}건</span>
+                  </p>
+                  {list.length === 0 ? (
+                    <p className="muted">변경 없음</p>
+                  ) : (
+                    <div className="changeGrid">
+                      {list.map((c, idx) => {
+                        const isOpen = idx === 0 || selectedChange?.id === c.id;
+                        return (
+                          <div key={c.id}>
+                            <button
+                              className={`changeCard ${selectedChange?.id === c.id ? "selected" : ""}`}
+                              onClick={() => setSelectedChange(selectedChange?.id === c.id ? null : c)}
+                            >
+                              <div className="changeCardTop">
+                                <span className={`badge ${levelClass(c.level)}`}>{levelKo(c.level)}</span>
+                                <span style={{ fontSize: 11, color: "var(--sec)" }}>{c.category} · {c.field}</span>
+                              </div>
+                              <p className="changeSum">{c.summary || "변경 내용"}</p>
+                              <p className="changeUrl">{shortUrl(c.url)}</p>
+                            </button>
+                            {isOpen && <ChangeDrilldown change={c} />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+export function Overview({
+  report, metricTab, dcv, changes, allChanges, selectedChange, setSelectedChange,
+  urls, totalUrls, urlQuery, setUrlQuery, onOpenDrawer,
+}: {
+  report: Report | null; metricTab: MetricView; dcv?: Report["dcv"];
+  changes: Change[]; allChanges: Change[];
+  selectedChange: Change | null; setSelectedChange: (c: Change | null) => void;
   urls: UrlRow[]; totalUrls: number; urlQuery: string; setUrlQuery: (s: string) => void;
   onOpenDrawer: (id: string) => void;
 }) {
@@ -173,11 +284,10 @@ export function Overview({
   const apple = allChanges.filter((c) => c.site === "apple").length;
   const samsung = allChanges.filter((c) => c.site === "samsung").length;
   const highChanges = allChanges.filter((c) => c.level === "High").slice(0, 3);
-  const changesBySite = (site: SiteKey) => changes.filter((c) => c.site === site);
 
   return (
     <div className="panelStack">
-      {/* ① 전체 요약 카드 — 변화 N건 + High 변화 액션 제시 */}
+      {/* ① 전체 요약 카드 — 변화 N건 + High 변화 액션 제시 (항상 전체 기준, 탭과 무관) */}
       <div className="summaryCard">
         <div className="summaryTop">
           <div className="summaryText">
@@ -186,7 +296,7 @@ export function Overview({
               {report ? (allChanges.length > 0 ? `변화 ${allChanges.length}건 감지` : "변화 없음 — 현행 유지") : "수집 데이터 없음"}
             </h1>
             <p className="summaryDesc">
-              {report?.analysis?.summary || METRICS[metricTab].plain}
+              {report?.analysis?.summary || (metricTab === "all" ? "DATA·COPY·VISUAL 전체 현황입니다." : METRICS[metricTab].plain)}
             </p>
           </div>
           <div className="statsRow">
@@ -235,88 +345,30 @@ export function Overview({
         </div>
       </div>
 
-      {/* ② 분석 기준 */}
-      <div className="card">
-        <p className="cardTitle">
-          분석 기준 — {METRICS[metricTab].label} &nbsp;
-          <button style={{ fontSize: 11, color: "var(--blue)", fontWeight: 400 }} onClick={() => onOpenDrawer(METRICS[metricTab].criteriaId)}>
-            전체 보기(용어 설명 포함) ↗
-          </button>
-        </p>
-        <div className="grid2">
-          {CRITERIA.find((c) => c.id === METRICS[metricTab].criteriaId)?.items.slice(0, 4).map((item) => (
-            <div key={item.q} className="catLine">
-              <p className="catLineHead" style={{ fontSize: 12 }}>
-                {item.q}
-                {item.scoring === "weighted" && <span className="badge c2" style={{ marginLeft: 6 }}>⚖️ 가중합산</span>}
-              </p>
-              <p className="catLineBody">{item.a}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ③ 현황 요약 — 변경 유무 관계없는 현재 상태 (Apple 좌 / Samsung 우) */}
-      <div className="card">
-        <p className="cardTitle">현황 요약 — {METRICS[metricTab].label} (변경 유무 무관, 현재 상태)</p>
-        <div className="siteSplit">
-          {(["apple", "samsung"] as SiteKey[]).map((site) => (
-            <div key={site}>
-              <p className="siteSplitHead">
-                <span className={`badge ${site}`}>{siteName(site)}</span>
-              </p>
-              <FindingList metric={metricTab} lines={linesFromBlock(siteBlocks[site])} />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ④ 변경점 목록 (Apple 좌 / Samsung 우) */}
-      <div className="card">
-        <p className="cardTitle">변경점 목록 — {METRICS[metricTab].label} ({changes.length}건)</p>
-        {changes.length === 0 ? (
-          <p className="muted">이 영역에서 변경된 항목이 없습니다. 위 현황 요약에서 현재 상태를 확인하세요.</p>
-        ) : (
-          <div className="siteSplit">
-            {(["apple", "samsung"] as SiteKey[]).map((site) => {
-              const list = changesBySite(site);
-              return (
-                <div key={site}>
-                  <p className="siteSplitHead">
-                    <span className={`badge ${site}`}>{siteName(site)}</span>
-                    <span style={{ fontSize: 11, color: "var(--sec)", fontWeight: 400 }}>{list.length}건</span>
-                  </p>
-                  {list.length === 0 ? (
-                    <p className="muted">변경 없음</p>
-                  ) : (
-                    <div className="changeGrid">
-                      {list.map((c, idx) => {
-                        const isOpen = idx === 0 || selectedChange?.id === c.id;
-                        return (
-                          <div key={c.id}>
-                            <button
-                              className={`changeCard ${selectedChange?.id === c.id ? "selected" : ""}`}
-                              onClick={() => setSelectedChange(selectedChange?.id === c.id ? null : c)}
-                            >
-                              <div className="changeCardTop">
-                                <span className={`badge ${levelClass(c.level)}`}>{levelKo(c.level)}</span>
-                                <span style={{ fontSize: 11, color: "var(--sec)" }}>{c.category} · {c.field}</span>
-                              </div>
-                              <p className="changeSum">{c.summary || "변경 내용"}</p>
-                              <p className="changeUrl">{shortUrl(c.url)}</p>
-                            </button>
-                            {isOpen && <ChangeDrilldown change={c} />}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* ② 분석기준 → 현황요약 → 변경점목록 — 단일 메트릭 or 전체요약(3개 반복) */}
+      {metricTab === "all" ? (
+        (["data", "copy", "visual"] as MetricTab[]).map((m) => (
+          <MetricSection
+            key={m}
+            metric={m}
+            changes={allChanges.filter((c) => bucketOf(c) === m)}
+            siteBlocks={dcv?.[m] || {}}
+            selectedChange={selectedChange}
+            setSelectedChange={setSelectedChange}
+            onOpenDrawer={onOpenDrawer}
+            showHeading
+          />
+        ))
+      ) : (
+        <MetricSection
+          metric={metricTab}
+          changes={changes}
+          siteBlocks={dcv?.[metricTab] || {}}
+          selectedChange={selectedChange}
+          setSelectedChange={setSelectedChange}
+          onOpenDrawer={onOpenDrawer}
+        />
+      )}
 
       {/* URL 전체 목록 */}
       <div className="card">
@@ -388,9 +440,28 @@ export function PagesTab({
       .sort((a, b) => a.tier - b.tier);
   };
 
+  // Tier별 통계 + 간단 인사이트 (수집된 실제 값만 사용 — 지어내지 않음)
+  const tierStats = (site: SiteKey) =>
+    tierGroups(site).map(({ tier, pages: ps }) => {
+      const avgWords = ps.length ? Math.round(ps.reduce((a, p) => a + (p.word_count || 0), 0) / ps.length) : 0;
+      const thin = ps.filter((p) => (p.word_count || 0) < 150).length;
+      return {
+        tier, count: ps.length, avgWords, thin,
+        insight: `${ps.length}개 페이지 · 평균 ${avgWords}단어${thin > 0 ? ` · 빈약 콘텐츠 ${thin}개` : ""}`,
+      };
+    });
+
+  // 페이지 목록이 준비되면 대표 1개(첫 페이지)를 자동 선택해 상세 근거를 바로 펼쳐서 보여줌
+  useEffect(() => {
+    if (!selectedUrl && pageRows.length > 0) {
+      onPick(pageRows[0].url);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageRows, selectedUrl]);
+
   return (
     <div className="panelStack">
-      {/* 요약 카드 — Apple / Samsung 전체 요약 */}
+      {/* 요약 카드 — Apple / Samsung 전체 요약 + Tier별 통계·인사이트 */}
       <div className="summaryCard">
         <div className="summaryTop">
           <div className="summaryText">
@@ -403,9 +474,54 @@ export function PagesTab({
           <AverageBox title="Apple 경쟁사" site="apple" data={avgApple} metric={metricTab} />
           <AverageBox title="Samsung 당사" site="samsung" data={avgSamsung} metric={metricTab} />
         </div>
+        <div className="siteSplit" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+          {(["apple", "samsung"] as SiteKey[]).map((site) => (
+            <div key={site}>
+              <p className="siteSplitHead">
+                <span className={`badge ${site}`}>{siteName(site)}</span>
+                <span style={{ fontSize: 11, color: "var(--sec)", fontWeight: 400 }}>Tier별 통계</span>
+              </p>
+              {tierStats(site).map((s) => (
+                <div key={s.tier} className="tierStatRow">
+                  <span className="tierStatLabel">{TIER_META[s.tier]?.label || `Tier ${s.tier}`}</span>
+                  <span className="tierStatInsight">{s.insight}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Tier(0~4) 별 요약 — 어떤 페이지가 어느 Tier에 포함되는지 위주 */}
+      {/* 페이지 목록 */}
+      <div className="card">
+        <p className="cardTitle">페이지별 목록 ({pageRows.length}개)</p>
+        <div className="pageTable">
+          <div className="pageRow head">
+            <span>구분</span><span>Tier</span><span>단어 수</span><span>페이지</span>
+          </div>
+          {pageRows.map((p) => (
+            <button
+              key={p.url}
+              className={`pageRow ${selectedUrl === p.url ? "selected" : ""}`}
+              onClick={() => onPick(p.url)}
+            >
+              <span>
+                <span className={`badge ${p.site}`} style={{ fontSize: 10 }}>
+                  {p.site === "samsung" ? "Samsung" : "Apple"}
+                </span>
+              </span>
+              <span>Tier {tierOf(p.url)}</span>
+              <span>{p.word_count || 0}</span>
+              <span>
+                {p.title || shortUrl(p.url)}
+                <small>{shortUrl(p.url)}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tier(0~4) 별 요약 — 어떤 페이지가 어느 Tier에 포함되는지 위주 (선택 페이지 상세 바로 위) */}
       <div className="card">
         <p className="cardTitle">Tier별 요약 — 이 Tier에 포함된 페이지</p>
         <div className="siteSplit">
@@ -445,36 +561,7 @@ export function PagesTab({
         ))}
       </div>
 
-      {/* 페이지 목록 */}
-      <div className="card">
-        <p className="cardTitle">페이지별 목록 ({pageRows.length}개)</p>
-        <div className="pageTable">
-          <div className="pageRow head">
-            <span>구분</span><span>Tier</span><span>단어 수</span><span>페이지</span>
-          </div>
-          {pageRows.map((p) => (
-            <button
-              key={p.url}
-              className={`pageRow ${selectedUrl === p.url ? "selected" : ""}`}
-              onClick={() => onPick(p.url)}
-            >
-              <span>
-                <span className={`badge ${p.site}`} style={{ fontSize: 10 }}>
-                  {p.site === "samsung" ? "Samsung" : "Apple"}
-                </span>
-              </span>
-              <span>Tier {tierOf(p.url)}</span>
-              <span>{p.word_count || 0}</span>
-              <span>
-                {p.title || shortUrl(p.url)}
-                <small>{shortUrl(p.url)}</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 선택 페이지 상세 */}
+      {/* 선택 페이지 상세 — 대표 1개가 자동 선택되어 기본적으로 펼쳐진 상태 */}
       <div className="card">
         <p className="cardTitle">선택 페이지 상세 근거</p>
         {loadingPage && <p className="muted">불러오는 중…</p>}

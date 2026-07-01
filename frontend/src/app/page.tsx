@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View, MainTab, MetricTab, SiteKey, CrawlProgress, Change, Report, Session,
+  View, MainTab, MetricTab, MetricView, SiteKey, CrawlProgress, Change, Report, Session,
   PageLite, PageDetail, UrlRow,
   METRICS, siteName, siteClass, shortUrl, bucketOf, metricAverage, captureScreen,
 } from "./shared";
@@ -16,7 +16,7 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace
 export default function Page() {
   const [view, setView] = useState<View>("home");
   const [mainTab, setMainTab] = useState<MainTab>("overview");
-  const [metricTab, setMetricTab] = useState<MetricTab>("data");
+  const [metricTab, setMetricTab] = useState<MetricView>("data");
   const [online, setOnline] = useState<boolean | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [runs, setRuns] = useState<Session[]>([]);
@@ -199,11 +199,12 @@ export default function Page() {
   };
 
   const allChanges = report?.changes || [];
-  const metricChanges = allChanges.filter((c) => bucketOf(c) === metricTab);
+  const effectiveMetric: MetricTab = metricTab === "all" ? "data" : metricTab;
+  const metricChanges = allChanges.filter((c) => bucketOf(c) === effectiveMetric);
   const filteredUrls = urls.filter((u) =>
     ((u.site_key || "") + " " + u.url).toLowerCase().includes(urlQuery.toLowerCase())
   );
-  const siteBlocks = report?.dcv?.[metricTab] || {};
+  const siteBlocks = report?.dcv?.[effectiveMetric] || {};
   const avgSamsung = metricAverage(pages.samsung, siteBlocks.samsung);
   const avgApple = metricAverage(pages.apple, siteBlocks.apple);
 
@@ -361,17 +362,38 @@ export default function Page() {
                   {METRICS[key].label}
                 </button>
               ))}
+              {mainTab === "overview" && (
+                <button
+                  className={`metricBtn ${metricTab === "all" ? "on" : ""}`}
+                  onClick={() => setMetricTab("all")}
+                >
+                  전체요약
+                </button>
+              )}
             </div>
-            <button
-              className="metricInfo"
-              title="이 영역의 분석 기준 보기"
-              onClick={() => openDrawer(METRICS[metricTab].criteriaId)}
-            >
-              ⓘ 이 영역 기준
-            </button>
-            <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 6 }}>
-              {METRICS[metricTab].plain}
-            </span>
+            {metricTab === "all" ? (
+              <>
+                <button className="metricInfo" title="전체 기준 보기" onClick={() => openDrawer()}>
+                  ⓘ 전체 기준
+                </button>
+                <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 6 }}>
+                  DATA·COPY·VISUAL 세 영역을 각각의 현황·기준·변경점으로 한 화면에 모아 보여줍니다.
+                </span>
+              </>
+            ) : (
+              <>
+                <button
+                  className="metricInfo"
+                  title="이 영역의 분석 기준 보기"
+                  onClick={() => openDrawer(METRICS[metricTab].criteriaId)}
+                >
+                  ⓘ 이 영역 기준
+                </button>
+                <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 6 }}>
+                  {METRICS[metricTab].plain}
+                </span>
+              </>
+            )}
           </div>
         </header>
 
@@ -381,11 +403,11 @@ export default function Page() {
             <Overview
               report={report}
               metricTab={metricTab}
+              dcv={report?.dcv}
               changes={metricChanges}
               allChanges={allChanges}
               selectedChange={selectedChange}
               setSelectedChange={setSelectedChange}
-              siteBlocks={siteBlocks}
               urls={filteredUrls}
               totalUrls={urls.length}
               urlQuery={urlQuery}
@@ -394,7 +416,7 @@ export default function Page() {
             />
           ) : (
             <PagesTab
-              metricTab={metricTab}
+              metricTab={effectiveMetric}
               pages={pages}
               urls={urls}
               avgSamsung={avgSamsung}
