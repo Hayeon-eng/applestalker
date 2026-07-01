@@ -210,6 +210,11 @@ input, select { font-family: inherit; }
 
 /* ── 변경점 카드 */
 .changeGrid { display: flex; flex-direction: column; gap: 2px; }
+.urlChangeGroup { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.urlChangeGroup:last-child { border-bottom: none; margin-bottom: 0; }
+.urlChangeGroupHead { font-size: 11px; font-family: var(--mono); color: var(--sec); font-weight: 600;
+  margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.urlChangeGroupHead span { font-family: var(--font); font-weight: 500; color: var(--ter); }
 .changeCard { width: 100%; text-align: left; padding: 11px 14px; border-radius: 12px;
   background: transparent; display: flex; flex-direction: column; gap: 4px; border: 1.5px solid transparent; }
 .changeCard:hover { background: var(--bg); }

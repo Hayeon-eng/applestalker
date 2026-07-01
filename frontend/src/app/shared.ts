@@ -169,6 +169,22 @@ export const topSeverityChanges = (pool: Change[], n = 3): { level: "High" | "Me
   }
   return null;
 };
+// 변경점을 URL(페이지) 단위로 그룹핑 — 엑셀/PPT의 '페이지별 변경점'과 동일한 방식.
+// 등장 순서를 유지하고, 그룹 내부는 severity(High→Low) 순으로 정렬한다.
+export const groupByUrl = (changes: Change[]): { url: string; items: Change[] }[] => {
+  const order: string[] = [];
+  const map: Record<string, Change[]> = {};
+  for (const c of changes) {
+    const url = c.url || "(URL 없음)";
+    if (!map[url]) { map[url] = []; order.push(url); }
+    map[url].push(c);
+  }
+  const sevRank: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+  return order.map((url) => ({
+    url,
+    items: [...map[url]].sort((a, b) => (sevRank[a.level || "Low"] ?? 2) - (sevRank[b.level || "Low"] ?? 2)),
+  }));
+};
 export const shortUrl = (u: string) => {
   try { const x = new URL(u); return (x.hostname + x.pathname).replace(/\/$/, ""); } catch { return u; }
 };

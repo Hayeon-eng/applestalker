@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report, UrlRow, PageLite, PageDetail,
   CRITERIA, METRICS, TIER_META,
-  siteName, siteClass, levelKo, levelClass, severityEmoji, topSeverityChanges,
+  siteName, siteClass, levelKo, levelClass, severityEmoji, topSeverityChanges, groupByUrl,
   shortUrl, linesFromBlock, tierForUrl, tagForLine,
   metricAverage, metricOneLiner, bucketOf,
 } from "./shared";
@@ -79,6 +79,8 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
   const ev: Record<string, any> = c.evidence || {};
   const countDeltas: Record<string, { label: string; before: number; after: number; diff: number }> | undefined =
     ev.count_deltas;
+  const sentencesAdded: string[] = Array.isArray(ev.sentences_added) ? ev.sentences_added : [];
+  const sentencesRemoved: string[] = Array.isArray(ev.sentences_removed) ? ev.sentences_removed : [];
   const isDomHashOnly = "dom_hash_before" in ev && !("kind" in ev) && !countDeltas;
   const hasKindLabel = !!(ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string]);
   return (
@@ -89,15 +91,38 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
         <a href={c.url} target="_blank" rel="noreferrer">{c.url}</a>
       </p>
       <p><b>분류:</b> {c.category || "-"} / {c.field || "-"}</p>
+
+      {/* 정확히 무엇이 바뀌었는지 — 추가/삭제된 문장을 색으로 바로 보이게 (가장 중요한 정보라 최상단에 배치) */}
+      {(sentencesAdded.length > 0 || sentencesRemoved.length > 0) && (
+        <div style={{ marginTop: 8, marginBottom: 4 }}>
+          {sentencesRemoved.length > 0 && (
+            <div style={{ marginBottom: 6 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--high)", marginBottom: 3 }}>➖ 삭제된 문장</p>
+              {sentencesRemoved.map((s, i) => (
+                <p key={i} className="diffContent before" style={{ marginBottom: 2 }}>{s}</p>
+              ))}
+            </div>
+          )}
+          {sentencesAdded.length > 0 && (
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--tier-good)", marginBottom: 3 }}>➕ 추가된 문장</p>
+              {sentencesAdded.map((s, i) => (
+                <p key={i} className="diffContent after" style={{ marginBottom: 2 }}>{s}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {c.before && (
         <div className="diffBlock">
-          <p className="diffLabel">이전</p>
+          <p className="diffLabel">이전 (전체)</p>
           <p className="diffContent before">{c.before}</p>
         </div>
       )}
       {c.after && (
         <div className="diffBlock">
-          <p className="diffLabel">현재</p>
+          <p className="diffLabel">현재 (전체)</p>
           <p className="diffContent after">{c.after}</p>
         </div>
       )}
@@ -133,7 +158,8 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
       {Object.keys(ev).length > 0 && (
         <div className="evidenceGrid" style={{ marginTop: 8 }}>
           {Object.entries(ev)
-            .filter(([k]) => k !== "count_deltas" && !(hasKindLabel && (k === "kind" || k === "type")))
+            .filter(([k]) => k !== "count_deltas" && k !== "sentences_added" && k !== "sentences_removed"
+                           && !(hasKindLabel && (k === "kind" || k === "type")))
             .map(([k, v]) => (
               <>
                 <span key={k + "_k"} className="evidenceKey">{EVIDENCE_LABELS[k] || k}</span>
@@ -145,6 +171,7 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
     </div>
   );
 }
+
 
 function PageDrilldown({ page }: { page: PageDetail }) {
   const sections: [MetricTab, any][] = [
@@ -281,25 +308,29 @@ function MetricSection({
                     <p className="muted">변경 없음</p>
                   ) : (
                     <div className="changeGrid">
-                      {list.map((c, idx) => {
-                        const isOpen = idx === 0 || selectedChange?.id === c.id;
-                        return (
-                          <div key={c.id} id={`change-${c.id}`}>
-                            <button
-                              className={`changeCard ${selectedChange?.id === c.id ? "selected" : ""}`}
-                              onClick={() => setSelectedChange(selectedChange?.id === c.id ? null : c)}
-                            >
-                              <div className="changeCardTop">
-                                <span className={`badge ${levelClass(c.level)}`}>{levelKo(c.level)}</span>
-                                <span style={{ fontSize: 11, color: "var(--sec)" }}>{c.category} · {c.field}</span>
+                      {groupByUrl(list).map(({ url, items }) => (
+                        <div key={url} className="urlChangeGroup">
+                          <p className="urlChangeGroupHead" title={url}>{shortUrl(url)} <span>· {items.length}건</span></p>
+                          {items.map((c, idx) => {
+                            const isOpen = idx === 0 || selectedChange?.id === c.id;
+                            return (
+                              <div key={c.id} id={`change-${c.id}`}>
+                                <button
+                                  className={`changeCard ${selectedChange?.id === c.id ? "selected" : ""}`}
+                                  onClick={() => setSelectedChange(selectedChange?.id === c.id ? null : c)}
+                                >
+                                  <div className="changeCardTop">
+                                    <span className={`badge ${levelClass(c.level)}`}>{levelKo(c.level)}</span>
+                                    <span style={{ fontSize: 11, color: "var(--sec)" }}>{c.category} · {c.field}</span>
+                                  </div>
+                                  <p className="changeSum">{c.summary || "변경 내용"}</p>
+                                </button>
+                                {isOpen && <ChangeDrilldown change={c} />}
                               </div>
-                              <p className="changeSum">{c.summary || "변경 내용"}</p>
-                              <p className="changeUrl">{shortUrl(c.url)}</p>
-                            </button>
-                            {isOpen && <ChangeDrilldown change={c} />}
-                          </div>
-                        );
-                      })}
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
