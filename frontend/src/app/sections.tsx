@@ -476,17 +476,6 @@ export function PagesTab({
       .sort((a, b) => a.tier - b.tier);
   };
 
-  // Tier별 통계 + 간단 인사이트 (수집된 실제 값만 사용 — 지어내지 않음)
-  const tierStats = (site: SiteKey) =>
-    tierGroups(site).map(({ tier, pages: ps }) => {
-      const avgWords = ps.length ? Math.round(ps.reduce((a, p) => a + (p.word_count || 0), 0) / ps.length) : 0;
-      const thin = ps.filter((p) => (p.word_count || 0) < 150).length;
-      return {
-        tier, count: ps.length, avgWords, thin,
-        insight: `${ps.length}개 페이지 · 평균 ${avgWords}단어${thin > 0 ? ` · 빈약 콘텐츠 ${thin}개` : ""}`,
-      };
-    });
-
   // Apple/Samsung 요약 통계 — '전체'면 DATA·COPY·VISUAL 세 지표를 각각의 facts에서 모아 병합
   const avgFor = (site: SiteKey): ReturnType<typeof metricAverage> => {
     if (metricTab === "all") {
@@ -522,13 +511,26 @@ export function PagesTab({
     return out;
   };
 
-  // 페이지 목록이 준비되면 대표 1개(첫 페이지)를 자동 선택해 상세 근거를 바로 펼쳐서 보여줌
+  // 대표 페이지 선정: ①이 탭에서 High 변화가 있던 페이지 > ②변화가 있던 페이지 > ③첫 페이지(변화 자체가 없을 때)
+  const representative = useMemo(() => {
+    const pool = metricTab === "all" ? allChanges : allChanges.filter((c) => bucketOf(c) === metricTab);
+    const high = pool.find((c) => c.level === "High");
+    if (high) return { url: high.url, reason: "이 영역에서 가장 심각한(High) 변화가 있던 페이지" };
+    if (pool[0]) return { url: pool[0].url, reason: "이 영역에서 변화가 감지된 페이지" };
+    if (pageRows[0]) return { url: pageRows[0].url, reason: "변화가 없어 첫 페이지를 표시" };
+    return null;
+  }, [metricTab, allChanges, pageRows]);
+
+  // 사용자가 직접 페이지를 클릭하면 자동 추천을 멈추고 그 선택을 존중
+  const [autoMode, setAutoMode] = useState(true);
+  const pick = (url: string) => { setAutoMode(false); onPick(url); };
+
   useEffect(() => {
-    if (!selectedUrl && pageRows.length > 0) {
-      onPick(pageRows[0].url);
+    if (autoMode && representative && representative.url !== selectedUrl) {
+      onPick(representative.url);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageRows, selectedUrl]);
+  }, [representative, autoMode]);
 
   return (
     <div className="panelStack">
@@ -566,35 +568,58 @@ export function PagesTab({
         </div>
       </div>
 
-      {/* ② 분량 인사이트 — Tier별 평균 + 최다/최소/빈약 페이지 (관점이 겹쳐서 하나로 통합) */}
+      {/* ② 핵심 인사이트 — 대표 페이지의 DATA/COPY/VISUAL 실제 분석 근거 (최우선 노출) */}
       <div className="card">
-        <p className="cardTitle">분량 인사이트</p>
-        <div className="siteSplit">
-          {(["apple", "samsung"] as SiteKey[]).map((site) => (
-            <div key={site}>
-              <p className="siteSplitHead">
-                <span className={`badge ${site}`}>{siteName(site)}</span>
-              </p>
-              {pageInsights(site).map((ins, i) => (
-                <div className="findingRow" key={"pi" + i}>
-                  <span className={`badge ${ins.cls}`}>{ins.label}</span>
-                  <span className="findingText">{ins.text}</span>
+        <p className="cardTitle">
+          핵심 인사이트 — 대표 페이지: {selectedPage ? shortUrl(selectedPage.url) : ""}
+        </p>
+        {representative && (
+          <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>
+            선정 이유: {representative.reason}{!autoMode && " (수동 선택됨 — 다른 페이지를 골랐습니다)"}
+          </p>
+        )}
+        {loadingPage && <p className="muted">불러오는 중…</p>}
+        {!loadingPage && !selectedPage && <p className="muted">대표 페이지를 불러오는 중입니다.</p>}
+        {!loadingPage && selectedPage && (
+          <div>
+            {(metricTab === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [metricTab]).map((m) => {
+              const lines = (selectedPage[m]?.narrative || []).slice(0, 2);
+              if (lines.length === 0) return null;
+              return (
+                <div key={m} style={{ marginBottom: 10 }}>
+                  <p className="siteSplitHead" style={{ marginBottom: 4 }}>
+                    <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
+                  </p>
+                  <FindingList metric={m} lines={lines} />
                 </div>
-              ))}
-              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line)" }}>
-                {tierStats(site).map((s) => (
-                  <div key={s.tier} className="tierStatRow">
-                    <span className="tierStatLabel">{TIER_META[s.tier]?.label || `Tier ${s.tier}`}</span>
-                    <span className="tierStatInsight">{s.insight}</span>
-                  </div>
-                ))}
+              );
+            })}
+            <p className="muted" style={{ marginTop: 4 }}>전체 근거는 아래 "선택 페이지 상세 근거"에서 확인하세요.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ③ 분량 인사이트 — 사이트별 한 줄로 간략하게 */}
+      <div className="card">
+        <p className="cardTitle">분량 인사이트 (요약)</p>
+        <div className="siteSplit">
+          {(["apple", "samsung"] as SiteKey[]).map((site) => {
+            const ins = pageInsights(site);
+            return (
+              <div key={site}>
+                <p className="siteSplitHead">
+                  <span className={`badge ${site}`}>{siteName(site)}</span>
+                </p>
+                <p className="findingText" style={{ fontSize: 12 }}>
+                  {ins.map((x) => `${x.label} ${x.text}`).join(" · ")}
+                </p>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* ③ 페이지 목록 — Tier별로 그룹핑, 하단에 Tier 기준 설명 각주로 통합 */}
+      {/* ④ 페이지 목록 — Tier별로 그룹핑, 하단에 Tier 기준 설명 각주로 통합 */}
       <div className="card">
         <p className="cardTitle">페이지별 목록 ({pageRows.length}개) — Tier별 그룹</p>
         {[0, 1, 2, 3, 4].map((tier) => {
@@ -614,7 +639,7 @@ export function PagesTab({
                   <button
                     key={p.url}
                     className={`pageRow ${selectedUrl === p.url ? "selected" : ""}`}
-                    onClick={() => onPick(p.url)}
+                    onClick={() => pick(p.url)}
                   >
                     <span>
                       <span className={`badge ${p.site}`} style={{ fontSize: 10 }}>
