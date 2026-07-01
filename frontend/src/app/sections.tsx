@@ -323,12 +323,13 @@ export function Overview({
   onOpenDrawer: (id: string) => void;
   onJumpToMetric: (m: MetricTab, change?: Change) => void;
 }) {
-  const high = allChanges.filter((c) => c.level === "High").length;
-  const apple = allChanges.filter((c) => c.site === "apple").length;
-  const samsung = allChanges.filter((c) => c.site === "samsung").length;
-  // '전체요약' 탭이면 전체 기준, 특정 지표 탭이면 그 지표 안에서만 — High가 없으면 그 다음으로 심각한 등급을 보여줌
-  const highSource = metricTab === "all" ? allChanges : changes;
-  const topSev = topSeverityChanges(highSource, 3);
+  // 통계 범위: '전체요약'이면 전체 changes, DATA/COPY/VISUAL 탭이면 그 영역 changes만 집계
+  const scopedChanges = metricTab === "all" ? allChanges : changes;
+  const high = scopedChanges.filter((c) => c.level === "High").length;
+  const apple = scopedChanges.filter((c) => c.site === "apple").length;
+  const samsung = scopedChanges.filter((c) => c.site === "samsung").length;
+  // High가 없으면 그 다음으로 심각한 등급을 보여줌 (범위는 위 scopedChanges와 동일)
+  const topSev = topSeverityChanges(scopedChanges, 3);
   const highChanges = topSev?.changes || [];
   const [urlFilter, setUrlFilter] = useState<string | null>(null);
   const displayedChanges = urlFilter ? changes.filter((c) => c.url === urlFilter) : changes;
@@ -350,13 +351,17 @@ export function Overview({
 
   return (
     <div className="panelStack">
-      {/* ① 전체 요약 카드 — 변화 N건 + High 변화 액션 제시 (항상 전체 기준, 탭과 무관) */}
+      {/* ① 전체 요약 카드 — 변화 N건 + High 변화 액션 제시 (탭 범위에 맞는 건수) */}
       <div className="summaryCard">
         <div className="summaryTop">
           <div className="summaryText">
             <p className="summaryEyebrow">{report?.timestamp || "최근 수집 없음"}</p>
             <h1 className="summaryH1">
-              {report ? (allChanges.length > 0 ? `변화 ${allChanges.length}건 감지` : "변화 없음 — 현행 유지") : "수집 데이터 없음"}
+              {report
+                ? (scopedChanges.length > 0
+                    ? `${metricTab === "all" ? "전체" : METRICS[metricTab].label} 변화 ${scopedChanges.length}건 감지`
+                    : "변화 없음 — 현행 유지")
+                : "수집 데이터 없음"}
             </h1>
             <p className="summaryDesc">
               {metricTab === "all"
@@ -365,7 +370,7 @@ export function Overview({
             </p>
           </div>
           <div className="statsRow">
-            <Stat label="전체 변경" value={allChanges.length} />
+            <Stat label={metricTab === "all" ? "전체 변경" : `${METRICS[metricTab].label} 변경`} value={scopedChanges.length} />
             <Stat label="높음" value={high} tone="red" />
             <Stat label="Apple" value={apple} />
             <Stat label="Samsung" value={samsung} tone="blue" />
