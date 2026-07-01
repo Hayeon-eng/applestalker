@@ -613,10 +613,13 @@ export function PagesTab({
         </div>
       </div>
 
-      {/* ② 핵심 인사이트 — 대표 페이지의 DATA/COPY/VISUAL 실제 분석 근거 (최우선 노출) */}
+      {/* ② 대표 페이지 상세 근거 — '핵심 인사이트'(요약) + '선택 페이지 상세 근거'(전체)를 하나로 합쳐 상단에 배치 (중복 제거) */}
       <div className="card">
         <p className="cardTitle">
-          핵심 인사이트 — 대표 페이지: {selectedPage ? shortUrl(selectedPage.url) : ""}
+          대표 페이지 상세 근거 — {selectedPage ? shortUrl(selectedPage.url) : ""} &nbsp;
+          <button style={{ fontSize: 11, color: "var(--blue)", fontWeight: 400 }} onClick={() => onOpenDrawer()}>
+            분석 기준 보기 ↗
+          </button>
         </p>
         {representative && (
           <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>
@@ -624,24 +627,10 @@ export function PagesTab({
           </p>
         )}
         {loadingPage && <p className="muted">불러오는 중…</p>}
-        {!loadingPage && !selectedPage && <p className="muted">대표 페이지를 불러오는 중입니다.</p>}
-        {!loadingPage && selectedPage && (
-          <div>
-            {(metricTab === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [metricTab]).map((m) => {
-              const lines = (selectedPage[m]?.narrative || []).slice(0, 2);
-              if (lines.length === 0) return null;
-              return (
-                <div key={m} style={{ marginBottom: 10 }}>
-                  <p className="siteSplitHead" style={{ marginBottom: 4 }}>
-                    <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
-                  </p>
-                  <FindingList metric={m} lines={lines} />
-                </div>
-              );
-            })}
-            <p className="muted" style={{ marginTop: 4 }}>전체 근거는 아래 "선택 페이지 상세 근거"에서 확인하세요.</p>
-          </div>
+        {!loadingPage && !selectedPage && (
+          <p className="muted">위 목록에서 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>
         )}
+        {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} />}
       </div>
 
       {/* ③ 분량 인사이트 — 사이트별 한 줄로 간략하게 */}
@@ -716,21 +705,6 @@ export function PagesTab({
             ))}
           </div>
         </details>
-      </div>
-
-      {/* ④ 선택 페이지 상세 — 대표 1개가 자동 선택되어 기본적으로 펼쳐진 상태 (성격이 달라 별도 유지) */}
-      <div className="card">
-        <p className="cardTitle">
-          선택 페이지 상세 근거 &nbsp;
-          <button style={{ fontSize: 11, color: "var(--blue)", fontWeight: 400 }} onClick={() => onOpenDrawer()}>
-            분석 기준 보기 ↗
-          </button>
-        </p>
-        {loadingPage && <p className="muted">불러오는 중…</p>}
-        {!loadingPage && !selectedPage && (
-          <p className="muted">위 목록에서 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>
-        )}
-        {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} />}
       </div>
     </div>
   );
@@ -809,4 +783,3 @@ export function CriteriaDrawer({
     </>
   );
 }
-
