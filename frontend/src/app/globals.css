@@ -215,6 +215,37 @@ input, select { font-family: inherit; }
 .badge.good { background: var(--tier-good-soft); color: var(--tier-good); }
 .badge.mid { background: var(--tier-mid-soft); color: var(--tier-mid); }
 .badge.bad { background: var(--tier-bad-soft); color: var(--tier-bad); }
+.badge.c1 { background: #F1E9FE; color: #6D28D9; }
+.badge.c2 { background: #E6FFFB; color: #0F766E; }
+.badge.c3 { background: #FCE7F3; color: #BE185D; }
+.badge.c4 { background: #E0F2FE; color: #0369A1; }
+.badge.c5 { background: #FFEDD5; color: #C2410C; }
+.badge.c6 { background: #F1F3F7; color: #374151; }
+
+/* ── 세부 항목 뱃지가 붙은 finding 줄 ── */
+.findingRow { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.findingRow:last-child { border-bottom: none; }
+.findingRow .badge { flex-shrink: 0; margin-top: 1px; white-space: nowrap; }
+.findingRow .findingText { font-size: 12.5px; color: var(--label2); line-height: 1.6; }
+
+/* ── 용어 설명(글로서리) 토글 ── */
+.termToggle { font-size: 10.5px; color: var(--blue); margin-left: 5px; font-weight: 600; }
+.termToggle:hover { text-decoration: underline; }
+.termDetail { font-size: 11.5px; color: var(--sec); background: var(--bg); border-radius: 8px;
+  padding: 8px 10px; margin-top: 5px; line-height: 1.6; }
+
+/* ── Apple(좌) / Samsung(우) 2열 ── */
+.siteSplit { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.siteSplitHead { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 13px; font-weight: 700; }
+
+/* ── Tier 요약 ── */
+.tierRow { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tierRow:last-child { border-bottom: none; }
+.tierRowHead { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; margin-bottom: 4px; }
+.tierRowDesc { font-size: 11px; color: var(--sec); font-weight: 500; }
+.tierPageList { font-size: 11.5px; color: var(--label2); line-height: 1.7; }
+.tierPageChip { display: inline-block; background: var(--bg); border-radius: 6px; padding: 2px 7px;
+  margin: 2px 4px 2px 0; font-size: 10.5px; color: var(--label2); }
 
 /* ── details 드릴다운 */
 .drilldown { margin-top: 12px; padding: 14px 16px; background: var(--bg); border-radius: 12px; }
@@ -317,6 +348,10 @@ input, select { font-family: inherit; }
 .landingCard { background: var(--surface); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow-sm); }
 .landingCardTitle { font-size: 13px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .landingCardBody { font-size: 12.5px; color: var(--label2); line-height: 1.6; }
+.landingFactList { list-style: none; font-size: 12.5px; color: var(--label2); line-height: 1.5; display: flex; flex-direction: column; gap: 7px; }
+.landingFactList li { border-bottom: 1px solid var(--line); padding-bottom: 7px; }
+.landingFactList li:last-child { border-bottom: none; padding-bottom: 0; }
+.landingFactList b { color: var(--label); font-weight: 700; margin-right: 4px; }
 .landingCTA { margin-top: 40px; display: inline-flex; align-items: center; gap: 8px;
   background: var(--blue); color: #fff; font-size: 14px; font-weight: 700;
   padding: 13px 28px; border-radius: 14px; box-shadow: var(--shadow); }
