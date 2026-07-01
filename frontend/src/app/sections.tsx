@@ -66,7 +66,18 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: "re
   );
 }
 
+const EVIDENCE_LABELS: Record<string, string> = {
+  kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
+  phash_before: "이전 이미지 해시", phash_after: "이후 이미지 해시", sentences_added: "추가된 문장",
+};
+const EVIDENCE_KIND_LABELS: Record<string, string> = {
+  schema_added: "스키마 추가됨", schema_removed: "스키마 제거됨",
+};
+
 function ChangeDrilldown({ change: c }: { change: Change }) {
+  const ev = c.evidence || {};
+  const isDomHashOnly = "dom_hash_before" in ev && !("kind" in ev);
+  const hasKindLabel = !!(ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string]);
   return (
     <div className="drilldown">
       <h3>상세 근거</h3>
@@ -87,14 +98,28 @@ function ChangeDrilldown({ change: c }: { change: Change }) {
           <p className="diffContent after">{c.after}</p>
         </div>
       )}
-      {c.evidence && Object.keys(c.evidence).length > 0 && (
+      {ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string] && (
+        <p style={{ marginTop: 8, fontSize: 12.5, fontWeight: 600 }}>
+          {EVIDENCE_KIND_LABELS[ev.kind as string]}{ev.type ? ` — ${ev.type}` : ""}
+        </p>
+      )}
+      {isDomHashOnly && (
+        <p className="termDetail" style={{ marginTop: 8 }}>
+          이 변화는 페이지 구조를 해시값으로만 비교해 감지했습니다. 값이 달라졌다는 것만 알 수 있고,
+          구체적으로 어떤 요소가 추가·삭제·이동됐는지는 현재 저장돼 있지 않습니다.
+          더 상세한 구조 diff가 필요하면 백엔드에 구조 비교 로직 보강이 필요합니다.
+        </p>
+      )}
+      {Object.keys(ev).length > 0 && (
         <div className="evidenceGrid" style={{ marginTop: 8 }}>
-          {Object.entries(c.evidence).map(([k, v]) => (
-            <>
-              <span key={k + "_k"} className="evidenceKey">{k}</span>
-              <span key={k + "_v"} className="evidenceVal">{String(v)}</span>
-            </>
-          ))}
+          {Object.entries(ev)
+            .filter(([k]) => !(hasKindLabel && (k === "kind" || k === "type")))
+            .map(([k, v]) => (
+              <>
+                <span key={k + "_k"} className="evidenceKey">{EVIDENCE_LABELS[k] || k}</span>
+                <span key={k + "_v"} className="evidenceVal">{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+              </>
+            ))}
         </div>
       )}
     </div>
@@ -172,11 +197,11 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
 /* ── 한 메트릭(DATA/COPY/VISUAL)의 [분석기준 → 현황요약 → 변경점목록] 3장 세트.
    단일 메트릭 탭에서도, '전체요약' 탭에서 3번 반복할 때도 이 컴포넌트 하나로 재사용 ── */
 function MetricSection({
-  metric, changes, siteBlocks, selectedChange, setSelectedChange, onOpenDrawer, showHeading,
+  metric, changes, siteBlocks, selectedChange, setSelectedChange, showHeading, urlFilter, onClearUrlFilter,
 }: {
   metric: MetricTab; changes: Change[]; siteBlocks: Record<string, AnalysisBlock>;
   selectedChange: Change | null; setSelectedChange: (c: Change | null) => void;
-  onOpenDrawer: (id: string) => void; showHeading?: boolean;
+  showHeading?: boolean; urlFilter?: string | null; onClearUrlFilter?: () => void;
 }) {
   const changesBySite = (site: SiteKey) => changes.filter((c) => c.site === site);
   return (
@@ -188,27 +213,6 @@ function MetricSection({
           </span>
         </p>
       )}
-
-      {/* 분석 기준 */}
-      <div className="card">
-        <p className="cardTitle">
-          분석 기준 — {METRICS[metric].label} &nbsp;
-          <button style={{ fontSize: 11, color: "var(--blue)", fontWeight: 400 }} onClick={() => onOpenDrawer(METRICS[metric].criteriaId)}>
-            전체 보기(용어 설명 포함) ↗
-          </button>
-        </p>
-        <div className="grid2">
-          {CRITERIA.find((c) => c.id === METRICS[metric].criteriaId)?.items.slice(0, 4).map((item) => (
-            <div key={item.q} className="catLine">
-              <p className="catLineHead" style={{ fontSize: 12 }}>
-                {item.q}
-                {item.scoring === "weighted" && <span className="badge c2" style={{ marginLeft: 6 }}>⚖️ 가중합산</span>}
-              </p>
-              <p className="catLineBody">{item.a}</p>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* 현황 요약 — 변경 유무 관계없는 현재 상태 (Apple 좌 / Samsung 우) */}
       <div className="card">
@@ -231,8 +235,16 @@ function MetricSection({
       </div>
 
       {/* 변경점 목록 (Apple 좌 / Samsung 우) */}
-      <div className="card">
-        <p className="cardTitle">변경점 목록 — {METRICS[metric].label} ({changes.length}건)</p>
+      <div className="card" id="change-list-section">
+        <p className="cardTitle">
+          변경점 목록 — {METRICS[metric].label} ({changes.length}건)
+          {urlFilter && (
+            <span className="urlFilterTag">
+              🔎 {shortUrl(urlFilter)}만 보기
+              <button onClick={onClearUrlFilter}>필터 해제 ×</button>
+            </span>
+          )}
+        </p>
         {changes.length === 0 ? (
           <p className="muted">이 영역에서 변경된 항목이 없습니다. 위 현황 요약에서 현재 상태를 확인하세요.</p>
         ) : (
@@ -252,7 +264,7 @@ function MetricSection({
                       {list.map((c, idx) => {
                         const isOpen = idx === 0 || selectedChange?.id === c.id;
                         return (
-                          <div key={c.id}>
+                          <div key={c.id} id={`change-${c.id}`}>
                             <button
                               className={`changeCard ${selectedChange?.id === c.id ? "selected" : ""}`}
                               onClick={() => setSelectedChange(selectedChange?.id === c.id ? null : c)}
@@ -294,9 +306,26 @@ export function Overview({
   const high = allChanges.filter((c) => c.level === "High").length;
   const apple = allChanges.filter((c) => c.site === "apple").length;
   const samsung = allChanges.filter((c) => c.site === "samsung").length;
-  const highChanges = allChanges.filter((c) => c.level === "High").slice(0, 3);
-  const appleN = new Set(allChanges.filter((c) => c.site === "apple").map((c) => c.url)).size;
-  const samsungN = new Set(allChanges.filter((c) => c.site === "samsung").map((c) => c.url)).size;
+  // '전체요약' 탭이면 전체 기준 Top3, 특정 지표 탭이면 그 지표 안에서만 Top3 (탭마다 다른 항목이 보여야 함)
+  const highSource = metricTab === "all" ? allChanges : changes;
+  const highChanges = highSource.filter((c) => c.level === "High").slice(0, 3);
+  const [urlFilter, setUrlFilter] = useState<string | null>(null);
+  const displayedChanges = urlFilter ? changes.filter((c) => c.url === urlFilter) : changes;
+
+  // 상세보기 클릭 → 탭 이동 후, 해당 변경점 카드로 자동 스크롤
+  useEffect(() => {
+    if (!selectedChange) return;
+    const el = document.getElementById(`change-${selectedChange.id}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [selectedChange, metricTab]);
+
+  // URL 목록에서 특정 URL 클릭 → 그 URL의 변경점만 필터링 + 변경점목록으로 스크롤
+  const filterByUrl = (url: string) => {
+    setUrlFilter((prev) => (prev === url ? null : url));
+    setTimeout(() => {
+      document.getElementById("change-list-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
 
   return (
     <div className="panelStack">
@@ -339,26 +368,6 @@ export function Overview({
             ))}
           </div>
         )}
-
-        {/* SEVERITY 범례 */}
-        <div className="severityLegend">
-          <p className="severityLegendTitle">
-            중요도 기준 &nbsp;
-            <button style={{ fontSize: 11, color: "var(--blue)" }} onClick={() => onOpenDrawer("severity")}>
-              자세히 ↗
-            </button>
-          </p>
-          {[
-            ["high", "높음", "Schema·DOM·가격·여러 섹션 동시 변화. AI 검색 노출에 직접 영향"],
-            ["med", "보통", "문장·슬로건·메뉴·meta·FAQ 변화. 의미 해석에 영향"],
-            ["low", "낮음", "단어 몇 개·오타·작은 이미지 변화. 영향 제한적"],
-          ].map(([cls, label, desc]) => (
-            <div key={cls} className="sevRow">
-              <span className={`sevBadge ${cls}`}>{label}</span>
-              <span className="sevDesc">{desc}</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* ② '전체요약'이면 DATA/COPY/VISUAL 축약카드(클릭→해당 탭 상세로 이동, 정보 중복 없음)
@@ -381,17 +390,19 @@ export function Overview({
       ) : (
         <MetricSection
           metric={metricTab}
-          changes={changes}
+          changes={displayedChanges}
           siteBlocks={dcv?.[metricTab] || {}}
           selectedChange={selectedChange}
           setSelectedChange={setSelectedChange}
-          onOpenDrawer={onOpenDrawer}
+          urlFilter={urlFilter}
+          onClearUrlFilter={() => setUrlFilter(null)}
         />
       )}
 
-      {/* URL 전체 목록 */}
+      {/* URL 전체 목록 — 상세보기가 있는 DATA/COPY/VISUAL 탭에만 노출 (전체요약엔 없음) */}
+      {metricTab !== "all" && (
       <div className="card">
-        <p className="cardTitle">모니터링 URL 목록 ({totalUrls}개)</p>
+        <p className="cardTitle">모니터링 URL 목록 ({totalUrls}개) — 행 클릭 시 그 URL의 변경점만 필터링</p>
         <div className="urlSearchRow">
           <input
             className="urlSearch"
@@ -405,17 +416,22 @@ export function Overview({
             <span>구분</span><span>Tier</span><span>URL</span><span />
           </div>
           {urls.map((u) => (
-            <div className="urlRow" key={(u.site_key || "") + u.url}>
+            <button
+              key={(u.site_key || "") + u.url}
+              className={`urlRow ${urlFilter === u.url ? "active" : ""}`}
+              onClick={() => filterByUrl(u.url)}
+            >
               <span className={`badge ${siteClass(u.site_key)}`} style={{ fontSize: 10 }}>
                 {u.site_key === "apple" ? "Apple" : "Samsung"}
               </span>
               <span>{u.tier_level ?? "-"}</span>
-              <a href={u.url} target="_blank" rel="noreferrer">{u.url}</a>
-              <span />
-            </div>
+              <span className="urlRowUrl">{u.url}</span>
+              <a href={u.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title="실제 페이지 열기">↗</a>
+            </button>
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -484,6 +500,28 @@ export function PagesTab({
   const avgApple = avgFor("apple");
   const avgSamsung = avgFor("samsung");
 
+  // 페이지별 분석 탭 고유의 인사이트 — Overview의 '현황요약' 문장과 겹치지 않게,
+  // 이 탭에서만 볼 수 있는 '페이지 단위' 관점(분량 최다/최소, 빈약 콘텐츠 목록)으로 구성
+  const pageInsights = (site: SiteKey) => {
+    const list = pages[site];
+    if (list.length === 0) return [];
+    const sorted = [...list].sort((a, b) => (b.word_count || 0) - (a.word_count || 0));
+    const longest = sorted[0];
+    const shortest = sorted[sorted.length - 1];
+    const thin = list.filter((p) => (p.word_count || 0) < 150);
+    const out = [
+      { label: "최다 분량", cls: "c2", text: `${longest.title || shortUrl(longest.url)} — ${longest.word_count || 0}단어` },
+      { label: "최소 분량", cls: "c5", text: `${shortest.title || shortUrl(shortest.url)} — ${shortest.word_count || 0}단어` },
+    ];
+    if (thin.length > 0) {
+      out.push({
+        label: "빈약 콘텐츠", cls: "c3",
+        text: `${thin.length}개 (150단어 미만) — ${thin.slice(0, 3).map((p) => p.title || shortUrl(p.url)).join(", ")}${thin.length > 3 ? " 등" : ""}`,
+      });
+    }
+    return out;
+  };
+
   // 페이지 목록이 준비되면 대표 1개(첫 페이지)를 자동 선택해 상세 근거를 바로 펼쳐서 보여줌
   useEffect(() => {
     if (!selectedUrl && pageRows.length > 0) {
@@ -494,7 +532,7 @@ export function PagesTab({
 
   return (
     <div className="panelStack">
-      {/* 요약 카드 — Apple / Samsung 전체 요약 + 인사이트 한줄 + Tier별 통계 */}
+      {/* ① 요약 카드 — 제목 + 지표별 한줄 인사이트 + Apple/Samsung 통계 (하나로 통합) */}
       <div className="summaryCard">
         <div className="summaryTop">
           <div className="summaryText">
@@ -510,7 +548,7 @@ export function PagesTab({
           </div>
         </div>
 
-        {/* '전체'면 DATA/COPY/VISUAL 각각의 한줄 인사이트(클릭 가능한 안내), 특정 지표면 그 지표 한줄만 */}
+        {/* '전체'면 DATA/COPY/VISUAL 각각의 한줄 인사이트, 특정 지표면 그 지표 한줄만 */}
         <div className="severityLegend">
           {(metricTab === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [metricTab]).map((m) => (
             <div key={m} className="sevRow">
@@ -522,98 +560,95 @@ export function PagesTab({
           ))}
         </div>
 
-        <div className="avgGrid" style={{ marginTop: 14 }}>
+        <div className="avgGrid" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
           <AverageBox title="Apple 경쟁사" site="apple" data={avgApple} metric={metricTab} />
           <AverageBox title="Samsung 당사" site="samsung" data={avgSamsung} metric={metricTab} />
         </div>
-        <div className="siteSplit" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-          {(["apple", "samsung"] as SiteKey[]).map((site) => (
-            <div key={site}>
-              <p className="siteSplitHead">
-                <span className={`badge ${site}`}>{siteName(site)}</span>
-                <span style={{ fontSize: 11, color: "var(--sec)", fontWeight: 400 }}>Tier별 통계</span>
-              </p>
-              {tierStats(site).map((s) => (
-                <div key={s.tier} className="tierStatRow">
-                  <span className="tierStatLabel">{TIER_META[s.tier]?.label || `Tier ${s.tier}`}</span>
-                  <span className="tierStatInsight">{s.insight}</span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* 페이지 목록 */}
+      {/* ② 분량 인사이트 — Tier별 평균 + 최다/최소/빈약 페이지 (관점이 겹쳐서 하나로 통합) */}
       <div className="card">
-        <p className="cardTitle">페이지별 목록 ({pageRows.length}개)</p>
-        <div className="pageTable">
-          <div className="pageRow head">
-            <span>구분</span><span>Tier</span><span>단어 수</span><span>페이지</span>
-          </div>
-          {pageRows.map((p) => (
-            <button
-              key={p.url}
-              className={`pageRow ${selectedUrl === p.url ? "selected" : ""}`}
-              onClick={() => onPick(p.url)}
-            >
-              <span>
-                <span className={`badge ${p.site}`} style={{ fontSize: 10 }}>
-                  {p.site === "samsung" ? "Samsung" : "Apple"}
-                </span>
-              </span>
-              <span>Tier {tierOf(p.url)}</span>
-              <span>{p.word_count || 0}</span>
-              <span>
-                {p.title || shortUrl(p.url)}
-                <small>{shortUrl(p.url)}</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tier(0~4) 별 요약 — 어떤 페이지가 어느 Tier에 포함되는지 위주 (선택 페이지 상세 바로 위) */}
-      <div className="card">
-        <p className="cardTitle">Tier별 요약 — 이 Tier에 포함된 페이지</p>
+        <p className="cardTitle">분량 인사이트</p>
         <div className="siteSplit">
           {(["apple", "samsung"] as SiteKey[]).map((site) => (
             <div key={site}>
               <p className="siteSplitHead">
                 <span className={`badge ${site}`}>{siteName(site)}</span>
               </p>
-              {tierGroups(site).map(({ tier, pages: ps }) => (
-                <div key={tier} className="tierRow">
-                  <p className="tierRowHead">
-                    {TIER_META[tier]?.label || `Tier ${tier}`}
-                    <span className="tierRowDesc">{TIER_META[tier]?.desc} · {ps.length}개</span>
-                  </p>
-                  <p className="tierPageList">
-                    {ps.map((p) => (
-                      <span key={p.url} className="tierPageChip" title={p.url}>
-                        {p.title || shortUrl(p.url)}
-                      </span>
-                    ))}
-                  </p>
+              {pageInsights(site).map((ins, i) => (
+                <div className="findingRow" key={"pi" + i}>
+                  <span className={`badge ${ins.cls}`}>{ins.label}</span>
+                  <span className="findingText">{ins.text}</span>
                 </div>
               ))}
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line)" }}>
+                {tierStats(site).map((s) => (
+                  <div key={s.tier} className="tierStatRow">
+                    <span className="tierStatLabel">{TIER_META[s.tier]?.label || `Tier ${s.tier}`}</span>
+                    <span className="tierStatInsight">{s.insight}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Tier 기준 설명 */}
+      {/* ③ 페이지 목록 — Tier별로 그룹핑, 하단에 Tier 기준 설명 각주로 통합 */}
       <div className="card">
-        <p className="cardTitle">Tier 기준 설명</p>
-        {Object.entries(TIER_META).map(([t, meta]) => (
-          <div key={t} className="catLine">
-            <p className="catLineHead" style={{ fontSize: 12 }}>{meta.label}</p>
-            <p className="catLineBody">{meta.desc}</p>
+        <p className="cardTitle">페이지별 목록 ({pageRows.length}개) — Tier별 그룹</p>
+        {[0, 1, 2, 3, 4].map((tier) => {
+          const rows = pageRows.filter((p) => tierOf(p.url) === tier);
+          if (rows.length === 0) return null;
+          return (
+            <div key={tier} style={{ marginBottom: 14 }}>
+              <p className="tierRowHead" style={{ marginBottom: 4 }}>
+                {TIER_META[tier]?.label || `Tier ${tier}`}
+                <span className="tierRowDesc">{TIER_META[tier]?.desc} · {rows.length}개</span>
+              </p>
+              <div className="pageTable">
+                <div className="pageRow head">
+                  <span>구분</span><span>Tier</span><span>단어 수</span><span>페이지</span>
+                </div>
+                {rows.map((p) => (
+                  <button
+                    key={p.url}
+                    className={`pageRow ${selectedUrl === p.url ? "selected" : ""}`}
+                    onClick={() => onPick(p.url)}
+                  >
+                    <span>
+                      <span className={`badge ${p.site}`} style={{ fontSize: 10 }}>
+                        {p.site === "samsung" ? "Samsung" : "Apple"}
+                      </span>
+                    </span>
+                    <span>Tier {tier}</span>
+                    <span>{p.word_count || 0}</span>
+                    <span>
+                      {p.title || shortUrl(p.url)}
+                      <small>{shortUrl(p.url)}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        <details style={{ marginTop: 4 }}>
+          <summary style={{ fontSize: 11.5, color: "var(--blue)", fontWeight: 600, cursor: "pointer" }}>
+            Tier 기준 설명 보기
+          </summary>
+          <div style={{ marginTop: 8 }}>
+            {Object.entries(TIER_META).map(([t, meta]) => (
+              <div key={t} className="catLine">
+                <p className="catLineHead" style={{ fontSize: 12 }}>{meta.label}</p>
+                <p className="catLineBody">{meta.desc}</p>
+              </div>
+            ))}
           </div>
-        ))}
+        </details>
       </div>
 
-      {/* 선택 페이지 상세 — 대표 1개가 자동 선택되어 기본적으로 펼쳐진 상태 */}
+      {/* ④ 선택 페이지 상세 — 대표 1개가 자동 선택되어 기본적으로 펼쳐진 상태 (성격이 달라 별도 유지) */}
       <div className="card">
         <p className="cardTitle">
           선택 페이지 상세 근거 &nbsp;

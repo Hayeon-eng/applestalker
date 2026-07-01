@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View, MainTab, MetricTab, MetricView, SiteKey, CrawlProgress, Change, Report, Session,
   PageLite, PageDetail, UrlRow,
-  METRICS, siteName, siteClass, shortUrl, bucketOf, captureScreen,
+  METRICS, CRITERIA, siteName, siteClass, shortUrl, bucketOf, captureScreen,
 } from "./shared";
 import { Landing, Overview, PagesTab, CriteriaDrawer } from "./sections";
 
@@ -16,7 +16,7 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace
 export default function Page() {
   const [view, setView] = useState<View>("home");
   const [mainTab, setMainTab] = useState<MainTab>("overview");
-  const [metricTab, setMetricTab] = useState<MetricView>("data");
+  const [metricTab, setMetricTab] = useState<MetricView>("all");
   const [online, setOnline] = useState<boolean | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [runs, setRuns] = useState<Session[]>([]);
@@ -256,6 +256,38 @@ export default function Page() {
               </div>
             );
           })}
+
+          <div className="sideLabel" style={{ marginTop: 8 }}>중요도 기준</div>
+          <div className="sideSeverity">
+            {[
+              ["high", "높음", "Schema·DOM·가격·여러 섹션 동시 변화"],
+              ["med", "보통", "문장·슬로건·메뉴·meta·FAQ 변화"],
+              ["low", "낮음", "단어 몇 개·오타·작은 이미지 변화"],
+            ].map(([cls, label, desc]) => (
+              <div key={cls} className="sideSevRow">
+                <span className={`sevBadge ${cls}`}>{label}</span>
+                <span className="sideSevDesc">{desc}</span>
+              </div>
+            ))}
+            <button className="sideSevMore" onClick={() => openDrawer("severity")}>자세히 ↗</button>
+          </div>
+
+          {metricTab !== "all" && (
+            <>
+              <div className="sideLabel" style={{ marginTop: 8 }}>분석 기준 — {METRICS[effectiveMetric].label}</div>
+              <div className="sideSeverity">
+                {CRITERIA.find((c) => c.id === METRICS[effectiveMetric].criteriaId)?.items.slice(0, 4).map((item) => (
+                  <div key={item.q} className="sideCriteriaRow">
+                    <p className="sideCriteriaQ">{item.q}</p>
+                    <p className="sideSevDesc">{item.a}</p>
+                  </div>
+                ))}
+                <button className="sideSevMore" onClick={() => openDrawer(METRICS[effectiveMetric].criteriaId)}>
+                  전체 보기(용어 설명 포함) ↗
+                </button>
+              </div>
+            </>
+          )}
 
           <div className="sideLabel" style={{ marginTop: 8 }}>URL 관리</div>
           <button className="runItem" onClick={() => setShowUrlAdd((v) => !v)}>
