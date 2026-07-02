@@ -462,7 +462,7 @@ def page_detail(url: str = Query(...)):
     """
     rows = q("SELECT title,h1,meta_description,canonical_url,body_content,word_count,"
              "raw_h2,raw_h3,raw_structured_data,raw_faqs,raw_images,raw_navigation,"
-             "raw_ctas,crawled_at FROM page_snapshots WHERE url=:u "
+             "raw_ctas,crawled_at,rendered_by FROM page_snapshots WHERE url=:u "
              "ORDER BY crawled_at DESC LIMIT 1", u=url)
     if not rows:
         raise HTTPException(404, "해당 URL의 크롤 기록이 없습니다")
@@ -481,7 +481,7 @@ def page_detail(url: str = Query(...)):
     c = copy_facts([page])
     v = visual_facts([page])
     return {
-        "url": url, "crawled_at": str(r[13]),
+        "url": url, "crawled_at": str(r[13]), "rendered_by": r[14],
         "data": {"facts": d, "narrative": _narrate_schema_completeness(d["schema"])},
         "copy": {"facts": c, "narrative": intel._narrate_copy(c)},
         "visual": {"facts": v, "narrative": intel._narrate_visual(v)},
