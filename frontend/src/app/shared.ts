@@ -5,7 +5,7 @@
 
 /* ── 타입 */
 export type View = "home" | "dashboard";
-export type MainTab = "overview" | "pages";
+export type MainTab = "overview" | "pages" | "products";
 export type MetricTab = "data" | "copy" | "visual";
 export type MetricView = MetricTab | "all";
 export type SiteKey = string;
@@ -47,7 +47,8 @@ export type PageDetail = {
   copy?: { facts?: any; narrative?: string[] };
   visual?: { facts?: any; narrative?: string[] };
 };
-export type UrlRow = { url: string; tier_level?: number; site_key?: string; page_role?: string };
+export type ProductCategory = "phone" | "tablet" | "audio" | "watch" | "laptop" | "ai_glass" | "other";
+export type UrlRow = { url: string; tier_level?: number; site_key?: string; page_role?: string; product_category?: ProductCategory | string; page_label?: string };
 export type LineTag = { label: string; cls: string };
 
 /* ── 기준 설명 (Drawer 콘텐츠 + ⓘ 아이콘 연동) */
@@ -155,6 +156,16 @@ export const PAGE_ROLE_META: Record<string, { label: string; desc: string }> = {
   home: { label: "Home", desc: "브랜드/스토어 홈" },
   content: { label: "Content", desc: "기타 콘텐츠 페이지" },
 };
+export const PRODUCT_CATEGORY_ORDER: ProductCategory[] = ["phone", "tablet", "audio", "watch", "laptop", "ai_glass", "other"];
+export const PRODUCT_CATEGORY_META: Record<string, { label: string; desc: string }> = {
+  phone: { label: "폰", desc: "스마트폰 PF/PDP/Buying" },
+  tablet: { label: "태블릿", desc: "태블릿 PF/PDP/Buying" },
+  audio: { label: "버즈/오디오", desc: "이어버드·헤드폰 PF/PDP/Buying" },
+  watch: { label: "워치", desc: "스마트워치 PF/PDP/Buying" },
+  laptop: { label: "노트북/PC", desc: "노트북·PC PF/PDP/Buying" },
+  ai_glass: { label: "AI Glass", desc: "AI Glass PF/PDP/Buying" },
+  other: { label: "기타", desc: "자동 분류가 어려운 URL" },
+};
 // 하위 호환용. 화면에서는 더 이상 Tier 기준을 노출하지 않고 PAGE_ROLE_META를 사용한다.
 export const TIER_META: Record<number, { label: string; desc: string }> = {
   0: { label: "Home", desc: PAGE_ROLE_META.home.desc },
@@ -247,12 +258,12 @@ export const pageRoleFromUrl = (u: string): "home" | "pf" | "pdp" | "buying" | "
     const url = new URL(u);
     const path = url.pathname.toLowerCase();
     const clean = path.replace(/\/$/, "");
-    if (!clean || clean === "/" || clean === "/us" || clean === "/global") return "home";
+    if (!clean || clean === "/" || clean === "/us" || clean === "/sg" || clean === "/global") return "home";
     if (/\/shop\//.test(path) || /\/buy\//.test(path) || /\/cart\//.test(path) || /\/checkout\//.test(path) || /\/config\//.test(path) || /shop-all/.test(path)) return "buying";
     if (/specs|specifications|tech-specs/.test(path)) return "specs";
     if (/compare|find-your|switch-to|galaxy-ai|apple-intelligence|one-ui/.test(path) && !/ray-ban-meta/.test(path)) return "campaign_or_compare";
-    if (/iphone-17-pro|pixel_10_pro|xiaomi-17-ultra|find-x9-ultra|x300-ultra|ipad-pro|xiaomi-pad-8-pro|airpods-pro|apple-watch-ultra|watch-ultra|buds4-pro|wf1000|wf-1000|fenix|macbook-pro|xps-16|xps-da|galaxy-s26-ultra|galaxy-tab-s11|galaxy-book6-ultra|ray-ban-meta/.test(path)) return "pdp";
-    if (/iphone|ipad|phones|smartphones|product-list|products|tablets|watch|watches|airpods|audio|headphones|wearables|mac|laptops|galaxybooks|ai-glasses/.test(path)) return "pf";
+    if (/iphone-17-pro|pixel_10_pro|xiaomi-17-ultra|find-x9-ultra|x300-ultra|ipad-pro|xiaomi-pad-8-pro|airpods-pro|apple-watch-ultra|watch-ultra|buds4-pro|wf1000|wf-1000|fenix|macbook-pro|xps-16|xps-da|galaxy-s26-ultra|galaxy-tab-s11|galaxy-book|galaxy-book6-ultra|ray-ban-meta/.test(path)) return "pdp";
+    if (/iphone|ipad|phones|smartphones|product-list|products|tablets|watch|watches|airpods|audio|headphones|wearables|mac|laptops|galaxybooks|galaxy-book|computers|ai-glasses/.test(path)) return "pf";
     return "content";
   } catch { return "content"; }
 };
@@ -266,6 +277,42 @@ export const pageRoleKo = (role?: string) => {
   if (role === "content") return "Content";
   if (role === "home") return "Home";
   return role || "Page";
+};
+export const productCategoryKo = (category?: string) => PRODUCT_CATEGORY_META[category || ""]?.label || category || "기타";
+export const productCategoryDesc = (category?: string) => PRODUCT_CATEGORY_META[category || ""]?.desc || "자동 분류가 어려운 URL";
+export const roleDisplayKo = (role?: string) => {
+  if (role === "pf") return "PF";
+  if (role === "pdp") return "제품 상세 페이지";
+  if (role === "buying") return "구매페이지";
+  if (role === "specs") return "스펙 페이지";
+  if (role === "campaign" || role === "compare" || role === "campaign_or_compare") return "비교/캠페인 페이지";
+  if (role === "home") return "홈";
+  return "콘텐츠 페이지";
+};
+export const productCategoryFromUrl = (u: string): ProductCategory => {
+  try {
+    const url = new URL(u);
+    const raw = `${url.hostname} ${url.pathname} ${url.search}`.toLowerCase();
+    if (/ai-glasses|ray-ban-meta/.test(raw)) return "ai_glass";
+    // Galaxy Book SG 일부 URL은 /business/tablets/ 아래에 있어도 제품군은 노트북/PC로 봅니다.
+    if (/galaxy[-]?book|macbook|\/mac\/|laptop|laptops|xps|computers/.test(raw)) return "laptop";
+    if (/tablet|tablets|ipad|xiaomi-pad|galaxy-tab/.test(raw)) return "tablet";
+    if (/audio-sound|airpods|buds|headphones|earbuds|wf1000|wf-1000/.test(raw)) return "audio";
+    if (/watch|watches|wearables|fenix/.test(raw)) return "watch";
+    if (/smartphone|smartphones|phone|phones|iphone|pixel|xiaomi-17|find-x|x300|galaxy-s/.test(raw)) return "phone";
+    return "other";
+  } catch { return "other"; }
+};
+export const productCategoryFromRow = (row?: Partial<UrlRow> | null, url?: string): ProductCategory => {
+  const raw = (row?.product_category || "") as ProductCategory;
+  return PRODUCT_CATEGORY_META[raw] ? raw : productCategoryFromUrl(url || row?.url || "");
+};
+export const productPageLabel = (row?: Partial<UrlRow> | null, url?: string) => {
+  if (row?.page_label) return row.page_label;
+  const target = url || row?.url || "";
+  const category = productCategoryFromRow(row, target);
+  const role = row?.page_role || pageRoleFromUrl(target);
+  return `${productCategoryKo(category)} ${roleDisplayKo(role)}`;
 };
 export const pageRoleFromText = (raw: string) => {
   const t = raw.toLowerCase();

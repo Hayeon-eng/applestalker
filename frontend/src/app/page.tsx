@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View, MainTab, MetricTab, MetricView, SiteKey, CrawlProgress, Change, Report, Session,
   PageLite, PageDetail, UrlRow,
-  METRICS, CRITERIA, DEFAULT_SITE_ORDER, orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf, captureScreen,
+  METRICS, CRITERIA, DEFAULT_SITE_ORDER, orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf, captureScreen, productPageLabel,
 } from "./shared";
-import { Landing, Overview, PagesTab, CriteriaDrawer } from "./sections";
+import { Landing, Overview, PagesTab, ProductTab, CriteriaDrawer } from "./sections";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -320,7 +320,10 @@ export default function Page() {
                   <span className={`badge ${siteClass(u.site_key)}`} style={{ fontSize: 9, flexShrink: 0 }}>
                     {siteShortName(u.site_key)}
                   </span>
-                  <span className="urlListUrl" title={u.url}>{u.url}</span>
+                  <span className="urlListUrl" title={u.url}>
+                    <b>{productPageLabel(u, u.url)}</b>
+                    <small>{u.url}</small>
+                  </span>
                   <button className="urlDelBtn" onClick={() => deleteUrl(u.url)} title="삭제(관리자 비번)">×</button>
                 </div>
               ))}
@@ -347,6 +350,9 @@ export default function Page() {
               </button>
               <button className={`tabBtn ${mainTab === "pages" ? "on" : ""}`} onClick={() => setMainTab("pages")}>
                 Site별 분석
+              </button>
+              <button className={`tabBtn ${mainTab === "products" ? "on" : ""}`} onClick={() => setMainTab("products")}>
+                제품별 분석
               </button>
             </div>
 
@@ -453,8 +459,21 @@ export default function Page() {
               onOpenDrawer={openDrawer}
               onJumpToMetric={jumpToMetric}
             />
-          ) : (
+          ) : mainTab === "pages" ? (
             <PagesTab
+              metricTab={metricTab}
+              pages={pages}
+              urls={urls}
+              dcv={report?.dcv}
+              allChanges={allChanges}
+              selectedUrl={selectedUrl}
+              selectedPage={selectedPage}
+              loadingPage={loadingPage}
+              onPick={openPage}
+              onOpenDrawer={openDrawer}
+            />
+          ) : (
+            <ProductTab
               metricTab={metricTab}
               pages={pages}
               urls={urls}

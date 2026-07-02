@@ -4,32 +4,95 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MetricTab, MetricView, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
-  metricAverage, metricOneLiner, bucketOf, shortUrl, pageRoleFromUrl, pageRoleKo,
+  metricAverage, metricOneLiner, bucketOf, shortUrl, pageRoleFromUrl,
+  productCategoryFromRow, productCategoryKo, productPageLabel, roleDisplayKo,
 } from "./shared";
 import { AverageBox, PageDrilldown } from "./sectionCommon";
 
-type PageRow = PageLite & {
+export type PageRow = PageLite & {
   site: SiteKey;
   page_role: string;
+  product_category: string;
+  page_label: string;
   status: "수집됨" | "수집 전";
   managed: boolean;
 };
 
-const ROLE_ORDER = ["pf", "pdp", "buying", "specs", "campaign_or_compare", "campaign", "compare", "home", "content"];
-const roleRank = (role?: string) => {
+export const ROLE_ORDER = ["pf", "pdp", "buying", "specs", "campaign_or_compare", "campaign", "compare", "home", "content"];
+export const roleRank = (role?: string) => {
   const idx = ROLE_ORDER.indexOf(role || "");
   return idx === -1 ? 99 : idx;
 };
-const roleLabel = (role?: string) => {
-  if (role === "campaign_or_compare") return "Compare/Campaign";
-  if (role === "specs") return "Specs";
-  if (role === "content") return "Content";
-  return pageRoleKo(role);
-};
+export const roleLabel = (role?: string) => roleDisplayKo(role);
 const roleFromUrlRow = (row?: UrlRow, url?: string) => row?.page_role || pageRoleFromUrl(url || "");
 
+export const buildPageRows = (
+  visibleSiteKeys: SiteKey[],
+  urls: UrlRow[],
+  pages: Record<SiteKey, PageLite[]>,
+  siteKeysForSort: SiteKey[] = visibleSiteKeys
+): PageRow[] => {
+  const out: PageRow[] = [];
+  visibleSiteKeys.forEach((site) => {
+    const managed = urls.filter((u) => u.site_key === site);
+    const crawled = pages[site] || [];
+    const crawledByUrl: Record<string, PageLite> = {};
+    crawled.forEach((p) => { crawledByUrl[p.url] = p; });
+    const seen = new Set<string>();
+
+    managed.forEach((u) => {
+      const p = crawledByUrl[u.url];
+      const role = roleFromUrlRow(u, u.url);
+      const category = productCategoryFromRow(u, u.url);
+      seen.add(u.url);
+      out.push({
+        url: u.url,
+        title: p?.title || "",
+        word_count: p?.word_count || 0,
+        site,
+        page_role: role,
+        product_category: category,
+        page_label: productPageLabel(u, u.url),
+        status: p ? "수집됨" : "수집 전",
+        managed: true,
+      });
+    });
+    crawled.forEach((p) => {
+      if (seen.has(p.url)) return;
+      const role = pageRoleFromUrl(p.url);
+      const category = productCategoryFromRow(null, p.url);
+      out.push({
+        ...p,
+        site,
+        page_role: role,
+        product_category: category,
+        page_label: productPageLabel({ url: p.url, page_role: role, product_category: category }, p.url),
+        status: "수집됨",
+        managed: false,
+      });
+    });
+  });
+  return out.sort((a, b) =>
+    siteKeysForSort.indexOf(a.site) - siteKeysForSort.indexOf(b.site) ||
+    a.product_category.localeCompare(b.product_category) ||
+    roleRank(a.page_role) - roleRank(b.page_role) ||
+    a.url.localeCompare(b.url)
+  );
+};
+
+const roleSummary = (rows: PageRow[]) => {
+  const byRole = rows.reduce<Record<string, number>>((acc, r) => {
+    acc[r.page_role] = (acc[r.page_role] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(byRole)
+    .sort(([a], [b]) => roleRank(a) - roleRank(b))
+    .map(([role, count]) => `${roleLabel(role)} ${count}`)
+    .join(" · ");
+};
+
 /* ════════════════════════════════════════════════════
-   Site별 분석 탭 — 실제 관리 URL + PF/PDP/Buying 역할 기준 딥다이브
+   Site별 분석 탭 — 실제 관리 URL + 제품군 + PF/PDP/Buying 역할 기준 딥다이브
 ════════════════════════════════════════════════════ */
 export function PagesTab({
   metricTab, pages, urls, dcv, allChanges,
@@ -51,45 +114,10 @@ export function PagesTab({
     [siteKeys, selectedSite]
   );
 
-  const pageRows = useMemo<PageRow[]>(() => {
-    const out: PageRow[] = [];
-    visibleSiteKeys.forEach((site) => {
-      const managed = urls.filter((u) => u.site_key === site);
-      const crawled = pages[site] || [];
-      const crawledByUrl: Record<string, PageLite> = {};
-      crawled.forEach((p) => { crawledByUrl[p.url] = p; });
-      const seen = new Set<string>();
-
-      managed.forEach((u) => {
-        const p = crawledByUrl[u.url];
-        seen.add(u.url);
-        out.push({
-          url: u.url,
-          title: p?.title || "",
-          word_count: p?.word_count || 0,
-          site,
-          page_role: roleFromUrlRow(u, u.url),
-          status: p ? "수집됨" : "수집 전",
-          managed: true,
-        });
-      });
-      crawled.forEach((p) => {
-        if (seen.has(p.url)) return;
-        out.push({
-          ...p,
-          site,
-          page_role: pageRoleFromUrl(p.url),
-          status: "수집됨",
-          managed: false,
-        });
-      });
-    });
-    return out.sort((a, b) =>
-      siteKeys.indexOf(a.site) - siteKeys.indexOf(b.site) ||
-      roleRank(a.page_role) - roleRank(b.page_role) ||
-      a.url.localeCompare(b.url)
-    );
-  }, [visibleSiteKeys, urls, pages, siteKeys]);
+  const pageRows = useMemo<PageRow[]>(
+    () => buildPageRows(visibleSiteKeys, urls, pages, siteKeys),
+    [visibleSiteKeys, urls, pages, siteKeys]
+  );
 
   const crawledRows = pageRows.filter((p) => p.status === "수집됨");
 
@@ -107,36 +135,23 @@ export function PagesTab({
   const pageInsights = (site: SiteKey) => {
     const rows = pageRows.filter((r) => r.site === site);
     const crawled = rows.filter((r) => r.status === "수집됨");
-    const roleCounts = rows.reduce<Record<string, number>>((acc, r) => {
-      acc[r.page_role] = (acc[r.page_role] || 0) + 1;
-      return acc;
-    }, {});
-    const roleText = Object.entries(roleCounts)
-      .sort(([a], [b]) => roleRank(a) - roleRank(b))
-      .map(([role, count]) => `${roleLabel(role)} ${count}`)
-      .join(" · ");
+    const categories = Array.from(new Set(rows.map((r) => r.product_category))).map(productCategoryKo).join(" · ");
+    const roleText = roleSummary(rows);
 
-    if (rows.length === 0) {
-      return "관리 URL이 없습니다. 먼저 이 사이트의 PF/PDP/Buying URL 등록 여부를 확인하세요.";
-    }
+    if (rows.length === 0) return "관리 URL이 없습니다. 먼저 이 사이트의 제품군별 PF/PDP/Buying URL 등록 여부를 확인하세요.";
     if (crawled.length === 0) {
-      return `관리 기준 ${rows.length}개(${roleText || "역할 미분류"})가 있지만 아직 스냅샷이 없습니다. 차단, JS 렌더링, 리다이렉트, 타임아웃 여부를 먼저 확인하세요.`;
+      return `관리 기준 ${rows.length}개(${categories || "제품군 미분류"} / ${roleText || "역할 미분류"})가 있지만 아직 스냅샷이 없습니다. 차단, JS 렌더링, 리다이렉트, 타임아웃 여부를 먼저 확인하세요.`;
     }
 
-    const words = crawled.map((r) => r.word_count || 0).filter((n) => n >= 0);
-    const min = Math.min(...words);
-    const max = Math.max(...words);
-    const avg = Math.round(words.reduce((a, b) => a + b, 0) / Math.max(words.length, 1));
     const notCrawled = rows.length - crawled.length;
-    const roleWarnings = crawled
-      .filter((r) => ["pf", "pdp"].includes(r.page_role) && (r.word_count || 0) < 150)
-      .slice(0, 3)
-      .map((r) => `${roleLabel(r.page_role)} ${shortUrl(r.url)}`);
-    const warning = roleWarnings.length
-      ? ` 점검 후보: ${roleWarnings.join(", ")}는 PF/PDP인데 텍스트가 짧아 제품군/기능 설명이 충분한지 확인 필요.`
-      : " PF/PDP 기준으로 즉시 눈에 띄는 텍스트 부족 신호는 크지 않습니다.";
-
-    return `관리 기준 ${rows.length}개(${roleText || "역할 미분류"}) 중 ${crawled.length}개 수집. 단어 수 평균 ${avg}, 범위 ${min}~${max}. ${notCrawled ? `미수집 ${notCrawled}개는 근거 부족으로 표시. ` : ""}${warning}`;
+    const byCategory = Array.from(new Set(rows.map((r) => r.product_category))).map((cat) => {
+      const catRows = rows.filter((r) => r.product_category === cat);
+      const catCrawled = catRows.filter((r) => r.status === "수집됨").length;
+      return `${productCategoryKo(cat)} ${catCrawled}/${catRows.length}`;
+    }).join(" · ");
+    const missing = rows.filter((r) => r.status !== "수집됨").slice(0, 3).map((r) => `${r.page_label}(${shortUrl(r.url)})`);
+    const missingText = missing.length ? ` 미수집 후보: ${missing.join(", ")}.` : "";
+    return `관리 기준 ${rows.length}개 중 ${crawled.length}개 수집. 제품군별 수집 현황: ${byCategory}. ${notCrawled ? `근거 부족 URL ${notCrawled}개는 인사이트 산정에서 제외됩니다.` : "모든 관리 URL에 수집 근거가 있습니다."}${missingText}`;
   };
 
   const representative = useMemo(() => {
@@ -153,9 +168,7 @@ export function PagesTab({
   const pick = (url: string) => { setAutoMode(false); onPick(url); };
 
   useEffect(() => {
-    if (autoMode && representative && representative.url !== selectedUrl) {
-      onPick(representative.url);
-    }
+    if (autoMode && representative && representative.url !== selectedUrl) onPick(representative.url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [representative, autoMode]);
 
@@ -170,7 +183,7 @@ export function PagesTab({
             </h1>
             <p className="summaryDesc">
               {metricTab === "all"
-                ? "경쟁사별로 어떤 PF/PDP/Buying 페이지를 관리 대상으로 두고, 실제로 어느 페이지가 수집됐는지 먼저 보여줍니다."
+                ? "경쟁사별로 어떤 제품군의 PF/PDP/Buying 페이지를 관리 대상으로 두고, 실제로 어느 페이지가 수집됐는지 먼저 보여줍니다."
                 : METRICS[metricTab].plain}
             </p>
           </div>
@@ -197,9 +210,7 @@ export function PagesTab({
         </div>
 
         <div className="avgGrid" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-          {visibleSiteKeys.map((site) => (
-            <AverageBox key={site} title={siteName(site)} site={site} data={avgFor(site)} metric={metricTab} />
-          ))}
+          {visibleSiteKeys.map((site) => <AverageBox key={site} title={siteName(site)} site={site} data={avgFor(site)} metric={metricTab} />)}
         </div>
       </div>
 
@@ -210,15 +221,9 @@ export function PagesTab({
             분석 기준 보기 ↗
           </button>
         </p>
-        {representative && (
-          <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>
-            선정 이유: {representative.reason}{!autoMode && " (수동 선택됨)"}
-          </p>
-        )}
+        {representative && <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>선정 이유: {representative.reason}{!autoMode && " (수동 선택됨)"}</p>}
         {loadingPage && <p className="muted">불러오는 중…</p>}
-        {!loadingPage && !selectedPage && (
-          <p className="muted">아래 수집된 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>
-        )}
+        {!loadingPage && !selectedPage && <p className="muted">아래 수집된 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>}
         {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} />}
       </div>
 
@@ -227,9 +232,7 @@ export function PagesTab({
         <div className="siteSplit">
           {visibleSiteKeys.map((site) => (
             <div key={site}>
-              <p className="siteSplitHead">
-                <span className={`badge ${siteClass(site)}`}>{siteName(site)}</span>
-              </p>
+              <p className="siteSplitHead"><span className={`badge ${siteClass(site)}`}>{siteName(site)}</span></p>
               <p className="findingText" style={{ fontSize: 12 }}>{pageInsights(site)}</p>
             </div>
           ))}
@@ -237,50 +240,52 @@ export function PagesTab({
       </div>
 
       <div className="card">
-        <p className="cardTitle">Site별 분석 — 관리 URL/수집 페이지 목록 ({pageRows.length}개) · PF/PDP/Buying 기준</p>
+        <p className="cardTitle">Site별 분석 — 관리 URL/수집 페이지 목록 ({pageRows.length}개) · 제품군 + PF/PDP/Buying 기준</p>
         {visibleSiteKeys.map((site) => {
           const rows = pageRows.filter((p) => p.site === site);
           if (!rows.length) return null;
-          const roles = Array.from(new Set(rows.map((r) => r.page_role))).sort((a, b) => roleRank(a) - roleRank(b));
+          const categories = Array.from(new Set(rows.map((r) => r.product_category)));
           return (
             <div key={site} style={{ marginBottom: 16 }}>
               <p className="tierRowHead" style={{ marginBottom: 6 }}>
                 {siteName(site)}
                 <span className="tierRowDesc">관리 {rows.filter((r) => r.managed).length}개 · 수집 {rows.filter((r) => r.status === "수집됨").length}개</span>
               </p>
-              {roles.map((role) => {
-                const roleRows = rows.filter((r) => r.page_role === role);
+              {categories.map((category) => {
+                const categoryRows = rows.filter((r) => r.product_category === category);
+                const roles = Array.from(new Set(categoryRows.map((r) => r.page_role))).sort((a, b) => roleRank(a) - roleRank(b));
                 return (
-                  <div key={`${site}-${role}`} style={{ marginBottom: 10 }}>
+                  <div key={`${site}-${category}`} style={{ marginBottom: 12 }}>
                     <p className="tierRowHead" style={{ marginBottom: 4, fontSize: 12 }}>
-                      {roleLabel(role)}
-                      <span className="tierRowDesc">{roleRows.length}개</span>
+                      {productCategoryKo(category)}
+                      <span className="tierRowDesc">{categoryRows.length}개 · {roleSummary(categoryRows)}</span>
                     </p>
-                    <div className="pageTable">
-                      <div className="pageRow head">
-                        <span>Site</span><span>역할</span><span>상태/단어 수</span><span>페이지</span>
-                      </div>
-                      {roleRows.map((p) => (
-                        <button
-                          key={`${p.site}-${p.url}`}
-                          className={`pageRow ${selectedUrl === p.url ? "selected" : ""} ${p.status !== "수집됨" ? "pending" : ""}`}
-                          onClick={() => p.status === "수집됨" ? pick(p.url) : undefined}
-                          title={p.status !== "수집됨" ? "아직 페이지 스냅샷이 없어 상세 근거를 열 수 없습니다." : p.url}
-                        >
-                          <span>
-                            <span className={`badge ${siteClass(p.site)}`} style={{ fontSize: 10 }}>
-                              {siteShortName(p.site)}
-                            </span>
-                          </span>
-                          <span>{roleLabel(p.page_role)}</span>
-                          <span>{p.status === "수집됨" ? `${p.word_count || 0}단어` : "수집 전"}</span>
-                          <span>
-                            {p.title || shortUrl(p.url)}
-                            <small>{shortUrl(p.url)}{!p.managed ? " · 관리 URL 외 수집" : ""}</small>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                    {roles.map((role) => {
+                      const roleRows = categoryRows.filter((r) => r.page_role === role);
+                      return (
+                        <div className="pageTable" key={`${site}-${category}-${role}`} style={{ marginBottom: 6 }}>
+                          <div className="pageRow head">
+                            <span>Site</span><span>제품/페이지</span><span>상태/단어 수</span><span>URL</span>
+                          </div>
+                          {roleRows.map((p) => (
+                            <button
+                              key={`${p.site}-${p.url}`}
+                              className={`pageRow ${selectedUrl === p.url ? "selected" : ""} ${p.status !== "수집됨" ? "pending" : ""}`}
+                              onClick={() => p.status === "수집됨" ? pick(p.url) : undefined}
+                              title={p.status !== "수집됨" ? "아직 페이지 스냅샷이 없어 상세 근거를 열 수 없습니다." : p.url}
+                            >
+                              <span><span className={`badge ${siteClass(p.site)}`} style={{ fontSize: 10 }}>{siteShortName(p.site)}</span></span>
+                              <span>{p.page_label}</span>
+                              <span>{p.status === "수집됨" ? `${p.word_count || 0}단어` : "수집 전"}</span>
+                              <span>
+                                {p.title || shortUrl(p.url)}
+                                <small>{shortUrl(p.url)}{!p.managed ? " · 관리 URL 외 수집" : ""}</small>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -288,7 +293,7 @@ export function PagesTab({
           );
         })}
         <p className="muted" style={{ marginTop: 8 }}>
-          기준: 관리 URL의 페이지 역할(PF/PDP/Buying 등)을 기준으로 봅니다. 수집 전 URL은 비교 근거가 아니므로 인사이트 산정에서 제외하고, 먼저 크롤 성공 여부를 확인합니다.
+          기준: 관리 URL의 제품군(폰/태블릿/버즈/워치/노트북)과 페이지 역할(PF/PDP/Buying 등)을 함께 봅니다. 수집 전 URL은 비교 근거가 아니므로 인사이트 산정에서 제외하고, 먼저 크롤 성공 여부를 확인합니다.
         </p>
       </div>
     </div>
