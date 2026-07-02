@@ -27,18 +27,24 @@
 ├── render.yaml                   ← 배포 설정(참고용)
 ├── .github/workflows/scheduled-crawl.yml   ← 매일 자동 실행 알람
 ├── backend/    (두뇌)
-│   ├── main.py                   ← 모든 기능 입구
+│   ├── main.py                   ← 모든 기능 입구/API
 │   ├── config.py                 ← 감시할 사이트/URL 목록
 │   ├── crawler.py                ← 웹페이지 수집기
-│   ├── diff_engine.py            ← "무엇이 바뀌었나" 비교기
-│   ├── intel_engine.py           ← 의미 분석 (지어내지 않음)
-│   ├── crawl_service.py          ← 전체 흐름 연결
+│   ├── diff_engine.py            ← 변경점 비교기 핵심
+│   ├── diff_engine_helpers.py    ← 비교기 보조 로직(긴 파일 분리)
+│   ├── intel_engine.py           ← AI/규칙 기반 의미 분석
+│   ├── gemini_health.py          ← Gemini 실제 호출 상태 점검
+│   ├── crawl_service.py          ← 전체 크롤 흐름 연결
 │   ├── export_service.py         ← Excel/PPTX 만들기
 │   ├── email_service.py          ← 리포트 메일 보내기
 │   ├── models.py / database.py   ← 데이터 저장
 │   └── .env.example              ← 설정값 예시
 └── frontend/   (얼굴)
-    └── src/app/page.tsx          ← 대시보드 화면
+    └── src/app/
+        ├── page.tsx              ← 대시보드 메인
+        ├── sections.tsx          ← DATA/COPY/PRICE/VISUAL 섹션
+        ├── evidencePanels.tsx    ← 변경점/현황 요약 상세 근거 패널
+        └── shared.ts             ← 공통 기준 설명/유틸
 ```
 
 ---
@@ -131,11 +137,20 @@ Render → **New +** → **Web Service** → 같은 GitHub 저장소.
 ---
 
 ## 📊 중요도 (High / Medium / Low)
-| 등급 | 의미 | 예시 |
+중요도는 이제 단순히 `schema_type`, `body_content` 같은 **필드명만 보고 고정하지 않습니다.**
+아래 요소를 함께 봅니다.
+
+- **변화 폭**: L0~L5 원천 변화 강도
+- **AI 검색 영향**: Product/FAQ/Offer/Review schema, meta, canonical, H1 등 검색·AI 요약에 쓰이는 정보인지
+- **구매전환 영향**: 가격, 프로모션, CTA, 사전예약/구매 버튼 등 매출 행동과 연결되는지
+- **페이지 Tier**: 핵심 랜딩/제품 페이지인지, 하위 보조 페이지인지
+- **노이즈 신호**: 렌더링 방식 차이, 반복 UI 라벨, 작은 이미지/태그 변화인지
+
+| 등급 | 기준 | 예시 |
 |------|------|------|
-| 🔴 **High** | 즉시 봐야 함 — 가격·구매 버튼·구조(AI 노출) 변화 | 사전예약 버튼 신설, 가격 변경 |
-| 🟠 **Medium** | 검토 — 카피·섹션·일부 구조 변화 | 대표 제목/본문 변경 |
-| 🟢 **Low** | 참고 — 단어·미세·이미지 변화 | 단어 수정, 이미지 교체 |
+| 🔴 **High** | AI 검색·구매전환·핵심 페이지 영향이 큰 변화 | Product schema 변경, 핵심 CTA/가격/프로모션 변경 |
+| 🟠 **Medium** | meta·H1·FAQ·CTA·주요 카피처럼 의미/클릭률에 영향 가능 | 대표 문구 변경, FAQ 추가, 주요 섹션 제목 변경 |
+| 🟢 **Low** | 단어·UI 라벨·작은 이미지·렌더링 노이즈 중심 | 오타 수정, 메뉴 라벨 변화, 반복 이미지 차이 |
 
 ---
 
@@ -144,11 +159,26 @@ Render → **New +** → **Web Service** → 같은 GitHub 저장소.
 - 삼성 ↔ 애플 비교는 **두 사이트 데이터가 모두 있을 때만** 합니다.
 - 데이터에 없는 숫자는 **만들어내지 않습니다.** (화면의 "예시 데이터" 배너는 실제 크롤 전 임시 표시이며, 크롤하면 진짜 데이터로 바뀝니다.)
 
+
+### 변경점 COUNT는 이렇게 셉니다
+- 같은 URL의 **직전 스냅샷과 현재 스냅샷**을 비교해서 변경 이벤트 수를 계산합니다.
+- 즉, 최초 크롤은 기준선이 없어서 변경점이 많게 보일 수 있지만, 바로 다음 크롤에서 실제 내용이 같으면 원칙적으로 **0건**이어야 합니다.
+- 이를 위해 저장되는 스냅샷에 안정 fingerprint를 만들고, 같은 fingerprint면 변경 이벤트를 만들지 않습니다.
+- DB 저장 실패가 있으면 다음 크롤도 이전 기준선과 비교하게 되어 COUNT가 흔들릴 수 있으므로, 스냅샷/이벤트 저장 실패는 조용히 넘기지 않고 실패로 표시합니다.
+- `httpx`와 `playwright`처럼 렌더링 방식이 바뀐 경우에는 body/DOM/이미지 같은 노이즈가 큰 항목은 제한하고, title/meta/H1/schema처럼 안정적인 필드 중심으로 비교합니다.
+
+### 현황 요약도 근거를 볼 수 있습니다
+- DATA/COPY/PRICE/VISUAL의 현황 요약 항목을 클릭하면, 아래의 상세 근거 패널로 이동합니다.
+- 상세 근거는 기본적으로 접혀 있고, 클릭한 항목만 자동으로 펼쳐집니다.
+- 예: VISUAL의 이미지 분류, alt 텍스트 품질, 이미지 고유성, 스토리텔링 항목별로 실제 집계값과 판단 기준을 확인할 수 있습니다.
+
 ---
 
 ## 🧰 자주 쓰는 주소 (개발자용 참고)
 | 주소 | 설명 |
 |------|------|
+| `GET /api/health` | 백엔드 기본 상태 확인. `gemini: true`는 키가 설정되어 초기화됐다는 뜻입니다. |
+| `GET /api/health/gemini` | Gemini에 실제 초소형 요청을 보내 인증/쿼터 상태를 확인합니다. 401이면 키/인증 문제, 429면 쿼터·rate limit 가능성이 큽니다. |
 | `GET /api/latest-report` | 최근 변경점 + 현황 분석 |
 | `GET /api/compare` | 삼성↔애플 비교 |
 | `GET /api/export/xlsx` · `/pptx` | 다운로드 |
@@ -156,7 +186,27 @@ Render → **New +** → **Web Service** → 같은 GitHub 저장소.
 | `GET /api/cron/tick?token=...` | 자동 실행용(비밀번호 필요) |
 | `POST /api/email/test` | 메일 설정 테스트 |
 
+### Gemini가 안 돌 때 빠른 확인
+1. 먼저 `GET /api/health`에서 `gemini: true`인지 확인합니다.
+2. 그다음 `GET /api/health/gemini`를 열어 실제 호출 결과를 확인합니다.
+3. `401 invalid_authentication`이면 토큰 소진이 아니라 `GEMINI_API_KEY` 값이 잘못됐을 가능성이 큽니다. Render Environment에서 API key가 `AIza...` 형태인지 확인하세요.
+4. `429 quota_or_rate_limit`이면 쿼터 소진 또는 rate limit 가능성이 큽니다.
+5. Gemini가 실패해도 리포트는 멈추지 않고 **규칙기반 분석**으로 fallback됩니다.
+
 ---
+
+## 📝 GitHub 웹 에디터로 수정할 때 참고
+GitHub 웹 에디터는 큰 파일 편집이 불편할 수 있어서, 긴 로직은 일부 분리되어 있습니다.
+
+| 큰 기능 | 주로 수정할 파일 |
+|--------|----------------|
+| 변경점 비교 기준 | `backend/diff_engine.py`, `backend/diff_engine_helpers.py` |
+| Gemini 실제 호출 상태 확인 | `backend/gemini_health.py`, `backend/main.py` |
+| 화면 섹션 UI | `frontend/src/app/sections.tsx` |
+| 변경점/현황 상세 근거 패널 | `frontend/src/app/evidencePanels.tsx` |
+| 중요도/기준 설명 문구 | `frontend/src/app/shared.ts`, `frontend/src/app/page.tsx` |
+
+수정 파일만 교체해도 되도록 기존 import 경로는 최대한 유지되어 있습니다.
 
 ## 💻 내 컴퓨터에서 전체 돌려보기 (개발자용)
 ```bash
