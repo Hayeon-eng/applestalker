@@ -66,7 +66,7 @@ class HybridCrawler:
             else os.getenv("ENABLE_SCREENSHOT", "false").lower() == "true"
         )
 
-        self.browser_page_cap = int(os.getenv("BROWSER_PAGE_CAP", "8"))
+        self.browser_page_cap = int(os.getenv("BROWSER_PAGE_CAP", "12"))
         self._browser_used = 0
 
         self._client: Optional[httpx.AsyncClient] = None
@@ -163,8 +163,11 @@ class HybridCrawler:
             result["rendered_by"] = "httpx"
 
         # Playwright 업그레이드 조건:
-        # requires_js=True 이거나 HTTP 결과가 빈 경우 AND Playwright 활성화된 경우만
-        need_js = requires_js or self._looks_empty(http_data)
+        # [FIX] requires_js=True라고 무조건 JS를 태우지 않는다. 대신 requires_js는
+        # '얼마나 엄격하게 비었다고 볼지'의 기준(strict)으로만 쓴다.
+        # → httpx로 이미 충분한 페이지는 JS 예산을 아끼고, 실제로 빈약한 페이지에
+        #   BROWSER_PAGE_CAP을 우선 배정한다 (URL 등장 순서에 좌우되지 않음).
+        need_js = self._looks_empty(http_data, strict=requires_js)
 
         if need_js and self.enable_playwright and self._browser_used < self.browser_page_cap:
             self._browser_used += 1
@@ -189,11 +192,19 @@ class HybridCrawler:
     # ─────────────────────────────────────────────
     # EMPTY CHECK
     # ─────────────────────────────────────────────
-    def _looks_empty(self, data: Optional[Dict]) -> bool:
+    def _looks_empty(self, data: Optional[Dict], strict: bool = False) -> bool:
+        """
+        [FIX] strict=True(=사이트가 requires_js)일 때는 '비어있다'의 기준을 높여
+        httpx만으로 이미 충분한 페이지까지 무조건 Playwright로 재렌더링하지 않게 한다.
+        기존엔 requires_js=True인 사이트(Samsung/Apple)는 이 함수 결과와 무관하게
+        crawl()에서 항상 need_js=True로 강제해, 페이지 내용과 상관없이
+        BROWSER_PAGE_CAP를 URL 등장 순서대로 소모해버렸다.
+        """
         if not data or data.get("error"):
             return True
+        min_len = 900 if strict else 400
         return (
-            len(data.get("body_content") or "") < 400
+            len(data.get("body_content") or "") < min_len
             or not data.get("title")
         )
 
@@ -332,6 +343,14 @@ class HybridCrawler:
             re.IGNORECASE,
         )
         for el in list(clean.find_all(True)):
+            # [FIX] 이 루프는 find_all(True)로 전체 태그를 미리 리스트로 뽑아둔 뒤
+            # 돌면서 중간중간 decompose()를 호출한다. bs4는 부모를 decompose()하면
+            # 그 자식들의 .attrs를 전부 None으로 만들어버리는데, 자식이 이미 이 리스트에
+            # 담겨 있으면 뒤늦게 처리되면서 el.get(...) 호출 시
+            # "AttributeError: 'NoneType' object has no attribute 'get'"로 죽는다.
+            # → 상위 요소가 먼저 decompose되어 이미 죽은(고아가 된) 요소는 건너뛴다.
+            if el.attrs is None:
+                continue
             cls = el.get("class") or []
             cls_txt = " ".join(str(x) for x in cls) if isinstance(cls, list) else str(cls or "")
             attrs = " ".join([

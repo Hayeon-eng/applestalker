@@ -251,7 +251,7 @@ class CrawlServiceV2:
                 row = conn.execute(text("""
                     SELECT title,h1,meta_description,canonical_url,body_content,
                            structural_signature,screenshot_phash,raw_images,
-                           raw_faqs,raw_ctas,raw_navigation,raw_h2,raw_h3
+                           raw_faqs,raw_ctas,raw_navigation,raw_h2,raw_h3,rendered_by
                     FROM page_snapshots
                     WHERE url=:u
                     ORDER BY crawled_at DESC
@@ -298,6 +298,7 @@ class CrawlServiceV2:
                 "navigation": navigation,
                 "h2": h2,
                 "h3": h3,
+                "rendered_by": row[13],
             }
 
         except Exception as e:
@@ -318,10 +319,10 @@ class CrawlServiceV2:
                 INSERT INTO page_snapshots
                 (crawl_run_id, url, site_key, title, h1, meta_description,
                  canonical_url, body_content, structural_signature,
-                 screenshot_phash, screenshot_thumb, content_hash,
+                 screenshot_phash, screenshot_thumb, content_hash, rendered_by,
                  word_count, raw_h2, raw_h3, raw_structured_data,
                  raw_faqs, raw_images, raw_navigation, raw_ctas, crawled_at)
-                VALUES (:r,:u,:s,:t,:h1,:md,:cu,:bc,:sig,:ph,:thumb,:ch,:wc,
+                VALUES (:r,:u,:s,:t,:h1,:md,:cu,:bc,:sig,:ph,:thumb,:ch,:rb,:wc,
                         :h2,:h3,:sd,:faqs,:img,:nav,:cta,:ts)
             """,
             r=run_id, u=url, s=site_key,
@@ -334,6 +335,7 @@ class CrawlServiceV2:
             ph=page.get("screenshot_phash"),
             thumb=page.get("screenshot_thumb"),
             ch=_content_hash(page),
+            rb=page.get("rendered_by"),
             wc=int(page.get("word_count") or 0),
             h2=json.dumps(page.get("h2") or [], ensure_ascii=False),
             h3=json.dumps(page.get("h3") or [], ensure_ascii=False),
@@ -420,4 +422,9 @@ class CrawlServiceV2:
             db_urls = []
 
         # SEED_TARGETS의 seed_urls + DB 등록분 머지 (중복 제거, tier 자동 계산)
-        return load_active_urls(site_key, db_urls if db_urls else None)
+        urls = load_active_urls(site_key, db_urls if db_urls else None)
+
+        # [FIX] tier 높은(구매/스펙 등 4) 페이지부터 크롤해 BROWSER_PAGE_CAP(JS 렌더링 예산)이
+        # URL 리스트에 적힌 순서가 아니라 실제 중요도 순으로 소모되게 한다.
+        # 같은 tier 내에서는 원래 순서를 유지(sorted는 stable sort).
+        return sorted(urls, key=lambda u: -u["tier_level"])

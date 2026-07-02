@@ -580,6 +580,16 @@ class DiffEngine:
         events: List[ChangeEvent] = []
         previous = previous or {}
 
+        # [FIX] 렌더링 방식(httpx/playwright)이 직전 스냅샷과 다르면, body_content/DOM
+        # 비교 자체가 "같은 페이지의 두 시점"이 아니라 "다른 추출 방식의 두 결과"를
+        # 비교하는 셈이 되어 실제 사이트 변경 없이도 대량의 가짜 변경점이 생길 수 있다.
+        # 지금 당장 억제하지는 않고(오탐 여부 판단을 위해 몇 회차 더 관찰), 각 이벤트의
+        # evidence에 남겨 UI/export에서 바로 확인 가능하게만 한다.
+        prev_rb, cur_rb = previous.get("rendered_by"), current.get("rendered_by")
+        render_mismatch = bool(prev_rb) and bool(cur_rb) and prev_rb != cur_rb
+        render_note = {"render_mismatch": True, "rendered_by_before": prev_rb,
+                        "rendered_by_after": cur_rb} if render_mismatch else {}
+
         # 1) 텍스트 필드 (char + token/sentence)
         for fld, ctype in self.TEXT_FIELDS.items():
             b, a = _s(previous.get(fld)), _s(current.get(fld))
@@ -630,6 +640,10 @@ class DiffEngine:
         # 4b) 이미지 src/alt 기반 시각 변화 — 스크린샷 없이도 감지 가능한 우회 경로.
         #     이미지 추가/제거(src 기준)와 동일 이미지의 alt 텍스트 변경을 잡는다.
         events.extend(self._image_list_events(url, site_key, tier_level, current, previous))
+
+        if render_mismatch:
+            for ev in events:
+                ev.evidence.update(render_note)
 
         return events
 
