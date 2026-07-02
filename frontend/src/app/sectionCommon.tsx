@@ -65,7 +65,7 @@ export function AverageBox({
         </>
       ) : (
         <div className="avgStat">
-          <span>{metric === "data" ? "Schema 적용률" : metric === "copy" ? "짧은 텍스트 페이지" : "Lifestyle 이미지"}</span>
+          <span>{metric === "data" ? "Schema 적용률" : metric === "copy" ? "구매 CTA 확인" : "Lifestyle 이미지"}</span>
           <span className="avgStatVal">{metric === "data" ? data.schema : metric === "copy" ? data.thin : data.lifestyle}</span>
         </div>
       )}
@@ -145,10 +145,14 @@ export function WireframePanel({ page }: { page: PageDetail }) {
   );
 }
 
-export function PageDrilldown({ page }: { page: PageDetail }) {
-  const sections: [MetricTab, any][] = [
+export function PageDrilldown({ page, focusMetric = "data" }: { page: PageDetail; focusMetric?: MetricView }) {
+  const preferred: MetricTab = focusMetric === "all" ? "data" : focusMetric;
+  const baseSections: [MetricTab, any][] = [
     ["data", page.data], ["copy", page.copy], ["visual", page.visual],
   ];
+  const sections = focusMetric === "all"
+    ? baseSections
+    : [...baseSections].sort(([a], [b]) => (a === preferred ? -1 : b === preferred ? 1 : 0));
   return (
     <div className="pageDetail">
       <p style={{ fontSize: 12, marginBottom: 8 }}>
@@ -160,7 +164,7 @@ export function PageDrilldown({ page }: { page: PageDetail }) {
         <WireframePanel page={page} />
         <div className="pageDcvStack">
           {sections.map(([key, block]) => (
-            <details key={key} style={{ marginBottom: 10 }} open={key === "data"}>
+            <details key={key} style={{ marginBottom: 10 }} open={key === preferred}>
               <summary style={{ fontWeight: 700, fontSize: 13, cursor: "pointer", padding: "4px 0" }}>
                 {METRICS[key].label}
               </summary>

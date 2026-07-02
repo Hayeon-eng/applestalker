@@ -28,7 +28,8 @@ const productInsight = (category: string, rows: PageRow[]) => {
     return `${siteShortName(site)} ${got}/${siteRows.length}`;
   }).join(" · ");
   const missingExamples = missing.slice(0, 3).map((r) => `${siteShortName(r.site)} ${productPageLabel(r, r.url)}`).join(", ");
-  return `${productCategoryKo(category)} 기준 ${rows.length}개 URL 중 ${collected.length}개 수집. Site별 수집 현황: ${bySite}. 역할 구성: ${roleCoverage(rows)}.${missingExamples ? ` 미수집/근거부족: ${missingExamples}.` : " 모든 관리 URL에 수집 근거가 있습니다."}`;
+  const completeSites = siteKeys.filter((site) => ["pf", "pdp", "buying"].every((role) => rows.some((r) => r.site === site && r.page_role === role)));
+  return `${productCategoryKo(category)} 수집 범위: Site별 ${bySite}. 역할 구성은 ${roleCoverage(rows)}입니다. ${completeSites.length ? `PF/PDP/Buying 3종이 모두 있는 사이트: ${completeSites.map(siteShortName).join(", ")}.` : "PF/PDP/Buying 3종이 모두 갖춰진 사이트는 아직 없습니다."}${missingExamples ? ` 수집 전/근거부족: ${missingExamples}.` : " 모든 관리 URL에 수집 근거가 있습니다."}`;
 };
 
 export function ProductTab({
@@ -152,7 +153,7 @@ export function ProductTab({
         {representative && <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>선정 이유: {representative.reason}{!autoMode && " (수동 선택됨)"}</p>}
         {loadingPage && <p className="muted">불러오는 중…</p>}
         {!loadingPage && !selectedPage && <p className="muted">아래 수집된 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>}
-        {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} />}
+        {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} focusMetric={metricTab} />}
       </div>
 
       <div className="card">
