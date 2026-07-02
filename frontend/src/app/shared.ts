@@ -47,7 +47,7 @@ export type PageDetail = {
   copy?: { facts?: any; narrative?: string[] };
   visual?: { facts?: any; narrative?: string[] };
 };
-export type ProductCategory = "phone" | "tablet" | "audio" | "watch" | "laptop" | "ai_glass" | "other";
+export type ProductCategory = "phone" | "tablet" | "audio" | "watch" | "laptop" | "ai_glass";
 export type UrlRow = { url: string; tier_level?: number; site_key?: string; page_role?: string; product_category?: ProductCategory | string; page_label?: string };
 export type LineTag = { label: string; cls: string };
 
@@ -156,7 +156,7 @@ export const PAGE_ROLE_META: Record<string, { label: string; desc: string }> = {
   home: { label: "Home", desc: "브랜드/스토어 홈" },
   content: { label: "Content", desc: "기타 콘텐츠 페이지" },
 };
-export const PRODUCT_CATEGORY_ORDER: ProductCategory[] = ["phone", "tablet", "audio", "watch", "laptop", "ai_glass", "other"];
+export const PRODUCT_CATEGORY_ORDER: ProductCategory[] = ["phone", "tablet", "audio", "watch", "laptop", "ai_glass"];
 export const PRODUCT_CATEGORY_META: Record<string, { label: string; desc: string }> = {
   phone: { label: "폰", desc: "스마트폰 PF/PDP/Buying" },
   tablet: { label: "태블릿", desc: "태블릿 PF/PDP/Buying" },
@@ -164,7 +164,6 @@ export const PRODUCT_CATEGORY_META: Record<string, { label: string; desc: string
   watch: { label: "워치", desc: "스마트워치 PF/PDP/Buying" },
   laptop: { label: "노트북/PC", desc: "노트북·PC PF/PDP/Buying" },
   ai_glass: { label: "AI Glass", desc: "AI Glass PF/PDP/Buying" },
-  other: { label: "기타", desc: "자동 분류가 어려운 URL" },
 };
 // 하위 호환용. 화면에서는 더 이상 Tier 기준을 노출하지 않고 PAGE_ROLE_META를 사용한다.
 export const TIER_META: Record<number, { label: string; desc: string }> = {
@@ -210,6 +209,9 @@ export const siteClass = (s?: string) => SITE_META[s || ""]?.cls || "competitor"
 export const levelKo = (l?: string) => l === "High" ? "높음" : l === "Medium" ? "보통" : "낮음";
 export const levelClass = (l?: string) => l === "High" ? "high" : l === "Medium" ? "med" : "low";
 export const severityEmoji = (l?: string) => l === "High" ? "🔴" : l === "Medium" ? "🟠" : "🟢";
+export const isLegacySamsungUsUrl = (site?: string, url?: string) =>
+  site === "samsung" && /https?:\/\/www\.samsung\.com\/us\//i.test(url || "");
+
 
 export const actionForChange = (c: Change): string => {
   const level = c.level || "Low";
@@ -278,8 +280,8 @@ export const pageRoleKo = (role?: string) => {
   if (role === "home") return "Home";
   return role || "Page";
 };
-export const productCategoryKo = (category?: string) => PRODUCT_CATEGORY_META[category || ""]?.label || category || "기타";
-export const productCategoryDesc = (category?: string) => PRODUCT_CATEGORY_META[category || ""]?.desc || "자동 분류가 어려운 URL";
+export const productCategoryKo = (category?: string) => PRODUCT_CATEGORY_META[category || ""]?.label || category || "제품군 미확정";
+export const productCategoryDesc = (category?: string) => PRODUCT_CATEGORY_META[category || ""]?.desc || "제품군이 확정되지 않은 URL입니다. 관리 URL 라벨을 확인하세요.";
 export const roleDisplayKo = (role?: string) => {
   if (role === "pf") return "PF";
   if (role === "pdp") return "제품 상세 페이지";
@@ -293,15 +295,16 @@ export const productCategoryFromUrl = (u: string): ProductCategory => {
   try {
     const url = new URL(u);
     const raw = `${url.hostname} ${url.pathname} ${url.search}`.toLowerCase();
-    if (/ai-glasses|ray-ban-meta/.test(raw)) return "ai_glass";
+    // site별 대표 제품군 fallback. /products, /p/1723221처럼 제품명이 짧은 URL도 기타로 보내지 않습니다.
+    if (/meta\.com|ai-glasses|ray-ban-meta/.test(raw)) return "ai_glass";
+    if (/garmin\.com|watch|watches|wearables|smartwatches|fenix/.test(raw)) return "watch";
+    if (/electronics\.sony\.com|audio-sound|airpods|buds|headphones|earbuds|wf1000|wf-1000/.test(raw)) return "audio";
     // Galaxy Book SG 일부 URL은 /business/tablets/ 아래에 있어도 제품군은 노트북/PC로 봅니다.
-    if (/galaxy[-]?book|macbook|\/mac\/|laptop|laptops|xps|computers/.test(raw)) return "laptop";
+    if (/dell\.com|galaxy[-]?book|macbook|\/mac\/|laptop|laptops|xps|computers/.test(raw)) return "laptop";
     if (/tablet|tablets|ipad|xiaomi-pad|galaxy-tab/.test(raw)) return "tablet";
-    if (/audio-sound|airpods|buds|headphones|earbuds|wf1000|wf-1000/.test(raw)) return "audio";
-    if (/watch|watches|wearables|fenix/.test(raw)) return "watch";
-    if (/smartphone|smartphones|phone|phones|iphone|pixel|xiaomi-17|find-x|x300|galaxy-s/.test(raw)) return "phone";
-    return "other";
-  } catch { return "other"; }
+    if (/vivo\.com|oppo\.com|store\.google\.com|smartphone|smartphones|phone|phones|iphone|pixel|xiaomi-17|find-x|x300|galaxy-s/.test(raw)) return "phone";
+    return "phone";
+  } catch { return "phone"; }
 };
 export const productCategoryFromRow = (row?: Partial<UrlRow> | null, url?: string): ProductCategory => {
   const raw = (row?.product_category || "") as ProductCategory;
@@ -351,14 +354,17 @@ export const bucketOf = (c: Change): MetricTab => {
 };
 export const metricAverage = (sitePages: PageLite[], block?: AnalysisBlock) => {
   const f = block?.facts || {};
+  const copyPages = Array.isArray(f.copy_richness?.all_pages) ? f.copy_richness.all_pages.length : null;
+  const buyCtaPages = typeof f.commerce_cta?.pages_with_buy_cta === "number" ? f.commerce_cta.pages_with_buy_cta : null;
   return {
     pages: sitePages.length,
     avgWords: sitePages.length
       ? Math.round(sitePages.reduce((a, p) => a + (p.word_count || 0), 0) / sitePages.length)
       : 0,
     schema: typeof f.schema?.coverage_pct === "number" ? f.schema.coverage_pct + "%" : "-",
-    thin: typeof f.content_density?.thin_pages?.length === "number"
-      ? f.content_density.thin_pages.length + "개" : "-",
+    thin: buyCtaPages != null
+      ? `${buyCtaPages}p`
+      : copyPages != null ? `${copyPages}p` : "-",
     lifestyle: typeof f.image_diversity?.lifestyle_ratio_pct === "number"
       ? f.image_diversity.lifestyle_ratio_pct + "%" : "-",
   };
@@ -401,7 +407,8 @@ export const metricOneLiner = (
       return Math.round((total / pages.length) * 10) / 10;
     };
     const avg = numberList(collectedKeys, (site) => copyAvg(blocks[site]?.facts));
-    statLine = `Copy: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 · 평균 구체성 ${avg}점 · 수집 ${collectedLabel}${missingLabel}`;
+    const cta = numberList(collectedKeys, (site) => blocks[site]?.facts?.commerce_cta?.pages_with_buy_cta);
+    statLine = `Copy: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 · 구매 CTA 확인 평균 ${cta}페이지 · 카피 판단 근거 ${avg}점 · 수집 ${collectedLabel}${missingLabel}`;
   } else {
     const avg = numberList(collectedKeys, (site) => blocks[site]?.facts?.image_diversity?.lifestyle_ratio_pct);
     statLine = `Visual: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 lifestyle 신호 평균 ${avg}% · 수집 ${collectedLabel}${missingLabel}`;

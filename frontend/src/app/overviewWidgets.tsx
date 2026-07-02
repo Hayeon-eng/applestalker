@@ -19,16 +19,53 @@ export function WatchPointPanel({ changes, dcv, metricTab, expectedSites = [] }:
   ]);
   const changedSites = new Set(changes.map((c) => c.site).filter(Boolean));
   const topChanges = changes.slice(0, 5);
+  const collectedSites = allSites.filter((site) => scopedMetrics.some((m) => !!dcv?.[m]?.[site]));
+  const pendingSites = allSites.filter((site) => !scopedMetrics.some((m) => !!dcv?.[m]?.[site]));
+  const headline = changes.length > 0
+    ? `${changes.length}건 변경 감지`
+    : "변경 없음 · 기준선 확인";
+  const primaryAction = changes.length
+    ? compactSummary(actionForChange(changes[0]), 120)
+    : "변경은 없지만 PF/PDP/Buying의 카피·CTA·Schema·alt.copy가 다음 수집에서 달라지는지 확인";
   return (
-    <div className="card watchPointCard">
-      <p className="cardTitle">Overview</p>
-      <p className="overviewLead">
-        {changes.length > 0
-          ? `이번 수집에서 ${changes.length}건의 변경이 잡혔습니다. 아래는 사이트별로 무엇이 바뀌었고, 삼성 입장에서 왜 봐야 하는지 정리한 요약입니다.`
-          : "이번 수집에서는 변경점이 없습니다. 대신 현재 각 사이트가 어떤 구조·카피·비주얼 전략을 쓰는지 기준선을 요약합니다."}
-      </p>
+    <div className="card watchPointCard overviewBoard">
+      <div className="overviewBoardHead">
+        <div>
+          <p className="summaryEyebrow">Overview</p>
+          <h2>{headline}</h2>
+          <p>
+            {changes.length > 0
+              ? "사이트별 변화와 삼성 관점 액션을 먼저 보여줍니다. 아래 카드는 ‘무엇이 바뀌었나 → 왜 봐야 하나’를 한눈에 읽는 용도입니다."
+              : "이번 수집에서는 변경점이 없습니다. 대신 수집된 사이트의 현재 구조를 다음 주 비교 기준선으로 정리합니다."}
+          </p>
+        </div>
+        <div className="overviewHeroStats">
+          <b>{allSites.length || 0}</b><span>관리 Site</span>
+          <b>{collectedSites.length}</b><span>근거 있음</span>
+          <b>{pendingSites.length}</b><span>근거 부족</span>
+        </div>
+      </div>
+
+      <div className="overviewHeroGrid">
+        <div className="overviewHeroBox primary">
+          <span>핵심 상태</span>
+          <strong>{headline}</strong>
+          <p>{changes.length ? `상위 변경: ${compactSummary(topChanges[0]?.summary || topChanges[0]?.field || "변경 세부 확인 필요", 120)}` : "새 변경은 없고, 현재 DATA/COPY/VISUAL 기준선을 유지합니다."}</p>
+        </div>
+        <div className="overviewHeroBox">
+          <span>수집 커버리지</span>
+          <strong>{collectedSites.length}/{allSites.length || 0} sites</strong>
+          <p>{pendingSites.length ? `근거 부족: ${pendingSites.slice(0, 4).map(siteName).join(", ")}${pendingSites.length > 4 ? " 외" : ""}` : "관리 대상 Site 모두 근거가 있습니다."}</p>
+        </div>
+        <div className="overviewHeroBox action">
+          <span>삼성 액션</span>
+          <strong>예의주시</strong>
+          <p>{primaryAction}</p>
+        </div>
+      </div>
+
       {topChanges.length > 0 && (
-        <div className="overviewChangeList">
+        <div className="overviewChangeList prominent">
           {topChanges.map((c) => (
             <div key={c.id} className="overviewChangeItem">
               <span className={`badge ${siteClass(c.site)}`}>{siteName(c.site)}</span>
@@ -42,31 +79,46 @@ export function WatchPointPanel({ changes, dcv, metricTab, expectedSites = [] }:
         {allSites.length === 0 ? <p className="muted">수집 데이터가 쌓이면 사이트별 Overview가 표시됩니다.</p> : allSites.map((site) => {
           const siteChanges = changes.filter((c) => c.site === site);
           const hasAnyBlock = scopedMetrics.some((m) => !!dcv?.[m]?.[site]);
-          const summary = scopedMetrics.map((m) => siteMetricSummary(site, m, dcv?.[m]?.[site], siteChanges.filter((c) => bucketOf(c) === m)));
+          const summary = scopedMetrics.map((m) => ({
+            metric: m,
+            text: siteMetricSummary(site, m, dcv?.[m]?.[site], siteChanges.filter((c) => bucketOf(c) === m)),
+          }));
           return (
-            <div key={site} className="overviewSiteCard">
+            <div key={site} className={`overviewSiteCard ${siteChanges.length ? "hasChange" : hasAnyBlock ? "hasBaseline" : "isPending"}`}>
               <div className="overviewSiteHead">
                 <span className={`badge ${siteClass(site)}`}>{siteName(site)}</span>
                 <span className={siteChanges.length ? "changeState changed" : hasAnyBlock ? "changeState stable" : "changeState pending"}>
-                  {siteChanges.length ? `변경 ${siteChanges.length}건` : hasAnyBlock ? "변경 없음" : "근거 부족"}
+                  {siteChanges.length ? `변경 ${siteChanges.length}건` : hasAnyBlock ? "기준선 있음" : "근거 부족"}
                 </span>
               </div>
-              <ul>
-                {summary.map((x, i) => <li key={i}>{compactSummary(x, 230)}</li>)}
-              </ul>
+              <p className="overviewSiteTakeaway">
+                {siteChanges.length
+                  ? `바뀐 점: ${compactSummary(siteChanges[0].summary || siteChanges[0].field || "변경 확인 필요", 100)}`
+                  : hasAnyBlock
+                  ? "변경 없음. 현재 구조를 다음 수집의 비교 기준으로 사용합니다."
+                  : "아직 수집 근거가 없어 전략 판단 전 크롤 성공 여부부터 봐야 합니다."}
+              </p>
+              <div className="overviewMetricRows">
+                {summary.map((x) => (
+                  <div key={x.metric}>
+                    <b>{METRICS[x.metric].label}</b>
+                    <span>{compactSummary(x.text, 150)}</span>
+                  </div>
+                ))}
+              </div>
               <p className="overviewAction">
                 {siteChanges.length
-                  ? `예의주시: ${compactSummary(actionForChange(siteChanges[0]), 120)}`
+                  ? `삼성 체크: ${compactSummary(actionForChange(siteChanges[0]), 120)}`
                   : hasAnyBlock
-                  ? "예의주시: 변경은 없지만 현재 구조가 기준선입니다. 다음 수집에서 카피/CTA/Schema/alt.copy가 이탈하는지 확인하세요."
-                  : "예의주시: 아직 비교 근거가 없으므로 먼저 수집 성공 여부를 확인해야 합니다. 이 상태에서는 경쟁사 전략을 단정하지 않습니다."}
+                  ? "삼성 체크: 다음 수집에서 CTA 위치, hero copy, Product/FAQ schema, alt.copy 변화 여부를 비교하세요."
+                  : "삼성 체크: 수집 실패/차단/JS 렌더링 여부 확인 후 인사이트에 포함하세요."}
               </p>
             </div>
           );
         })}
       </div>
       {changedSites.size === 0 && (
-        <p className="overviewFootnote">변경이 없을 때도 이 Overview는 무의미하지 않습니다. 각 사이트의 현재 Schema 적용률, 카피 구체성, alt/src 기반 visual tactic이 다음 주 변화 감지의 baseline으로 쓰입니다.</p>
+        <p className="overviewFootnote">변경이 없을 때의 핵심은 ‘좋다/나쁘다’ 판단이 아니라 baseline 확보입니다. 다음 수집에서 각 사이트의 PF/PDP/Buying 구조, CTA, 스키마, alt.copy가 어떻게 이탈하는지 비교합니다.</p>
       )}
     </div>
   );

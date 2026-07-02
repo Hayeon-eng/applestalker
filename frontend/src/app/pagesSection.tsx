@@ -5,7 +5,7 @@ import {
   MetricTab, MetricView, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
   metricAverage, metricOneLiner, bucketOf, shortUrl, pageRoleFromUrl,
-  productCategoryFromRow, productCategoryKo, productPageLabel, roleDisplayKo,
+  productCategoryFromRow, productCategoryKo, productPageLabel, roleDisplayKo, isLegacySamsungUsUrl, PRODUCT_CATEGORY_ORDER,
 } from "./shared";
 import { AverageBox, PageDrilldown } from "./sectionCommon";
 
@@ -34,8 +34,8 @@ export const buildPageRows = (
 ): PageRow[] => {
   const out: PageRow[] = [];
   visibleSiteKeys.forEach((site) => {
-    const managed = urls.filter((u) => u.site_key === site);
-    const crawled = pages[site] || [];
+    const managed = urls.filter((u) => u.site_key === site && !isLegacySamsungUsUrl(site, u.url));
+    const crawled = (pages[site] || []).filter((p) => !isLegacySamsungUsUrl(site, p.url));
     const crawledByUrl: Record<string, PageLite> = {};
     crawled.forEach((p) => { crawledByUrl[p.url] = p; });
     const seen = new Set<string>();
@@ -74,7 +74,7 @@ export const buildPageRows = (
   });
   return out.sort((a, b) =>
     siteKeysForSort.indexOf(a.site) - siteKeysForSort.indexOf(b.site) ||
-    a.product_category.localeCompare(b.product_category) ||
+    (PRODUCT_CATEGORY_ORDER.indexOf(a.product_category as any) - PRODUCT_CATEGORY_ORDER.indexOf(b.product_category as any)) ||
     roleRank(a.page_role) - roleRank(b.page_role) ||
     a.url.localeCompare(b.url)
   );
@@ -132,26 +132,77 @@ export function PagesTab({
     return metricAverage(pages[site] || [], dcv?.[metricTab]?.[site]);
   };
 
+  const roleCoverageForCategory = (rows: PageRow[], category: string) => {
+    const catRows = rows.filter((r) => r.product_category === category);
+    const roles = ["pf", "pdp", "buying"].filter((role) => catRows.some((r) => r.page_role === role));
+    return roles.length ? `${productCategoryKo(category)} ${roles.map(roleLabel).join("/")}` : productCategoryKo(category);
+  };
+
+  const labelForUrl = (siteRows: PageRow[], url?: string) => {
+    if (!url) return "페이지";
+    const match = siteRows.find((r) => r.url === url);
+    return match?.page_label || productPageLabel({ url, page_role: pageRoleFromUrl(url), product_category: productCategoryFromRow(null, url) }, url);
+  };
+
+  const copyInsight = (siteRows: PageRow[], block?: Report["dcv"]["copy"][string]) => {
+    const f: any = block?.facts || {};
+    const cta = f.commerce_cta || {};
+    const faq = f.faq || {};
+    const dup = f.duplication || {};
+    const rich = f.copy_richness || {};
+    if (!block) return "COPY 인사이트: 아직 이 사이트의 카피 분석 근거가 없습니다. 먼저 PF/PDP/Buying 수집 성공 여부를 확인해야 합니다.";
+
+    const buyPages = Array.isArray(cta.buy_cta_pages) ? cta.buy_cta_pages : [];
+    const missingBuy = Array.isArray(cta.missing_buy_cta_pages) ? cta.missing_buy_cta_pages : [];
+    const intentGaps = Array.isArray(rich.intent_gap_pages) ? rich.intent_gap_pages : [];
+    const dupCount = (Array.isArray(dup.duplicate_cta_pages) ? dup.duplicate_cta_pages.length : 0) + (Array.isArray(dup.duplicate_copy_pages) ? dup.duplicate_copy_pages.length : 0);
+    const samples = [
+      ...missingBuy.slice(0, 2).map((x: any) => `${labelForUrl(siteRows, x.url)} CTA 미확인`),
+      ...intentGaps.slice(0, 2).map((x: any) => `${labelForUrl(siteRows, x.url)} 근거 보강 후보`),
+    ].filter(Boolean);
+    const ctaText = buyPages.length
+      ? `구매 CTA가 ${buyPages.length}개 페이지에서 잡혀 Buying/PDP 전환 메시지 비교가 가능합니다`
+      : "Buy/Shop/Add to cart 계열 CTA가 아직 잡히지 않아 전환 문구 비교 근거가 부족합니다";
+    const faqText = faq.pages_with_faq
+      ? `FAQ는 ${faq.pages_with_faq}개 페이지/${faq.total_items || 0}문항으로 AI 답변 근거 후보가 있습니다`
+      : "FAQ 구조는 확인되지 않았습니다";
+    const dupText = dupCount ? `중복 CTA/문구 후보 ${dupCount}건은 본문 반복인지 확인 필요` : "눈에 띄는 중복 CTA/문구 후보는 적습니다";
+    return `COPY 인사이트: ${ctaText}. ${faqText}. ${dupText}.${samples.length ? ` 우선 확인: ${samples.join(", ")}.` : ""}`;
+  };
+
+  const dataInsight = (siteRows: PageRow[], block?: Report["dcv"]["data"][string]) => {
+    const f: any = block?.facts || {};
+    if (!block) return "DATA 인사이트: 아직 이 사이트의 구조화 데이터/HTML 분석 근거가 없습니다.";
+    const coverage = typeof f.schema?.coverage_pct === "number" ? `${f.schema.coverage_pct}%` : "-";
+    const types = f.schema?.schema_type_counts ? Object.keys(f.schema.schema_type_counts).slice(0, 4).join(", ") : "확인된 타입 없음";
+    return `DATA 인사이트: Schema 적용률은 ${coverage}이고 주요 타입은 ${types}입니다. 단, 사이트마다 Linked/Inline 구현 방식이 다르므로 삼성 구조를 정답으로 두지 않고 PF/PDP/Buying 역할에 맞는 타입인지 중심으로 확인합니다.`;
+  };
+
+  const visualInsight = (siteRows: PageRow[], block?: Report["dcv"]["visual"][string]) => {
+    const f: any = block?.facts || {};
+    if (!block) return "VISUAL 인사이트: 아직 이 사이트의 alt/src 기반 이미지 분석 근거가 없습니다.";
+    const d = f.image_diversity || {};
+    const alt = f.alt_text_quality || {};
+    return `VISUAL 인사이트: HTML 기준 이미지 ${d.total_images ?? "-"}장 중 product 신호 ${d.product ?? "-"}장, lifestyle 신호 ${d.lifestyle ?? "-"}장입니다. 설명적 alt 비율은 ${alt.descriptive_ratio_pct ?? "-"}%로, 실제 스크린샷 판정이 아니라 alt/src/파일명 기준의 메타데이터 신호입니다.`;
+  };
+
   const pageInsights = (site: SiteKey) => {
     const rows = pageRows.filter((r) => r.site === site);
     const crawled = rows.filter((r) => r.status === "수집됨");
-    const categories = Array.from(new Set(rows.map((r) => r.product_category))).map(productCategoryKo).join(" · ");
-    const roleText = roleSummary(rows);
+    const categories = PRODUCT_CATEGORY_ORDER.filter((cat) => rows.some((r) => r.product_category === cat));
+    const completeCategories = categories.filter((cat) => ["pf", "pdp", "buying"].every((role) => rows.some((r) => r.product_category === cat && r.page_role === role)));
+    const missing = rows.filter((r) => r.status !== "수집됨").slice(0, 3).map((r) => `${r.page_label}(${shortUrl(r.url)})`);
 
     if (rows.length === 0) return "관리 URL이 없습니다. 먼저 이 사이트의 제품군별 PF/PDP/Buying URL 등록 여부를 확인하세요.";
     if (crawled.length === 0) {
-      return `관리 기준 ${rows.length}개(${categories || "제품군 미분류"} / ${roleText || "역할 미분류"})가 있지만 아직 스냅샷이 없습니다. 차단, JS 렌더링, 리다이렉트, 타임아웃 여부를 먼저 확인하세요.`;
+      return `수집 범위: ${categories.map((cat) => roleCoverageForCategory(rows, cat)).join(" · ") || "제품군 미분류"}. 아직 스냅샷이 없어서 인사이트를 만들지 않습니다. 차단, JS 렌더링, 리다이렉트, 타임아웃 여부를 먼저 확인하세요.`;
     }
 
-    const notCrawled = rows.length - crawled.length;
-    const byCategory = Array.from(new Set(rows.map((r) => r.product_category))).map((cat) => {
-      const catRows = rows.filter((r) => r.product_category === cat);
-      const catCrawled = catRows.filter((r) => r.status === "수집됨").length;
-      return `${productCategoryKo(cat)} ${catCrawled}/${catRows.length}`;
-    }).join(" · ");
-    const missing = rows.filter((r) => r.status !== "수집됨").slice(0, 3).map((r) => `${r.page_label}(${shortUrl(r.url)})`);
-    const missingText = missing.length ? ` 미수집 후보: ${missing.join(", ")}.` : "";
-    return `관리 기준 ${rows.length}개 중 ${crawled.length}개 수집. 제품군별 수집 현황: ${byCategory}. ${notCrawled ? `근거 부족 URL ${notCrawled}개는 인사이트 산정에서 제외됩니다.` : "모든 관리 URL에 수집 근거가 있습니다."}${missingText}`;
+    const scope = `수집 범위: ${categories.map((cat) => roleCoverageForCategory(rows, cat)).join(" · ")}. ${completeCategories.length ? `PF/PDP/Buying 3종이 모두 있는 제품군은 ${completeCategories.map(productCategoryKo).join(", ")}입니다.` : "PF/PDP/Buying 3종이 모두 갖춰진 제품군은 아직 없습니다."}${missing.length ? ` 수집 전: ${missing.join(", ")}.` : ""}`;
+    if (metricTab === "copy") return `${scope} ${copyInsight(rows, dcv?.copy?.[site])}`;
+    if (metricTab === "data") return `${scope} ${dataInsight(rows, dcv?.data?.[site])}`;
+    if (metricTab === "visual") return `${scope} ${visualInsight(rows, dcv?.visual?.[site])}`;
+    return `${scope} ${copyInsight(rows, dcv?.copy?.[site])}`;
   };
 
   const representative = useMemo(() => {
@@ -224,11 +275,11 @@ export function PagesTab({
         {representative && <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>선정 이유: {representative.reason}{!autoMode && " (수동 선택됨)"}</p>}
         {loadingPage && <p className="muted">불러오는 중…</p>}
         {!loadingPage && !selectedPage && <p className="muted">아래 수집된 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>}
-        {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} />}
+        {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} focusMetric={metricTab} />}
       </div>
 
       <div className="card">
-        <p className="cardTitle">경쟁사별 수집 기준/인사이트</p>
+        <p className="cardTitle">경쟁사별 분석 요약 — 수집 범위 + 선택 지표 인사이트</p>
         <div className="siteSplit">
           {visibleSiteKeys.map((site) => (
             <div key={site}>
@@ -244,7 +295,7 @@ export function PagesTab({
         {visibleSiteKeys.map((site) => {
           const rows = pageRows.filter((p) => p.site === site);
           if (!rows.length) return null;
-          const categories = Array.from(new Set(rows.map((r) => r.product_category)));
+          const categories = PRODUCT_CATEGORY_ORDER.filter((cat) => rows.some((r) => r.product_category === cat));
           return (
             <div key={site} style={{ marginBottom: 16 }}>
               <p className="tierRowHead" style={{ marginBottom: 6 }}>
