@@ -189,6 +189,23 @@ def health():
     return {"status": "healthy", "gemini": IntelEngine().is_available(), "ts": datetime.utcnow().isoformat()}
 
 
+@app.get("/api/health/gemini")
+def gemini_deep_health():
+    """Gemini 실제 호출까지 검증하는 deep health check.
+
+    /api/health 의 gemini=true 는 SDK 초기화 여부만 의미하므로,
+    401/429/model 오류를 확인할 때는 이 endpoint 를 사용한다.
+
+    intel_engine.py를 수정하지 않기 위해 실제 진단 로직은
+    gemini_health.py의 작은 helper로 분리했다.
+    """
+    from gemini_health import gemini_deep_health_check
+
+    # 진단 endpoint 이므로 HTTP 자체는 200으로 반환해 브라우저에서 JSON을 바로 볼 수 있게 한다.
+    # 실제 원인은 result.status / error_message / hint 에 담는다.
+    return gemini_deep_health_check()
+
+
 @app.get("/api/runs")
 def runs():
     rows = q("SELECT crawl_run_id, site_name, started_at, total_urls_crawled, total_changes_detected, session_id "
