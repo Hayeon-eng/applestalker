@@ -164,7 +164,18 @@ const mapToText = (obj: any, limit = 8) => {
   if (!obj || typeof obj !== "object") return "-";
   const entries = Object.entries(obj).slice(0, limit);
   if (entries.length === 0) return "-";
-  return entries.map(([k, v]) => `${k} ${countText(v)}`).join(" / ");
+  return entries.map(([k, v]) => {
+    if (v && typeof v === "object") {
+      const bits = [
+        (v as any).pages != null ? `${countText((v as any).pages)}p` : null,
+        (v as any).avg_images != null ? `이미지 ${countText((v as any).avg_images)}장` : null,
+        (v as any).avg_words != null ? `단어 ${countText((v as any).avg_words)}` : null,
+        (v as any).avg_word_count != null ? `평균 ${countText((v as any).avg_word_count)}단어` : null,
+      ].filter(Boolean).join(" · ");
+      return `${k} ${bits || JSON.stringify(v).slice(0, 80)}`;
+    }
+    return `${k} ${countText(v)}`;
+  }).join(" / ");
 };
 
 const urlListText = (urls: any, emptyText = "없음") => {
@@ -199,7 +210,7 @@ function detailRowsForFinding(metric: MetricTab, label: string, block?: Analysis
       { key: "Lifestyle 비율", value: pctText(d.lifestyle_ratio_pct) },
       { key: "판정 방식", value: d._note || "alt/src/파일명/페이지 URL/주변 텍스트 기반 휴리스틱" },
     ];
-    if (label === "alt 텍스트 품질") return [
+    if (label === "alt.copy 품질" || label === "alt 텍스트 품질") return [
       { key: "설명적", value: `${countText(alt["설명적"])}건` },
       { key: "일반적", value: `${countText(alt["일반적"])}건` },
       { key: "비어있음", value: `${countText(alt["비어있음"])}건` },
@@ -215,6 +226,11 @@ function detailRowsForFinding(metric: MetricTab, label: string, block?: Analysis
       { key: "페이지당 평균 이미지", value: `${countText(conc.avg_per_page)}장` },
       { key: "단일 페이지 최대 비중", value: pctText(conc.max_single_page_pct) },
       { key: "이미지 많은 페이지", value: pageListText(conc.image_heavy_pages) },
+    ];
+    if (label === "Visual tactic") return [
+      { key: "Tactic 분포", value: mapToText((f.visual_tactics || {}).distribution) },
+      { key: "역할별 이미지/단어", value: mapToText((f.visual_tactics || {}).role_summary) },
+      { key: "판단 방식", value: (f.visual_tactics || {})._note || "페이지 역할, 이미지 수, heading/파일명 힌트 기반" },
     ];
     if (label === "스토리텔링") return [
       { key: "스토리텔링 페이지 수", value: `${countText(story.count)}건` },
@@ -255,20 +271,43 @@ function detailRowsForFinding(metric: MetricTab, label: string, block?: Analysis
   }
 
   if (metric === "copy") {
+    const inventory = f.page_inventory || {};
     const density = f.content_density || {};
+    const length = f.copy_length || {};
     const rich = f.copy_richness || {};
     const faq = f.faq || {};
-    if (label === "콘텐츠 양" || label === "텍스트 부족") return [
-      { key: "콘텐츠 밀도 분포", value: mapToText(density.distribution) },
-      { key: "텍스트 부족 페이지", value: urlListText(density.thin_pages) },
-      { key: "풍부 콘텐츠 페이지", value: urlListText(density.rich_pages) },
+    const commerce = f.commerce_cta || {};
+    const dup = f.duplication || {};
+
+    if (label === "수집 기준") return [
+      { key: "총 수집 페이지", value: `${countText(inventory.total_pages ?? (rich.all_pages || []).length)}페이지` },
+      { key: "역할별 수집", value: mapToText(inventory.by_page_role || length.by_page_role) },
+      { key: "분량 구간", value: mapToText(density.distribution) },
+      { key: "해석", value: inventory.note || density.note || "품질 등급이 아니라 이번 리포트가 어떤 페이지 역할을 근거로 삼았는지 보여주는 기준" },
     ];
-    if (label === "카피 구체성") return [
-      { key: "가중치", value: `구체 근거 ${pctText((rich.weights?.quant ?? 0) * 100)} / 구조 ${pctText((rich.weights?.structure ?? 0) * 100)} / 근거 키워드 ${pctText((rich.weights?.evidence_kw ?? 0) * 100)} / FAQ ${pctText((rich.weights?.faq_presence ?? 0) * 100)}` },
-      { key: "우수 페이지", value: pageListText(rich.rich_pages) },
-      { key: "미흡 페이지", value: pageListText(rich.intent_gap_pages) },
+    if (label === "COPY 현재 상태") return [
+      { key: "카피 구체성 산식", value: `수치/스펙 근거 ${pctText((rich.weights?.quant ?? 0) * 100)} / H2·CTA·FAQ 구조 ${pctText((rich.weights?.structure ?? 0) * 100)} / 비교·증거 키워드 ${pctText((rich.weights?.evidence_kw ?? 0) * 100)} / FAQ 존재 ${pctText((rich.weights?.faq_presence ?? 0) * 100)}` },
+      { key: "강한 페이지", value: pageListText(rich.rich_pages) },
+      { key: "보강 후보", value: pageListText(rich.intent_gap_pages) },
+      { key: "해석", value: "점수는 사이트 우열이 아니라 PDP·Buying·PF 역할별로 제품 이해/전환 근거가 충분한지 보는 보조 기준" },
     ];
-    if (label === "FAQ 품질") return [
+    if (label === "점검 후보") return [
+      { key: "짧은 텍스트 페이지", value: urlListText(density.thin_pages) },
+      { key: "긴 페이지", value: urlListText(density.rich_pages) },
+      { key: "해석", value: "Buying/옵션 페이지가 짧은 것은 정상일 수 있음. PF/PDP가 짧거나, 긴 PDP에 수치·스펙 근거가 적은 경우를 우선 확인" },
+    ];
+    if (label === "구매 CTA") return [
+      { key: "CTA 수집 페이지", value: `${countText(commerce.pages_with_buy_cta)}페이지` },
+      { key: "대표 CTA 페이지", value: pageListText(commerce.buy_cta_pages) },
+      { key: "CTA 미확인 후보", value: pageListText(commerce.missing_buy_cta_pages) },
+      { key: "판단 방식", value: commerce.note || "Buy/Shop/Add to cart/Where to buy 계열 버튼·링크 텍스트 기반" },
+    ];
+    if (label === "중복 점검") return [
+      { key: "중복 CTA 페이지", value: pageListText(dup.duplicate_cta_pages) },
+      { key: "중복 문구 페이지", value: pageListText(dup.duplicate_copy_pages) },
+      { key: "해석", value: dup.note || "공통 헤더/푸터 반복일 수 있어 삭제 전 본문 반복인지 수동 확인 필요" },
+    ];
+    if (label === "FAQ") return [
       { key: "FAQ 보유 페이지", value: `${countText(faq.pages_with_faq)}건` },
       { key: "FAQ 문항 수", value: `${countText(faq.total_items)}건` },
       { key: "가중치", value: `구체성 ${pctText((faq.weights?.specificity ?? 0) * 100)} / 질문 현실성 ${pctText((faq.weights?.question_realism ?? 0) * 100)} / 인용 적합성 ${pctText((faq.weights?.citability ?? 0) * 100)}` },
@@ -312,7 +351,7 @@ export function CurrentStatusDrilldown({
         <p className="muted">표시할 상세 facts가 없습니다.</p>
       )}
       <p className="termDetail" style={{ marginTop: 10 }}>
-        변경점이 없어도 현재 상태 집계에 사용된 facts를 보여주는 영역입니다. Gemini 실패 시에도 규칙기반 집계값을 근거로 표시합니다.
+        변경점이 없어도 현재 상태 집계에 사용된 facts를 보여주는 영역입니다. 외부 AI 문장 생성이 없어도 규칙기반 집계값을 근거로 표시합니다.
       </p>
     </div>
   );

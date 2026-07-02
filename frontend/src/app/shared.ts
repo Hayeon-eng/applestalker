@@ -144,12 +144,24 @@ export const CATEGORY_BUCKETS: Record<string, MetricTab> = {
   content: "copy", commerce: "copy",
   비주얼: "visual", visual: "visual",
 };
+export const PAGE_ROLE_META: Record<string, { label: string; desc: string }> = {
+  pf: { label: "PF", desc: "제품군/카테고리 탐색 페이지" },
+  pdp: { label: "PDP", desc: "개별 제품 상세 페이지" },
+  buying: { label: "Buying", desc: "구매·옵션·가격·혜택 중심 페이지" },
+  specs: { label: "Specs", desc: "상세 스펙 페이지" },
+  campaign_or_compare: { label: "Compare/Campaign", desc: "비교·캠페인·전환 보조 페이지" },
+  campaign: { label: "Campaign", desc: "캠페인·전환 보조 페이지" },
+  compare: { label: "Compare", desc: "제품 비교 페이지" },
+  home: { label: "Home", desc: "브랜드/스토어 홈" },
+  content: { label: "Content", desc: "기타 콘텐츠 페이지" },
+};
+// 하위 호환용. 화면에서는 더 이상 Tier 기준을 노출하지 않고 PAGE_ROLE_META를 사용한다.
 export const TIER_META: Record<number, { label: string; desc: string }> = {
-  0: { label: "Tier 0 · 홈", desc: "브랜드 홈페이지" },
-  1: { label: "Tier 1 · 카테고리", desc: "제품 카테고리 목록 페이지" },
-  2: { label: "Tier 2 · 캠페인", desc: "비교·전환·캠페인성 페이지 (예: Compare, Switch, AI 소개)" },
-  3: { label: "Tier 3 · 제품 상세", desc: "개별 제품 소개 페이지" },
-  4: { label: "Tier 4 · 구매/스펙", desc: "구매·스펙 상세 페이지" },
+  0: { label: "Home", desc: PAGE_ROLE_META.home.desc },
+  1: { label: "PF", desc: PAGE_ROLE_META.pf.desc },
+  2: { label: "Compare/Campaign", desc: PAGE_ROLE_META.campaign_or_compare.desc },
+  3: { label: "PDP", desc: PAGE_ROLE_META.pdp.desc },
+  4: { label: "Buying/Specs", desc: `${PAGE_ROLE_META.buying.desc} / ${PAGE_ROLE_META.specs.desc}` },
 };
 
 // ── 세부 항목 뱃지 분류기: narrative 한 줄이 어느 세부 기준에 해당하는지 키워드로 판정 ──
@@ -162,12 +174,13 @@ export const DATA_LINE_TAGS: [RegExp, LineTag][] = [
   [/meta description|메타 디스크립션/i, { label: "Meta description", cls: "c6" }],
 ];
 export const COPY_LINE_TAGS: [RegExp, LineTag][] = [
-  [/콘텐츠 양 기준 분포|콘텐츠 밀도 분포|페이지 역할별 카피 길이/, { label: "역할별 카피 길이", cls: "c1" }],
-  [/텍스트 양이 부족|빈약 콘텐츠/, { label: "텍스트 부족", cls: "c3" }],
-  [/카피 구체성|카피 풍부성|풍부성 점수|구체 근거/, { label: "카피 구체성", cls: "c2" }],
+  [/수집 페이지 기준|관리 기준|실제 수집/, { label: "수집 기준", cls: "c1" }],
+  [/COPY 현재 상태|카피 구체성|평균 구체성|구체 근거/, { label: "COPY 현재 상태", cls: "c2" }],
+  [/우선 점검 페이지|긴 설명 대비|텍스트가 짧|짧은 텍스트/, { label: "점검 후보", cls: "c3" }],
+  [/구매 CTA|Buy CTA|Shop|Add to cart/, { label: "구매 CTA", cls: "c3" }],
+  [/중복 CTA|중복 문구|중복 텍스트|불필요한 버튼/, { label: "중복 점검", cls: "c3" }],
   [/토널리티|메시지 톤/, { label: "토널리티", cls: "c5" }],
-  [/중복 CTA|중복 문구|중복 텍스트|불필요한 버튼|구매 CTA|Buy CTA/, { label: "CTA/중복 점검", cls: "c3" }],
-  [/FAQ/, { label: "FAQ 품질", cls: "c4" }],
+  [/FAQ/, { label: "FAQ", cls: "c4" }],
 ];
 export const VISUAL_LINE_TAGS: [RegExp, LineTag][] = [
   [/이미지 분석 방식|이미지.*장 중|product.*lifestyle/i, { label: "이미지 분류", cls: "c1" }],
@@ -229,25 +242,28 @@ export const linesFromBlock = (b?: AnalysisBlock) => [
   ...(b?.narrative || []),
   ...((b?.insights || []).map((x) => x.point || "").filter(Boolean)),
 ];
-export const pageRoleFromUrl = (u: string): "home" | "pf" | "pdp" | "buying" | "compare" | "campaign" => {
+export const pageRoleFromUrl = (u: string): "home" | "pf" | "pdp" | "buying" | "compare" | "campaign" | "campaign_or_compare" | "specs" | "content" => {
   try {
     const url = new URL(u);
     const path = url.pathname.toLowerCase();
     const clean = path.replace(/\/$/, "");
     if (!clean || clean === "/" || clean === "/us" || clean === "/global") return "home";
     if (/\/shop\//.test(path) || /\/buy\//.test(path) || /\/cart\//.test(path) || /\/checkout\//.test(path) || /\/config\//.test(path) || /shop-all/.test(path)) return "buying";
-    if (/compare|find-your|switch-to|galaxy-ai|apple-intelligence|one-ui/.test(path) && !/ray-ban-meta/.test(path)) return "campaign";
+    if (/specs|specifications|tech-specs/.test(path)) return "specs";
+    if (/compare|find-your|switch-to|galaxy-ai|apple-intelligence|one-ui/.test(path) && !/ray-ban-meta/.test(path)) return "campaign_or_compare";
     if (/iphone-17-pro|pixel_10_pro|xiaomi-17-ultra|find-x9-ultra|x300-ultra|ipad-pro|xiaomi-pad-8-pro|airpods-pro|apple-watch-ultra|watch-ultra|buds4-pro|wf1000|wf-1000|fenix|macbook-pro|xps-16|xps-da|galaxy-s26-ultra|galaxy-tab-s11|galaxy-book6-ultra|ray-ban-meta/.test(path)) return "pdp";
     if (/iphone|ipad|phones|smartphones|product-list|products|tablets|watch|watches|airpods|audio|headphones|wearables|mac|laptops|galaxybooks|ai-glasses/.test(path)) return "pf";
-    return "pdp";
-  } catch { return "pdp"; }
+    return "content";
+  } catch { return "content"; }
 };
 export const pageRoleKo = (role?: string) => {
   if (role === "pf") return "PF";
   if (role === "pdp") return "PDP";
   if (role === "buying") return "Buying";
   if (role === "compare") return "Compare";
-  if (role === "campaign") return "Campaign";
+  if (role === "campaign" || role === "campaign_or_compare") return "Compare/Campaign";
+  if (role === "specs") return "Specs";
+  if (role === "content") return "Content";
   if (role === "home") return "Home";
   return role || "Page";
 };
@@ -256,6 +272,8 @@ export const pageRoleFromText = (raw: string) => {
   if (/buying|buy|구매|shop|cart|장바구니/.test(t)) return "buying";
   if (/pf|family|category|카테고리|제품군/.test(t)) return "pf";
   if (/pdp|detail|상세/.test(t)) return "pdp";
+  if (/spec|스펙|specs/.test(t)) return "specs";
+  if (/compare|비교|campaign|캠페인/.test(t)) return "campaign_or_compare";
   return undefined;
 };
 
@@ -300,38 +318,50 @@ export const metricAverage = (sitePages: PageLite[], block?: AnalysisBlock) => {
 };
 
 // 지표(DATA/COPY/VISUAL) 하나를 핵심 한줄 + 숫자 통계로 요약. 실제 facts/changes만 사용(생성 없음).
+// expectedSites를 넘기면 “현재 수집된 사이트만”이 아니라 “관리 대상 전체 중 어디가 수집/미수집인지”까지 보여준다.
 export const metricOneLiner = (
   metric: MetricTab,
   dcvForMetric: Record<string, AnalysisBlock> | undefined,
-  changes: Change[]
+  changes: Change[],
+  expectedSites: SiteKey[] = []
 ): string => {
   const blocks = dcvForMetric || {};
-  const keys = orderedSiteKeys(Object.keys(blocks));
+  const collectedKeys = orderedSiteKeys(Object.keys(blocks));
+  const managedKeys = orderedSiteKeys([...expectedSites, ...collectedKeys, ...changes.map((c) => c.site || "")]);
   const high = changes.filter((c) => c.level === "High").length;
   const changedSites = orderedSiteKeys(changes.map((c) => c.site || "")).map(siteShortName);
-  const shownKeys = keys.slice(0, 8);
-  const more = keys.length > shownKeys.length ? ` · 외 ${keys.length - shownKeys.length}개` : "";
-  const labelFor = (site: string) => siteShortName(site);
+  const missingKeys = managedKeys.filter((site) => !blocks[site]);
+  const collectedLabel = collectedKeys.length ? collectedKeys.slice(0, 5).map(siteShortName).join(", ") : "없음";
+  const missingLabel = missingKeys.length
+    ? ` · 미수집/근거부족 ${missingKeys.length}개(${missingKeys.slice(0, 4).map(siteShortName).join(", ")}${missingKeys.length > 4 ? " 외" : ""})`
+    : "";
+
+  const numberList = <T,>(items: T[], mapper: (x: T) => number | null | undefined) => {
+    const vals = items.map(mapper).map((x) => Number(x)).filter((x) => Number.isFinite(x));
+    if (vals.length === 0) return "-";
+    return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+  };
+
   let statLine = "";
   if (metric === "data") {
-    const parts = shownKeys.map((site) => `${labelFor(site)} ${blocks[site]?.facts?.schema?.coverage_pct ?? "-"}%`);
-    statLine = `Schema 적용률: ${parts.join(" · ") || "수집 데이터 없음"}${more}`;
+    const avg = numberList(collectedKeys, (site) => blocks[site]?.facts?.schema?.coverage_pct);
+    statLine = `Schema: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 평균 ${avg}% · 수집 ${collectedLabel}${missingLabel}`;
   } else if (metric === "copy") {
-    const copyAvg = (f: any, key: "score" | "quant_per_100w") => {
+    const copyAvg = (f: any) => {
       const pages = f?.copy_richness?.all_pages || [];
-      if (!Array.isArray(pages) || pages.length === 0) return "-";
-      const total = pages.reduce((sum: number, p: any) => sum + (Number(p?.[key]) || 0), 0);
+      if (!Array.isArray(pages) || pages.length === 0) return null;
+      const total = pages.reduce((sum: number, p: any) => sum + (Number(p?.score) || 0), 0);
       return Math.round((total / pages.length) * 10) / 10;
     };
-    const parts = shownKeys.map((site) => `${labelFor(site)} ${copyAvg(blocks[site]?.facts, "score")}점`);
-    statLine = `카피 구체성: ${parts.join(" · ") || "수집 데이터 없음"}${more}`;
+    const avg = numberList(collectedKeys, (site) => copyAvg(blocks[site]?.facts));
+    statLine = `Copy: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 · 평균 구체성 ${avg}점 · 수집 ${collectedLabel}${missingLabel}`;
   } else {
-    const parts = shownKeys.map((site) => `${labelFor(site)} ${blocks[site]?.facts?.image_diversity?.lifestyle_ratio_pct ?? "-"}%`);
-    statLine = `Lifestyle 이미지 신호: ${parts.join(" · ") || "수집 데이터 없음"}${more}`;
+    const avg = numberList(collectedKeys, (site) => blocks[site]?.facts?.image_diversity?.lifestyle_ratio_pct);
+    statLine = `Visual: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 lifestyle 신호 평균 ${avg}% · 수집 ${collectedLabel}${missingLabel}`;
   }
   const changeText = changes.length
     ? `변경 ${changes.length}건(High ${high}) · 변경 사이트: ${changedSites.join(", ") || "-"}`
-    : "변경 없음 · 현재 상태 기준으로 다음 수집 때 이탈 여부 확인";
+    : "변경 없음 · 수집된 사이트는 현재 상태를 baseline으로 유지";
   return `${statLine} · ${changeText}`;
 };
 
