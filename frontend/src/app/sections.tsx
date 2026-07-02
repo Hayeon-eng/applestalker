@@ -8,16 +8,38 @@ import {
   shortUrl, linesFromBlock, tierForUrl, tagForLine,
   metricAverage, metricOneLiner, bucketOf, actionForChange,
 } from "./shared";
+import { ChangeDrilldown, CurrentStatusDrilldown, type CurrentFindingSelection } from "./evidencePanels";
 
 /* ════════════════════════════════════════════════════
    서브 컴포넌트 (이 파일 안에서만 사용)
 ════════════════════════════════════════════════════ */
-function FindingList({ metric, lines }: { metric: MetricTab; lines: string[] }) {
+function FindingList({
+  metric, lines, selectedIndex, onSelectLine,
+}: {
+  metric: MetricTab; lines: string[]; selectedIndex?: number;
+  onSelectLine?: (index: number, line: string, label: string) => void;
+}) {
   if (lines.length === 0) return <p className="muted">분석 데이터가 없습니다.</p>;
+  const interactive = !!onSelectLine;
   return (
     <div>
       {lines.map((line, i) => {
         const tag = tagForLine(metric, line);
+        if (interactive) {
+          return (
+            <button
+              type="button"
+              className={`findingRow findingRowButton ${selectedIndex === i ? "selected" : ""}`}
+              key={i}
+              onClick={() => onSelectLine?.(i, line, tag.label)}
+              title="상세 근거 보기"
+            >
+              <span className={`badge ${tag.cls}`}>{tag.label}</span>
+              <span className="findingText">{line}</span>
+              <span className="findingGo">근거 ↓</span>
+            </button>
+          );
+        }
         return (
           <div className="findingRow" key={i}>
             <span className={`badge ${tag.cls}`}>{tag.label}</span>
@@ -63,150 +85,6 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: "re
     <div className={`stat ${tone || ""}`}>
       <b>{value}</b>
       <span>{label}</span>
-    </div>
-  );
-}
-
-const EVIDENCE_LABELS: Record<string, string> = {
-  kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
-  phash_before: "이전 이미지 해시", phash_after: "이후 이미지 해시", sentences_added: "추가된 문장",
-  structure_note: "구조 비교 기준", tag_deltas: "핵심 태그 구성 변화", heading_deltas: "H2 문구 변화", cta_deltas: "CTA 문구 변화",
-  copy_importance: "카피 중요도 판단",
-};
-const EVIDENCE_KIND_LABELS: Record<string, string> = {
-  schema_added: "스키마 추가됨", schema_removed: "스키마 제거됨",
-};
-
-const TAG_NAME_LABELS: Record<string, string> = {
-  main: "본문 영역(main)", section: "섹션(section)", article: "콘텐츠 블록(article)",
-  header: "헤더(header)", footer: "푸터(footer)", nav: "내비게이션(nav)",
-  h1: "H1 제목", h2: "H2 제목", h3: "H3 제목", ul: "목록 묶음(ul)", ol: "목록 묶음(ol)",
-  li: "목록 항목(li)", a: "링크(a)", button: "버튼(button)", form: "폼(form)",
-  table: "표(table)", figure: "이미지 영역(figure)", picture: "반응형 이미지(picture)",
-  img: "이미지(img)", video: "영상(video)",
-};
-
-function evidenceValueToText(v: any, evidenceKey?: string): string {
-  if (v === "campaign_or_conversion_copy") return "캠페인·프로모션·구매 전환 관련 문구";
-  if (v === "minor_ui_or_menu_copy") return "메뉴·탭·짧은 UI 라벨성 문구";
-  if (v === "general_copy") return "일반 본문 문구";
-  if (Array.isArray(v)) return v.join(", ");
-  if (v && typeof v === "object") {
-    if ("added" in v || "removed" in v) {
-      const added = Array.isArray(v.added) && v.added.length ? `추가: ${v.added.join(", ")}` : "";
-      const removed = Array.isArray(v.removed) && v.removed.length ? `제거: ${v.removed.join(", ")}` : "";
-      return [added, removed].filter(Boolean).join(" / ") || "변화 있음";
-    }
-    return Object.entries(v)
-      .map(([k, val]: [string, any]) => {
-        if (val && typeof val === "object" && "before" in val && "after" in val) {
-          const diffNum = typeof val.diff === "number" ? val.diff : Number(val.after) - Number(val.before);
-          const diff = Number.isFinite(diffNum) ? ` (${diffNum > 0 ? "+" : ""}${diffNum})` : "";
-          const label = evidenceKey === "tag_deltas" ? (TAG_NAME_LABELS[k] || `${k} 태그`) : k;
-          const isMinorRepeatTag = evidenceKey === "tag_deltas" && ["li", "a", "button", "ul", "ol"].includes(k) && Math.abs(diffNum || 0) <= 2;
-          const note = isMinorRepeatTag ? " · 반복 UI 항목의 소폭 차이로 참고 수준" : "";
-          return `${label}: ${val.before} → ${val.after}${diff}${note}`;
-        }
-        return `${k}: ${String(val)}`;
-      })
-      .join(" / ");
-  }
-  return String(v);
-}
-
-function ChangeDrilldown({ change: c }: { change: Change }) {
-  const ev: Record<string, any> = c.evidence || {};
-  const countDeltas: Record<string, { label: string; before: number; after: number; diff: number }> | undefined =
-    ev.count_deltas;
-  const sentencesAdded: string[] = Array.isArray(ev.sentences_added) ? ev.sentences_added : [];
-  const sentencesRemoved: string[] = Array.isArray(ev.sentences_removed) ? ev.sentences_removed : [];
-  const hasStructureDetail = !!(countDeltas || ev.tag_deltas || ev.heading_deltas || ev.cta_deltas);
-  const isDomHashOnly = "dom_hash_before" in ev && !("kind" in ev) && !hasStructureDetail;
-  const hasKindLabel = !!(ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string]);
-  return (
-    <div className="drilldown">
-      <h3>상세 근거</h3>
-      <p>
-        <b>페이지:</b>{" "}
-        <a href={c.url} target="_blank" rel="noreferrer">{c.url}</a>
-      </p>
-      <p><b>분류:</b> {c.category || "-"} / {c.field || "-"}</p>
-
-      {/* 정확히 무엇이 바뀌었는지 — 추가/삭제된 문장을 색으로 바로 보이게 (가장 중요한 정보라 최상단에 배치) */}
-      {(sentencesAdded.length > 0 || sentencesRemoved.length > 0) && (
-        <div style={{ marginTop: 8, marginBottom: 4 }}>
-          {sentencesRemoved.length > 0 && (
-            <div style={{ marginBottom: 6 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--high)", marginBottom: 3 }}>➖ 삭제된 문장</p>
-              {sentencesRemoved.map((s, i) => (
-                <p key={i} className="diffContent before" style={{ marginBottom: 2 }}>{s}</p>
-              ))}
-            </div>
-          )}
-          {sentencesAdded.length > 0 && (
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--tier-good)", marginBottom: 3 }}>➕ 추가된 문장</p>
-              {sentencesAdded.map((s, i) => (
-                <p key={i} className="diffContent after" style={{ marginBottom: 2 }}>{s}</p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {c.before && (
-        <div className="diffBlock">
-          <p className="diffLabel">이전 (전체)</p>
-          <p className="diffContent before">{c.before}</p>
-        </div>
-      )}
-      {c.after && (
-        <div className="diffBlock">
-          <p className="diffLabel">현재 (전체)</p>
-          <p className="diffContent after">{c.after}</p>
-        </div>
-      )}
-      {ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string] && (
-        <p style={{ marginTop: 8, fontSize: 12.5, fontWeight: 600 }}>
-          {EVIDENCE_KIND_LABELS[ev.kind as string]}{ev.type ? ` — ${ev.type}` : ""}
-        </p>
-      )}
-      {countDeltas && (
-        <div style={{ marginTop: 8 }}>
-          <p style={{ fontSize: 11.5, fontWeight: 600, color: "var(--sec)", marginBottom: 4 }}>
-            구조 세부 변화 (h2/h3/CTA/FAQ/이미지 개수 비교)
-          </p>
-          <div className="evidenceGrid">
-            {Object.values(countDeltas).map((d) => (
-              <>
-                <span key={d.label + "_k"} className="evidenceKey">{d.label}</span>
-                <span key={d.label + "_v"} className="evidenceVal">
-                  {d.before} → {d.after} ({d.diff > 0 ? "+" : ""}{d.diff})
-                </span>
-              </>
-            ))}
-          </div>
-        </div>
-      )}
-      {isDomHashOnly && (
-        <p className="termDetail" style={{ marginTop: 8 }}>
-          저장된 구조 지표 기준으로 DOM 골격 변화가 감지되었습니다. H2/H3·CTA·FAQ·이미지 개수 변화가 없다면
-          요소의 순서, 중첩, 속성 또는 배치가 달라진 케이스로 표시됩니다.
-        </p>
-      )}
-      {Object.keys(ev).length > 0 && (
-        <div className="evidenceGrid" style={{ marginTop: 8 }}>
-          {Object.entries(ev)
-            .filter(([k]) => k !== "count_deltas" && k !== "sentences_added" && k !== "sentences_removed"
-                           && !(hasKindLabel && (k === "kind" || k === "type")))
-            .map(([k, v]) => (
-              <>
-                <span key={k + "_k"} className="evidenceKey">{EVIDENCE_LABELS[k] || k}</span>
-                <span key={k + "_v"} className="evidenceVal">{evidenceValueToText(v, k)}</span>
-              </>
-            ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -290,6 +168,17 @@ function MetricSection({
   showHeading?: boolean; urlFilter?: string | null; onClearUrlFilter?: () => void;
 }) {
   const changesBySite = (site: SiteKey) => changes.filter((c) => c.site === site);
+  const [selectedFinding, setSelectedFinding] = useState<CurrentFindingSelection | null>(null);
+  const currentEvidenceId = `current-evidence-${metric}`;
+  const openCurrentEvidence = (site: SiteKey, index: number, line: string, label: string) => {
+    setSelectedFinding({ site, index, line, label });
+    setTimeout(() => {
+      document.getElementById(currentEvidenceId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+  useEffect(() => {
+    setSelectedFinding(null);
+  }, [metric]);
   return (
     <>
       {showHeading && (
@@ -314,11 +203,32 @@ function MetricSection({
                   <span className="badge c6" title="AI 분석 실패 또는 미설정 — 규칙기반 집계로 대체됨">📐 규칙기반 (AI 분석 실패)</span>
                 ) : null}
               </p>
-              <FindingList metric={metric} lines={linesFromBlock(siteBlocks[site])} />
+              <FindingList
+                metric={metric}
+                lines={linesFromBlock(siteBlocks[site])}
+                selectedIndex={selectedFinding?.site === site ? selectedFinding.index : undefined}
+                onSelectLine={(index, line, label) => openCurrentEvidence(site, index, line, label)}
+              />
             </div>
           ))}
         </div>
       </div>
+
+      {selectedFinding && (
+        <details className="card currentEvidenceCard" id={currentEvidenceId} open>
+          <summary className="summaryEvidenceSummary">
+            상세 근거 — {siteName(selectedFinding.site)} / {selectedFinding.label}
+          </summary>
+          <div className="summaryEvidenceBody">
+            <CurrentStatusDrilldown
+              metric={metric}
+              site={selectedFinding.site}
+              block={siteBlocks[selectedFinding.site]}
+              selection={selectedFinding}
+            />
+          </div>
+        </details>
+      )}
 
       {/* 변경점 목록 (Apple 좌 / Samsung 우) */}
       <div className="card" id="change-list-section">
