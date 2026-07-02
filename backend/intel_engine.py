@@ -815,7 +815,16 @@ class IntelEngine:
             resp = self.model.generate_content(prompt)
             return self._parse_json(resp.text)
         except Exception as e:
-            print(f"[intel] {category} llm enrich failed: {e}")
+            # [FIX] 기존엔 "llm enrich failed"라고만 찍혀서 gemini-2.5+ thinking 토큰이
+            # max_output_tokens를 다 써서 빈 응답이 온 건지, 다른 문제인지 로그만 봐선
+            # 구분이 안 됐다. gemini_health의 동일 분류 로직을 재사용해 원인을 바로 남긴다.
+            msg = str(e)
+            if "quick accessor requires the response to contain a valid" in msg.lower():
+                print(f"[intel] {category} llm enrich failed: gemini thinking 토큰이 "
+                      f"output 예산을 다 써서 실제 응답 없음(구버전 SDK는 thinking 제어 불가) "
+                      f"— rule-based로 폴백. raw={msg[:200]}")
+            else:
+                print(f"[intel] {category} llm enrich failed: {e}")
             return None
 
     def _narrate_copy(self, c: Dict[str, Any]) -> List[str]:

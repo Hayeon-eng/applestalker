@@ -31,6 +31,15 @@ def _api_key_diagnostics(api_key: str) -> Dict[str, Any]:
 
 def _classify_gemini_error(error_message: str) -> str:
     msg = (error_message or "").lower()
+    # [FIX] gemini-2.5+ 계열은 thinking 토큰이 max_output_tokens 예산을 같이 깎아먹어서,
+    # 예산이 작으면(혹은 프롬프트가 복잡해 thinking이 길어지면) 진짜 답변 Part가 하나도
+    # 안 만들어진 채 finish_reason=MAX_TOKENS로 끝나 response.text가 죽는다.
+    # 이 구버전 SDK(google-generativeai)는 thinking_config 필드 자체가 없어 끄거나
+    # 예산을 조절할 방법이 없다 → 별도 상태로 분류해서 바로 알아볼 수 있게 한다.
+    if "quick accessor requires the response to contain a valid" in msg or (
+        "finish_reason" in msg and (" 2" in msg or "max_tokens" in msg)
+    ):
+        return "thinking_budget_exhausted"
     if "access_token_type_unsupported" in msg or "invalid authentication credentials" in msg or "401" in msg:
         return "invalid_authentication"
     if "api_key_invalid" in msg or "api key not valid" in msg or "invalid api key" in msg:
@@ -89,7 +98,9 @@ def gemini_deep_health_check() -> Dict[str, Any]:
         base["configured"] = True
         resp = model.generate_content(
             "Return exactly OK.",
-            generation_config={"temperature": 0, "max_output_tokens": 4},
+            # [FIX] 4토큰은 thinking 모델에선 thinking만 하다 끝나버림. 512로 올려서
+            # 최소한 이 테스트 자체는 thinking budget 문제로 죽지 않게 함(근본 해결은 아님).
+            generation_config={"temperature": 0, "max_output_tokens": 512},
             request_options={"timeout": 20},
         )
         text = (getattr(resp, "text", "") or "").strip()
@@ -104,6 +115,9 @@ def gemini_deep_health_check() -> Dict[str, Any]:
         raw = _redact_error(str(e), api_key)
         status = _classify_gemini_error(raw)
         hints = {
+            "thinking_budget_exhausted": "gemini-2.5+ thinking 토큰이 max_output_tokens를 다 써서 실제 답변이 비어 반환됨. "
+                                          "구버전 SDK(google-generativeai)는 thinking_config를 지원하지 않아 끌 수 없음 — "
+                                          "google-genai SDK로 마이그레이션하거나 max_output_tokens를 넉넉히 늘려야 함",
             "invalid_authentication": "API key가 아니라 OAuth access token/Bearer token/JSON credential이 들어갔을 가능성이 큼",
             "invalid_api_key": "API key 값이 잘못됐거나 폐기됨. Google AI Studio에서 새 API key 발급 필요",
             "quota_or_rate_limit": "quota 소진 또는 rate limit. Google AI Studio/Cloud quota 확인 필요",
