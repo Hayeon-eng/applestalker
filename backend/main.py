@@ -371,7 +371,7 @@ def latest_report(run_id: Optional[str] = None):
             if pov[0][6]: visual_by_rid[rid] = _loads(pov[0][6])
     analysis = {"summary": " ".join(summ), "aeo_implications": " ".join(aeo),
                 "insights": ins, "actions": act}
-    # [PHASE1 신규] DATA/COPY/VISUAL — 사이트(samsung/apple)별로 묶어 반환.
+    # [PHASE1 신규] DATA/COPY/VISUAL — 사이트별로 묶어 반환.
     # 세션에 두 사이트(run) 결과가 섞여 있을 수 있으므로 site_name 으로 매핑.
     site_by_rid = {r[0]: r[1] for r in target_runs}
     def _by_site(blocks_by_rid):

@@ -420,13 +420,15 @@ def _narrate_schema_completeness(schema: Dict[str, Any]) -> List[str]:
 # ════════════════════════════════════════════════════════════════
 
 def _density_tier(wc: int) -> str:
+    # 내부 용어(thin/light/moderate/rich)를 화면에 그대로 노출하지 않도록
+    # 사람이 읽는 기준으로 라벨을 바꾼다. 품질 등급이 아니라 텍스트 분량 구간이다.
     if wc < 150:
-        return "빈약(thin, <150)"
+        return "매우 짧음(<150단어)"
     if wc < 400:
-        return "경량(light, 150~400)"
+        return "짧음(150~400단어)"
     if wc < 800:
-        return "적정(moderate, 400~800)"
-    return "풍부(rich, 800+)"
+        return "중간(400~800단어)"
+    return "김(800단어 이상)"
 
 
 COMPARISON_KW = ("비교", "vs", "차이", "compared", "versus")
@@ -626,11 +628,19 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
     dominant_tone = tone_counter.most_common(1)[0][0] if tone_counter else "insufficient_data"
 
+    page_inventory = {
+        "total_pages": len(pages),
+        "by_page_role": {role: vals["pages"] for role, vals in length_summary.items()},
+        "note": "이번 리포트가 실제로 어떤 페이지 역할(PF/PDP/Buying 등)을 근거로 삼았는지 보여주는 수집 기준. 품질 점수나 중요도 순위가 아님.",
+    }
+
     return {
+        "page_inventory": page_inventory,
         "content_density": {
             "distribution": density_dist,
             "thin_pages": thin_pages[:10],
             "rich_pages": rich_pages[:10],
+            "note": "텍스트 분량 구간. 매우 짧음은 자동으로 문제라는 뜻이 아니며, Buying/옵션 페이지라면 정상일 수 있어 페이지 역할과 함께 해석.",
         },
         "copy_length": {
             "by_page_role": length_summary,
