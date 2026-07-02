@@ -471,14 +471,16 @@ export function Overview({
         )}
       </div>
 
-      {/* ①.5 가장 심각한 변화의 상세 근거를 요약카드 바로 아래에 펼쳐서 노출 (스크롤 없이 바로 보이게) */}
+      {/* ①.5 가장 심각한 변화의 상세 근거 — 전체요약에서는 접은 상태로 보관해 요약 흐름을 방해하지 않음 */}
       {highChanges.length > 0 && topSev && (
-        <div className="card">
-          <p className="cardTitle">
+        <details className="card summaryEvidenceCard">
+          <summary className="summaryEvidenceSummary">
             상세 근거 — {severityEmoji(topSev.level)} {levelKo(topSev.level)} 최우선 변화
-          </p>
-          <ChangeDrilldown change={highChanges[0]} />
-        </div>
+          </summary>
+          <div className="summaryEvidenceBody">
+            <ChangeDrilldown change={highChanges[0]} />
+          </div>
+        </details>
       )}
 
       {/* ② '전체요약'이면 DATA/COPY/VISUAL 축약카드(클릭→해당 탭 상세로 이동, 정보 중복 없음)

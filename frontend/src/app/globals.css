@@ -220,7 +220,7 @@ input, select { font-family: inherit; }
 .changeCard:hover { background: var(--bg); }
 .changeCard.selected { background: var(--blue-soft); border-color: var(--samsung-border); }
 .changeCardTop { display: flex; align-items: center; gap: 8px; }
-.changeSum { font-size: 12.5px; line-height: 1.5; }
+.changeSum { font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; word-break: keep-all; }
 .changeUrl { font-size: 10.5px; color: var(--ter); font-family: var(--mono); }
 
 /* ── 배지 */
@@ -242,10 +242,10 @@ input, select { font-family: inherit; }
 .badge.c6 { background: #F1F3F7; color: #374151; }
 
 /* ── 세부 항목 뱃지가 붙은 finding 줄 ── */
-.findingRow { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.findingRow { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); min-width: 0; }
 .findingRow:last-child { border-bottom: none; }
 .findingRow .badge { flex-shrink: 0; margin-top: 1px; white-space: nowrap; }
-.findingRow .findingText { font-size: 12.5px; color: var(--label2); line-height: 1.6; }
+.findingRow .findingText { font-size: 12.5px; color: var(--label2); line-height: 1.6; min-width: 0; overflow-wrap: anywhere; word-break: keep-all; }
 
 /* ── 용어 설명(글로서리) 토글 ── */
 .termToggle { font-size: 10.5px; color: var(--blue); margin-left: 5px; font-weight: 600; }
@@ -254,8 +254,19 @@ input, select { font-family: inherit; }
   padding: 8px 10px; margin-top: 5px; line-height: 1.6; }
 
 /* ── Apple(좌) / Samsung(우) 2열 ── */
-.siteSplit { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.siteSplitHead { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 13px; font-weight: 700; }
+.siteSplit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.siteSplit > div { min-width: 0; }
+.siteSplitHead { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 13px; font-weight: 700; flex-wrap: wrap; min-width: 0; }
+@media (max-width: 860px) {
+  .siteSplit { grid-template-columns: 1fr; }
+}
+.summaryEvidenceCard { padding: 0; overflow: hidden; }
+.summaryEvidenceSummary { list-style: none; cursor: pointer; padding: 16px 18px; font-size: 13px; font-weight: 700; color: var(--label); display: flex; justify-content: space-between; gap: 10px; }
+.summaryEvidenceSummary::-webkit-details-marker { display: none; }
+.summaryEvidenceSummary::after { content: "펼치기"; font-size: 11px; color: var(--blue); font-weight: 600; flex-shrink: 0; }
+.summaryEvidenceCard[open] .summaryEvidenceSummary { border-bottom: 1px solid var(--line); }
+.summaryEvidenceCard[open] .summaryEvidenceSummary::after { content: "접기"; }
+.summaryEvidenceBody { padding: 0 18px 16px; }
 
 /* ── Tier 요약 ── */
 .tierRow { padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -300,7 +311,7 @@ input, select { font-family: inherit; }
 .diffMark.add { background: #B7E8C5; border-radius: 3px; }
 .evidenceGrid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin-top: 6px; }
 .evidenceKey { font-size: 11px; color: var(--sec); }
-.evidenceVal { font-size: 11px; font-family: var(--mono); }
+.evidenceVal { font-size: 11px; font-family: var(--mono); min-width: 0; overflow-wrap: anywhere; }
 
 /* ── URL 테이블 */
 .urlTableWrap { margin-top: 10px; }

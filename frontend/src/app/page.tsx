@@ -260,9 +260,9 @@ export default function Page() {
           <div className="sideLabel" style={{ marginTop: 8 }}>중요도 기준</div>
           <div className="sideSeverity">
             {[
-              ["high", "높음", "Schema·DOM·가격·여러 섹션 동시 변화"],
-              ["med", "보통", "문장·슬로건·메뉴·meta·FAQ 변화"],
-              ["low", "낮음", "단어 몇 개·오타·작은 이미지 변화"],
+              ["high", "높음", "AI 검색·구매전환·핵심 페이지 영향 큰 변화"],
+              ["med", "보통", "meta·H1·FAQ·CTA·주요 카피 변화"],
+              ["low", "낮음", "단어·UI 라벨·작은 이미지·렌더링 노이즈"],
             ].map(([cls, label, desc]) => (
               <div key={cls} className="sideSevRow">
                 <span className={`sevBadge ${cls}`}>{label}</span>
