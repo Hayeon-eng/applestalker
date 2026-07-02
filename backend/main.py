@@ -115,7 +115,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Global Competitor Stalker API", version="2.0", lifespan=lifespan)
+app = FastAPI(title="Apple Stalker API", version="2.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"], expose_headers=["*"])
 
@@ -177,7 +177,7 @@ def root():
     return HTMLResponse(
         "<div style='font-family:-apple-system,sans-serif;max-width:520px;margin:60px auto;"
         "color:#1C1C1E;line-height:1.6'>"
-        "<h2>🌐 Global Competitor Stalker — Backend</h2>"
+        "<h2>🍎 Apple Stalker — Backend</h2>"
         "<p>백엔드는 정상 작동 중입니다. 이 주소는 API 전용이며, 화면은 프론트엔드에서 보세요.</p>"
         "<p style='color:#8E8E93;font-size:14px'>상태 확인: "
         "<a href='/api/health'>/api/health</a></p></div>")
@@ -389,29 +389,31 @@ def latest_report(run_id: Optional[str] = None):
 
 
 def _category_summaries(changes):
-    """4개 영역별 한 줄 요약(비교형). 데이터에 있는 사실만 사용(추측 없음)."""
+    """4개 영역별 사람이 읽는 요약.
+
+    단순히 첫 변경 1건만 말하지 않고, Samsung/competitor를 나누고 사이트별 건수를 보여준다.
+    사실 기반 요약만 사용하고 추측성 문장은 넣지 않는다.
+    """
     cats = ["데이터·스키마", "카피", "가격·프로모션", "비주얼"]
     out = {}
     for cat in cats:
         items = [c for c in changes if c["category"] == cat]
         if not items:
-            out[cat] = "변동 없음 — 현행 분석에서 예의주시 포인트 확인"
+            out[cat] = "변경 없음 — 현재 상태를 baseline으로 두고 다음 수집에서 이탈 여부 확인"
             continue
-        ours = [c for c in items if c.get("site") == "samsung"]
-        competitors = [c for c in items if c.get("site") != "samsung"]
-        seg = []
-        if ours:
-            seg.append(f"Samsung {ours[0]['summary']}")
-        if competitors:
-            first = competitors[0]
-            display = SEED_TARGETS.get(first.get("site") or "", None)
-            name = display.display_name if display else (first.get("site") or "경쟁사")
-            seg.append(f"{name} {first['summary']}")
-        line = ", ".join(seg)
-        high = sum(1 for c in items if c["level"] == "High")
-        if high:
-            line += f" (높음 {high}건)"
-        out[cat] = line
+        by_site = {}
+        for c in items:
+            by_site.setdefault(c.get("site") or "unknown", []).append(c)
+        site_parts = []
+        for site, rows in sorted(by_site.items(), key=lambda kv: (kv[0] != "samsung", kv[0])):
+            display = SEED_TARGETS.get(site)
+            name = (display.display_name if display else site).replace(" Global / US", "").replace(" Global", "")
+            high = sum(1 for c in rows if c.get("level") == "High")
+            sample = rows[0].get("summary") or rows[0].get("field") or "변경"
+            site_parts.append(f"{name} {len(rows)}건" + (f"(High {high})" if high else "") + f": {sample}")
+        out[cat] = " / ".join(site_parts[:4])
+        if len(site_parts) > 4:
+            out[cat] += f" / 외 {len(site_parts)-4}개 사이트"
     return out
 
 

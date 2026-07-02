@@ -1,12 +1,10 @@
 """
 Target Registry — 확장 가능한 도메인/URL 레지스트리
 ================================================================
-기존 config/urls.py 의 하드코딩 URL 을 대체.
-
 이번 버전의 핵심:
-  - Samsung + 글로벌 경쟁사 URL을 Target 단위로 분리
-  - PF(Product Family) / PDP(Product Detail) / Buying URL을 하드 URL로 관리
-  - page_role_for_url() / tier_for_url() 를 한 곳에서 계산해 UI와 분석 기준을 일관화
+  - Global/US 공식 URL 기준의 최소 PF/PDP/Buying 세트만 유지
+  - Smartphone / Tablet / Audio / Watch / Laptop / AI Glass 기준으로 정리
+  - Buying hard URL이 없는 브랜드는 PDP/PF에서 Buy CTA를 감지하는 방식으로 보완
   - 기존 코드가 쓰던 get_apple_urls/get_samsung_urls/get_all_urls 호환 유지
 """
 
@@ -31,7 +29,8 @@ class SensitivityPolicy:
     critical_keywords: List[str] = field(default_factory=lambda: [
         "price", "$", "₩", "월", "할부", "trade-in", "보상", "sold out",
         "품절", "out of stock", "pre-order", "사전예약", "free", "무료",
-        "buy now", "add to cart", "checkout", "구매", "장바구니",
+        "buy now", "buy", "shop", "shop now", "add to cart", "add to bag",
+        "checkout", "where to buy", "구매", "장바구니",
     ])
 
 
@@ -62,38 +61,37 @@ COMMERCE_SELECTORS = [
 
 
 # ──────────────────────────────────────────────────────────────
-# 기본 시드 URL
+# 기본 시드 URL — Global/US 공식 URL, 각 카테고리 대표 모델만
 # ──────────────────────────────────────────────────────────────
 
 SEED_TARGETS: Dict[str, Target] = {
     "samsung": Target(
         key="samsung",
-        display_name="Samsung Singapore",
+        display_name="Samsung Global / US",
         domains=["samsung.com"],
         is_ours=True,
         extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
-            "https://www.samsung.com/sg/",
-            "https://www.samsung.com/sg/smartphones/all-smartphones/",
-            "https://www.samsung.com/sg/watches/all-watches/",
-            "https://www.samsung.com/sg/audio-sound/all-audio-sound/",
-            "https://www.samsung.com/sg/mobile/",
-            "https://www.samsung.com/sg/galaxy-ai/",
-            "https://www.samsung.com/sg/mobile/find-your-galaxy/",
-            "https://www.samsung.com/sg/mobile/switch-to-galaxy/",
-            "https://www.samsung.com/sg/one-ui/",
-            "https://www.samsung.com/sg/smartphones/galaxy-s26-ultra/",
-            "https://www.samsung.com/sg/smartphones/galaxy-s26/",
-            "https://www.samsung.com/sg/smartphones/galaxy-z-fold7/",
-            "https://www.samsung.com/sg/smartphones/galaxy-z-flip7/",
-            "https://www.samsung.com/sg/watches/galaxy-watch-ultra-2025/",
-            "https://www.samsung.com/sg/audio-sound/galaxy-buds4-pro/",
-            "https://www.samsung.com/sg/smartphones/galaxy-s26-ultra/buy/",
-            "https://www.samsung.com/sg/smartphones/galaxy-s26/buy/",
-            "https://www.samsung.com/sg/smartphones/galaxy-z-fold7/buy/",
-            "https://www.samsung.com/sg/smartphones/galaxy-z-flip7/buy/",
-            "https://www.samsung.com/sg/watches/galaxy-watch-ultra-2025/buy/",
-            "https://www.samsung.com/sg/audio-sound/galaxy-buds4-pro/buy/",
+            # Smartphone: Galaxy S Ultra — PF / PDP / Buying
+            "https://www.samsung.com/us/smartphones/",
+            "https://www.samsung.com/us/smartphones/galaxy-s26-ultra/",
+            "https://www.samsung.com/us/smartphones/galaxy-s26-ultra/buy/galaxy-s26-ultra-256gb-unlocked-sku-sm-s948uzvaxaa/",
+            # Tablet: Galaxy Tab S Ultra — PF / PDP / Buying
+            "https://www.samsung.com/us/tablets/",
+            "https://www.samsung.com/us/tablets/galaxy-tab-s11/",
+            "https://www.samsung.com/us/tablets/galaxy-tab-s11/buy/galaxy-tab-s11-ultra-1tb-gray-wi-fi-sku-sm-x930nzaixar/",
+            # Watch: Galaxy Watch Ultra — PF / PDP / Buying
+            "https://www.samsung.com/us/watches/",
+            "https://www.samsung.com/us/watches/galaxy-watch-ultra-2025/",
+            "https://www.samsung.com/us/watches/galaxy-watch-ultra-2025/buy/galaxy-watch-ultra-47mm-titanium-gray-sku-sm-l705uza1xaa/",
+            # Audio: Galaxy Buds Pro — PF / PDP / Buying
+            "https://www.samsung.com/us/audio-sound/",
+            "https://www.samsung.com/us/audio-sound/galaxy-buds4-pro/",
+            "https://www.samsung.com/us/audio-sound/galaxy-buds4-pro/buy/galaxy-buds4-pro-white-sku-sm-r640nzwaxar/",
+            # Laptop: Galaxy Book Ultra — PF / PDP / Buying
+            "https://www.samsung.com/us/galaxybooks/",
+            "https://www.samsung.com/us/computers/galaxy-book/galaxy-book6-ultra/",
+            "https://www.samsung.com/us/computers/galaxy-book/galaxy-book6-series/buy/galaxy-book6-ultra-16-intel-core-ultra-7-1tb-gray-sku-np960ujh-xg2us/",
         ],
     ),
     "apple": Target(
@@ -102,26 +100,26 @@ SEED_TARGETS: Dict[str, Target] = {
         domains=["apple.com"],
         extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
-            # Smartphone: PF / PDP / Buying
+            # Smartphone: iPhone Pro — PF / PDP / Buying
             "https://www.apple.com/iphone/",
             "https://www.apple.com/iphone-17-pro/",
             "https://www.apple.com/shop/buy-iphone/iphone-17-pro",
-            # Audio: PF / PDP / Buying
+            # Tablet: iPad Pro — PF / PDP / Buying
+            "https://www.apple.com/ipad/",
+            "https://www.apple.com/ipad-pro/",
+            "https://www.apple.com/shop/buy-ipad/ipad-pro",
+            # Audio: AirPods Pro — PF / PDP / Buying
             "https://www.apple.com/airpods/",
             "https://www.apple.com/airpods-pro/",
             "https://www.apple.com/shop/buy-airpods/airpods-pro-3",
-            # Watch: PF / PDP / Buying
+            # Watch: Apple Watch Ultra — PF / PDP / Buying
             "https://www.apple.com/watch/",
             "https://www.apple.com/apple-watch-ultra-3/",
             "https://www.apple.com/shop/buy-watch/apple-watch-ultra",
-            # Laptop: PF / PDP / Buying
+            # Laptop: MacBook Pro — PF / PDP / Buying
             "https://www.apple.com/mac/",
             "https://www.apple.com/macbook-pro/",
             "https://www.apple.com/shop/buy-mac/macbook-pro",
-            # Compare / AI campaign
-            "https://www.apple.com/iphone/compare/",
-            "https://www.apple.com/watch/compare/",
-            "https://www.apple.com/apple-intelligence/",
         ],
     ),
     "google_pixel": Target(
@@ -141,9 +139,11 @@ SEED_TARGETS: Dict[str, Target] = {
         domains=["mi.com"],
         extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
-            "https://www.mi.com/global/",
+            # Smartphone + Tablet. 별도 글로벌 buying hard URL이 없으면 PDP 내 Buy CTA를 감지.
             "https://www.mi.com/global/product-list/phone/xiaomi/",
             "https://www.mi.com/global/product/xiaomi-17-ultra/",
+            "https://www.mi.com/global/product-list/tablet/",
+            "https://www.mi.com/global/product/xiaomi-pad-8-pro/",
         ],
     ),
     "oppo": Target(
@@ -154,7 +154,6 @@ SEED_TARGETS: Dict[str, Target] = {
         seed_urls=[
             "https://www.oppo.com/en/smartphones/",
             "https://www.oppo.com/en/smartphones/series-find-x/find-x9-ultra/",
-            "https://www.oppo.com/en/smartphones/series-find-x/find-x9-ultra/specs/",
         ],
     ),
     "vivo": Target(
@@ -165,7 +164,6 @@ SEED_TARGETS: Dict[str, Target] = {
         seed_urls=[
             "https://www.vivo.com/en/products",
             "https://www.vivo.com/en/products/x300-ultra",
-            "https://www.vivo.com/en/products/x300-pro",
         ],
     ),
     "sony_audio": Target(
@@ -174,7 +172,6 @@ SEED_TARGETS: Dict[str, Target] = {
         domains=["electronics.sony.com"],
         extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
-            "https://electronics.sony.com/audio/headphones/c/all-headphones",
             "https://electronics.sony.com/audio/headphones/truly-wireless-earbuds",
             "https://electronics.sony.com/audio/headphones/truly-wireless-earbuds/p/wf1000xm6-b",
         ],
@@ -186,7 +183,6 @@ SEED_TARGETS: Dict[str, Target] = {
         extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
             "https://www.garmin.com/en-US/c/wearables-smartwatches/",
-            "https://www.garmin.com/en-US/p/1701921/",
             "https://www.garmin.com/en-US/p/1723221/",
         ],
     ),
@@ -198,7 +194,6 @@ SEED_TARGETS: Dict[str, Target] = {
         seed_urls=[
             "https://www.dell.com/en-us/shop/dell-laptops/scr/laptops/appref%3Dxps-product-line",
             "https://www.dell.com/en-us/shop/dell-laptops/new-xps-16-laptop/spd/xps-da16260-laptop",
-            "https://www.dell.com/en-us/shop/dell-laptops/xps-16-laptop/spd/dell-da16250-laptop",
         ],
     ),
     "meta_ai_glasses": Target(
@@ -209,6 +204,7 @@ SEED_TARGETS: Dict[str, Target] = {
         seed_urls=[
             "https://www.meta.com/ai-glasses/",
             "https://www.meta.com/ai-glasses/ray-ban-meta/",
+            "https://www.meta.com/ai-glasses/shop-all/",
         ],
     ),
 }
@@ -227,23 +223,29 @@ def page_role_for_url(url: str) -> str:
     except Exception:
         return "unknown"
 
-    if path in ("", "/", "/sg", "/global", "/en-us", "/en"):
+    if path in ("", "/", "/us", "/sg", "/global", "/en-us", "/en"):
         return "home"
-    if any(k in path for k in ("/shop/buy", "/buy", "/config/", "/cty/pdp/")):
+    if any(k in path for k in (
+        "/shop/buy", "/buy", "/config/", "/cty/pdp/", "/shop-all", "/cart", "/checkout"
+    )):
         return "buying"
-    if any(k in path for k in ("compare", "find-your", "switch-to", "apple-intelligence", "galaxy-ai", "ai-glasses")) and "ray-ban-meta" not in path:
+    if any(k in path for k in ("compare", "find-your", "switch-to", "apple-intelligence", "galaxy-ai")):
         return "campaign_or_compare"
     if any(k in path for k in ("specs", "specifications", "tech-specs")):
         return "specs"
     if any(k in path for k in (
-        "iphone-", "pixel_", "xiaomi-", "find-x", "x300", "wf1000", "wf-1000",
-        "apple-watch-", "airpods-pro", "macbook-pro", "xps-16", "dell-da", "xps-da",
-        "/p/1701921", "/p/1723221", "ray-ban-meta", "galaxy-", "watch-ultra", "buds4",
+        "iphone-", "pixel_", "xiaomi-", "ipad-pro", "xiaomi-pad-", "find-x", "x300",
+        "wf1000", "wf-1000", "apple-watch-", "airpods-pro", "macbook-pro",
+        "xps-16", "dell-da", "xps-da", "/p/1701921", "/p/1723221", "ray-ban-meta",
+        "galaxy-s26-ultra", "galaxy-tab-s11", "galaxy-watch-ultra", "galaxy-buds4-pro",
+        "galaxy-book6-ultra",
     )):
         return "pdp"
     if any(k in path for k in (
-        "iphone", "phones", "smartphones", "product-list", "products", "airpods", "watch",
-        "mac", "laptops", "headphones", "wearables", "all-smartphones", "all-watches", "all-audio",
+        "iphone", "phones", "smartphones", "product-list", "products", "ipad", "tablet", "tablets",
+        "airpods", "watch", "watches", "mac", "galaxybooks", "galaxy-book", "laptops",
+        "headphones", "wearables", "audio-sound", "ai-glasses", "all-smartphones", "all-watches",
+        "all-audio", "computers",
     )) or "category=" in query:
         return "pf"
     return "content"
@@ -300,6 +302,10 @@ def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None) -> List
     """
     크롤 대상 URL 목록 반환. SEED + DB(MonitoredURL) 머지 후 중복 제거.
     각 항목: {"url", "tier_level", "site_key", "page_role"}
+
+    Buying hard URL이 없는 글로벌 사이트는 URL을 억지로 만들지 않는다.
+    해당 PDP/PF에서 crawler가 Buy/Shop/Add to cart CTA 텍스트와 href를 수집하고,
+    COPY/Visual 분석에서 구매 CTA 보유 여부를 근거로 표시한다.
     """
     urls: List[str] = list(get_seed_urls(site_key))
     if db_urls:

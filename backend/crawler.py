@@ -397,13 +397,27 @@ class HybridCrawler:
     # CTA / FAQ / JSONLD / NAV / LINKS / IMAGES
     # ─────────────────────────────────────────────
     def _ctas(self, soup):
-        kw = ("buy", "shop", "purchase", "order", "learn more", "구매", "예약")
+        # Buying hard URL이 없는 글로벌 사이트도 있으므로, PDP/PF 내부의 구매 CTA를 근거로 남긴다.
+        # 버튼 텍스트뿐 아니라 aria-label/title도 같이 보며, 이후 COPY 분석에서 Buy CTA 보유 여부를 판단한다.
+        kw = (
+            "buy", "shop", "purchase", "order", "add to cart", "add to bag",
+            "checkout", "where to buy", "pre-order", "preorder", "learn more",
+            "구매", "예약", "장바구니",
+        )
         out = []
+        seen = set()
         for a in soup.find_all(["a", "button"]):
-            t = a.get_text(strip=True)
-            if t and any(k in t.lower() for k in kw):
-                out.append({"text": t, "href": a.get("href", "")})
-        return out[:30]
+            txt_bits = [a.get_text(" ", strip=True), a.get("aria-label", ""), a.get("title", "")]
+            t = re.sub(r"\s+", " ", " ".join(str(x or "") for x in txt_bits)).strip()
+            low = t.lower()
+            href = a.get("href", "") or a.get("data-href", "") or ""
+            if t and any(k in low for k in kw):
+                key = (t.lower(), href)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append({"text": t[:160], "href": href})
+        return out[:40]
 
     def _faqs(self, soup):
         out = []

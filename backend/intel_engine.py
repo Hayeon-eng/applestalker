@@ -188,21 +188,21 @@ class IntelEngine:
 
     def _narrate_copy(self, c: Dict[str, Any]) -> List[str]:
         lines = []
-        dist = c["content_density"]["distribution"]
+        dist = c.get("content_density", {}).get("distribution") or {}
         total_pages = sum(dist.values()) if dist else 0
         if dist:
             dist_str = ", ".join(f"{k} {v}페이지" for k, v in dist.items())
-            lines.append(f"콘텐츠 양 기준 분포: 총 {total_pages}페이지 — {dist_str}")
+            lines.append(f"카피 분량 현황: 총 {total_pages}페이지 — {dist_str}. 짧은 페이지는 구매 전환용인지, 설명 누락인지 구분해 확인 필요.")
 
-        all_pages = c["copy_richness"].get("all_pages") or []
+        all_pages = c.get("copy_richness", {}).get("all_pages") or []
         if all_pages:
             avg_score = round(sum(p["score"] for p in all_pages) / len(all_pages), 1)
             avg_quant = round(sum(p.get("quant_per_100w", 0) for p in all_pages) / len(all_pages), 2)
             with_faq = sum(1 for p in all_pages if p.get("has_faq"))
             with_cta = sum(1 for p in all_pages if p.get("cta_count", 0) > 0)
             lines.append(
-                f"카피 구체성 평균 {avg_score}점 — 숫자·스펙·가격·기간 등 구체 근거가 "
-                f"100단어당 평균 {avg_quant}개 확인, FAQ 보유 {with_faq}페이지, CTA 보유 {with_cta}페이지"
+                f"카피 구체성: 평균 {avg_score}점. 100단어당 숫자·스펙·가격·기간 근거가 평균 {avg_quant}개이고, "
+                f"FAQ 보유 {with_faq}페이지 / CTA 보유 {with_cta}페이지."
             )
 
             low_quant_dense = [
@@ -213,51 +213,58 @@ class IntelEngine:
                 sample = []
                 for g in sorted(low_quant_dense, key=lambda x: (-x.get("word_count", 0), x.get("quant_per_100w", 0)))[:3]:
                     sample.append(
-                        f"{_readable_path(g.get('url',''))} — 텍스트 {g.get('word_count', 0)}단어, "
-                        f"구체 근거 {g.get('quant_count', 0)}개"
+                        f"{_readable_path(g.get('url',''))}: {g.get('word_count', 0)}단어 중 구체 근거 {g.get('quant_count', 0)}개"
                     )
-                lines.append(
-                    "텍스트는 충분하지만 숫자·스펙·지원 조건 같은 구체 정보가 적은 페이지 확인: "
-                    + " / ".join(sample)
-                    + " — 카피 근거 보강 검토"
-                )
+                lines.append("읽을거리는 많지만 설득 근거가 약한 페이지: " + " / ".join(sample) + ". 스펙·수치·조건 보강 후보.")
 
-        thin = c["content_density"].get("thin_pages") or []
+        commerce = c.get("commerce_cta", {})
+        if commerce:
+            with_buy = commerce.get("pages_with_buy_cta", 0)
+            missing_buy = commerce.get("missing_buy_cta_pages") or []
+            if with_buy or missing_buy:
+                msg = f"구매 CTA 확인: Buy/Shop/Add to cart 계열 CTA가 {with_buy}페이지에서 수집됨."
+                if missing_buy:
+                    sample = ", ".join(_readable_path(x.get("url", "")) for x in missing_buy[:3])
+                    msg += f" PF/PDP인데 구매 CTA가 보이지 않는 후보 {len(missing_buy)}페이지 — {sample}."
+                lines.append(msg)
+
+        thin = c.get("content_density", {}).get("thin_pages") or []
         if thin:
             sample = ", ".join(_readable_path(u) for u in thin[:3])
-            lines.append(f"텍스트 양이 부족한 페이지(150단어 미만) {len(thin)}건 — 대표: {sample}")
+            lines.append(f"텍스트 부족 후보: 150단어 미만 페이지 {len(thin)}건 — {sample}. 단순 구매/목록 페이지면 정상일 수 있어 역할별 확인 필요.")
 
-        gap = c["copy_richness"].get("intent_gap_pages") or []
+        gap = c.get("copy_richness", {}).get("intent_gap_pages") or []
         if gap:
             sample = []
             for g in gap[:3]:
                 reasons = []
                 if g.get("quant_count", 0) == 0:
-                    reasons.append("숫자·스펙 등 구체 근거 부족")
+                    reasons.append("구체 근거 부족")
                 if not g.get("has_faq"):
                     reasons.append("FAQ 없음")
                 if g.get("cta_count", 0) == 0:
                     reasons.append("CTA 없음")
                 sample.append(f"{_readable_path(g.get('url',''))} {g.get('score')}점({', '.join(reasons) or '구조 약함'})")
-            lines.append("카피 구체성 미흡 페이지: " + " / ".join(sample))
+            lines.append("카피 보강 우선 후보: " + " / ".join(sample) + ".")
         else:
-            rich = c["copy_richness"].get("rich_pages") or []
+            rich = c.get("copy_richness", {}).get("rich_pages") or []
             if rich:
                 sample = ", ".join(f"{_readable_path(x.get('url',''))} {x.get('score')}점" for x in rich[:3])
-                lines.append(f"카피 구체성 우수 페이지: {sample}")
+                lines.append(f"카피 강점 페이지: {sample}.")
 
         copy_len = c.get("copy_length", {}).get("by_page_role") or {}
         if copy_len:
             parts = []
             for role, vals in copy_len.items():
                 parts.append(f"{role} 평균 {vals.get('avg_word_count', 0)}단어({vals.get('pages', 0)}p)")
-            lines.append("페이지 역할별 카피 길이: " + " / ".join(parts[:6]))
+            lines.append("역할별 카피 길이: " + " / ".join(parts[:6]) + ". PF/PDP/Buying은 서로 다른 길이가 정상이라 같은 기준으로 단정하지 않음.")
 
         tone = c.get("tonality", {})
         signals = tone.get("signals") or {}
         if signals:
             top_tones = sorted(signals.items(), key=lambda x: -x[1])[:3]
-            lines.append("토널리티 신호: " + ", ".join(f"{name} {count}" for name, count in top_tones) + f" — dominant {tone.get('dominant_tone')}")
+            tone_ko = {"spec_proof": "스펙/성능", "benefit": "사용자 혜택", "urgency": "프로모션/긴급성", "ai": "AI", "sustainability": "지속가능성"}
+            lines.append("카피 톤 신호: " + ", ".join(f"{tone_ko.get(name, name)} {count}" for name, count in top_tones) + f" — 주 톤은 {tone_ko.get(tone.get('dominant_tone'), tone.get('dominant_tone'))}.")
 
         dup = c.get("duplication", {})
         dup_cta = dup.get("duplicate_cta_pages") or []
@@ -268,61 +275,106 @@ class IntelEngine:
                 pieces.append(f"중복 CTA {len(dup_cta)}페이지")
             if dup_copy:
                 pieces.append(f"중복 문구 {len(dup_copy)}페이지")
-            lines.append("불필요한 버튼/중복 텍스트 점검 필요 — " + " · ".join(pieces))
+            lines.append("중복 점검: " + " · ".join(pieces) + ". 의도적 반복일 수 있으므로 삭제 전 수동 확인 필요.")
 
-        faq = c["faq"]
-        if faq["pages_with_faq"]:
-            weak = sum(f["weak_items"] for f in faq["detail"])
-            avg_faq = round(sum(f["avg_score"] for f in faq["detail"]) / len(faq["detail"]), 1) if faq["detail"] else 0
-            lines.append(f"FAQ {faq['pages_with_faq']}페이지 / {faq.get('total_items', 0)}문항 — 평균 품질 {avg_faq}점, 보강 필요 문항 {weak}건")
+        faq = c.get("faq", {})
+        if faq.get("pages_with_faq"):
+            weak = sum(f.get("weak_items", 0) for f in faq.get("detail") or [])
+            avg_faq = round(sum(f.get("avg_score", 0) for f in faq.get("detail") or []) / len(faq.get("detail") or [1]), 1) if faq.get("detail") else 0
+            lines.append(f"FAQ: {faq.get('pages_with_faq')}페이지 / {faq.get('total_items', 0)}문항. 평균 품질 {avg_faq}점, 보강 필요 문항 {weak}건.")
         else:
-            lines.append("FAQ 없음 — 문답형 검색/AI 답변에서 직접 인용할 수 있는 구조 부족")
+            lines.append("FAQ 없음: 문답형 검색/AI 답변에서 바로 인용할 수 있는 Q&A 구조가 부족함.")
         return lines
 
     def _narrate_visual(self, v: Dict[str, Any]) -> List[str]:
-        lines = []
-        idv = v["image_diversity"]
-        lines.append(f"이미지 {idv['total_images']}장 중 product {idv['product']} / "
-                     f"lifestyle {idv['lifestyle']} ({idv['lifestyle_ratio_pct']}%) / 미분류 {idv['unclassified']}")
+        """Visual narrative.
 
-        alt = v["alt_text_quality"]
-        lines.append(f"alt 텍스트 품질 — 설명적 {alt['설명적']} / 일반적(제네릭) {alt['일반적']} / "
-                     f"비어있음 {alt['비어있음']} (설명적 비율 {alt['descriptive_ratio_pct']}%)")
+        이미지 픽셀/스크린샷 분석이 아니라 crawler가 수집한 img alt/src/파일명,
+        페이지 URL, 주변 텍스트 신호만으로 판단한다. 그래서 "보이는 이미지가 실제로
+        무엇인가"보다 "사이트가 이미지 메타데이터를 어떻게 설계했는가"를 읽는 지표다.
+        """
+        lines: List[str] = []
+        idv = v.get("image_diversity", {})
+        total = idv.get("total_images", 0)
+        product = idv.get("product", 0)
+        lifestyle = idv.get("lifestyle", 0)
+        unclassified = idv.get("unclassified", 0)
+        lifestyle_pct = idv.get("lifestyle_ratio_pct", 0)
+        lines.append(
+            "이미지 분석 방식: 실제 스크린샷/픽셀을 보지 않고, HTML의 alt 텍스트·src 파일명·URL 신호로만 판단합니다. "
+            f"현재 수집 기준으로 총 {total}장 중 제품 중심 {product}장, 사용 상황/lifestyle 추정 {lifestyle}장({lifestyle_pct}%), "
+            f"분류 불가 {unclassified}장입니다. 이 수치는 실제 이미지 내용의 확정 판정이 아니라 메타데이터 기반 신호입니다."
+        )
+
+        alt = v.get("alt_text_quality", {})
+        desc = alt.get("설명적", 0)
+        generic = alt.get("일반적", 0)
+        empty = alt.get("비어있음", 0)
+        desc_pct = alt.get("descriptive_ratio_pct", 0)
+        lines.append(
+            f"alt.copy 품질: 설명적 alt {desc}건, 일반적 alt {generic}건, 비어 있음 {empty}건으로 설명적 비율은 {desc_pct}%입니다. "
+            "설명적 alt가 높으면 접근성뿐 아니라 이미지가 검색·AI 요약에서 어떤 장면인지 이해되기 쉽고, 낮으면 이미지가 있어도 의미 신호가 약합니다."
+        )
         gap_pages = alt.get("gap_pages") or []
         if gap_pages:
             sample = ", ".join(_readable_path(x.get("url", "")) for x in gap_pages[:3])
-            lines.append(f"alt.copy 보강 필요 페이지 {len(gap_pages)}건 — 대표: {sample}")
+            lines.append(
+                f"alt.copy 보강 필요: 비어 있거나 너무 일반적인 alt가 있는 페이지가 {len(gap_pages)}건 있습니다. "
+                f"대표 페이지는 {sample}입니다. 우선 이 페이지들은 hero/KV·gallery 이미지가 무엇을 보여주는지 alt에 구체적으로 적는 것이 좋습니다."
+            )
         samples = alt.get("samples") or []
         if samples:
             sample_text = " / ".join(_s(x.get("alt"))[:45] for x in samples[:3])
-            lines.append(f"설명적 alt.copy 샘플: {sample_text}")
+            lines.append(f"설명적 alt.copy 예시: {sample_text}. 이런 문구는 이미지가 전달하는 제품 기능이나 사용 장면을 비교적 잘 설명합니다.")
 
-        tactics = v.get("visual_tactics", {})
+        tactics = v.get("visual_tactics", {}) or {}
         dist = tactics.get("distribution") or {}
         if dist:
             ordered = sorted(dist.items(), key=lambda x: -x[1])[:4]
-            lines.append("비주얼 택틱 분포: " + ", ".join(f"{name} {count}p" for name, count in ordered))
+            lines.append(
+                "Visual tactic 분포: "
+                + ", ".join(f"{name} {count}p" for name, count in ordered)
+                + ". 이 분포는 사이트가 제품 실물, 기능 갤러리, 카테고리 그리드, 구매 CTA 중 어디에 시각적 무게를 두는지 보여줍니다."
+            )
         role_summary = tactics.get("role_summary") or {}
         if role_summary:
             parts = []
             for role, vals in role_summary.items():
-                parts.append(f"{role} 평균 이미지 {vals.get('avg_images', 0)}장/단어 {vals.get('avg_words', 0)}")
-            lines.append("페이지 역할별 Visual/페이지 길이: " + " / ".join(parts[:6]))
+                parts.append(f"{role} 평균 이미지 {vals.get('avg_images', 0)}장/평균 단어 {vals.get('avg_words', 0)}개")
+            lines.append(
+                "페이지 역할별 길이와 이미지 밀도: " + " / ".join(parts[:6])
+                + ". PF는 탐색용이라 이미지가 많아도 자연스럽고, PDP는 기능 설명과 이미지가 균형을 이루는지, Buying은 CTA와 구성 정보가 빠르게 보이는지가 핵심입니다."
+            )
 
-        uniq = v["image_uniqueness"]
-        if uniq["unique_src_ratio_pct"] < 60:
-            lines.append(f"이미지 재사용도 높음 — 고유 이미지 비율 {uniq['unique_src_ratio_pct']}% "
-                         f"(같은 이미지가 여러 페이지에 반복 사용, 템플릿화 추정)")
-
-        conc = v["concentration"]
-        if conc["max_single_page_pct"] >= 40:
-            lines.append(f"이미지 편중 — 단일 페이지에 전체의 {conc['max_single_page_pct']}% 집중")
-
-        story = v["storytelling"]
-        if story["count"]:
-            lines.append(f"제품+라이프스타일 혼합 스토리텔링 페이지 {story['count']}건")
+        uniq = v.get("image_uniqueness", {})
+        uniq_pct = uniq.get("unique_src_ratio_pct", 100)
+        if uniq_pct < 60:
+            lines.append(
+                f"이미지 재사용 신호: 고유 이미지 비율이 {uniq_pct}%로 낮습니다. "
+                "동일 이미지가 여러 페이지에 반복되어 템플릿처럼 보일 수 있으므로, 핵심 PDP/Buying에서는 모델별 차별 이미지가 충분한지 확인이 필요합니다."
+            )
         else:
-            lines.append("제품/라이프스타일 혼합형 스토리텔링 페이지 없음 — 시각적 서사 단조로움")
+            lines.append(f"이미지 고유성: 고유 이미지 비율 {uniq_pct}%로, 현재 수집 기준에서는 과도한 이미지 재사용 신호가 크지 않습니다.")
+
+        conc = v.get("concentration", {})
+        max_pct = conc.get("max_single_page_pct", 0)
+        if max_pct >= 40:
+            lines.append(
+                f"이미지 편중: 한 페이지가 전체 이미지의 {max_pct}%를 차지합니다. "
+                "특정 랜딩/PDP에 시각 자산이 몰려 있고 다른 페이지는 상대적으로 빈약할 수 있으니, 비교 시 페이지 역할을 나눠 봐야 합니다."
+            )
+
+        story = v.get("storytelling", {})
+        if story.get("count"):
+            lines.append(
+                f"스토리텔링 페이지: 제품 이미지와 사용 상황/lifestyle 신호가 함께 잡힌 페이지가 {story.get('count')}건 있습니다. "
+                "이 페이지들은 단순 스펙 나열보다 사용 장면을 통해 제품 가치를 설득하는 구조로 볼 수 있습니다."
+            )
+        else:
+            lines.append(
+                "스토리텔링 신호: 제품 이미지와 사용 상황/lifestyle 신호가 동시에 강하게 잡힌 페이지가 없습니다. "
+                "이미지 메타데이터 기준으로는 기능·스펙 중심 구조에 가깝고, 생활 장면 기반 설득은 약하게 보입니다."
+            )
         return lines
 
     # ── 비교 분석: DATA/COPY/VISUAL 각각 양사 facts 비교 ──────

@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 COLS = ["사이트", "카테고리", "중요도", "항목", "이전 원문", "현재 원문", "URL"]
-SITE_KO = {"apple": "경쟁사 · Apple", "samsung": "당사 · Samsung"}
+SITE_KO = {"samsung": "Samsung", "apple": "Apple", "google_pixel": "Google Pixel", "xiaomi": "Xiaomi", "oppo": "OPPO", "vivo": "vivo", "sony_audio": "Sony Audio", "garmin": "Garmin", "dell": "Dell", "meta_ai_glasses": "Meta AI Glasses"}
 LV_KO = {"High": "높음", "Medium": "보통", "Low": "낮음"}
 BUCKET_OF = {"데이터·스키마": "DATA", "카피": "COPY", "가격·프로모션": "COPY", "비주얼": "VISUAL"}
 

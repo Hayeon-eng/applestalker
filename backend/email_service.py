@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 LEVEL_KO = {"L5": "높음", "L4": "높음", "L3": "높음", "L2": "보통", "L1": "낮음", "L0": "낮음"}
 LEVEL_COLOR = {"높음": "#FF3B30", "보통": "#FF9F0A", "낮음": "#34C759"}
-SITE_KO = {"apple": "Apple 경쟁사", "samsung": "Samsung 당사"}
+SITE_KO = {"samsung": "Samsung", "apple": "Apple", "google_pixel": "Google Pixel", "xiaomi": "Xiaomi", "oppo": "OPPO", "vivo": "vivo", "sony_audio": "Sony Audio", "garmin": "Garmin", "dell": "Dell", "meta_ai_glasses": "Meta AI Glasses"}
 
 
 def _kst(dt):

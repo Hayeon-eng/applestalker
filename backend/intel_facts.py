@@ -76,25 +76,34 @@ def _page_role(url: str) -> str:
     u = _s(url).lower().rstrip("/")
     path = u.split("//", 1)[-1].split("/", 1)[1] if "//" in u and "/" in u.split("//", 1)[-1] else ""
     path = "/" + path.strip("/") if path else "/"
-    if path in ("/", "/sg", "/global", "/en-us", "/en"):
+    if path in ("/", "/us", "/sg", "/global", "/en-us", "/en"):
         return "home"
-    if any(k in path for k in ("/shop/buy", "/buy", "/config/", "/cty/pdp/")):
+    if any(k in path for k in ("/shop/buy", "/buy", "/config/", "/cty/pdp/", "/shop-all", "/cart", "/checkout")):
         return "buying"
-    if any(k in path for k in ("compare", "find-your", "switch-to", "apple-intelligence", "galaxy-ai", "ai-glasses")) and "ray-ban-meta" not in path:
+    if any(k in path for k in ("compare", "find-your", "switch-to", "apple-intelligence", "galaxy-ai")):
         return "campaign_or_compare"
     if any(k in path for k in ("specs", "specifications", "tech-specs")):
         return "specs"
-    if any(k in path for k in ("iphone-", "pixel_", "xiaomi-", "find-x", "x300", "wf1000", "wf-1000",
-                               "apple-watch-", "airpods-pro", "macbook-pro", "xps-16", "dell-da", "xps-da",
-                               "/p/1701921", "/p/1723221", "ray-ban-meta", "galaxy-", "watch-ultra", "buds4")):
+    if any(k in path for k in (
+        "iphone-", "pixel_", "xiaomi-", "ipad-pro", "xiaomi-pad-", "find-x", "x300",
+        "wf1000", "wf-1000", "apple-watch-", "airpods-pro", "macbook-pro",
+        "xps-16", "dell-da", "xps-da", "/p/1701921", "/p/1723221", "ray-ban-meta",
+        "galaxy-s26-ultra", "galaxy-tab-s11", "galaxy-watch-ultra", "galaxy-buds4-pro",
+        "galaxy-book6-ultra", "watch-ultra", "buds4"
+    )):
         return "pdp"
-    if any(k in path for k in ("iphone", "phones", "smartphones", "product-list", "products", "airpods", "watch",
-                               "mac", "laptops", "headphones", "wearables", "all-smartphones", "all-watches", "all-audio")):
+    if any(k in path for k in (
+        "iphone", "phones", "smartphones", "product-list", "products", "ipad", "tablet", "tablets",
+        "airpods", "watch", "watches", "mac", "galaxybooks", "galaxy-book", "laptops",
+        "headphones", "wearables", "audio-sound", "ai-glasses", "all-smartphones", "all-watches", "all-audio",
+        "computers"
+    )):
         return "pf"
     return "content"
 
 
 def _schema_expectations_for_role(role: str) -> List[str]:
+    # 브랜드별 구현 방식이 다르기 때문에 '정답 스키마'가 아니라 페이지 목적에 맞는 최소 기대 신호로 사용한다.
     if role == "home":
         return ["WebPage", "Organization"]
     if role == "pf":
@@ -107,7 +116,7 @@ def _schema_expectations_for_role(role: str) -> List[str]:
 
 
 def _expected_schema_type(url: str) -> Optional[str]:
-    """URL 패턴 기반 '이 페이지엔 이 schema가 있어야 한다' 휴리스틱 (Alignment 판단용)."""
+    """URL 패턴 기반 페이지 목적 신호. 브랜드별 Schema 설계 차이를 감안해 참고용으로만 사용."""
     role = _page_role(url)
     if role == "home":
         return "WebPage"
@@ -324,53 +333,86 @@ def data_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _narrate_schema_completeness(schema: Dict[str, Any]) -> List[str]:
-    """규칙기반 자연어 서술 — 'Schema 완결성 전반적으로 우수하나 aggregateRating 누락' 패턴."""
-    lines = []
-    cov = schema["coverage_pct"]
+    """사람이 바로 읽을 수 있는 DATA/Schema 요약.
+
+    브랜드마다 Schema 설계가 다를 수 있으므로 '삼성 방식이 정답'처럼 쓰지 않고,
+    페이지 역할(PF/PDP/Buying)에 맞는 최소 신호가 있는지와 실제 누락 근거를 분리한다.
+    """
+    lines: List[str] = []
+    cov = schema.get("coverage_pct", 0)
+    total = schema.get("total_pages", 0)
+    with_schema = schema.get("pages_with_schema", 0)
     if cov >= 80:
-        base = f"Schema 적용 범위는 전체 페이지의 {cov}%로 우수"
+        cov_state = "대부분의 페이지에 구조화 데이터가 있음"
     elif cov >= 40:
-        base = f"Schema 적용 범위는 전체 페이지의 {cov}%로 부분적"
+        cov_state = "일부 페이지에는 구조화 데이터가 있고 일부는 비어 있음"
     else:
-        base = f"Schema 적용 범위는 전체 페이지의 {cov}%로 미흡"
+        cov_state = "구조화 데이터가 적용된 페이지가 적음"
+    lines.append(f"Schema 적용 현황: {with_schema}/{total}페이지({cov}%) — {cov_state}.")
 
-    for typ, c in schema["completeness"].items():
-        if c["missing_properties"]:
-            missing_ko = ", ".join(PROP_KO.get(m, m) for m in c["missing_properties"][:3])
-            ratio_pct = round(c["filled_ratio"] * 100)
-            if ratio_pct >= 70:
-                lines.append(f"{base}하나, {typ} 스키마는 {missing_ko} 등 상세 속성 누락 (충족률 {ratio_pct}%)")
-            else:
-                lines.append(f"{typ} 스키마 완결성 미흡 — {missing_ko} 등 다수 속성 누락 (충족률 {ratio_pct}%)")
+    comp = schema.get("completeness") or {}
+    product = comp.get("Product")
+    if product:
+        ratio = round((product.get("filled_ratio") or 0) * 100)
+        missing = product.get("missing_properties") or []
+        if missing:
+            missing_ko = ", ".join(PROP_KO.get(m, m) for m in missing[:4])
+            lines.append(
+                f"Product Schema 세부 정보: {product.get('instances', 0)}개 인스턴스 기준 충족률 {ratio}% — "
+                f"누락이 많은 항목은 {missing_ko}. 가격·재고·평점·리뷰가 비면 AI/검색엔진이 제품 정보를 인용하기 어려울 수 있음."
+            )
         else:
-            lines.append(f"{typ} 스키마는 필수 속성을 빠짐없이 충족")
+            lines.append(
+                f"Product Schema 세부 정보: {product.get('instances', 0)}개 인스턴스 기준 주요 속성 충족률 {ratio}% — "
+                "제품명·이미지·설명·브랜드·가격/재고·평점/리뷰 신호가 안정적으로 들어 있음."
+            )
 
-    # [재정립] @id 연결성은 '구조적 특성'으로만 서술. Linked=좋음/Inline=나쁨이 아니라
-    # 사이트가 어떤 스키마 아키텍처를 택했는지를 보여주는 참고 정보일 뿐 — 점수화하지 않음.
-    lk = schema["id_linkage"]
-    if lk["total_id_nodes"]:
-        if lk["linkage_pattern"].startswith("Linked"):
-            lines.append(f"스키마 아키텍처: @id 기반 연결형(Linked) — {lk['linked_ids']}/{lk['total_id_nodes']}개 노드가 "
-                         f"상호 참조됨. (참고: 연결형 자체가 우열 기준은 아니며, 완결성은 위 충족률로 별도 판단)")
+    other_notes = []
+    for typ in ("FAQPage", "BreadcrumbList", "Organization", "WebSite"):
+        c = comp.get(typ)
+        if not c:
+            continue
+        ratio = round((c.get("filled_ratio") or 0) * 100)
+        missing = c.get("missing_properties") or []
+        if missing:
+            other_notes.append(f"{typ} {ratio}%({', '.join(PROP_KO.get(m, m) for m in missing[:2])} 누락)")
         else:
-            lines.append(f"스키마 아키텍처: 개별 페이지 인라인 임베딩형(Inline) — {lk['total_id_nodes']}개 @id 노드가 "
-                         f"페이지별로 독립 적용됨. (참고: 임베딩형 자체가 열위 기준은 아니며, 완결성은 위 충족률로 별도 판단)")
+            other_notes.append(f"{typ} {ratio}%")
+    if other_notes:
+        lines.append("보조 Schema 상태: " + " · ".join(other_notes) + ".")
 
     role_dist = schema.get("page_role_distribution") or {}
     if role_dist:
         role_line = ", ".join(f"{k} {v}페이지" for k, v in role_dist.items())
-        lines.append(f"페이지 역할 분포(PF/PDP/Buying 등): {role_line}")
+        lines.append(
+            "페이지 역할 기준 판단: " + role_line +
+            " — PF는 CollectionPage/ItemList, PDP·Buying은 Product/ItemPage/BreadcrumbList를 기대 신호로 보되, "
+            "브랜드별 Inline/Linked 구현 차이는 감안함."
+        )
 
     role_gaps = schema.get("role_alignment_gaps") or []
     if role_gaps:
         sample = []
         for g in role_gaps[:3]:
-            sample.append(f"{_readable_path(g.get('url',''))} — {g.get('page_role')}에서 {', '.join(g.get('missing') or [])} 누락")
-        lines.append("페이지 역할 대비 Schema 보강 필요: " + " / ".join(sample))
+            missing = ", ".join(g.get("missing") or [])
+            sample.append(f"{_readable_path(g.get('url',''))}({g.get('page_role')})에서 {missing}")
+        lines.append("역할 대비 보강 후보: " + " / ".join(sample) + " — 단, 누락=오류가 아니라 페이지 목적과 실제 Schema 타입이 어긋나는지 확인 필요.")
 
-    if not lines:
-        lines.append(base)
-    return lines
+    lk = schema.get("id_linkage") or {}
+    if lk.get("total_id_nodes"):
+        pattern = lk.get("linkage_pattern") or "unknown"
+        if str(pattern).startswith("Linked"):
+            lines.append(
+                f"@id 구조: Linked형 — {lk.get('linked_ids', 0)}/{lk.get('total_id_nodes', 0)}개 노드가 서로 참조됨. "
+                "연결형은 데이터 관계를 명확히 보여주는 방식이지만, 그 자체로 더 우수하다는 뜻은 아님."
+            )
+        else:
+            lines.append(
+                f"@id 구조: Inline형 — {lk.get('total_id_nodes', 0)}개 @id 노드가 페이지별로 독립 적용됨. "
+                "Inline형도 정상적인 구현 방식이며, 완결성은 속성 충족률과 역할 적합성으로 별도 판단."
+            )
+
+    return lines or ["Schema 판단 근거가 부족함 — 구조화 데이터 원본 수집 여부 확인 필요."]
 
 
 # ════════════════════════════════════════════════════════════════
@@ -389,6 +431,10 @@ def _density_tier(wc: int) -> str:
 
 COMPARISON_KW = ("비교", "vs", "차이", "compared", "versus")
 EVIDENCE_KW = ("스펙", "사양", "spec", "성능", "테스트", "research", "benchmark")
+BUY_CTA_RE = re.compile(
+    r"\b(buy|shop|order|purchase|add to cart|add to bag|checkout|where to buy|pre[- ]?order)\b|구매|장바구니|예약",
+    re.IGNORECASE,
+)
 
 # 구체 근거 탐지: 숫자+단위 패턴 (스펙/가격/용량 등 '구체적 근거'의 대리 지표)
 QUANT_UNIT_RE = re.compile(
@@ -471,6 +517,8 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
     tone_counter: Counter = Counter()
     duplicate_cta_pages = []
     duplicate_copy_pages = []
+    buy_cta_pages = []
+    missing_buy_cta_pages = []
 
     for p in pages:
         wc = max(p.get("word_count") or 0, 1)
@@ -499,6 +547,20 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         # 중복 CTA / 중복 본문 문구 점검
         cta_texts = [re.sub(r"\s+", " ", _s(x.get("text") if isinstance(x, dict) else x)).strip().lower() for x in ctas]
         cta_dups = [t for t, n in Counter([t for t in cta_texts if t]).items() if n >= 2]
+        buy_ctas = [t for t in cta_texts if BUY_CTA_RE.search(t)]
+        if buy_ctas:
+            buy_cta_pages.append({
+                "url": p.get("url"),
+                "page_role": role,
+                "count": len(buy_ctas),
+                "samples": buy_ctas[:5],
+            })
+        elif role in ("pf", "pdp", "buying"):
+            missing_buy_cta_pages.append({
+                "url": p.get("url"),
+                "page_role": role,
+                "reason": "Buy/Shop/Add to cart 계열 CTA 텍스트가 수집되지 않음",
+            })
         if cta_dups:
             duplicate_cta_pages.append({"url": p.get("url"), "duplicates": cta_dups[:5]})
         unit_counts = Counter(_copy_units_for_dup(body))
@@ -585,6 +647,12 @@ def copy_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
             "dominant_tone": dominant_tone,
             "note": "스펙/혜택/긴급성/AI/지속가능성 키워드 기반 토널리티 대리지표. 문체 감성 분석이 아니라 페이지 카피 내 신호량 집계.",
         },
+        "commerce_cta": {
+            "note": "Buying hard URL이 없는 글로벌 사이트는 가짜 URL을 만들지 않고 PF/PDP에서 Buy/Shop/Add to cart/Where to buy CTA 텍스트와 href 신호를 확인한다.",
+            "pages_with_buy_cta": len(buy_cta_pages),
+            "buy_cta_pages": buy_cta_pages[:12],
+            "missing_buy_cta_pages": missing_buy_cta_pages[:12],
+        },
         "duplication": {
             "duplicate_cta_pages": duplicate_cta_pages[:10],
             "duplicate_copy_pages": duplicate_copy_pages[:10],
@@ -625,6 +693,8 @@ PRODUCT_KW = (
 SAMSUNG_PRODUCT_PATH_KW = (
     "/sg/mobile", "/sg/tvs", "/sg/audio-sound", "/sg/home-appliances", "/sg/computing",
     "/sg/monitors", "/sg/watches", "/sg/tablets", "/sg/smartphones", "/sg/shop",
+    "/us/smartphones", "/us/tablets", "/us/watches", "/us/audio-sound", "/us/computers",
+    "/us/galaxybooks", "/us/shop",
 )
 # alt 텍스트가 비어있지 않아도 의미 없는 placeholder 인 경우가 많아 별도 필터링
 GENERIC_ALT_WORDS = ("image", "photo", "picture", "img", "banner", "icon", "사진", "이미지", "배너", "아이콘")
