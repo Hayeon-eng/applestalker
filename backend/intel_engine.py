@@ -187,141 +187,102 @@ class IntelEngine:
             return None
 
     def _narrate_copy(self, c: Dict[str, Any]) -> List[str]:
-        """COPY 요약을 '페이지를 얼마나 많이 긁었는가'가 아니라
-        '어떤 경쟁사/페이지 역할을 기준으로 해석해야 하는가' 중심으로 작성한다.
-
-        이전 버전은 thin/moderate/rich 같은 내부 밀도 라벨과 평균 점수를 그대로
-        노출해서 사람이 읽기에 이상했다. 여기서는 동일 facts를 쓰되, PF/PDP/Buying
-        역할별로 무엇을 확인해야 하는지와 실제 근거를 함께 보여준다.
+        """COPY 요약은 '단어 수가 많다/적다'가 아니라, 실제 운영 관점에서
+        PF/PDP/Buying이 어떤 역할을 하고 있는지와 어떤 액션이 필요한지 중심으로 작성한다.
         """
         lines: List[str] = []
         role_len = c.get("copy_length", {}).get("by_page_role") or {}
         all_pages = c.get("copy_richness", {}).get("all_pages") or []
         total_pages = len(all_pages) or sum(v.get("pages", 0) for v in role_len.values())
+        role_labels = {
+            "pf": "PF", "pdp": "PDP", "buying": "Buying", "specs": "Specs",
+            "campaign_or_compare": "Compare/Campaign", "home": "Home", "content": "Content",
+        }
 
         if total_pages:
-            role_order = ["pf", "pdp", "buying", "specs", "campaign_or_compare", "home", "content"]
-            role_labels = {
-                "pf": "PF", "pdp": "PDP", "buying": "Buying", "specs": "Specs",
-                "campaign_or_compare": "Compare/Campaign", "home": "Home", "content": "Content",
-            }
             role_parts = []
-            for role in role_order:
+            for role in ["pf", "pdp", "buying", "specs", "campaign_or_compare", "home", "content"]:
                 vals = role_len.get(role)
-                if not vals:
-                    continue
-                role_parts.append(
-                    f"{role_labels.get(role, role)} {vals.get('pages', 0)}p·평균 {round(vals.get('avg_word_count', 0))}단어"
-                )
-            if role_parts:
-                lines.append(
-                    f"수집 페이지 기준: 총 {total_pages}페이지 — " + ", ".join(role_parts[:6]) +
-                    ". 이 분포는 품질 점수가 아니라 이번 리포트가 어떤 페이지 역할을 근거로 삼았는지 보여주는 기준선."
-                )
-
-        if all_pages:
-            avg_score = round(sum(p.get("score", 0) for p in all_pages) / len(all_pages), 1)
-            avg_quant = round(sum(p.get("quant_per_100w", 0) for p in all_pages) / len(all_pages), 2)
-            with_faq = sum(1 for p in all_pages if p.get("has_faq"))
-            with_cta = sum(1 for p in all_pages if p.get("cta_count", 0) > 0)
+                if vals:
+                    role_parts.append(f"{role_labels.get(role, role)} {vals.get('pages', 0)}p")
             lines.append(
-                f"COPY 현재 상태: 평균 구체성 {avg_score}점, 100단어당 수치·스펙·가격·기간 근거 {avg_quant}개, "
-                f"CTA 확인 {with_cta}/{len(all_pages)}페이지, FAQ 확인 {with_faq}/{len(all_pages)}페이지. "
-                "점수 자체보다 PDP는 기능 근거, Buying은 가격·옵션·CTA, PF는 제품군 탐색 메시지가 충분한지로 해석."
+                "수집 범위: " + ", ".join(role_parts[:7]) +
+                ". 아래 카피 판단은 이 페이지 역할 조합 안에서만 해석합니다. Buying은 짧아도 정상일 수 있고, PDP/PF는 제품 이해·비교·전환 근거가 보이는지가 핵심입니다."
             )
 
+        commerce = c.get("commerce_cta", {}) or {}
+        buy_pages = commerce.get("buy_cta_pages") or []
+        missing_buy = commerce.get("missing_buy_cta_pages") or []
+        if total_pages:
+            msg = f"구매 전환 신호: Buy/Shop/Add to cart/Where to buy 계열 CTA가 {len(buy_pages)}페이지에서 확인됩니다."
+            if buy_pages:
+                sample = ", ".join(f"{_readable_path(x.get('url', ''))}({x.get('page_role')})" for x in buy_pages[:3])
+                msg += f" 대표 근거는 {sample}입니다."
+            if missing_buy:
+                sample_missing = ", ".join(f"{_readable_path(x.get('url', ''))}({x.get('page_role')})" for x in missing_buy[:3])
+                msg += f" CTA가 수집되지 않은 PF/PDP/Buying 후보는 {len(missing_buy)}페이지이며, 우선 {sample_missing}를 확인하세요."
+            else:
+                msg += " PF/PDP/Buying에서 전환 CTA 공백은 크게 보이지 않습니다."
+            lines.append(msg)
+
+        faq = c.get("faq", {}) or {}
+        if faq.get("pages_with_faq"):
+            detail = faq.get("detail") or []
+            weak = sum(f.get("weak_items", 0) for f in detail)
+            lines.append(
+                f"FAQ/질문 대응: FAQ 구조가 {faq.get('pages_with_faq')}페이지에서 {faq.get('total_items', 0)}문항 확인됩니다. "
+                f"보강 후보 문항은 {weak}건입니다. 제품 비교·구매 조건·호환성처럼 실제 사용자가 물을 질문에 답하는지 확인하면 AI 답변 근거로 쓰기 좋습니다."
+            )
+        elif total_pages:
+            lines.append(
+                "FAQ/질문 대응: 이번 수집에서는 FAQ 구조가 확인되지 않았습니다. 모든 페이지에 FAQ가 필요하진 않지만, PDP와 Buying의 핵심 질문(가격·혜택·호환·배송·반품)은 별도 근거가 있는지 확인하세요."
+            )
+
+        rich = c.get("copy_richness", {}) or {}
+        intent_gap = rich.get("intent_gap_pages") or []
+        if intent_gap:
+            sample = []
             role_priority = {"pdp": 0, "buying": 1, "pf": 2, "specs": 3, "campaign_or_compare": 4, "home": 5, "content": 6}
-            weak = [p for p in all_pages if p.get("score", 0) < 40]
-            if weak:
-                weak = sorted(weak, key=lambda x: (role_priority.get(x.get("page_role"), 9), x.get("score", 0)))[:4]
-                sample = []
-                for g in weak:
-                    reasons = []
-                    if g.get("quant_count", 0) == 0:
-                        reasons.append("수치/스펙 근거 적음")
-                    if not g.get("has_faq"):
-                        reasons.append("FAQ 없음")
-                    if g.get("cta_count", 0) == 0:
-                        reasons.append("CTA 없음")
-                    sample.append(
-                        f"{_readable_path(g.get('url',''))}({g.get('page_role')}, {g.get('score')}점: {', '.join(reasons) or '구조 신호 약함'})"
-                    )
-                lines.append(
-                    "우선 점검 페이지: " + " / ".join(sample) +
-                    ". 단순히 단어 수가 적다는 뜻이 아니라, 해당 역할에서 구매·제품 이해에 필요한 근거가 부족한 후보."
-                )
+            for g in sorted(intent_gap, key=lambda x: (role_priority.get(x.get("page_role"), 9), x.get("score", 0)))[:4]:
+                reasons = []
+                if g.get("quant_count", 0) == 0:
+                    reasons.append("스펙·조건 근거 부족")
+                if not g.get("has_faq"):
+                    reasons.append("FAQ 없음")
+                if g.get("cta_count", 0) == 0:
+                    reasons.append("CTA 없음")
+                sample.append(f"{_readable_path(g.get('url',''))}({g.get('page_role')}: {', '.join(reasons) or '카피 근거 약함'})")
+            lines.append(
+                "우선 점검할 카피: " + " / ".join(sample) +
+                ". 이 항목은 단어 수 평가가 아니라, 해당 역할에서 사용자가 결정을 내릴 근거가 충분한지 보는 후보입니다."
+            )
 
-            dense_but_soft = [
-                p for p in all_pages
-                if p.get("word_count", 0) >= 800 and p.get("quant_per_100w", 0) < 1.0
-            ]
-            if dense_but_soft:
-                sample = []
-                for g in sorted(dense_but_soft, key=lambda x: (-x.get("word_count", 0), x.get("quant_per_100w", 0)))[:3]:
-                    sample.append(
-                        f"{_readable_path(g.get('url',''))}({g.get('page_role')}, {g.get('word_count', 0)}단어·근거 {g.get('quant_count', 0)}개)"
-                    )
-                lines.append(
-                    "긴 설명 대비 근거가 약한 페이지: " + " / ".join(sample) +
-                    ". 긴 카피가 나쁘다는 뜻은 아니며, hero claim·기능 설명 옆에 수치/조건/스펙 증거를 붙일 여지가 있는 페이지."
-                )
-
-        commerce = c.get("commerce_cta", {})
-        if commerce:
-            with_buy = commerce.get("pages_with_buy_cta", 0)
-            buy_pages = commerce.get("buy_cta_pages") or []
-            missing_buy = commerce.get("missing_buy_cta_pages") or []
-            if with_buy or missing_buy:
-                sample_buy = ", ".join(
-                    f"{_readable_path(x.get('url', ''))}({x.get('page_role')})" for x in buy_pages[:3]
-                )
-                msg = f"구매 CTA: Buy/Shop/Add to cart 계열 CTA가 {with_buy}페이지에서 수집됨"
-                if sample_buy:
-                    msg += f" — 대표 {sample_buy}"
-                if missing_buy:
-                    sample_missing = ", ".join(
-                        f"{_readable_path(x.get('url', ''))}({x.get('page_role')})" for x in missing_buy[:3]
-                    )
-                    msg += f". PF/PDP/Buying인데 CTA 텍스트가 안 잡힌 후보 {len(missing_buy)}페이지 — {sample_missing}."
-                lines.append(msg)
-
-        dup = c.get("duplication", {})
+        dup = c.get("duplication", {}) or {}
         dup_cta = dup.get("duplicate_cta_pages") or []
         dup_copy = dup.get("duplicate_copy_pages") or []
         if dup_cta or dup_copy:
             pieces = []
             if dup_cta:
-                pieces.append(f"중복 CTA {len(dup_cta)}페이지")
+                pieces.append(f"중복 CTA 후보 {len(dup_cta)}페이지")
             if dup_copy:
-                pieces.append(f"중복 문구 {len(dup_copy)}페이지")
+                pieces.append(f"중복 본문 후보 {len(dup_copy)}페이지")
             lines.append(
-                "중복 점검: " + " · ".join(pieces) +
-                ". 공통 헤더/푸터 반복일 수 있으니 삭제 판단 전 페이지 본문 반복인지 확인 필요."
+                "중복/불필요 문구 점검: " + " · ".join(pieces) +
+                ". 공통 헤더·푸터 반복일 수 있으므로, 실제 본문 반복인지 확인한 뒤 정리 여부를 판단하세요."
             )
 
-        tone = c.get("tonality", {})
+        tone = c.get("tonality", {}) or {}
         signals = tone.get("signals") or {}
         if signals:
             top_tones = sorted(signals.items(), key=lambda x: -x[1])[:3]
             tone_ko = {"spec_proof": "스펙/성능", "benefit": "사용자 혜택", "urgency": "프로모션/긴급성", "ai": "AI", "sustainability": "지속가능성"}
-            dominant = tone_ko.get(tone.get("dominant_tone"), tone.get("dominant_tone"))
             lines.append(
-                "메시지 톤: " + ", ".join(f"{tone_ko.get(name, name)} {count}" for name, count in top_tones) +
-                f" 신호가 강함. 현재 주 톤은 {dominant}."
+                "토널리티: " + ", ".join(f"{tone_ko.get(name, name)} 신호 {count}" for name, count in top_tones) +
+                ". 실제 문체 감성 분석이 아니라, 페이지 텍스트 안에 어떤 메시지 재료가 많이 쓰였는지 보는 기준입니다."
             )
 
-        faq = c.get("faq", {})
-        if faq.get("pages_with_faq"):
-            detail = faq.get("detail") or []
-            weak = sum(f.get("weak_items", 0) for f in detail)
-            avg_faq = round(sum(f.get("avg_score", 0) for f in detail) / len(detail), 1) if detail else 0
-            lines.append(
-                f"FAQ: {faq.get('pages_with_faq')}페이지에서 {faq.get('total_items', 0)}문항 수집. "
-                f"평균 품질 {avg_faq}점, 보강 후보 {weak}문항. FAQ 수가 많아도 답변 첫 문장이 조건·수치 없이 모호하면 AI 인용 품질은 낮을 수 있음."
-            )
-        elif total_pages:
-            lines.append("FAQ: 이번 수집 페이지에서는 FAQ 구조가 확인되지 않음. 모든 페이지에 FAQ가 필요하진 않지만, PDP/Buying 핵심 질문은 별도 점검 필요.")
-
+        if not lines:
+            lines.append("COPY 인사이트를 만들 수 있는 수집 근거가 아직 없습니다. 먼저 PF/PDP/Buying 페이지가 정상 수집됐는지 확인하세요.")
         return lines
 
     def _narrate_visual(self, v: Dict[str, Any]) -> List[str]:
