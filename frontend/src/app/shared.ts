@@ -8,7 +8,7 @@ export type View = "home" | "dashboard";
 export type MainTab = "overview" | "pages";
 export type MetricTab = "data" | "copy" | "visual";
 export type MetricView = MetricTab | "all";
-export type SiteKey = "samsung" | "apple";
+export type SiteKey = string;
 export type CrawlProgress = {
   active: boolean; site?: string; total: number; done: number;
   currentUrl?: string; error?: string;
@@ -36,13 +36,18 @@ export type Session = {
   pages: number; changes: number; timestamp: string;
 };
 export type PageLite = { url: string; title: string; word_count: number };
+export type PageWireframe = {
+  page_role?: string; title?: string; h1?: string; h2?: string[]; h3?: string[];
+  ctas?: { text?: string }[]; image_count?: number; faq_count?: number;
+  schema_types?: string[]; word_count?: number;
+};
 export type PageDetail = {
-  url: string; crawled_at?: string;
+  url: string; crawled_at?: string; wireframe?: PageWireframe;
   data?: { facts?: any; narrative?: string[] };
   copy?: { facts?: any; narrative?: string[] };
   visual?: { facts?: any; narrative?: string[] };
 };
-export type UrlRow = { url: string; tier_level?: number; site_key?: string };
+export type UrlRow = { url: string; tier_level?: number; site_key?: string; page_role?: string };
 export type LineTag = { label: string; cls: string };
 
 /* ── 기준 설명 (Drawer 콘텐츠 + ⓘ 아이콘 연동) */
@@ -72,6 +77,8 @@ export const CRITERIA: {
       { q: "Schema Completeness", a: "Product 기준 필수 속성(name·image·description·brand·offers·aggregateRating·review) 충족률.",
         detail: "예를 들어 Product 스키마는 이름(name)·이미지(image)·설명(description)·브랜드(brand)·가격정보(offers)·평점(aggregateRating)·리뷰(review) 같은 세부 항목을 채워야 완전합니다. 태그는 있는데 이 항목들이 비어있으면 '적용은 됐지만 미완성'인 상태입니다." },
       { q: "Schema Distribution", a: "템플릿(카테고리·PDP·홈 등) 유형별로 Schema가 고르게 적용됐는지." },
+      { q: "PF/PDP/Buying 역할별 Schema", a: "PF에는 CollectionPage·ItemList, PDP/Buying에는 Product·ItemPage·BreadcrumbList가 있는지 페이지 역할 기준으로 점검합니다.",
+        detail: "PF(Product Family)는 제품군/카테고리 목록, PDP(Product Detail Page)는 제품 상세, Buying은 제품 구매·구성 페이지입니다." },
       { q: "Schema Alignment", a: "페이지 목적(PDP엔 Product, FAQ엔 FAQPage 등)과 실제 Schema 타입이 일치하는지.",
         detail: "PDP(Product Detail Page)는 제품 상세 페이지를 뜻하는 업계 용어입니다." },
       { q: "@id 연결성(아키텍처 참고)", a: "Linked(@id 상호참조형) vs Inline(개별 페이지 임베딩형). 우열 기준이 아닌 구조적 특성입니다.",
@@ -96,6 +103,9 @@ export const CRITERIA: {
         detail: "'thin content(빈약 콘텐츠)'는 SEO 업계 용어로, 분량이 적어 검색엔진이 페이지의 가치를 판단하기 어려운 콘텐츠를 말합니다." },
       { q: "FAQ 품질 점수 (0~100)", a: "구체성(수치·스펙 포함) 40% + 질문현실성(실제 의문형) 30% + AI인용적합성(첫 문장 인용 가능) 30%.",
         scoring: "weighted" },
+      { q: "페이지 역할별 카피 길이", a: "PF/PDP/Buying마다 평균 단어 수를 따로 집계해 카테고리 설명·상세 설득·구매 전환 문구가 제 역할을 하는지 봅니다." },
+      { q: "토널리티", a: "spec proof, benefit, urgency, AI, sustainability 키워드 신호를 집계해 경쟁사가 어떤 메시지 톤을 밀고 있는지 봅니다." },
+      { q: "중복 CTA/중복 텍스트", a: "동일 버튼명이나 긴 문장 단위 반복을 찾아 불필요한 버튼·중복 문구 가능성을 점검합니다. 의도적 반복일 수 있어 삭제 전 수동 확인이 필요합니다." },
     ],
   },
   {
@@ -108,9 +118,37 @@ export const CRITERIA: {
       { q: "alt 텍스트 품질", a: "비어있음·일반적(image/photo/배너 등)·설명적(15자 이상, 제네릭 아님) 3단계. Vision AI 분석이 아닌 텍스트 기반 판정입니다." },
       { q: "이미지 고유성", a: "src/alt 중복도 기반 추정치. 같은 이미지·문구가 여러 페이지에 반복 사용되는 템플릿화 정도." },
       { q: "스토리텔링", a: "product+lifestyle 혼합이면서 설명적 alt가 2개 이상인 페이지를 스토리텔링 페이지로 분류합니다." },
+      { q: "Visual tactic", a: "PF/PDP/Buying 역할, KV·gallery·product·lifestyle 힌트, 이미지 수를 함께 봐 category grid / product showcase / feature gallery / commerce CTA 등으로 분류합니다." },
+      { q: "alt.copy 샘플", a: "설명적 alt 텍스트와 보강 필요 페이지를 같이 보여 접근성·AI 검색 인용 가능성을 점검합니다." },
+      { q: "페이지 길이/이미지 밀도", a: "역할별 평균 단어 수와 이미지 수를 같이 보며 긴 페이지가 충분한 시각 전개를 갖는지, 짧은 페이지가 과도한 이미지에 의존하지 않는지 봅니다." },
     ],
   },
 ];
+
+/* ── 사이트 표시 메타 */
+export const DEFAULT_SITE_ORDER: SiteKey[] = [
+  "samsung", "apple", "google_pixel", "xiaomi", "oppo", "vivo",
+  "sony_audio", "garmin", "dell", "meta_ai_glasses",
+];
+export const SITE_META: Record<string, { label: string; short: string; cls: string }> = {
+  samsung: { label: "Samsung 당사", short: "Samsung", cls: "samsung" },
+  apple: { label: "Apple 경쟁사", short: "Apple", cls: "apple" },
+  google_pixel: { label: "Google Pixel", short: "Pixel", cls: "competitor" },
+  xiaomi: { label: "Xiaomi", short: "Xiaomi", cls: "competitor" },
+  oppo: { label: "OPPO", short: "OPPO", cls: "competitor" },
+  vivo: { label: "vivo", short: "vivo", cls: "competitor" },
+  sony_audio: { label: "Sony Audio", short: "Sony", cls: "competitor" },
+  garmin: { label: "Garmin", short: "Garmin", cls: "competitor" },
+  dell: { label: "Dell", short: "Dell", cls: "competitor" },
+  meta_ai_glasses: { label: "Meta AI Glasses", short: "Meta", cls: "competitor" },
+};
+export const orderedSiteKeys = (keys: string[]): SiteKey[] => {
+  const uniq = Array.from(new Set(keys.filter(Boolean)));
+  return uniq.sort((a, b) => {
+    const ia = DEFAULT_SITE_ORDER.indexOf(a), ib = DEFAULT_SITE_ORDER.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.localeCompare(b);
+  });
+};
 
 /* ── 상수 */
 export const METRICS: Record<MetricTab, { label: string; plain: string; criteriaId: string }> = {
@@ -136,6 +174,7 @@ export const TIER_META: Record<number, { label: string; desc: string }> = {
 // ── 세부 항목 뱃지 분류기: narrative 한 줄이 어느 세부 기준에 해당하는지 키워드로 판정 ──
 export const DATA_LINE_TAGS: [RegExp, LineTag][] = [
   [/Schema 적용 범위/, { label: "Schema Coverage", cls: "c1" }],
+  [/페이지 역할|PF|PDP|Buying|역할별 Schema|Schema 보강/, { label: "역할별 Schema", cls: "c1" }],
   [/스키마.*충족|충족률|필수 속성/, { label: "Schema Completeness", cls: "c2" }],
   [/스키마 아키텍처/, { label: "@id 연결성", cls: "c4" }],
   [/H-?tag|heading|계층/i, { label: "H-tag 구조", cls: "c5" }],
@@ -145,6 +184,8 @@ export const COPY_LINE_TAGS: [RegExp, LineTag][] = [
   [/콘텐츠 양 기준 분포|콘텐츠 밀도 분포/, { label: "콘텐츠 양", cls: "c1" }],
   [/텍스트 양이 부족|빈약 콘텐츠/, { label: "텍스트 부족", cls: "c3" }],
   [/카피 구체성|카피 풍부성|풍부성 점수|구체 근거/, { label: "카피 구체성", cls: "c2" }],
+  [/페이지 역할별 카피 길이|토널리티/, { label: "토널리티/길이", cls: "c5" }],
+  [/중복 CTA|중복 문구|중복 텍스트|불필요한 버튼/, { label: "중복 점검", cls: "c3" }],
   [/FAQ/, { label: "FAQ 품질", cls: "c4" }],
 ];
 export const VISUAL_LINE_TAGS: [RegExp, LineTag][] = [
@@ -152,25 +193,27 @@ export const VISUAL_LINE_TAGS: [RegExp, LineTag][] = [
   [/alt 텍스트 품질/, { label: "alt 텍스트 품질", cls: "c2" }],
   [/고유 이미지 비율|이미지 재사용도/, { label: "이미지 고유성", cls: "c3" }],
   [/이미지 편중/, { label: "이미지 분포", cls: "c5" }],
+  [/비주얼 택틱|페이지 역할별 Visual|페이지 길이/, { label: "Visual tactic", cls: "c5" }],
+  [/alt\.copy|alt 샘플|alt 미흡|alt.*보강/, { label: "alt.copy", cls: "c2" }],
   [/스토리텔링/, { label: "스토리텔링", cls: "c4" }],
 ];
 
 /* ── 유틸 */
-export const siteName = (s?: string) =>
-  s === "apple" ? "Apple 경쟁사" : s === "samsung" ? "Samsung 당사" : s || "미분류";
-export const siteClass = (s?: string) => (s === "apple" ? "apple" : "samsung");
+export const siteName = (s?: string) => SITE_META[s || ""]?.label || s || "미분류";
+export const siteShortName = (s?: string) => SITE_META[s || ""]?.short || s || "미분류";
+export const siteClass = (s?: string) => SITE_META[s || ""]?.cls || "competitor";
 export const levelKo = (l?: string) => l === "High" ? "높음" : l === "Medium" ? "보통" : "낮음";
 export const levelClass = (l?: string) => l === "High" ? "high" : l === "Medium" ? "med" : "low";
 export const severityEmoji = (l?: string) => l === "High" ? "🔴" : l === "Medium" ? "🟠" : "🟢";
 
 export const actionForChange = (c: Change): string => {
   const level = c.level || "Low";
-  const isApple = c.site === "apple";
+  const isCompetitor = c.site !== "samsung";
   if (level === "High") {
-    return isApple ? "경쟁사 핵심 변경 즉시 확인 및 당사 영향 검토" : "즉시 변경사항 확인 및 대응 필요";
+    return isCompetitor ? "경쟁사 핵심 변경 즉시 확인 및 당사 영향 검토" : "즉시 변경사항 확인 및 대응 필요";
   }
   if (level === "Medium") {
-    return isApple ? "경쟁사 변화 지속 모니터링" : "지속 모니터링 및 필요 시 후속 점검";
+    return isCompetitor ? "경쟁사 변화 지속 모니터링" : "지속 모니터링 및 필요 시 후속 점검";
   }
   return "참고용 기록 유지 및 다음 수집에서 재확인";
 };
@@ -212,9 +255,9 @@ export const tierForUrl = (u: string): number => {
     const segments = path.split("/").filter((s) => s && !["sg", "us", "en"].includes(s));
     if (segments.length === 0) return 0;
     if (/buy|shop|specs|purchase/.test(path)) return 4;
-    if (/compare|find-your|switch-to|galaxy-ai|apple-intelligence|mobile\/|one-ui/.test(path)) return 2;
-    if (/iphone-|galaxy-|apple-watch-|buds|watch-ultra/.test(path)) return 3;
-    if (/all-smartphones|all-watches|all-audio|iphone|watch|airpods/.test(path)) return 1;
+    if (/compare|find-your|switch-to|galaxy-ai|apple-intelligence|ai-glasses|mobile\/|one-ui/.test(path) && !/ray-ban-meta/.test(path)) return 2;
+    if (/iphone-|pixel_|xiaomi-|find-x|x300|wf1000|wf-1000|apple-watch-|airpods-pro|macbook-pro|xps-16|dell-da|xps-da|ray-ban-meta|galaxy-|watch-ultra|buds4/.test(path)) return 3;
+    if (/all-smartphones|all-watches|all-audio|iphone|phones|smartphones|product-list|products|watch|airpods|mac|laptops|headphones|wearables/.test(path)) return 1;
     return Math.min(segments.length, 3);
   } catch { return 3; }
 };
@@ -252,26 +295,26 @@ export const metricOneLiner = (
   dcvForMetric: Record<string, AnalysisBlock> | undefined,
   changes: Change[]
 ): string => {
-  const af = dcvForMetric?.apple?.facts || {};
-  const sf = dcvForMetric?.samsung?.facts || {};
+  const blocks = dcvForMetric || {};
+  const keys = orderedSiteKeys(Object.keys(blocks));
   const high = changes.filter((c) => c.level === "High").length;
+  const labelFor = (site: string) => siteShortName(site);
   let statLine = "";
   if (metric === "data") {
-    const a = af.schema?.coverage_pct, s = sf.schema?.coverage_pct;
-    statLine = `Schema 적용률 Apple ${a ?? "-"}% · Samsung ${s ?? "-"}%`;
+    const parts = keys.slice(0, 5).map((site) => `${labelFor(site)} ${blocks[site]?.facts?.schema?.coverage_pct ?? "-"}%`);
+    statLine = `Schema 적용률 ${parts.join(" · ") || "-"}`;
   } else if (metric === "copy") {
     const copyAvg = (f: any, key: "score" | "quant_per_100w") => {
-      const pages = f.copy_richness?.all_pages || [];
+      const pages = f?.copy_richness?.all_pages || [];
       if (!Array.isArray(pages) || pages.length === 0) return "-";
       const total = pages.reduce((sum: number, p: any) => sum + (Number(p?.[key]) || 0), 0);
       return Math.round((total / pages.length) * 10) / 10;
     };
-    const aScore = copyAvg(af, "score"), sScore = copyAvg(sf, "score");
-    const aEvidence = copyAvg(af, "quant_per_100w"), sEvidence = copyAvg(sf, "quant_per_100w");
-    statLine = `카피 구체성 Apple ${aScore}점 · Samsung ${sScore}점 / 구체 근거 밀도 Apple ${aEvidence}개 · Samsung ${sEvidence}개(100단어당)`;
+    const parts = keys.slice(0, 5).map((site) => `${labelFor(site)} ${copyAvg(blocks[site]?.facts, "score")}점`);
+    statLine = `카피 구체성 ${parts.join(" · ") || "-"}`;
   } else {
-    const a = af.image_diversity?.lifestyle_ratio_pct, s = sf.image_diversity?.lifestyle_ratio_pct;
-    statLine = `Lifestyle 이미지 Apple ${a ?? "-"}% · Samsung ${s ?? "-"}%`;
+    const parts = keys.slice(0, 5).map((site) => `${labelFor(site)} ${blocks[site]?.facts?.image_diversity?.lifestyle_ratio_pct ?? "-"}%`);
+    statLine = `Lifestyle 이미지 ${parts.join(" · ") || "-"}`;
   }
   return `${statLine} · 변경 ${changes.length}건 (High ${high})`;
 };
@@ -292,7 +335,7 @@ export const captureScreen = async () => {
     const canvas = await h2c(document.body, { backgroundColor: "#F8F9FB", scale: 2, useCORS: true });
     const a = document.createElement("a");
     a.href = canvas.toDataURL("image/png");
-    a.download = `apple-stalker_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.png`;
+    a.download = `competitor-stalker_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.png`;
     a.click();
   } catch {
     alert("캡처에 실패했습니다.");

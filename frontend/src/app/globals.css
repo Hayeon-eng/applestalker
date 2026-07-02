@@ -6,6 +6,9 @@
   --apple: #4B5563;
   --apple-soft: #F3F4F6;
   --apple-border: #D1D5DB;
+  --competitor: #7C3AED;
+  --competitor-soft: #F5F3FF;
+  --competitor-border: #DDD6FE;
 
   /* ── 중요도 (High/Med/Low) */
   --high: #C0392B;
@@ -262,7 +265,7 @@ input, select { font-family: inherit; }
   padding: 8px 10px; margin-top: 5px; line-height: 1.6; }
 
 /* ── Apple(좌) / Samsung(우) 2열 ── */
-.siteSplit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.siteSplit { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 .siteSplit > div { min-width: 0; }
 .siteSplitHead { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 13px; font-weight: 700; flex-wrap: wrap; min-width: 0; }
 @media (max-width: 860px) {
@@ -341,7 +344,7 @@ input, select { font-family: inherit; }
 .urlFilterTag button { color: var(--sec); font-weight: 600; }
 
 /* ── 평균 KPI 박스 */
-.avgGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.avgGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .avgBox { background: var(--surface); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow-xs); }
 .avgBoxTitle { font-size: 12px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .avgBoxSite { width: 9px; height: 9px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
@@ -422,3 +425,38 @@ input, select { font-family: inherit; }
   padding: 13px 28px; border-radius: 14px; box-shadow: var(--shadow); }
 .landingCTA:hover { background: #1640B8; }
 .landingFoot { margin-top: 18px; font-size: 11px; color: var(--ter); }
+
+/* ── 글로벌 경쟁사 확장 ── */
+.badge.competitor { background: var(--competitor-soft); color: var(--competitor); }
+
+/* ── Overview watch point / Q&A ── */
+.watchPointCard { border-left: 3px solid var(--blue); }
+.watchPointGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.watchPointItem { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.watchPointItem p { font-size: 12.5px; color: var(--label2); line-height: 1.5; margin: 7px 0; }
+.watchPointItem small { font-size: 11px; color: var(--sec); line-height: 1.45; display: block; }
+.chatBox .chatInputRow { display: flex; gap: 8px; margin-bottom: 10px; }
+.chatBox input { flex: 1; border: 1px solid var(--line2); border-radius: 10px; padding: 9px 12px; font-size: 12px; }
+.chatBox button { background: var(--blue); color: #fff; border-radius: 10px; padding: 0 14px; font-size: 12px; font-weight: 700; }
+.chatBox pre { white-space: pre-wrap; word-break: keep-all; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-family: var(--font); font-size: 12.5px; color: var(--label2); line-height: 1.55; }
+
+/* ── Page wireframe + data/copy/visual side-by-side ── */
+.pageEvidenceGrid { display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(280px, 1.1fr); gap: 14px; align-items: start; }
+.pageDcvStack { min-width: 0; }
+.wireframeCard { background: linear-gradient(180deg, #fff, var(--bg)); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.wfHeader { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--sec); margin-bottom: 10px; }
+.wfBlock { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; min-height: 54px; }
+.wfBlock.hero { border-color: var(--samsung-border); background: var(--samsung-soft); }
+.wfBlock b { display: block; font-size: 12px; line-height: 1.35; color: var(--label); overflow-wrap: anywhere; }
+.wfBlock small { display: block; margin-top: 5px; color: var(--sec); font-size: 10.5px; }
+.wfMiniGrid { display: grid; grid-template-columns: 1fr; gap: 7px; margin-top: 8px; }
+.wfPills { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.wfPills span { background: #fff; border: 1px solid var(--line2); border-radius: 999px; padding: 3px 8px; font-size: 10.5px; color: var(--label2); }
+.wfMetricGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wfMetricGrid div { background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 7px 4px; text-align: center; }
+.wfMetricGrid b { display: block; font-size: 14px; font-family: var(--mono); }
+.wfMetricGrid span { display: block; font-size: 9.5px; color: var(--sec); }
+.wfSchema { font-size: 10.5px; color: var(--sec); margin-top: 8px; line-height: 1.4; overflow-wrap: anywhere; }
+@media (max-width: 960px) {
+  .pageEvidenceGrid { grid-template-columns: 1fr; }
+}

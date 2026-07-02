@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View, MainTab, MetricTab, MetricView, SiteKey, CrawlProgress, Change, Report, Session,
   PageLite, PageDetail, UrlRow,
-  METRICS, CRITERIA, siteName, siteClass, shortUrl, bucketOf, captureScreen,
+  METRICS, CRITERIA, DEFAULT_SITE_ORDER, orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf, captureScreen,
 } from "./shared";
 import { Landing, Overview, PagesTab, CriteriaDrawer } from "./sections";
 
@@ -21,7 +21,7 @@ export default function Page() {
   const [report, setReport] = useState<Report | null>(null);
   const [runs, setRuns] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [pages, setPages] = useState<Record<SiteKey, PageLite[]>>({ samsung: [], apple: [] });
+  const [pages, setPages] = useState<Record<SiteKey, PageLite[]>>({});
   const [urls, setUrls] = useState<UrlRow[]>([]);
   const [urlQuery, setUrlQuery] = useState("");
   const [urlAccordionOpen, setUrlAccordionOpen] = useState(false);
@@ -44,23 +44,28 @@ export default function Page() {
       const h = await fetch(API + "/api/health", { cache: "no-store" });
       if (!h.ok) throw new Error("offline");
       setOnline(true);
-      const [rRep, rRuns, rSam, rApp, rUrls, rStatus] = await Promise.all([
+      const [rRep, rRuns, rUrls, rStatus] = await Promise.all([
         fetch(API + "/api/latest-report", { cache: "no-store" }).catch(() => null),
         fetch(API + "/api/runs", { cache: "no-store" }).catch(() => null),
-        fetch(API + "/api/pages?site=samsung", { cache: "no-store" }).catch(() => null),
-        fetch(API + "/api/pages?site=apple", { cache: "no-store" }).catch(() => null),
         fetch(API + "/api/urls", { cache: "no-store" }).catch(() => null),
         fetch(API + "/api/crawl-status", { cache: "no-store" }).catch(() => null),
       ]);
       const jRep = rRep ? await rRep.json() : null;
+      const jUrls = rUrls ? await rUrls.json() : null;
       setReport(jRep?.has_data ? jRep : null);
       setActiveSessionId(jRep?.run_id || null);
       setRuns(rRuns ? (await rRuns.json()).sessions || [] : []);
-      setPages({
-        samsung: rSam ? (await rSam.json()).pages || [] : [],
-        apple: rApp ? (await rApp.json()).pages || [] : [],
-      });
-      setUrls(rUrls ? (await rUrls.json()).urls || [] : []);
+      const nextUrls = jUrls?.urls || [];
+      setUrls(nextUrls);
+      const dcvSites = Object.values((jRep?.dcv || {}) as Record<string, Record<string, unknown>>)
+        .flatMap((block) => Object.keys(block || {}));
+      const urlSites = nextUrls.map((u: UrlRow) => u.site_key).filter(Boolean) as string[];
+      const siteKeys = orderedSiteKeys([...DEFAULT_SITE_ORDER, ...urlSites, ...dcvSites]);
+      const pagePairs = await Promise.all(siteKeys.map(async (site) => {
+        const res = await fetch(API + "/api/pages?site=" + encodeURIComponent(site), { cache: "no-store" }).catch(() => null);
+        return [site, res ? ((await res.json()).pages || []) : []] as [SiteKey, PageLite[]];
+      }));
+      setPages(Object.fromEntries(pagePairs));
       const jStatus = rStatus ? await rStatus.json() : null;
       if (jStatus?.crawling) {
         setCrawling(true);
@@ -220,9 +225,9 @@ export default function Page() {
       {/* ── 좌측 레일 */}
       <aside className="sidebar">
         <div className="brand" style={{ cursor: "pointer" }} onClick={() => setView("home")} title="홈으로">
-          🍎 Apple Stalker
+          🌐 Global Competitor Stalker
         </div>
-        <div className="brandSub">당사 vs 경쟁사 페이지 변화 감지</div>
+        <div className="brandSub">Samsung vs 글로벌 경쟁사 변화 감지</div>
         <div className={`connBadge ${online === true ? "ok" : "bad"}`}>
           <span className="connDot" />
           {online === null ? "확인 중" : online ? "백엔드 연결됨" : "연결 안 됨"}
@@ -245,7 +250,7 @@ export default function Page() {
                 <div className="runMeta">
                   <span className="runTs">{run.timestamp}</span>
                   <span className="runDesc">
-                    {run.sites.map((s) => (s === "apple" ? "애플" : "삼성")).join("+")}
+                    {run.sites.map((s) => siteShortName(s)).join("+")}
                     &nbsp;·&nbsp;변경 {run.changes}건
                   </span>
                 </div>
@@ -313,7 +318,7 @@ export default function Page() {
               {urls.map((u) => (
                 <div key={u.url} className="urlListItem">
                   <span className={`badge ${siteClass(u.site_key)}`} style={{ fontSize: 9, flexShrink: 0 }}>
-                    {u.site_key === "apple" ? "Apple" : "Samsung"}
+                    {siteShortName(u.site_key)}
                   </span>
                   <span className="urlListUrl" title={u.url}>{u.url}</span>
                   <button className="urlDelBtn" onClick={() => deleteUrl(u.url)} title="삭제(관리자 비번)">×</button>
