@@ -215,26 +215,30 @@ SEED_TARGETS: Dict[str, Target] = {
 # ──────────────────────────────────────────────────────────────
 
 def product_category_for_url(url: str) -> str:
-    """URL → phone/tablet/audio/watch/laptop/ai_glass/other 제품군 추정."""
+    """URL → phone/tablet/audio/watch/laptop/ai_glass 제품군 추정.
+
+    vivo / Garmin처럼 URL에 제품군 단어가 짧게 들어가는 사이트는 domain을 fallback으로 사용한다.
+    화면에서는 '기타' 카테고리를 만들지 않고, 관리 대상 제품군 안으로만 배치한다.
+    """
     try:
         parsed = urlparse(url)
         raw = f"{parsed.netloc} {parsed.path} {parsed.query}".lower()
     except Exception:
-        return "other"
-    if any(k in raw for k in ("ai-glasses", "ray-ban-meta")):
+        return "phone"
+    if any(k in raw for k in ("meta.com", "ai-glasses", "ray-ban-meta")):
         return "ai_glass"
+    if any(k in raw for k in ("garmin.com", "watch", "watches", "wearables", "smartwatches", "fenix")):
+        return "watch"
+    if any(k in raw for k in ("electronics.sony.com", "audio-sound", "airpods", "buds", "headphones", "earbuds", "wf1000", "wf-1000")):
+        return "audio"
     # Galaxy Book SG 일부 URL은 /business/tablets/ 아래에 있어도 제품군은 노트북/PC로 본다.
-    if any(k in raw for k in ("macbook", "mac/", "laptop", "laptops", "xps", "galaxybook", "galaxy-book", "computers")):
+    if any(k in raw for k in ("dell.com", "macbook", "mac/", "laptop", "laptops", "xps", "galaxybook", "galaxy-book", "computers")):
         return "laptop"
     if any(k in raw for k in ("tablet", "tablets", "ipad", "xiaomi-pad", "galaxy-tab")):
         return "tablet"
-    if any(k in raw for k in ("audio-sound", "airpods", "buds", "headphones", "earbuds", "wf1000", "wf-1000")):
-        return "audio"
-    if any(k in raw for k in ("watch", "watches", "wearables", "fenix")):
-        return "watch"
-    if any(k in raw for k in ("smartphone", "smartphones", "phone", "phones", "iphone", "pixel", "xiaomi-17", "find-x", "x300", "galaxy-s")):
+    if any(k in raw for k in ("vivo.com", "oppo.com", "store.google.com", "smartphone", "smartphones", "phone", "phones", "iphone", "pixel", "xiaomi-17", "find-x", "x300", "galaxy-s")):
         return "phone"
-    return "other"
+    return "phone"
 
 
 PRODUCT_CATEGORY_LABELS = {
@@ -244,12 +248,11 @@ PRODUCT_CATEGORY_LABELS = {
     "watch": "워치",
     "laptop": "노트북/PC",
     "ai_glass": "AI Glass",
-    "other": "기타",
 }
 
 
 def product_category_label(category: str) -> str:
-    return PRODUCT_CATEGORY_LABELS.get(category or "other", category or "기타")
+    return PRODUCT_CATEGORY_LABELS.get(category or "", category or "제품군 미분류")
 
 
 def page_role_label(role: str) -> str:
@@ -372,6 +375,10 @@ def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None) -> List
     seen, out = set(), []
     for u in urls:
         u = (u or "").strip()
+        # Samsung 기준은 SG로 확정했으므로, 예전 DB에 남은 samsung.com/us URL은
+        # 화면/크롤 대상에서 제외한다. 필요하면 사용자가 별도 사이트키로 다시 등록해야 한다.
+        if site_key == "samsung" and "samsung.com/us/" in u.lower():
+            continue
         if not u or u in seen:
             continue
         seen.add(u)
