@@ -117,7 +117,7 @@ export default function Page() {
       setReport(j?.has_data ? j : null);
       setSelectedChange(null);
       setSelectedPage(null);
-      setMainTab("overview"); // 이력 데이터는 '현황 및 변경점' 탭에 표시되므로 그쪽으로 전환
+      setMainTab("overview"); // 이력 데이터는 '현황/변경점 분석' 탭에 표시되므로 그쪽으로 전환
     } catch {
       alert("수집 이력을 불러오지 못했습니다. 네트워크 상태를 확인해주세요.");
     } finally {
@@ -225,9 +225,9 @@ export default function Page() {
       {/* ── 좌측 레일 */}
       <aside className="sidebar">
         <div className="brand" style={{ cursor: "pointer" }} onClick={() => setView("home")} title="홈으로">
-          🌐 Global Competitor Stalker
+          🍎 Apple Stalker
         </div>
-        <div className="brandSub">Samsung vs 글로벌 경쟁사 변화 감지</div>
+        <div className="brandSub">Samsung + Global competitors 변화 감지</div>
         <div className={`connBadge ${online === true ? "ok" : "bad"}`}>
           <span className="connDot" />
           {online === null ? "확인 중" : online ? "백엔드 연결됨" : "연결 안 됨"}
@@ -343,10 +343,10 @@ export default function Page() {
           <div className="topbarRow1">
             <div className="tabGroup">
               <button className={`tabBtn ${mainTab === "overview" ? "on" : ""}`} onClick={() => setMainTab("overview")}>
-                현황 및 변경점
+                현황/변경점 분석
               </button>
               <button className={`tabBtn ${mainTab === "pages" ? "on" : ""}`} onClick={() => setMainTab("pages")}>
-                페이지별 분석
+                Site별 분석
               </button>
             </div>
 

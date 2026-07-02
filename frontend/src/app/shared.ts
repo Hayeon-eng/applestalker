@@ -58,69 +58,50 @@ export const CRITERIA: {
   {
     id: "severity",
     title: "중요도 기준 (High / Medium / Low)",
-    note: "필드명만으로 등급을 고정하지 않고, 변화 폭(L0~L5) + AI 검색/검색결과 해석 영향 + 구매전환 영향 + 페이지 Tier + 렌더링 노이즈 신호를 함께 봅니다.",
+    note: "변화 폭, 페이지 역할(PF/PDP/Buying), 검색·AI 해석 영향, 구매전환 영향, 렌더링 노이즈 여부를 함께 봅니다. 필드명 하나만 보고 등급을 고정하지 않습니다.",
     items: [
-      { q: "High — 높음", a: "Product/FAQ 등 AI·검색엔진 해석에 직접 쓰이는 구조화 데이터 변화, 핵심 페이지의 대규모 메시지/구매전환 변화처럼 실제 노출·인용·전환 영향이 큰 변화입니다.",
-        detail: "Schema(스키마)는 검색엔진이 페이지 내용을 이해하도록 붙이는 구조화 데이터 태그(예: '이건 제품 페이지고 가격은 얼마다')입니다. 단, 단순히 필드가 Schema라는 이유만으로 높음 처리하지 않고 스키마 타입·페이지 Tier·변화 폭을 같이 봅니다." },
-      { q: "Medium — 보통", a: "meta·H1/H2·FAQ·CTA·주요 카피처럼 의미 해석이나 클릭률에 영향을 줄 수 있지만 범위가 제한적인 변화입니다.",
-        detail: "meta(메타 디스크립션)는 검색결과에 미리보기로 뜨는 한두 줄 요약 문구입니다. 화면에는 안 보이지만 클릭률에 영향을 줍니다." },
-      { q: "Low — 낮음", a: "단어 몇 개, 반복 UI 라벨, 작은 이미지 구성 차이, 렌더링 방식 차이처럼 실제 사용자·AI 검색 영향이 제한적인 변화입니다." },
+      { q: "High — 높음", a: "Product/FAQ 스키마, 핵심 H1/H2, 구매 CTA, 가격·프로모션, 상위 PDP 메시지처럼 검색·AI 요약·구매전환에 직접 영향을 줄 가능성이 큰 변화입니다.", detail: "예: PDP Product schema가 사라짐, Buying CTA가 크게 바뀜, hero copy가 새 포지셔닝으로 변경됨." },
+      { q: "Medium — 보통", a: "meta description, FAQ 문구, 중간 섹션 카피, 이미지 alt/src 구성처럼 의미 해석이나 클릭률에 영향을 줄 수 있지만 범위가 제한적인 변화입니다.", detail: "한두 페이지의 보조 카피 변경이나 특정 섹션 구조 변화가 여기에 해당합니다." },
+      { q: "Low — 낮음", a: "짧은 UI 라벨, 반복되는 footer/header 문구, 렌더링 차이처럼 실제 사용자·AI 검색 영향이 제한적인 변화입니다.", detail: "단, Low가 반복되면 템플릿 변화 신호일 수 있어 누적 추세는 유지합니다." },
     ],
   },
   {
     id: "data",
     title: "DATA — Schema / HTML / Meta / H-tag",
-    note: "가중치 없음 — 모두 단순 집계(비율·개수)입니다. 여러 지표를 하나로 합친 'DATA 종합점수'는 없고, 항목별로 따로 봐야 합니다.",
+    note: "삼성 구조를 정답으로 두지 않습니다. 사이트별로 Linked(@id 참조형)와 Inline(페이지별 임베딩형)처럼 구조가 다를 수 있으므로, ‘좋고 나쁨’보다 페이지 역할과 실제 Schema 타입이 맞는지를 먼저 봅니다.",
     items: [
-      { q: "Schema Coverage", a: "전체 페이지 중 구조화 데이터가 적용된 비율. Product·FAQPage·Organization·BreadcrumbList 포함.",
-        detail: "구조화 데이터(=Schema.org, 보통 JSON-LD 형식)는 페이지 안에 '이건 제품이고 이름은 A, 가격은 B'처럼 기계가 읽을 수 있는 태그를 심어두는 것입니다. Product(제품)·FAQPage(자주묻는질문)·Organization(회사정보)·BreadcrumbList(경로표시)가 대표적인 타입입니다." },
-      { q: "Schema Completeness", a: "Product 기준 필수 속성(name·image·description·brand·offers·aggregateRating·review) 충족률.",
-        detail: "예를 들어 Product 스키마는 이름(name)·이미지(image)·설명(description)·브랜드(brand)·가격정보(offers)·평점(aggregateRating)·리뷰(review) 같은 세부 항목을 채워야 완전합니다. 태그는 있는데 이 항목들이 비어있으면 '적용은 됐지만 미완성'인 상태입니다." },
-      { q: "Schema Distribution", a: "템플릿(카테고리·PDP·홈 등) 유형별로 Schema가 고르게 적용됐는지." },
-      { q: "PF/PDP/Buying 역할별 Schema", a: "PF에는 CollectionPage·ItemList, PDP/Buying에는 Product·ItemPage·BreadcrumbList가 있는지 페이지 역할 기준으로 점검합니다.",
-        detail: "PF(Product Family)는 제품군/카테고리 목록, PDP(Product Detail Page)는 제품 상세, Buying은 제품 구매·구성 페이지입니다." },
-      { q: "Schema Alignment", a: "페이지 목적(PDP엔 Product, FAQ엔 FAQPage 등)과 실제 Schema 타입이 일치하는지.",
-        detail: "PDP(Product Detail Page)는 제품 상세 페이지를 뜻하는 업계 용어입니다." },
-      { q: "@id 연결성(아키텍처 참고)", a: "Linked(@id 상호참조형) vs Inline(개별 페이지 임베딩형). 우열 기준이 아닌 구조적 특성입니다.",
-        detail: "@id는 JSON-LD(구조화 데이터 작성 형식) 안에서 각 데이터 조각에 붙이는 고유 식별자입니다. 여러 스키마 조각이 서로 @id로 참조하면 'Linked(연결형)', 페이지마다 따로따로 다 적어두면 'Inline(임베딩형)'입니다." },
-      { q: "H-tag 구조", a: "H1 없음·H2 없이 H3만 존재(depth 불연속) 등 heading 계층 오류를 감지합니다.",
-        detail: "H-tag(H1~H6)는 HTML의 제목 태그입니다. H1이 가장 큰 제목, H2는 그 아래 소제목, H3는 더 아래 소제목처럼 계층을 이룹니다. 검색엔진과 화면낭독기는 이 계층으로 글의 구조를 파악하는데, H2를 건너뛰고 H1 다음에 H3가 나오면(계층이 끊기면) 구조 오류로 감지됩니다." },
-      { q: "Meta description", a: "비어있거나 누락된 페이지를 집계합니다.",
-        detail: "검색결과에서 제목 아래 나오는 한두 줄 설명 문구를 담는 HTML 태그(meta description)입니다." },
+      { q: "Schema Coverage", a: "전체 수집 페이지 중 Schema.org 구조화 데이터가 하나라도 발견된 페이지 비율입니다.", detail: "판단 방법: 각 페이지의 JSON-LD/microdata에서 WebPage, Product, FAQPage, Organization, BreadcrumbList, ItemList 등 schema type 존재 여부를 집계합니다. Coverage가 낮으면 검색엔진·AI가 페이지 의미를 파악할 단서가 적을 수 있습니다." },
+      { q: "Product Completeness", a: "Product schema가 있는 페이지에서 제품명·이미지·설명·브랜드·구매정보·평점·리뷰 같은 주요 속성이 어느 정도 채워졌는지 봅니다.", detail: "판단 방법: name, image, description, brand, offers, aggregateRating, review를 확인합니다. 단, 모든 브랜드가 평점/리뷰를 공식 페이지에 넣는 것은 아니므로 ‘누락=무조건 문제’가 아니라 PDP/Buying에서 제품 이해와 구매 판단에 필요한 속성이 부족한지로 해석합니다." },
+      { q: "Role-fit Schema (PF/PDP/Buying)", a: "페이지 역할에 맞는 Schema 타입이 있는지 봅니다. PF는 CollectionPage·ItemList, PDP/Buying은 Product·ItemPage·BreadcrumbList가 핵심입니다.", detail: "판단 방법: URL 패턴과 page_role로 PF(Product Family), PDP(Product Detail Page), Buying을 나누고, 역할별 기대 타입을 비교합니다. PF에 Product가 없다고 바로 나쁘게 보지 않고, 제품 목록을 설명하는 ItemList/CollectionPage가 있으면 역할에 맞는 구조로 봅니다." },
+      { q: "Schema Alignment", a: "페이지 목적과 실제 Schema가 어긋나는지 확인합니다.", detail: "예: 제품 상세 페이지인데 Product 신호가 없거나, 구매 페이지인데 offers/price/availability 같은 구매 단서가 전혀 없으면 alignment gap으로 봅니다. 반대로 브랜드 홈/카테고리 페이지는 WebPage/Organization/BreadcrumbList 중심이어도 자연스럽습니다." },
+      { q: "@id 연결성", a: "Linked(@id 상호참조형)인지 Inline(페이지 안에 독립 임베딩형)인지 구조적 특성만 봅니다. 우열 기준이 아닙니다.", detail: "판단 방법: schema node가 @id로 서로 참조되는지, 독립적으로 반복되는지 확인합니다. Linked는 데이터 그래프를 관리하기 좋고, Inline은 페이지 단위 구현이 단순합니다. 둘 중 무엇이 더 좋다고 단정하지 않고 일관성과 누락 리스크를 봅니다." },
+      { q: "H-tag 구조", a: "H1 누락, H2 없이 H3만 나오는 depth 불연속, 제목 계층의 과도한 반복을 확인합니다.", detail: "판단 방법: HTML heading 순서를 읽고 H1/H2/H3의 계층이 자연스러운지 봅니다. 사용자가 보기에는 비슷해도 검색엔진과 스크린리더는 heading 계층으로 페이지 구조를 이해합니다." },
+      { q: "Meta description", a: "검색결과 요약 후보가 되는 meta description이 비어 있거나 누락된 페이지를 집계합니다.", detail: "판단 방법: <meta name='description'> 값을 확인합니다. 없는 경우 검색엔진이 본문을 임의로 잘라 보여줄 수 있어 핵심 메시지 통제가 약해집니다." },
     ],
   },
   {
     id: "copy",
-    title: "COPY — 카피 구체성 / FAQ 품질",
-    note: "⚖️ 표시된 2개(카피 구체성 점수, FAQ 품질 점수)만 가중합산 공식이 있고, 나머지(구체 근거 밀도·텍스트 부족 페이지)는 단순 집계입니다.",
+    title: "COPY — 카피 길이 / 톤 / CTA / FAQ",
+    note: "PF·PDP·Buying을 같은 길이 기준으로 재단하지 않습니다. PF는 탐색, PDP는 설득, Buying은 전환이라는 역할 차이를 기준으로 봅니다.",
     items: [
-      { q: "카피 구체성 점수 (0~100)", a: "숫자·스펙·가격·기간 같은 구체 근거 밀도 35% + 구조지표(H2·CTA·FAQ 보유) 25% + 비교·근거 키워드 20% + FAQ 보유 20%. 70+ 우수, 40~69 보통, 40 미만 미흡.",
-        scoring: "weighted",
-        detail: "'구조지표'는 본문에 소제목(H2)·행동유도버튼(CTA, 예: '구매하기' 버튼)·FAQ가 있는지를 보는 지표입니다. CTA는 Call To Action(행동을 유도하는 버튼·문구)의 줄임말입니다." },
-      { q: "구체 근거 밀도", a: "본문 100단어당 숫자·스펙·가격·기간·용량·성능 단위가 몇 번 나오는지 보는 지표입니다. 예: GB, mAh, mm, %, 시간, 가격, 지원 언어 수 등. 목표는 100단어당 3개 수준입니다." },
-      { q: "카피 구체성 점수", a: "구체 근거 밀도를 0~100점으로 환산한 뒤, H2·CTA·FAQ 구조와 근거 키워드까지 함께 반영한 점수입니다. 요약 화면에서는 이 값을 내부 지표명이 아니라 “카피 구체성 점수”로 표시합니다." },
-      { q: "텍스트 부족 페이지", a: "150단어 미만은 설명 정보가 부족한 페이지로 분류합니다. 단순 수치 기준이 아닌 밀도 4단계 분포로 함께 판단.",
-        detail: "'thin content(빈약 콘텐츠)'는 SEO 업계 용어로, 분량이 적어 검색엔진이 페이지의 가치를 판단하기 어려운 콘텐츠를 말합니다." },
-      { q: "FAQ 품질 점수 (0~100)", a: "구체성(수치·스펙 포함) 40% + 질문현실성(실제 의문형) 30% + AI인용적합성(첫 문장 인용 가능) 30%.",
-        scoring: "weighted" },
-      { q: "페이지 역할별 카피 길이", a: "PF/PDP/Buying마다 평균 단어 수를 따로 집계해 카테고리 설명·상세 설득·구매 전환 문구가 제 역할을 하는지 봅니다." },
-      { q: "토널리티", a: "spec proof, benefit, urgency, AI, sustainability 키워드 신호를 집계해 경쟁사가 어떤 메시지 톤을 밀고 있는지 봅니다." },
-      { q: "중복 CTA/중복 텍스트", a: "동일 버튼명이나 긴 문장 단위 반복을 찾아 불필요한 버튼·중복 문구 가능성을 점검합니다. 의도적 반복일 수 있어 삭제 전 수동 확인이 필요합니다." },
+      { q: "카피 구체성 점수 (0~100)", a: "숫자·스펙·가격·기간 같은 구체 근거, H2/CTA/FAQ 구조, 비교·증거 키워드를 합쳐 페이지 카피가 얼마나 설명력 있는지 봅니다.", scoring: "weighted", detail: "판단 방법: 정량 표현(GB, mAh, %, 가격, 시간 등), 구조 신호(H2·CTA·FAQ), 근거 키워드(compare, tested, certified 등)를 집계합니다. 70점 이상은 구체적, 40~69점은 보통, 40점 미만은 설명 근거가 약한 편으로 봅니다." },
+      { q: "역할별 카피 길이", a: "PF/PDP/Buying별 평균 단어 수를 따로 봅니다.", detail: "판단 방법: PF는 제품군을 빠르게 훑을 수 있는지, PDP는 기능과 차별점을 충분히 설득하는지, Buying은 옵션/가격/혜택/CTA가 짧고 명확한지로 해석합니다." },
+      { q: "구매 CTA 감지", a: "Buying hard URL이 없는 글로벌 사이트는 가짜 URL을 만들지 않고, PF/PDP 안의 Buy/Shop/Add to cart/Where to buy CTA 신호를 확인합니다.", detail: "판단 방법: 버튼·링크 텍스트, aria-label, title에서 buy/shop/order/add to cart/where to buy/구매/장바구니 등 문구를 찾고 href가 있으면 함께 저장합니다. 즉 ‘별도 Buying URL 없음’은 크롤 실패가 아니라 PDP 내부 전환 구조로 처리합니다." },
+      { q: "토널리티", a: "spec proof, benefit, urgency, AI, sustainability 같은 키워드 신호로 어떤 메시지 톤을 밀고 있는지 봅니다.", detail: "예: Apple이 creative/pro workflow를 강조하고, Xiaomi가 productivity/spec을 강조하는 식의 방향성을 잡습니다. 단어 수만 보는 것이 아니라 어떤 메시지로 설득하는지가 핵심입니다." },
+      { q: "중복 CTA/중복 텍스트", a: "동일 버튼명이나 긴 문장 반복을 찾아 불필요한 버튼·중복 문구 가능성을 점검합니다.", detail: "판단 방법: 동일 CTA 텍스트 반복, 긴 문장 반복, header/footer 반복 신호를 분리해 봅니다. 반복 자체가 항상 문제는 아니므로 삭제 전 사람이 확인해야 합니다." },
+      { q: "FAQ 품질", a: "FAQ가 실제 사용자의 질문처럼 보이는지, 답변 첫 문장만으로도 인용 가능한지, 수치·조건이 포함되는지 봅니다.", scoring: "weighted", detail: "판단 방법: 질문 현실성, 답변 구체성, AI 인용 적합성을 점수화합니다. FAQ가 길어도 조건·수치가 없으면 품질 점수는 낮을 수 있습니다." },
     ],
   },
   {
     id: "visual",
-    title: "VISUAL — 이미지 분석",
-    note: "가중치 없음 — 모두 개수·비율 집계입니다. 종합 'VISUAL 점수'는 없습니다.",
+    title: "VISUAL — 이미지 메타데이터 / alt.copy / Visual tactic",
+    note: "현재 도구는 이미지 스크린샷이나 픽셀을 직접 보지 않습니다. HTML에서 수집한 alt 텍스트, src 파일명, URL, 주변 텍스트만으로 이미지 전략 신호를 판단합니다.",
     items: [
-      { q: "이미지 분류", a: "alt+src+파일명+페이지 URL 텍스트 기반 휴리스틱. lifestyle(사람이 쓰는 상황) / product(제품 자체) / unclassified 3종.",
-        detail: "alt는 이미지에 붙이는 대체 텍스트(alt text)이고, src는 이미지 파일 경로입니다. Samsung처럼 모델명·KV·gallery 중심으로 표기되는 파일명도 product 신호로 함께 봅니다. 실제 이미지 픽셀을 읽는 Vision 분석은 아닙니다." },
-      { q: "alt 텍스트 품질", a: "비어있음·일반적(image/photo/배너 등)·설명적(15자 이상, 제네릭 아님) 3단계. Vision AI 분석이 아닌 텍스트 기반 판정입니다." },
-      { q: "이미지 고유성", a: "src/alt 중복도 기반 추정치. 같은 이미지·문구가 여러 페이지에 반복 사용되는 템플릿화 정도." },
-      { q: "스토리텔링", a: "product+lifestyle 혼합이면서 설명적 alt가 2개 이상인 페이지를 스토리텔링 페이지로 분류합니다." },
-      { q: "Visual tactic", a: "PF/PDP/Buying 역할, KV·gallery·product·lifestyle 힌트, 이미지 수를 함께 봐 category grid / product showcase / feature gallery / commerce CTA 등으로 분류합니다." },
-      { q: "alt.copy 샘플", a: "설명적 alt 텍스트와 보강 필요 페이지를 같이 보여 접근성·AI 검색 인용 가능성을 점검합니다." },
-      { q: "페이지 길이/이미지 밀도", a: "역할별 평균 단어 수와 이미지 수를 같이 보며 긴 페이지가 충분한 시각 전개를 갖는지, 짧은 페이지가 과도한 이미지에 의존하지 않는지 봅니다." },
+      { q: "이미지 분류", a: "alt/src/파일명/URL 신호로 product, lifestyle, unclassified를 나눕니다.", detail: "판단 방법: 제품명·색상·gallery·KV·device 같은 단어는 product, lifestyle·hands·wearing·desk·person 같은 단어는 사용 상황 신호로 봅니다. 실제 이미지를 본 판정은 아닙니다." },
+      { q: "alt.copy 품질", a: "비어 있음, 일반적(image/photo/banner), 설명적 alt를 구분합니다.", detail: "판단 방법: alt가 비어 있거나 너무 짧고 일반적인지, 제품/기능/상황을 설명하는지 봅니다. 설명적 alt는 접근성과 AI 검색 이해도에 도움이 됩니다." },
+      { q: "Visual tactic", a: "PF/PDP/Buying 역할과 이미지 수·alt/src 힌트를 묶어 category grid, product showcase, feature gallery, commerce CTA 등으로 해석합니다.", detail: "판단 방법: PF에서 여러 제품 이미지가 반복되면 category grid, PDP에서 feature/gallery 이미지가 많으면 feature storytelling, Buying에서 CTA/옵션 주변 이미지가 많으면 commerce support로 봅니다." },
+      { q: "이미지 고유성", a: "src/alt 중복도를 통해 같은 이미지가 여러 페이지에 반복되는 정도를 봅니다.", detail: "고유 이미지 비율이 낮으면 템플릿화 신호일 수 있지만, 로고·아이콘·공통 UI 이미지는 반복될 수 있으므로 핵심 PDP/Buying 중심으로 해석합니다." },
+      { q: "페이지 길이/이미지 밀도", a: "역할별 평균 단어 수와 이미지 수를 같이 봅니다.", detail: "긴 PDP에 이미지가 거의 없으면 설득력이 약할 수 있고, 짧은 Buying 페이지에 이미지가 너무 많으면 전환 정보가 묻힐 수 있습니다. 그래서 단어 수와 이미지 수를 함께 봅니다." },
     ],
   },
 ];
@@ -131,8 +112,8 @@ export const DEFAULT_SITE_ORDER: SiteKey[] = [
   "sony_audio", "garmin", "dell", "meta_ai_glasses",
 ];
 export const SITE_META: Record<string, { label: string; short: string; cls: string }> = {
-  samsung: { label: "Samsung 당사", short: "Samsung", cls: "samsung" },
-  apple: { label: "Apple 경쟁사", short: "Apple", cls: "apple" },
+  samsung: { label: "Samsung", short: "Samsung", cls: "samsung" },
+  apple: { label: "Apple", short: "Apple", cls: "apple" },
   google_pixel: { label: "Google Pixel", short: "Pixel", cls: "competitor" },
   xiaomi: { label: "Xiaomi", short: "Xiaomi", cls: "competitor" },
   oppo: { label: "OPPO", short: "OPPO", cls: "competitor" },
@@ -173,27 +154,27 @@ export const TIER_META: Record<number, { label: string; desc: string }> = {
 
 // ── 세부 항목 뱃지 분류기: narrative 한 줄이 어느 세부 기준에 해당하는지 키워드로 판정 ──
 export const DATA_LINE_TAGS: [RegExp, LineTag][] = [
-  [/Schema 적용 범위/, { label: "Schema Coverage", cls: "c1" }],
-  [/페이지 역할|PF|PDP|Buying|역할별 Schema|Schema 보강/, { label: "역할별 Schema", cls: "c1" }],
-  [/스키마.*충족|충족률|필수 속성/, { label: "Schema Completeness", cls: "c2" }],
-  [/스키마 아키텍처/, { label: "@id 연결성", cls: "c4" }],
+  [/Schema 적용 범위|Schema 적용 현황|구조화 데이터/, { label: "Schema Coverage", cls: "c1" }],
+  [/페이지 역할|PF|PDP|Buying|Role-fit|역할별 Schema|Schema 보강/, { label: "Role-fit Schema", cls: "c1" }],
+  [/스키마.*충족|Product detail|충족률|필수 속성|Product schema/, { label: "Product Completeness", cls: "c2" }],
+  [/스키마 아키텍처|Linked|Inline|@id/, { label: "@id 연결성", cls: "c4" }],
   [/H-?tag|heading|계층/i, { label: "H-tag 구조", cls: "c5" }],
   [/meta description|메타 디스크립션/i, { label: "Meta description", cls: "c6" }],
 ];
 export const COPY_LINE_TAGS: [RegExp, LineTag][] = [
-  [/콘텐츠 양 기준 분포|콘텐츠 밀도 분포/, { label: "콘텐츠 양", cls: "c1" }],
+  [/콘텐츠 양 기준 분포|콘텐츠 밀도 분포|페이지 역할별 카피 길이/, { label: "역할별 카피 길이", cls: "c1" }],
   [/텍스트 양이 부족|빈약 콘텐츠/, { label: "텍스트 부족", cls: "c3" }],
   [/카피 구체성|카피 풍부성|풍부성 점수|구체 근거/, { label: "카피 구체성", cls: "c2" }],
-  [/페이지 역할별 카피 길이|토널리티/, { label: "토널리티/길이", cls: "c5" }],
-  [/중복 CTA|중복 문구|중복 텍스트|불필요한 버튼/, { label: "중복 점검", cls: "c3" }],
+  [/토널리티|메시지 톤/, { label: "토널리티", cls: "c5" }],
+  [/중복 CTA|중복 문구|중복 텍스트|불필요한 버튼|구매 CTA|Buy CTA/, { label: "CTA/중복 점검", cls: "c3" }],
   [/FAQ/, { label: "FAQ 품질", cls: "c4" }],
 ];
 export const VISUAL_LINE_TAGS: [RegExp, LineTag][] = [
-  [/이미지.*장 중|product.*lifestyle/i, { label: "이미지 분류", cls: "c1" }],
-  [/alt 텍스트 품질/, { label: "alt 텍스트 품질", cls: "c2" }],
+  [/이미지 분석 방식|이미지.*장 중|product.*lifestyle/i, { label: "이미지 분류", cls: "c1" }],
+  [/alt\.copy 품질|alt 텍스트 품질/, { label: "alt.copy 품질", cls: "c2" }],
   [/고유 이미지 비율|이미지 재사용도/, { label: "이미지 고유성", cls: "c3" }],
   [/이미지 편중/, { label: "이미지 분포", cls: "c5" }],
-  [/비주얼 택틱|페이지 역할별 Visual|페이지 길이/, { label: "Visual tactic", cls: "c5" }],
+  [/Visual tactic|비주얼 택틱|페이지 역할별 길이|페이지 역할별 Visual|페이지 길이/, { label: "Visual tactic", cls: "c5" }],
   [/alt\.copy|alt 샘플|alt 미흡|alt.*보강/, { label: "alt.copy", cls: "c2" }],
   [/스토리텔링/, { label: "스토리텔링", cls: "c4" }],
 ];
@@ -248,17 +229,46 @@ export const linesFromBlock = (b?: AnalysisBlock) => [
   ...(b?.narrative || []),
   ...((b?.insights || []).map((x) => x.point || "").filter(Boolean)),
 ];
-// 백엔드 config.py::tier_for_url() 과 동일 로직(폴백용). 1차 소스는 /api/urls 의 tier_level.
+export const pageRoleFromUrl = (u: string): "home" | "pf" | "pdp" | "buying" | "compare" | "campaign" => {
+  try {
+    const url = new URL(u);
+    const path = url.pathname.toLowerCase();
+    const clean = path.replace(/\/$/, "");
+    if (!clean || clean === "/" || clean === "/us" || clean === "/global") return "home";
+    if (/\/shop\//.test(path) || /\/buy\//.test(path) || /\/cart\//.test(path) || /\/checkout\//.test(path) || /\/config\//.test(path) || /shop-all/.test(path)) return "buying";
+    if (/compare|find-your|switch-to|galaxy-ai|apple-intelligence|one-ui/.test(path) && !/ray-ban-meta/.test(path)) return "campaign";
+    if (/iphone-17-pro|pixel_10_pro|xiaomi-17-ultra|find-x9-ultra|x300-ultra|ipad-pro|xiaomi-pad-8-pro|airpods-pro|apple-watch-ultra|watch-ultra|buds4-pro|wf1000|wf-1000|fenix|macbook-pro|xps-16|xps-da|galaxy-s26-ultra|galaxy-tab-s11|galaxy-book6-ultra|ray-ban-meta/.test(path)) return "pdp";
+    if (/iphone|ipad|phones|smartphones|product-list|products|tablets|watch|watches|airpods|audio|headphones|wearables|mac|laptops|galaxybooks|ai-glasses/.test(path)) return "pf";
+    return "pdp";
+  } catch { return "pdp"; }
+};
+export const pageRoleKo = (role?: string) => {
+  if (role === "pf") return "PF";
+  if (role === "pdp") return "PDP";
+  if (role === "buying") return "Buying";
+  if (role === "compare") return "Compare";
+  if (role === "campaign") return "Campaign";
+  if (role === "home") return "Home";
+  return role || "Page";
+};
+export const pageRoleFromText = (raw: string) => {
+  const t = raw.toLowerCase();
+  if (/buying|buy|구매|shop|cart|장바구니/.test(t)) return "buying";
+  if (/pf|family|category|카테고리|제품군/.test(t)) return "pf";
+  if (/pdp|detail|상세/.test(t)) return "pdp";
+  return undefined;
+};
+
+// 백엔드 config.py::tier_for_url() 과 동일 계열 로직(폴백용). 1차 소스는 /api/urls 의 tier_level.
 export const tierForUrl = (u: string): number => {
   try {
-    const path = new URL(u).pathname.toLowerCase();
-    const segments = path.split("/").filter((s) => s && !["sg", "us", "en"].includes(s));
-    if (segments.length === 0) return 0;
-    if (/buy|shop|specs|purchase/.test(path)) return 4;
-    if (/compare|find-your|switch-to|galaxy-ai|apple-intelligence|ai-glasses|mobile\/|one-ui/.test(path) && !/ray-ban-meta/.test(path)) return 2;
-    if (/iphone-|pixel_|xiaomi-|find-x|x300|wf1000|wf-1000|apple-watch-|airpods-pro|macbook-pro|xps-16|dell-da|xps-da|ray-ban-meta|galaxy-|watch-ultra|buds4/.test(path)) return 3;
-    if (/all-smartphones|all-watches|all-audio|iphone|phones|smartphones|product-list|products|watch|airpods|mac|laptops|headphones|wearables/.test(path)) return 1;
-    return Math.min(segments.length, 3);
+    const role = pageRoleFromUrl(u);
+    if (role === "home") return 0;
+    if (role === "pf") return 1;
+    if (role === "campaign" || role === "compare") return 2;
+    if (role === "pdp") return 3;
+    if (role === "buying") return 4;
+    return 3;
   } catch { return 3; }
 };
 export const tierFromUrl = (u: string) => `Tier ${tierForUrl(u)}`;
@@ -298,11 +308,14 @@ export const metricOneLiner = (
   const blocks = dcvForMetric || {};
   const keys = orderedSiteKeys(Object.keys(blocks));
   const high = changes.filter((c) => c.level === "High").length;
+  const changedSites = orderedSiteKeys(changes.map((c) => c.site || "")).map(siteShortName);
+  const shownKeys = keys.slice(0, 8);
+  const more = keys.length > shownKeys.length ? ` · 외 ${keys.length - shownKeys.length}개` : "";
   const labelFor = (site: string) => siteShortName(site);
   let statLine = "";
   if (metric === "data") {
-    const parts = keys.slice(0, 5).map((site) => `${labelFor(site)} ${blocks[site]?.facts?.schema?.coverage_pct ?? "-"}%`);
-    statLine = `Schema 적용률 ${parts.join(" · ") || "-"}`;
+    const parts = shownKeys.map((site) => `${labelFor(site)} ${blocks[site]?.facts?.schema?.coverage_pct ?? "-"}%`);
+    statLine = `Schema 적용률: ${parts.join(" · ") || "수집 데이터 없음"}${more}`;
   } else if (metric === "copy") {
     const copyAvg = (f: any, key: "score" | "quant_per_100w") => {
       const pages = f?.copy_richness?.all_pages || [];
@@ -310,14 +323,18 @@ export const metricOneLiner = (
       const total = pages.reduce((sum: number, p: any) => sum + (Number(p?.[key]) || 0), 0);
       return Math.round((total / pages.length) * 10) / 10;
     };
-    const parts = keys.slice(0, 5).map((site) => `${labelFor(site)} ${copyAvg(blocks[site]?.facts, "score")}점`);
-    statLine = `카피 구체성 ${parts.join(" · ") || "-"}`;
+    const parts = shownKeys.map((site) => `${labelFor(site)} ${copyAvg(blocks[site]?.facts, "score")}점`);
+    statLine = `카피 구체성: ${parts.join(" · ") || "수집 데이터 없음"}${more}`;
   } else {
-    const parts = keys.slice(0, 5).map((site) => `${labelFor(site)} ${blocks[site]?.facts?.image_diversity?.lifestyle_ratio_pct ?? "-"}%`);
-    statLine = `Lifestyle 이미지 ${parts.join(" · ") || "-"}`;
+    const parts = shownKeys.map((site) => `${labelFor(site)} ${blocks[site]?.facts?.image_diversity?.lifestyle_ratio_pct ?? "-"}%`);
+    statLine = `Lifestyle 이미지 신호: ${parts.join(" · ") || "수집 데이터 없음"}${more}`;
   }
-  return `${statLine} · 변경 ${changes.length}건 (High ${high})`;
+  const changeText = changes.length
+    ? `변경 ${changes.length}건(High ${high}) · 변경 사이트: ${changedSites.join(", ") || "-"}`
+    : "변경 없음 · 현재 상태 기준으로 다음 수집 때 이탈 여부 확인";
+  return `${statLine} · ${changeText}`;
 };
+
 
 /* ── 화면 캡처 */
 export const captureScreen = async () => {
@@ -335,7 +352,7 @@ export const captureScreen = async () => {
     const canvas = await h2c(document.body, { backgroundColor: "#F8F9FB", scale: 2, useCORS: true });
     const a = document.createElement("a");
     a.href = canvas.toDataURL("image/png");
-    a.download = `competitor-stalker_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.png`;
+    a.download = `apple-stalker_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.png`;
     a.click();
   } catch {
     alert("캡처에 실패했습니다.");
