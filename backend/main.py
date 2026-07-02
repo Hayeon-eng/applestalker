@@ -4,7 +4,7 @@ main.py — FastAPI 백엔드 (단일 파일에 엔드포인트 통합, 단순�
 """
 import os, json, asyncio, uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -34,40 +34,74 @@ CATEGORY = {  # change_type → 화면 카테고리
 }
 
 
-def display_level(change_type: str, field_name: str, severity_level: str) -> str:
+def display_level(change_type: str, field_name: str, severity_level: str,
+                  evidence: Optional[Dict[str, Any]] = None, tier_level: Optional[int] = None) -> str:
     """
-    화면 표시 등급(높음/보통/낮음) — 마케팅·AEO 기준.
-    핵심: '무엇이(어디가)' + '얼마나(폭, L0~L5)' 를 함께 본다.
-      - 구조(스키마/레이아웃) = 높음  (AI 검색 노출에 직접 영향)
-      - 메뉴/메타 등 부분 구조, 문장·슬로건, 거래(가격·구매) = 보통
-      - 단어·미세·작은 이미지 = 낮음
+    화면 표시 등급(High/Medium/Low) — 실제 임팩트 및 AI 검색 영향 중심.
+
+    과거처럼 field_name 하나로 High/Medium을 고정하지 않고 아래 신호를 합산한다.
+      1) 변화 폭(L0~L5)
+      2) AI/검색엔진 해석 신호(Product/FAQ/Breadcrumb schema, meta, H1/H2 등)
+      3) 구매전환/프로모션 신호(가격, 구매, 캠페인 CTA/카피)
+      4) 페이지 Tier(홈/카테고리/캠페인 등 노출 큰 페이지 가산)
+      5) 노이즈 신호(렌더링 방식 차이, 짧은 UI 라벨 등 감산)
     """
+    ev = evidence or {}
     lv = severity_level or "L0"
     f = field_name or ""
-    # 거래(가격·구매·프로모션)는 마케팅 관점상 '보통'
-    if change_type == "commerce":
-        return "Medium"
-    # 구조: 스키마는 AI 검색 노출 영향이 커서 높음.
-    # DOM은 diff_engine에서 이미 노이즈를 줄인 뒤 L단계로 넘기므로 단계에 맞춰 표시.
+    ct = change_type or ""
+
+    score = {"L5": 4.0, "L4": 3.0, "L3": 2.0, "L2": 1.2, "L1": 0.35, "L0": 0.0}.get(lv, 0.0)
+
+    # 페이지 영향도: 홈/카테고리/캠페인처럼 검색·AI 인용·사용자 진입 가능성이 큰 페이지를 가산.
+    try:
+        tier = int(tier_level) if tier_level is not None else None
+    except Exception:
+        tier = None
+    if tier in (0, 1, 2):
+        score += 0.5
+    elif tier == 4 and ct == "commerce":
+        score += 0.45
+
+    # AI/검색 해석 영향. 스키마도 타입이 실제 검색/AI 이해에 쓰일 때 더 크게 본다.
+    schema_type = str(ev.get("type") or "")
+    ai_schema_types = {"Product", "FAQPage", "BreadcrumbList", "Organization", "Offer", "AggregateRating", "Review"}
     if f == "schema_type":
+        score += 1.35 if schema_type in ai_schema_types else 0.75
+    elif f in ("meta_description", "canonical_url", "h1"):
+        score += 0.9
+    elif f == "dom":
+        if ev.get("heading_deltas") or ev.get("cta_deltas"):
+            score += 0.9
+        if ev.get("count_deltas"):
+            score += 0.45
+        if ev.get("tag_deltas") and not (ev.get("heading_deltas") or ev.get("cta_deltas") or ev.get("count_deltas")):
+            score -= 0.35
+    elif f in ("faqs",):
+        score += 0.75
+
+    # 구매전환/캠페인 영향. 카피라도 캠페인·전환 문구면 상향, 단순 UI 라벨이면 하향.
+    copy_importance = ev.get("copy_importance")
+    if ct == "commerce":
+        score += 1.25
+    if copy_importance == "campaign_or_conversion_copy":
+        score += 1.1
+    elif copy_importance == "minor_ui_or_menu_copy":
+        score = min(score, 1.4)
+
+    # 비주얼은 대규모 구성 변화가 아닌 한 High로 보지 않는다.
+    if ct == "visual":
+        score = min(score, 2.8)
+
+    # 렌더링/수집 방식 차이는 실제 사이트 변화 신뢰도가 낮으므로 보수적으로 감산.
+    if ev.get("render_mismatch"):
+        score -= 1.5
+
+    if score >= 3.5:
         return "High"
-    if f == "dom":
-        return "Medium" if lv in ("L3", "L4", "L5") else "Low"
-    # 부분 구조(메뉴/정규URL/메타)는 보통
-    if f in ("navigation", "canonical_url", "meta_description"):
+    if score >= 1.7:
         return "Medium"
-    if change_type == "technical":
-        return "High" if lv in ("L4", "L5") else "Medium"
-    # 카피: 여러 섹션 동시 변화(L3+)=높음, 문장/문구=보통, 단어/미세=낮음
-    if change_type == "content":
-        if f == "body_content" and lv in ("L3", "L4", "L5"):
-            return "High"
-        return "Medium" if lv in ("L2", "L3", "L4", "L5") else "Low"
-    # 비주얼: 큰 변화=보통, 작은 변화=낮음
-    if change_type == "visual":
-        return "Medium" if lv in ("L3", "L4", "L5") else "Low"
-    return {"L5": "High", "L4": "High", "L3": "Medium",
-            "L2": "Medium", "L1": "Low", "L0": "Low"}.get(lv, "Low")
+    return "Low"
 
 crawl_state = {"crawling": False, "events": [], "run_id": None}
 crawl_service = CrawlServiceV2(SessionLocal, sync_engine, crawl_state)
@@ -291,17 +325,18 @@ def latest_report(run_id: Optional[str] = None):
 
     changes, by_cat = [], {"데이터·스키마": 0, "카피": 0, "가격·프로모션": 0, "비주얼": 0}
     for rid in rids:
-        ch = q("SELECT id,url,severity_level,change_type,field_name,summary,before_value,after_value,evidence "
+        ch = q("SELECT id,url,severity_level,change_type,field_name,summary,before_value,after_value,evidence,tier_level "
                "FROM detected_changes WHERE crawl_run_id=:r ORDER BY severity_level DESC, id DESC", r=rid)
         for c in ch:
             cat = CATEGORY.get(c[3], "데이터·스키마")
             by_cat[cat] = by_cat.get(cat, 0) + 1
+            ev = json.loads(c[8]) if c[8] else {}
             changes.append({
                 "id": c[0], "url": c[1], "site": site_key_for_url(c[1]) or "samsung",
-                "level": display_level(c[3], c[4], c[2]), "level_raw": c[2],
+                "level": display_level(c[3], c[4], c[2], ev, c[9]), "level_raw": c[2],
                 "category": cat, "field": c[4], "summary": c[5],
                 "before": c[6], "after": c[7],
-                "evidence": json.loads(c[8]) if c[8] else {},
+                "evidence": ev,
             })
     # 분석(POV)은 세션 내 run들 중 있는 것 모으기
     ins, act, summ, aeo = [], [], [], []

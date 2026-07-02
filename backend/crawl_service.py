@@ -158,12 +158,17 @@ class CrawlServiceV2:
         except Exception as e:
             logger.error(f"[{run_id}] failed: {e}")
 
-            self._exec("""
-                UPDATE crawl_runs
-                SET status='failed',
-                    error_message=:m
-                WHERE crawl_run_id=:r
-            """, m=_s(e)[:480], r=run_id)
+            # DB write 실패가 원인인 경우에도 원래 실패 원인을 보존한다.
+            # failed 상태 업데이트 자체가 실패할 수 있으므로 이 보정 업데이트만 별도 보호한다.
+            try:
+                self._exec("""
+                    UPDATE crawl_runs
+                    SET status='failed',
+                        error_message=:m
+                    WHERE crawl_run_id=:r
+                """, m=_s(e)[:480], r=run_id)
+            except Exception as update_error:
+                logger.error(f"[{run_id}] failed-status update also failed: {update_error}")
 
             self._emit(type="done", run_id=run_id, error=str(e))
 
@@ -347,7 +352,8 @@ class CrawlServiceV2:
             ts=datetime.utcnow())
 
         except Exception as e:
-            logger.warning(f"snapshot save failed: {e}")
+            logger.error(f"snapshot save failed: {e}")
+            raise
 
     def _save_event(self, run_id, ev):
         try:
@@ -389,18 +395,26 @@ class CrawlServiceV2:
             ts=ev.detected_at)
 
         except Exception as e:
-            logger.warning(f"event save failed: {e}")
+            logger.error(f"event save failed: {e}")
+            raise
 
     # ─────────────────────────────────────────────
     # DB
     # ─────────────────────────────────────────────
     def _exec(self, sql, **params):
+        """SQL write helper.
+
+        변경점 COUNT가 흔들리는 가장 위험한 케이스는 snapshot/event/run update 저장 실패를
+        warning만 찍고 계속 진행하는 것이다. 저장 실패는 다음 크롤의 기준선과 UI 집계를
+        깨뜨리므로 호출부가 run을 failed로 처리할 수 있게 예외를 다시 올린다.
+        """
         try:
             with self.sync_engine.connect() as conn:
                 conn.execute(text(sql), params)
                 conn.commit()
         except Exception as e:
-            logger.warning(f"sql failed: {e}")
+            logger.error(f"sql failed: {e}")
+            raise
 
     def _load_db_urls(self, site_key: str) -> List[Dict]:
         """
