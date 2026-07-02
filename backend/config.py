@@ -1,16 +1,13 @@
 """
 Target Registry — 확장 가능한 도메인/URL 레지스트리
 ================================================================
-기존 config/urls.py 의 하드코딩 45개 URL 을 대체.
+기존 config/urls.py 의 하드코딩 URL 을 대체.
 
-핵심 변경:
-  - 각 "타겟(경쟁사 도메인)"은 자체 parsing/extraction/sensitivity 정책을 가짐
-  - seed URL 은 코드(SEED_TARGETS)에 기본값으로 두되,
-    런타임에 DB(MonitoredURL 테이블)에서 추가/삭제 가능 → "URL 추가 불가" 문제 해결
-  - Samsung/Apple/Google/임의 사이트를 URL 만으로 등록 가능
-
-설계 원칙: 이 파일은 '정책(스키마)'만 정의한다. 실제 활성 URL 목록은
-load_active_urls(db) 가 (SEED_TARGETS + DB 등록분)을 머지해서 돌려준다.
+이번 버전의 핵심:
+  - Samsung + 글로벌 경쟁사 URL을 Target 단위로 분리
+  - PF(Product Family) / PDP(Product Detail) / Buying URL을 하드 URL로 관리
+  - page_role_for_url() / tier_for_url() 를 한 곳에서 계산해 UI와 분석 기준을 일관화
+  - 기존 코드가 쓰던 get_apple_urls/get_samsung_urls/get_all_urls 호환 유지
 """
 
 from __future__ import annotations
@@ -26,46 +23,46 @@ from urllib.parse import urlparse
 @dataclass
 class SensitivityPolicy:
     """이 도메인에서 어떤 변화를 얼마나 민감하게 볼지."""
-    # 변화 크기(diff ratio)가 이 값 미만이면 noise 로 보고 무시 (0~1)
-    min_text_diff_ratio: float = 0.002          # 0.2% 미만 텍스트 변화는 무시
-    # 이 셀렉터에 매칭되는 영역의 변화는 항상 무시 (배너/시간/랜덤 광고 등)
+    min_text_diff_ratio: float = 0.002
     ignore_selectors: List[str] = field(default_factory=lambda: [
         "[data-analytics-region='cookie']", ".cookie", "#onetrust-banner-sdk",
         "time", ".timestamp", "[aria-live]",
     ])
-    # 이 키워드가 필드에 들어가면 business-critical(L5) 후보로 승격
     critical_keywords: List[str] = field(default_factory=lambda: [
         "price", "$", "₩", "월", "할부", "trade-in", "보상", "sold out",
         "품절", "out of stock", "pre-order", "사전예약", "free", "무료",
+        "buy now", "add to cart", "checkout", "구매", "장바구니",
     ])
 
 
 @dataclass
 class ExtractionRule:
-    """이 도메인에서 본문/CTA/가격을 어떻게 뽑을지 (도메인 특화)."""
-    # 본문으로 간주할 root 셀렉터 (없으면 <body>)
+    """이 도메인에서 본문/CTA/가격을 어떻게 뽑을지."""
     content_root: Optional[str] = None
-    # 가격 텍스트를 담는 셀렉터(있으면 commerce 변화 정밀 추적)
     price_selectors: List[str] = field(default_factory=list)
-    # JS 렌더링이 꼭 필요한 도메인인지 (httpx 로 안 되면 Playwright 강제)
     requires_js: bool = False
 
 
 @dataclass
 class Target:
     """경쟁사/모니터링 대상 1개 (= 1 도메인 정책)."""
-    key: str                       # "apple", "samsung", "google"...
+    key: str
     display_name: str
-    domains: List[str]             # netloc 매칭용 ("apple.com")
+    domains: List[str]
     seed_urls: List[str]
     extraction: ExtractionRule = field(default_factory=ExtractionRule)
     sensitivity: SensitivityPolicy = field(default_factory=SensitivityPolicy)
-    is_ours: bool = False          # 당사(삼성) 여부 — 분석 관점 결정에 사용
+    is_ours: bool = False
+
+
+COMMERCE_SELECTORS = [
+    ".price", "[class*='price']", "[data-price]", "[class*='Price']",
+    "[class*='financing']", "[class*='trade']", "[data-testid*='price']",
+]
 
 
 # ──────────────────────────────────────────────────────────────
-# 기본 시드 (기존 45개 URL 을 타겟별로 재구성)
-# tier 는 URL path 깊이/키워드로 동적 계산 (tier_for_url) → 별도 dict 불필요
+# 기본 시드 URL
 # ──────────────────────────────────────────────────────────────
 
 SEED_TARGETS: Dict[str, Target] = {
@@ -74,10 +71,7 @@ SEED_TARGETS: Dict[str, Target] = {
         display_name="Samsung Singapore",
         domains=["samsung.com"],
         is_ours=True,
-        extraction=ExtractionRule(
-            requires_js=True,
-            price_selectors=[".price", "[class*='price']", "[data-price]"],
-        ),
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
             "https://www.samsung.com/sg/",
             "https://www.samsung.com/sg/smartphones/all-smartphones/",
@@ -104,72 +98,174 @@ SEED_TARGETS: Dict[str, Target] = {
     ),
     "apple": Target(
         key="apple",
-        display_name="Apple US",
+        display_name="Apple Global / US",
         domains=["apple.com"],
-        is_ours=False,
-        extraction=ExtractionRule(
-            requires_js=True,
-            price_selectors=[".rc-prices-fullprice", "[class*='price']"],
-        ),
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
-            "https://www.apple.com/",
+            # Smartphone: PF / PDP / Buying
             "https://www.apple.com/iphone/",
-            "https://www.apple.com/watch/",
+            "https://www.apple.com/iphone-17-pro/",
+            "https://www.apple.com/shop/buy-iphone/iphone-17-pro",
+            # Audio: PF / PDP / Buying
             "https://www.apple.com/airpods/",
-            "https://www.apple.com/apple-intelligence/",
+            "https://www.apple.com/airpods-pro/",
+            "https://www.apple.com/shop/buy-airpods/airpods-pro-3",
+            # Watch: PF / PDP / Buying
+            "https://www.apple.com/watch/",
+            "https://www.apple.com/apple-watch-ultra-3/",
+            "https://www.apple.com/shop/buy-watch/apple-watch-ultra",
+            # Laptop: PF / PDP / Buying
+            "https://www.apple.com/mac/",
+            "https://www.apple.com/macbook-pro/",
+            "https://www.apple.com/shop/buy-mac/macbook-pro",
+            # Compare / AI campaign
             "https://www.apple.com/iphone/compare/",
             "https://www.apple.com/watch/compare/",
-            "https://www.apple.com/iphone-17-pro/",
-            "https://www.apple.com/iphone-air/",
-            "https://www.apple.com/iphone-17/",
-            "https://www.apple.com/iphone-17e/",
-            "https://www.apple.com/apple-watch-series-11/",
-            "https://www.apple.com/apple-watch-ultra-3/",
-            "https://www.apple.com/apple-watch-se-3/",
-            "https://www.apple.com/airpods-pro/",
-            "https://www.apple.com/iphone-17-pro/specs/",
-            "https://www.apple.com/iphone-air/specs/",
-            "https://www.apple.com/iphone-17/specs/",
-            "https://www.apple.com/iphone-17e/specs/",
-            "https://www.apple.com/apple-watch-series-11/specs/",
-            "https://www.apple.com/apple-watch-ultra-3/specs/",
-            "https://www.apple.com/apple-watch-se-3/specs/",
-            "https://www.apple.com/airpods-pro/specs/",
-            "https://www.apple.com/shop/buy-iphone",
+            "https://www.apple.com/apple-intelligence/",
         ],
     ),
-    # 예시: 새 경쟁사는 이렇게 한 블록만 추가하면 됨 (Google)
-    # "google": Target(
-    #     key="google", display_name="Google Store", domains=["store.google.com"],
-    #     seed_urls=["https://store.google.com/?hl=en-US"],
-    #     extraction=ExtractionRule(requires_js=True),
-    # ),
+    "google_pixel": Target(
+        key="google_pixel",
+        display_name="Google Pixel Global / US",
+        domains=["store.google.com"],
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
+        seed_urls=[
+            "https://store.google.com/category/phones?hl=en-US",
+            "https://store.google.com/product/pixel_10_pro?hl=en-US",
+            "https://store.google.com/config/pixel_10_pro?hl=en-US",
+        ],
+    ),
+    "xiaomi": Target(
+        key="xiaomi",
+        display_name="Xiaomi Global",
+        domains=["mi.com"],
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
+        seed_urls=[
+            "https://www.mi.com/global/",
+            "https://www.mi.com/global/product-list/phone/xiaomi/",
+            "https://www.mi.com/global/product/xiaomi-17-ultra/",
+        ],
+    ),
+    "oppo": Target(
+        key="oppo",
+        display_name="OPPO Global",
+        domains=["oppo.com"],
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
+        seed_urls=[
+            "https://www.oppo.com/en/smartphones/",
+            "https://www.oppo.com/en/smartphones/series-find-x/find-x9-ultra/",
+            "https://www.oppo.com/en/smartphones/series-find-x/find-x9-ultra/specs/",
+        ],
+    ),
+    "vivo": Target(
+        key="vivo",
+        display_name="vivo Global",
+        domains=["vivo.com"],
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
+        seed_urls=[
+            "https://www.vivo.com/en/products",
+            "https://www.vivo.com/en/products/x300-ultra",
+            "https://www.vivo.com/en/products/x300-pro",
+        ],
+    ),
+    "sony_audio": Target(
+        key="sony_audio",
+        display_name="Sony Audio Global / US",
+        domains=["electronics.sony.com"],
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
+        seed_urls=[
+            "https://electronics.sony.com/audio/headphones/c/all-headphones",
+            "https://electronics.sony.com/audio/headphones/truly-wireless-earbuds",
+            "https://electronics.sony.com/audio/headphones/truly-wireless-earbuds/p/wf1000xm6-b",
+        ],
+    ),
+    "garmin": Target(
+        key="garmin",
+        display_name="Garmin Global / US",
+        domains=["garmin.com"],
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
+        seed_urls=[
+            "https://www.garmin.com/en-US/c/wearables-smartwatches/",
+            "https://www.garmin.com/en-US/p/1701921/",
+            "https://www.garmin.com/en-US/p/1723221/",
+        ],
+    ),
+    "dell": Target(
+        key="dell",
+        display_name="Dell Global / US",
+        domains=["dell.com"],
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
+        seed_urls=[
+            "https://www.dell.com/en-us/shop/dell-laptops/scr/laptops/appref%3Dxps-product-line",
+            "https://www.dell.com/en-us/shop/dell-laptops/new-xps-16-laptop/spd/xps-da16260-laptop",
+            "https://www.dell.com/en-us/shop/dell-laptops/xps-16-laptop/spd/dell-da16250-laptop",
+        ],
+    ),
+    "meta_ai_glasses": Target(
+        key="meta_ai_glasses",
+        display_name="Meta AI Glasses Global / US",
+        domains=["meta.com"],
+        extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
+        seed_urls=[
+            "https://www.meta.com/ai-glasses/",
+            "https://www.meta.com/ai-glasses/ray-ban-meta/",
+        ],
+    ),
 }
 
 
 # ──────────────────────────────────────────────────────────────
-# Tier 계산 (URL 만으로 동적 — 별도 매핑 dict 유지 불필요)
+# URL 역할 / Tier 계산
 # ──────────────────────────────────────────────────────────────
 
+def page_role_for_url(url: str) -> str:
+    """PF/PDP/Buying/Compare/Home 등 페이지 역할을 URL 패턴으로 추정."""
+    try:
+        parsed = urlparse(url)
+        path = (parsed.path or "/").lower().rstrip("/")
+        query = (parsed.query or "").lower()
+    except Exception:
+        return "unknown"
+
+    if path in ("", "/", "/sg", "/global", "/en-us", "/en"):
+        return "home"
+    if any(k in path for k in ("/shop/buy", "/buy", "/config/", "/cty/pdp/")):
+        return "buying"
+    if any(k in path for k in ("compare", "find-your", "switch-to", "apple-intelligence", "galaxy-ai", "ai-glasses")) and "ray-ban-meta" not in path:
+        return "campaign_or_compare"
+    if any(k in path for k in ("specs", "specifications", "tech-specs")):
+        return "specs"
+    if any(k in path for k in (
+        "iphone-", "pixel_", "xiaomi-", "find-x", "x300", "wf1000", "wf-1000",
+        "apple-watch-", "airpods-pro", "macbook-pro", "xps-16", "dell-da", "xps-da",
+        "/p/1701921", "/p/1723221", "ray-ban-meta", "galaxy-", "watch-ultra", "buds4",
+    )):
+        return "pdp"
+    if any(k in path for k in (
+        "iphone", "phones", "smartphones", "product-list", "products", "airpods", "watch",
+        "mac", "laptops", "headphones", "wearables", "all-smartphones", "all-watches", "all-audio",
+    )) or "category=" in query:
+        return "pf"
+    return "content"
+
+
 def tier_for_url(url: str) -> int:
-    """URL path 로 tier 0~4 추정. 한 곳에서만 정의해 일관성 보장."""
+    """URL 역할 기준 tier 0~4 추정. 한 곳에서만 정의해 일관성 보장."""
+    role = page_role_for_url(url)
+    if role == "home":
+        return 0
+    if role == "pf":
+        return 1
+    if role == "campaign_or_compare":
+        return 2
+    if role in ("pdp", "content"):
+        return 3
+    if role in ("buying", "specs"):
+        return 4
     try:
         path = (urlparse(url).path or "/").lower()
-        segments = [s for s in path.split("/") if s and s not in ("sg", "us", "en")]
-        if not segments:
-            return 0                                   # 브랜드 홈
-        if any(k in path for k in ("buy", "shop", "specs", "purchase")):
-            return 4                                   # 구매/스펙
-        if any(k in path for k in ("compare", "find-your", "switch-to",
-                                   "galaxy-ai", "apple-intelligence", "mobile/", "one-ui")):
-            return 2                                   # 캠페인
-        if any(k in path for k in ("iphone-", "galaxy-", "apple-watch-",
-                                   "buds", "watch-ultra")):
-            return 3                                   # 제품 상세
-        if any(k in path for k in ("all-smartphones", "all-watches",
-                                   "all-audio", "iphone", "watch", "airpods")):
-            return 1                                   # 카테고리
-        return min(len(segments), 3)
+        segments = [s for s in path.split("/") if s and s not in ("sg", "us", "en", "global")]
+        return min(len(segments), 3) if segments else 0
     except Exception:
         return 3
 
@@ -203,8 +299,7 @@ def get_seed_urls(site_key: str) -> List[str]:
 def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None) -> List[Dict]:
     """
     크롤 대상 URL 목록 반환. SEED + DB(MonitoredURL) 머지 후 중복 제거.
-    각 항목: {"url", "tier_level", "site_key"}
-    db_urls: crawl_service 가 MonitoredURL 테이블에서 읽어 넘겨줌 (None 이면 시드만).
+    각 항목: {"url", "tier_level", "site_key", "page_role"}
     """
     urls: List[str] = list(get_seed_urls(site_key))
     if db_urls:
@@ -215,7 +310,12 @@ def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None) -> List
         if not u or u in seen:
             continue
         seen.add(u)
-        out.append({"url": u, "tier_level": tier_for_url(u), "site_key": site_key})
+        out.append({
+            "url": u,
+            "tier_level": tier_for_url(u),
+            "site_key": site_key,
+            "page_role": page_role_for_url(u),
+        })
     return out
 
 
@@ -223,7 +323,8 @@ def all_site_keys() -> List[str]:
     return list(SEED_TARGETS.keys())
 
 
-# 하위호환: 기존 코드가 import 하던 함수명 유지 (점진적 마이그레이션용)
+# 하위호환: 기존 코드가 import 하던 함수명 유지
+
 def get_apple_urls() -> List[str]:
     return get_seed_urls("apple")
 
@@ -240,5 +341,4 @@ def get_all_urls() -> List[str]:
 
 
 def get_tier_for_url(url: str) -> str:
-    """기존 코드가 'Tier N' 문자열을 기대 → 호환 래퍼."""
     return f"Tier {tier_for_url(url)}"

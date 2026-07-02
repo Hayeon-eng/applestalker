@@ -21,11 +21,11 @@ from database import engine, SessionLocal, init_db, sync_engine, prune_old_snaps
 from crawl_service import CrawlServiceV2
 from intel_engine import IntelEngine, aeo_facts
 from email_service import EmailService
-from config import SEED_TARGETS, load_active_urls, all_site_keys, site_key_for_url, tier_for_url
+from config import SEED_TARGETS, load_active_urls, all_site_keys, site_key_for_url, tier_for_url, page_role_for_url
 
 CRON_TOKEN = os.getenv("CRON_TOKEN", "change-me")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "0108")   # [PHASE1 신규] URL 추가/삭제 게이트
-SITE_KEYS = ["samsung", "apple"]
+SITE_KEYS = all_site_keys()
 
 # ── 카테고리/레벨 매핑 (UI 단순화: High/Med/Low, 4 카테고리) ──
 CATEGORY = {  # change_type → 화면 카테고리
@@ -66,8 +66,8 @@ def display_level(change_type: str, field_name: str, severity_level: str,
     # AI/검색 해석 영향. 스키마도 타입이 실제 검색/AI 이해에 쓰일 때 더 크게 본다.
     schema_type = str(ev.get("type") or "")
     ai_schema_types = {"Product", "FAQPage", "BreadcrumbList", "Organization", "Offer", "AggregateRating", "Review"}
-    if f == "schema_type":
-        score += 1.35 if schema_type in ai_schema_types else 0.75
+    if f in ("schema_type", "schema_property"):
+        score += 1.35 if schema_type in ai_schema_types or f == "schema_property" else 0.75
     elif f in ("meta_description", "canonical_url", "h1"):
         score += 0.9
     elif f == "dom":
@@ -115,7 +115,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Apple Stalker API", version="2.0", lifespan=lifespan)
+app = FastAPI(title="Global Competitor Stalker API", version="2.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"], expose_headers=["*"])
 
@@ -177,7 +177,7 @@ def root():
     return HTMLResponse(
         "<div style='font-family:-apple-system,sans-serif;max-width:520px;margin:60px auto;"
         "color:#1C1C1E;line-height:1.6'>"
-        "<h2>🍎 Apple Stalker — Backend</h2>"
+        "<h2>🌐 Global Competitor Stalker — Backend</h2>"
         "<p>백엔드는 정상 작동 중입니다. 이 주소는 API 전용이며, 화면은 프론트엔드에서 보세요.</p>"
         "<p style='color:#8E8E93;font-size:14px'>상태 확인: "
         "<a href='/api/health'>/api/health</a></p></div>")
@@ -395,15 +395,18 @@ def _category_summaries(changes):
     for cat in cats:
         items = [c for c in changes if c["category"] == cat]
         if not items:
-            out[cat] = "변동 없음"
+            out[cat] = "변동 없음 — 현행 분석에서 예의주시 포인트 확인"
             continue
-        ours = [c for c in items if c["site"] == "samsung"]
-        theirs = [c for c in items if c["site"] == "apple"]
+        ours = [c for c in items if c.get("site") == "samsung"]
+        competitors = [c for c in items if c.get("site") != "samsung"]
         seg = []
         if ours:
-            seg.append(f"당사는 {ours[0]['summary']}")
-        if theirs:
-            seg.append(f"애플은 {theirs[0]['summary']}")
+            seg.append(f"Samsung {ours[0]['summary']}")
+        if competitors:
+            first = competitors[0]
+            display = SEED_TARGETS.get(first.get("site") or "", None)
+            name = display.display_name if display else (first.get("site") or "경쟁사")
+            seg.append(f"{name} {first['summary']}")
         line = ", ".join(seg)
         high = sum(1 for c in items if c["level"] == "High")
         if high:
@@ -532,8 +535,27 @@ def page_detail(url: str = Query(...)):
     d = data_facts([page])
     c = copy_facts([page])
     v = visual_facts([page])
+    schema_types = sorted({
+        t
+        for item in (page.get("structured_data") or [])
+        for node in ([item] + (item.get("@graph") or []) if isinstance(item, dict) else [])
+        for t in ((node.get("@type") if isinstance(node, dict) else []) if isinstance((node.get("@type") if isinstance(node, dict) else []), list) else [node.get("@type") if isinstance(node, dict) else None])
+        if t
+    })
     return {
         "url": url, "crawled_at": str(r[13]), "rendered_by": r[14],
+        "wireframe": {
+            "page_role": page_role_for_url(url),
+            "title": page.get("title"),
+            "h1": page.get("h1"),
+            "h2": (page.get("h2") or [])[:8],
+            "h3": (page.get("h3") or [])[:10],
+            "ctas": (page.get("ctas") or [])[:8],
+            "image_count": len(page.get("images") or []),
+            "faq_count": len(page.get("faqs") or []),
+            "schema_types": schema_types[:12],
+            "word_count": page.get("word_count") or 0,
+        },
         "data": {"facts": d, "narrative": _narrate_schema_completeness(d["schema"])},
         "copy": {"facts": c, "narrative": intel._narrate_copy(c)},
         "visual": {"facts": v, "narrative": intel._narrate_visual(v)},
@@ -629,7 +651,7 @@ def export_xlsx(run_id: Optional[str] = None):
                        dcv=rep.get("dcv"))
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename('apple_stalker','xlsx')}"})
+        headers={"Content-Disposition": f"attachment; filename={filename('competitor_stalker','xlsx')}"})
 
 
 @app.get("/api/export/pptx")
@@ -640,7 +662,7 @@ def export_pptx(run_id: Optional[str] = None):
                       summary=(rep.get("analysis") or {}).get("summary", ""), dcv=rep.get("dcv"))
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f"attachment; filename={filename('apple_stalker','pptx')}"})
+        headers={"Content-Disposition": f"attachment; filename={filename('competitor_stalker','pptx')}"})
 
 
 # ── Cron tick (GitHub Actions) ──

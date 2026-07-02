@@ -186,6 +186,21 @@ class DiffEngine:
             out.append(self._mk(url, site_key, tier, "schema_type", "technical", "L4",
                                  f"스키마 제거: {t}", before=t,
                                  evidence=evidence))
+
+        # 스키마 속성 변화: 타입은 유지됐지만 Product/offers/review 등 세부 property가 바뀐 경우 보강 감지
+        c_props, p_props = cs.get("schema_props_by_type") or {}, ps.get("schema_props_by_type") or {}
+        for typ in sorted(set(c_props) | set(p_props)):
+            added = sorted(set(c_props.get(typ, [])) - set(p_props.get(typ, [])))
+            removed = sorted(set(p_props.get(typ, [])) - set(c_props.get(typ, [])))
+            if not added and not removed:
+                continue
+            severity = "L4" if typ in ("Product", "FAQPage", "BreadcrumbList") else "L3"
+            evidence = {"kind": "schema_property_delta", "type": typ, "added": added[:10], "removed": removed[:10]}
+            evidence.update(evidence_extra)
+            out.append(self._mk(url, site_key, tier, "schema_property", "technical", severity,
+                                 f"스키마 속성 변경: {typ} (+{len(added)}/-{len(removed)})",
+                                 before=", ".join(removed[:12]) or None,
+                                 after=", ".join(added[:12]) or None, evidence=evidence))
         if schema_only:
             return out
         # 내비게이션 항목 변화

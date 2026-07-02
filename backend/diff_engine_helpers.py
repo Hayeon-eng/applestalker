@@ -357,20 +357,39 @@ def _normalize_list_text(items: Any, limit: int = 30) -> List[str]:
 
 def structural_signature(page: Dict[str, Any]) -> Dict[str, Any]:
     """페이지의 구조적 지표 모음 (변화 감지/저장용)."""
+    def _schema_nodes(sd) -> List[Dict[str, Any]]:
+        nodes: List[Dict[str, Any]] = []
+        def add(node):
+            if not isinstance(node, dict):
+                return
+            nodes.append(node)
+            for g in (node.get("@graph") or []):
+                add(g)
+        for item in (sd or []):
+            add(item)
+        return nodes
+
+    def _node_types(node: Dict[str, Any]) -> List[str]:
+        t = node.get("@type")
+        if isinstance(t, list):
+            return [str(x) for x in t]
+        return [str(t)] if t else []
+
     def _schema_types(sd) -> List[str]:
         out = []
-        for s in (sd or []):
-            if isinstance(s, dict):
-                t = s.get("@type")
-                if isinstance(t, str):
-                    out.append(t)
-                elif isinstance(t, list):
-                    out.extend(str(x) for x in t)
-                for g in (s.get("@graph") or []):
-                    if isinstance(g, dict) and g.get("@type"):
-                        gt = g["@type"]
-                        out.extend(gt if isinstance(gt, list) else [gt])
+        for node in _schema_nodes(sd):
+            out.extend(_node_types(node))
         return sorted(set(map(str, out)))
+
+    def _schema_props_by_type(sd) -> Dict[str, List[str]]:
+        tracked = {"Product", "FAQPage", "Organization", "BreadcrumbList", "WebPage", "ItemPage", "CollectionPage", "ItemList"}
+        props: Dict[str, set] = {}
+        for node in _schema_nodes(sd):
+            keys = {str(k) for k in node.keys() if not str(k).startswith("@")}
+            for typ in _node_types(node):
+                if typ in tracked:
+                    props.setdefault(typ, set()).update(keys)
+        return {typ: sorted(vals) for typ, vals in sorted(props.items())}
 
     nav = page.get("navigation") or {}
     ctas = _normalize_list_text(page.get("ctas"), 20)
@@ -386,6 +405,7 @@ def structural_signature(page: Dict[str, Any]) -> Dict[str, Any]:
         "nav_items": sorted({_s(i.get("text") if isinstance(i, dict) else i)
                              for i in (nav.get("main") or [])} - {""}),
         "schema_types": _schema_types(page.get("structured_data")),
+        "schema_props_by_type": _schema_props_by_type(page.get("structured_data")),
         "dom_hash": dom_fingerprint(page.get("html_content") or ""),
         "tag_counts": _html_tag_counts(page.get("html_content") or ""),
         "h2_texts": h2,
