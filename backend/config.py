@@ -198,13 +198,16 @@ SEED_TARGETS: Dict[str, Target] = {
     ),
     "meta_ai_glasses": Target(
         key="meta_ai_glasses",
-        display_name="Meta AI Glasses Global / US",
+        display_name="Meta AI Glasses JP / EN",
         domains=["meta.com"],
         extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
-            "https://www.meta.com/ai-glasses/",
-            "https://www.meta.com/ai-glasses/ray-ban-meta/",
-            "https://www.meta.com/ai-glasses/shop-all/",
+            # Meta는 /ai-glasses/ 같은 무지역 URL이 크롤 환경의 IP/언어에 따라
+            # /nz, /jp/en 또는 에러 페이지로 흔들릴 수 있다. 모니터링 기준선은
+            # 명시적인 region+language URL로 고정해 'Error | Meta' 오수집을 줄인다.
+            "https://www.meta.com/jp/en/ai-glasses/",
+            "https://www.meta.com/jp/en/ai-glasses/ray-ban-meta/",
+            "https://www.meta.com/jp/en/ai-glasses/shop-all/",
         ],
     ),
 }
@@ -360,6 +363,19 @@ def get_seed_urls(site_key: str) -> List[str]:
     return list(t.seed_urls) if t else []
 
 
+
+def normalize_seed_url(site_key: str, url: str) -> str:
+    """사이트별로 크롤 안정성이 낮은 legacy URL을 현재 기준 URL로 정규화한다."""
+    u = (url or "").strip()
+    if site_key == "meta_ai_glasses":
+        legacy_map = {
+            "https://www.meta.com/ai-glasses/": "https://www.meta.com/jp/en/ai-glasses/",
+            "https://www.meta.com/ai-glasses/ray-ban-meta/": "https://www.meta.com/jp/en/ai-glasses/ray-ban-meta/",
+            "https://www.meta.com/ai-glasses/shop-all/": "https://www.meta.com/jp/en/ai-glasses/shop-all/",
+        }
+        return legacy_map.get(u, u)
+    return u
+
 def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None) -> List[Dict]:
     """
     크롤 대상 URL 목록 반환. SEED + DB(MonitoredURL) 머지 후 중복 제거.
@@ -374,7 +390,7 @@ def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None) -> List
         urls.extend(db_urls)
     seen, out = set(), []
     for u in urls:
-        u = (u or "").strip()
+        u = normalize_seed_url(site_key, u)
         # Samsung 기준은 SG로 확정했으므로, 예전 DB에 남은 samsung.com/us URL은
         # 화면/크롤 대상에서 제외한다. 필요하면 사용자가 별도 사이트키로 다시 등록해야 한다.
         if site_key == "samsung" and "samsung.com/us/" in u.lower():

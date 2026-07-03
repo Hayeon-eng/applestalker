@@ -34,7 +34,10 @@ _UA = (
 BASE_HEADERS = {
     "User-Agent": _UA,
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8,en-US;q=0.7",
+    # Global/US 경쟁사 페이지 기준선 안정성을 위해 영어 우선.
+    # ko-KR 우선 사용 시 Meta처럼 국가/언어 리다이렉트가 강한 사이트가
+    # 에러/unsupported 페이지로 떨어질 수 있다.
+    "Accept-Language": "en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7",
     "Referer": "https://www.google.com/",
     "Connection": "keep-alive",
 }
@@ -147,11 +150,13 @@ class HybridCrawler:
 
         result: Dict[str, Any] = {
             "url": url,
+            "final_url": url,
             "status_code": 0,
             "error": None,
             "html_content": None,
             "rendered_by": None,
             "screenshot_phash": None,
+            "collection_issues": [],
         }
 
         # ✅ [FIX] HTTP는 requires_js 무관하게 항상 먼저 시도
@@ -209,6 +214,45 @@ class HybridCrawler:
         )
 
     # ─────────────────────────────────────────────
+    # BAD PAGE / ERROR PAGE DETECTION
+    # ─────────────────────────────────────────────
+    def _detect_bad_page(self, data: Optional[Dict[str, Any]], url: str = "") -> Optional[str]:
+        """정상 HTML처럼 보이지만 실제로는 Error/차단/빈 페이지인 경우를 실패로 분류한다.
+
+        Meta의 'Error | Meta'처럼 status=200 + title 존재 조합은 기존 _looks_empty에서
+        정상 수집으로 통과했다. 이 함수는 title/body/근거 필드를 같이 보고 비교 불가
+        페이지를 명시적으로 막는다.
+        """
+        if not data:
+            return "empty result"
+        if data.get("error"):
+            return str(data.get("error"))
+
+        title = str(data.get("title") or "").strip()
+        h1 = str(data.get("h1") or "").strip()
+        body = str(data.get("body_content") or "").strip()
+        word_count = int(data.get("word_count") or 0)
+        image_count = len(data.get("images") or [])
+        cta_count = len(data.get("ctas") or [])
+        schema_count = len(data.get("structured_data") or [])
+        combined = " ".join([title, h1, body[:500]]).lower()
+
+        hard_error_patterns = (
+            "error | meta", "access denied", "permission denied", "not found", "page not found",
+            "404", "403", "429", "captcha", "verify you are human", "just a moment",
+            "temporarily unavailable", "something went wrong", "unsupported browser",
+        )
+        if any(p in combined for p in hard_error_patterns):
+            return f"error page detected: {title or 'unknown title'}"
+
+        # title/h1은 있으나 실제 분석 근거가 거의 없는 케이스. Meta 에러 페이지처럼
+        # nav나 빈 컨테이너만 남는 경우 변경 없음으로 오판하지 않도록 차단한다.
+        if word_count < 15 and image_count == 0 and cta_count == 0 and schema_count == 0:
+            return "insufficient crawl evidence: near-empty page"
+
+        return None
+
+    # ─────────────────────────────────────────────
     # HTTP FETCH (403 FIXED)
     # ─────────────────────────────────────────────
     async def _fetch_http(self, url: str) -> Dict[str, Any]:
@@ -224,17 +268,27 @@ class HybridCrawler:
                         "error": f"blocked {r.status_code}",
                         "status_code": r.status_code,
                         "html_content": None,
+                        "final_url": str(r.url),
+                        "collection_issues": [f"blocked {r.status_code}"],
                     }
 
                 soup = BeautifulSoup(r.text or "", "lxml")
-                data = self._extract(soup, url)
+                final_url = str(r.url)
+                data = self._extract(soup, final_url)
 
                 data["html_content"] = r.text
                 data["status_code"] = r.status_code
+                data["final_url"] = final_url
+                data["collection_issues"] = []
+
+                bad_reason = self._detect_bad_page(data, final_url)
+                if bad_reason:
+                    data["error"] = bad_reason
+                    data["collection_issues"].append(bad_reason)
                 return data
 
             except Exception as e:
-                return {"error": str(e), "status_code": 0}
+                return {"error": str(e), "status_code": 0, "collection_issues": [str(e)]}
 
     # ─────────────────────────────────────────────
     # PLAYWRIGHT
@@ -242,7 +296,7 @@ class HybridCrawler:
     async def _fetch_playwright(self, url: str) -> Dict[str, Any]:
         browser = await self._ensure_browser()
         if not browser:
-            return {"error": "playwright unavailable"}
+            return {"error": "playwright unavailable", "collection_issues": ["playwright unavailable"]}
 
         async with self._browser_sem:
             context = page = None
@@ -250,7 +304,7 @@ class HybridCrawler:
                 context = await browser.new_context(
                     viewport={"width": 1440, "height": 900},
                     user_agent=self.user_agent,
-                    locale="ko-KR",
+                    locale="en-US",
                 )
 
                 page = await context.new_page()
@@ -268,16 +322,23 @@ class HybridCrawler:
                     await page.wait_for_timeout(2000)
 
                 html = await page.content()
+                final_url = page.url
                 soup = BeautifulSoup(html, "lxml")
 
-                data = self._extract(soup, url)
+                data = self._extract(soup, final_url)
                 data["html_content"] = html
                 data["status_code"] = 200
+                data["final_url"] = final_url
+                data["collection_issues"] = []
 
+                bad_reason = self._detect_bad_page(data, final_url)
+                if bad_reason:
+                    data["error"] = bad_reason
+                    data["collection_issues"].append(bad_reason)
                 return data
 
             except Exception as e:
-                return {"error": str(e), "status_code": 0}
+                return {"error": str(e), "status_code": 0, "collection_issues": [str(e)]}
 
             finally:
                 if context:
