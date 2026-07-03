@@ -134,9 +134,9 @@ export const orderedSiteKeys = (keys: string[]): SiteKey[] => {
 
 /* ── 상수 */
 export const METRICS: Record<MetricTab, { label: string; plain: string; criteriaId: string }> = {
-  data: { label: "DATA 구조", plain: "Schema·HTML·Meta·H-tag를 분석합니다.", criteriaId: "data" },
-  copy: { label: "COPY 문구", plain: "카피 구체성·FAQ 품질·콘텐츠 양을 분석합니다.", criteriaId: "copy" },
-  visual: { label: "VISUAL 이미지", plain: "이미지 다양성·alt 품질·스토리텔링을 분석합니다.", criteriaId: "visual" },
+  data: { label: "DATA / Schema", plain: "Schema·HTML·Meta·H-tag가 페이지 역할과 맞는지 확인합니다.", criteriaId: "data" },
+  copy: { label: "COPY / CTA", plain: "카피 구체성, 구매 CTA, FAQ가 전환 흐름에 맞는지 확인합니다.", criteriaId: "copy" },
+  visual: { label: "VISUAL / ALT COPY", plain: "이미지 전략, ALT COPY, 사용 장면 신호가 충분한지 확인합니다.", criteriaId: "visual" },
 };
 export const CATEGORY_BUCKETS: Record<string, MetricTab> = {
   "데이터·스키마": "data", "데이터/스키마": "data", "DATA/Schema": "data",
@@ -213,16 +213,35 @@ export const isLegacySamsungUsUrl = (site?: string, url?: string) =>
   site === "samsung" && /https?:\/\/www\.samsung\.com\/us\//i.test(url || "");
 
 
+export const metricAreaLabel = (metric: MetricTab) => {
+  if (metric === "data") return "DATA / Schema";
+  if (metric === "copy") return "COPY / CTA";
+  return "VISUAL / ALT COPY";
+};
+
+export const metricIssueSentence = (metric: MetricTab) => {
+  if (metric === "data") return "Schema와 H-tag가 페이지 역할에 맞는지 확인이 필요합니다.";
+  if (metric === "copy") return "구매 CTA와 카피 연결이 약한 지점이 있습니다.";
+  return "ALT COPY의 구체성과 사용 장면 설명이 부족한 지점이 있습니다.";
+};
+
+export const metricActionSentence = (metric: MetricTab) => {
+  if (metric === "data") return "PF는 ItemList/Breadcrumb, PDP는 Product/Breadcrumb, Buying은 Offer 중심으로 점검하세요.";
+  if (metric === "copy") return "PDP 상단과 Buying 영역에 구매·혜택·보상판매 CTA를 명확히 배치하세요.";
+  return "제품명, 핵심 기능, 사용 장면이 드러나도록 ALT COPY와 이미지 설명을 보강하세요.";
+};
+
 export const actionForChange = (c: Change): string => {
-  const level = c.level || "Low";
-  const isCompetitor = c.site !== "samsung";
-  if (level === "High") {
-    return isCompetitor ? "경쟁사 핵심 변경 즉시 확인 및 당사 영향 검토" : "즉시 변경사항 확인 및 대응 필요";
+  const metric = bucketOf(c);
+  const role = pageRoleKo(pageRoleFromUrl(c.url || ""));
+  const subject = c.site === "samsung" ? "Samsung" : `${siteShortName(c.site)} ${role}`;
+  if (metric === "data") {
+    return `${subject}의 Schema/H-tag 변경을 확인하고, ${metricActionSentence("data")}`;
   }
-  if (level === "Medium") {
-    return isCompetitor ? "경쟁사 변화 지속 모니터링" : "지속 모니터링 및 필요 시 후속 점검";
+  if (metric === "visual") {
+    return `${subject}의 이미지/ALT COPY 변경을 확인하고, ${metricActionSentence("visual")}`;
   }
-  return "참고용 기록 유지 및 다음 수집에서 재확인";
+  return `${subject}의 카피/CTA 변경을 확인하고, ${metricActionSentence("copy")}`;
 };
 // 이 목록 안에서 가장 심각한 등급의 변화만 골라 반환 (High가 없으면 Medium, 그마저 없으면 Low)
 export const topSeverityChanges = (pool: Change[], n = 3): { level: "High" | "Medium" | "Low"; changes: Change[] } | null => {
@@ -386,7 +405,7 @@ export const metricOneLiner = (
   const missingKeys = managedKeys.filter((site) => !blocks[site]);
   const collectedLabel = collectedKeys.length ? collectedKeys.slice(0, 5).map(siteShortName).join(", ") : "없음";
   const missingLabel = missingKeys.length
-    ? ` · 미수집/근거부족 ${missingKeys.length}개(${missingKeys.slice(0, 4).map(siteShortName).join(", ")}${missingKeys.length > 4 ? " 외" : ""})`
+    ? ` · 근거 부족 ${missingKeys.length}개(${missingKeys.slice(0, 4).map(siteShortName).join(", ")}${missingKeys.length > 4 ? " 외" : ""})`
     : "";
 
   const numberList = <T,>(items: T[], mapper: (x: T) => number | null | undefined) => {
@@ -398,7 +417,7 @@ export const metricOneLiner = (
   let statLine = "";
   if (metric === "data") {
     const avg = numberList(collectedKeys, (site) => blocks[site]?.facts?.schema?.coverage_pct);
-    statLine = `Schema: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 평균 ${avg}% · 수집 ${collectedLabel}${missingLabel}`;
+    statLine = `DATA / Schema: 근거 확보 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 · 평균 Schema ${avg}% · 대상 ${collectedLabel}${missingLabel}`;
   } else if (metric === "copy") {
     const copyAvg = (f: any) => {
       const pages = f?.copy_richness?.all_pages || [];
@@ -408,15 +427,15 @@ export const metricOneLiner = (
     };
     const avg = numberList(collectedKeys, (site) => copyAvg(blocks[site]?.facts));
     const cta = numberList(collectedKeys, (site) => blocks[site]?.facts?.commerce_cta?.pages_with_buy_cta);
-    statLine = `Copy: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 · 구매 CTA 확인 평균 ${cta}페이지 · 카피 판단 근거 ${avg}점 · 수집 ${collectedLabel}${missingLabel}`;
+    statLine = `COPY / CTA: 근거 확보 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 · 구매 CTA 평균 ${cta}페이지 · 카피 구체성 ${avg}점 · 대상 ${collectedLabel}${missingLabel}`;
   } else {
     const avg = numberList(collectedKeys, (site) => blocks[site]?.facts?.image_diversity?.lifestyle_ratio_pct);
-    statLine = `Visual: 수집 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 lifestyle 신호 평균 ${avg}% · 수집 ${collectedLabel}${missingLabel}`;
+    statLine = `VISUAL / ALT COPY: 근거 확보 ${collectedKeys.length}/${managedKeys.length || collectedKeys.length}개 사이트 · 사용 장면 신호 평균 ${avg}% · 대상 ${collectedLabel}${missingLabel}`;
   }
   const changeText = changes.length
     ? `변경 ${changes.length}건(High ${high}) · 변경 사이트: ${changedSites.join(", ") || "-"}`
-    : "변경 없음 · 수집된 사이트는 현재 상태를 baseline으로 유지";
-  return `${statLine} · ${changeText}`;
+    : "큰 변경 없음 · 현재 상태를 유지하며 다음 비교에서 변화만 확인";
+  return `${statLine} · ${changeText} · ${metricActionSentence(metric)}`;
 };
 
 

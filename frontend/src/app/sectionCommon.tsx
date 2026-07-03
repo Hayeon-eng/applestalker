@@ -3,9 +3,29 @@
 import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, PageDetail,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
-  shortUrl, linesFromBlock, tagForLine, metricAverage,
+  shortUrl, linesFromBlock, tagForLine, metricAverage, metricActionSentence,
 } from "./shared";
 
+
+const hasActionVerb = (line: string) => /하세요|보강|확인|점검|배치|비교|유지|분리/.test(line);
+
+const actionHintForLine = (metric: MetricTab, line: string) => {
+  const raw = line.toLowerCase();
+  if (hasActionVerb(line)) return "";
+  if (/근거 없음|근거부족|수집 전|미수집|없습니다/.test(line)) {
+    return "핵심 비교에서는 제외하고 원본 URL·렌더링·리다이렉트 상태를 확인하세요.";
+  }
+  if (metric === "visual" && /alt|이미지|image|visual|lifestyle/.test(raw)) {
+    return metricActionSentence("visual");
+  }
+  if (metric === "copy" && /cta|buy|shop|copy|카피|faq|문구|구매/.test(raw)) {
+    return metricActionSentence("copy");
+  }
+  if (metric === "data" && /schema|h-?tag|meta|html|structured|구조/.test(raw)) {
+    return metricActionSentence("data");
+  }
+  return "";
+};
 export function FindingList({
   metric, lines, selectedIndex, onSelectLine,
 }: {
@@ -18,6 +38,7 @@ export function FindingList({
     <div>
       {lines.map((line, i) => {
         const tag = tagForLine(metric, line);
+        const actionHint = actionHintForLine(metric, line);
         if (interactive) {
           return (
             <button
@@ -28,7 +49,7 @@ export function FindingList({
               title="상세 근거 보기"
             >
               <span className={`badge ${tag.cls}`}>{tag.label}</span>
-              <span className="findingText">{line}</span>
+              <span className="findingText">{line}{actionHint && <small className="findingActionHint">오늘 할 일: {actionHint}</small>}</span>
               <span className="findingGo">근거 ↓</span>
             </button>
           );
@@ -36,7 +57,7 @@ export function FindingList({
         return (
           <div className="findingRow" key={i}>
             <span className={`badge ${tag.cls}`}>{tag.label}</span>
-            <span className="findingText">{line}</span>
+            <span className="findingText">{line}{actionHint && <small className="findingActionHint">오늘 할 일: {actionHint}</small>}</span>
           </div>
         );
       })}
@@ -87,7 +108,7 @@ export const firstNarrativeLine = (block?: AnalysisBlock) => linesFromBlock(bloc
 export const siteMetricSummary = (site: SiteKey, metric: MetricTab, block?: AnalysisBlock, siteChanges: Change[] = []) => {
   const changesText = siteChanges.length ? `변경 ${siteChanges.length}건` : "변경 없음";
   if (!block) {
-    return `${changesText} · 이번 리포트에는 아직 ${siteName(site)}의 ${METRICS[metric].label} 근거가 없습니다. 관리 URL은 있으므로 수집 실패/차단/JS 렌더링 여부를 먼저 확인하세요.`;
+    return `${changesText} · 이번 리포트에는 아직 ${siteName(site)}의 ${METRICS[metric].label} 근거가 없습니다. 핵심 비교에서는 제외하고 URL·차단·JS 렌더링 여부를 확인하세요.`;
   }
   const f: any = block.facts || {};
   if (metric === "data") {
@@ -97,7 +118,7 @@ export const siteMetricSummary = (site: SiteKey, metric: MetricTab, block?: Anal
   if (metric === "copy") {
     const pages = f.copy_richness?.all_pages || [];
     const avg = pages.length ? Math.round(pages.reduce((sum: number, x: any) => sum + (Number(x?.score) || 0), 0) / pages.length) : "-";
-    return `${changesText} · COPY 기준선 ${pages.length}페이지, 평균 구체성 ${avg}점 · ${firstNarrativeLine(block)}`;
+    return `${changesText} · COPY 근거 ${pages.length}페이지, 평균 구체성 ${avg}점 · ${firstNarrativeLine(block)}`;
   }
   return `${changesText} · alt/src 기반 lifestyle 이미지 신호 ${f.image_diversity?.lifestyle_ratio_pct ?? "-"}% · ${firstNarrativeLine(block)}`;
 };

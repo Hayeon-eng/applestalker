@@ -98,7 +98,7 @@ function MetricSection({
           )}
         </p>
         {changes.length === 0 ? (
-          <p className="muted">이 영역에서 변경된 항목이 없습니다. 위 현황 요약은 다음 수집과 비교할 기준선입니다.</p>
+          <p className="muted">이 영역에서 변경된 항목이 없습니다. 현재 구성은 유지하고 다음 수집에서 변화만 확인하세요.</p>
         ) : (
           <div className="siteSplit">
             {sites.map((site) => {
@@ -206,10 +206,10 @@ export function Overview({
             </p>
           </div>
           <div className="statsRow">
-            <Stat label="비교 가능" value={boardDigest.comparableCount} tone="blue" />
-            <Stat label="확인 필요" value={boardDigest.riskCount + boardDigest.unknownCount} tone={boardDigest.riskCount + boardDigest.unknownCount ? "red" : undefined} />
-            <Stat label="Action" value={boardDigest.actionCount} />
-            <Stat label="변경" value={scopedChanges.length} />
+            <Stat label="Samsung 개선" value={boardDigest.samsungActions.length} tone="blue" />
+            <Stat label="벤치마크" value={boardDigest.competitorBenchmarks.length} />
+            <Stat label="근거 부족" value={boardDigest.evidenceWarnings.length} tone={boardDigest.evidenceWarnings.length ? "red" : undefined} />
+            <Stat label="변화 감지" value={scopedChanges.length} />
           </div>
         </div>
 
@@ -263,7 +263,7 @@ export function Overview({
             <button key={m} className="card metricSummaryCard" onClick={() => onJumpToMetric(m)}>
               <p className="cardTitle">
                 <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
-                <span className="metricSummaryGo">자세히 보기 →</span>
+                <span className="metricSummaryGo">상세 보기 →</span>
               </p>
               <p className="metricSummaryLine">{metricOneLiner(m, dcv?.[m], mChanges, expectedSites)}</p>
               {mTopSev && (

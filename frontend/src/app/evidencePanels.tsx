@@ -364,11 +364,11 @@ function currentStatusLens(
     return {
       risk: "high",
       leadershipTitle: "리더십 판단",
-      leadership: `${siteLabel}의 Visual 경쟁력은 이번 화면에서 판단하면 안 됩니다. 이미지가 0장으로 수집되어 경쟁사 강점/약점이 아니라 수집 품질 이슈로 봐야 합니다.`,
+      leadership: `${siteLabel}의 Visual 경쟁력은 이번 화면에서 판단하지 않습니다. 이미지/ALT COPY 근거가 없어 경쟁사 강점이 아니라 보조 확인 항목으로 분리하세요.`,
       ownerTitle: "실무자 액션",
-      owner: "URL·지역/언어 리다이렉트·lazy-loaded 이미지·스크린샷 저장 여부를 확인한 뒤 재수집하세요. 정상 수집 전까지 이 값을 리포트 결론이나 경쟁사 비교에 넣지 않는 것이 맞습니다.",
+      owner: "URL·지역/언어 리다이렉트·lazy-loaded 이미지·스크린샷 저장 여부를 확인하세요. 근거가 확보되기 전까지 이 값을 리포트 결론이나 경쟁사 비교에 넣지 마세요.",
       evidenceTitle: "근거 참고",
-      evidence: `HTML 메타데이터 기준 이미지 ${totalImages}장, product ${product}장, lifestyle ${lifestyle}장, 미분류 ${unclassified}장입니다. 실제 이미지를 본 Vision 판정이 아니며, Error/빈 페이지 수집 가능성을 먼저 봐야 합니다.`,
+      evidence: `HTML 메타데이터 기준 이미지 ${totalImages}장, product ${product}장, lifestyle ${lifestyle}장, 미분류 ${unclassified}장입니다. 실제 이미지를 본 Vision 판정이 아니므로 원본 페이지와 렌더링 상태를 함께 확인해야 합니다.`,
       rawIntro: "아래 표는 사람이 조치할 때 참고하는 원시 집계값입니다. 리더십 요약에는 그대로 노출하지 않는 것을 권장합니다.",
     };
   }
@@ -392,9 +392,9 @@ function currentStatusLens(
     return {
       risk: "medium",
       leadershipTitle: "리더십 판단",
-      leadership: `${siteLabel}의 ${label}은 Visual 전략 자체보다 데이터 신뢰도를 먼저 확인해야 하는 항목입니다. 리더십에는 큰 방향성만 공유하고 원시 수치는 부록으로 넘기는 것이 좋습니다.`,
+      leadership: `${siteLabel}의 ${label}은 Visual 전략을 바로 단정하기보다 실제 페이지와 자동 집계가 맞는지 확인해야 합니다. 리더십에는 결론과 해야 할 일만 공유하세요.`,
       ownerTitle: "실무자 액션",
-      owner: "대표 페이지 1~2개를 열어 실제 이미지, alt, gallery 구성이 자동 집계와 맞는지 확인하세요. 불일치하면 크롤러 이미지 추출 로직을 먼저 수정해야 합니다.",
+      owner: "대표 페이지 1~2개를 열어 실제 이미지, ALT COPY, gallery 구성이 자동 집계와 맞는지 확인하세요. 불일치하면 이미지 추출 로직을 수정하세요.",
       evidenceTitle: "근거 참고",
       evidence: line,
       rawIntro: "아래 표는 자동 집계에 사용된 facts입니다. 현업 확인용 근거로 사용하세요.",
@@ -419,7 +419,7 @@ function currentStatusLens(
     leadershipTitle: "리더십 판단",
     leadership: `${siteLabel}의 ${metricLabel} / ${label}은 구조적 리스크 여부를 판단하는 항목입니다. 검색·AI 요약·구매전환 영향이 있을 때만 리더십 요약으로 올리면 됩니다.`,
     ownerTitle: "실무자 액션",
-    owner: "Schema, H-tag, meta, page role이 실제 페이지 목적과 맞는지 확인하고, 기준선 대비 비교 가능한 상태인지 먼저 보세요.",
+    owner: "Schema, H-tag, meta, page role이 실제 페이지 목적과 맞는지 확인하세요. PF/PDP/Buying 역할별로 Product, Breadcrumb, Offer 적용 여부를 점검하세요.",
     evidenceTitle: "근거 참고",
     evidence: line,
     rawIntro: "아래 표는 자동 집계된 구조 facts입니다. 수정 여부 판단 전 원본 페이지와 함께 확인하세요.",

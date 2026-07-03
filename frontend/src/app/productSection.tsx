@@ -5,9 +5,9 @@ import {
   MetricView, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
   PRODUCT_CATEGORY_ORDER, productCategoryKo, productCategoryDesc,
   orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf,
-  productPageLabel, METRICS, MetricTab,
+  productPageLabel, METRICS, MetricTab, metricActionSentence,
 } from "./shared";
-import { AverageBox, PageDrilldown } from "./sectionCommon";
+import { PageDrilldown } from "./sectionCommon";
 import { buildPageRows, PageRow, roleRank, roleLabel } from "./pagesSection";
 
 const usefulCategories = (rows: PageRow[]) => PRODUCT_CATEGORY_ORDER.filter((cat) => rows.some((r) => r.product_category === cat));
@@ -18,18 +18,34 @@ const roleCoverage = (rows: PageRow[]) => {
 };
 
 const productInsight = (category: string, rows: PageRow[]) => {
-  if (!rows.length) return `${productCategoryKo(category)} 관리 URL이 없습니다.`;
+  if (!rows.length) return `${productCategoryKo(category)} 관리 URL이 없습니다. PF/PDP/Buying 중 비교할 역할 URL부터 등록하세요.`;
   const siteKeys = orderedSiteKeys(rows.map((r) => r.site));
-  const collected = rows.filter((r) => r.status === "수집됨");
   const missing = rows.filter((r) => r.status !== "수집됨");
-  const bySite = siteKeys.map((site) => {
-    const siteRows = rows.filter((r) => r.site === site);
-    const got = siteRows.filter((r) => r.status === "수집됨").length;
-    return `${siteShortName(site)} ${got}/${siteRows.length}`;
-  }).join(" · ");
+  const completeSites = siteKeys.filter((site) => ["pf", "pdp", "buying"].every((role) => rows.some((r) => r.site === site && r.page_role === role && r.status === "수집됨")));
   const missingExamples = missing.slice(0, 3).map((r) => `${siteShortName(r.site)} ${productPageLabel(r, r.url)}`).join(", ");
-  const completeSites = siteKeys.filter((site) => ["pf", "pdp", "buying"].every((role) => rows.some((r) => r.site === site && r.page_role === role)));
-  return `${productCategoryKo(category)} 수집 범위: Site별 ${bySite}. 역할 구성은 ${roleCoverage(rows)}입니다. ${completeSites.length ? `PF/PDP/Buying 3종이 모두 있는 사이트: ${completeSites.map(siteShortName).join(", ")}.` : "PF/PDP/Buying 3종이 모두 갖춰진 사이트는 아직 없습니다."}${missingExamples ? ` 수집 전/근거부족: ${missingExamples}.` : " 모든 관리 URL에 수집 근거가 있습니다."}`;
+  return completeSites.length
+    ? `${productCategoryKo(category)}는 ${completeSites.map(siteShortName).join(", ")}에서 PF/PDP/Buying 흐름을 비교할 수 있습니다. 역할이 비어 있는 사이트는 구매 CTA가 PDP 내부에 있는지 확인하세요.${missingExamples ? ` 근거 부족: ${missingExamples}.` : ""}`
+    : `${productCategoryKo(category)}는 PF/PDP/Buying 3종이 모두 확보된 사이트가 없습니다. 제품군 비교 전에 누락 역할 URL 또는 PDP 내부 구매 CTA를 확인하세요.${missingExamples ? ` 근거 부족: ${missingExamples}.` : ""}`;
+};
+
+type RoleCell = { label: string; cls: "good" | "watch" | "unknown"; detail: string; count: number };
+
+const roleCellFor = (rows: PageRow[], role: string): RoleCell => {
+  const roleRows = rows.filter((r) => r.page_role === role);
+  const collected = roleRows.filter((r) => r.status === "수집됨");
+  if (collected.length) return { label: "있음", cls: "good", detail: `${collected.length}개 근거 확보`, count: collected.length };
+  if (roleRows.length) return { label: "근거 부족", cls: "unknown", detail: "관리 URL은 있으나 상세 근거가 없습니다", count: roleRows.length };
+  return { label: "없음", cls: "watch", detail: "역할 URL 또는 PDP 내부 CTA 확인 필요", count: 0 };
+};
+
+const productMatrixAction = (rows: PageRow[]) => {
+  const pf = roleCellFor(rows, "pf");
+  const pdp = roleCellFor(rows, "pdp");
+  const buying = roleCellFor(rows, "buying");
+  if (pdp.label !== "있음") return "PDP 근거를 먼저 확보하고 제품 상세의 COPY/CTA와 Schema를 비교하세요.";
+  if (buying.label !== "있음") return "Buying URL이 없으면 PDP 내부 구매 CTA와 혜택 영역을 확인하세요.";
+  if (pf.label !== "있음") return "PF가 없으면 제품군 탐색에서 PDP/Buying으로 이어지는 CTA 흐름을 확인하세요.";
+  return `${metricActionSentence("copy")} ${metricActionSentence("visual")}`;
 };
 
 export function ProductTab({
@@ -80,26 +96,7 @@ export function ProductTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [representative, autoMode]);
 
-  const metricForSite = (site: SiteKey) => {
-    const sitePages = pages[site] || [];
-    if (metricTab !== "all") {
-      const block = dcv?.[metricTab]?.[site];
-      return {
-        pages: sitePages.length,
-        avgWords: sitePages.length ? Math.round(sitePages.reduce((a, p) => a + (p.word_count || 0), 0) / sitePages.length) : 0,
-        schema: typeof block?.facts?.schema?.coverage_pct === "number" ? block.facts.schema.coverage_pct + "%" : "-",
-        thin: typeof block?.facts?.content_density?.thin_pages?.length === "number" ? block.facts.content_density.thin_pages.length + "개" : "-",
-        lifestyle: typeof block?.facts?.image_diversity?.lifestyle_ratio_pct === "number" ? block.facts.image_diversity.lifestyle_ratio_pct + "%" : "-",
-      };
-    }
-    return {
-      pages: sitePages.length,
-      avgWords: sitePages.length ? Math.round(sitePages.reduce((a, p) => a + (p.word_count || 0), 0) / sitePages.length) : 0,
-      schema: typeof dcv?.data?.[site]?.facts?.schema?.coverage_pct === "number" ? dcv.data[site].facts.schema.coverage_pct + "%" : "-",
-      thin: typeof dcv?.copy?.[site]?.facts?.content_density?.thin_pages?.length === "number" ? dcv.copy[site].facts.content_density.thin_pages.length + "개" : "-",
-      lifestyle: typeof dcv?.visual?.[site]?.facts?.image_diversity?.lifestyle_ratio_pct === "number" ? dcv.visual[site].facts.image_diversity.lifestyle_ratio_pct + "%" : "-",
-    };
-  };
+
 
   const visibleSites = orderedSiteKeys(visibleRows.map((r) => r.site));
 
@@ -111,7 +108,7 @@ export function ProductTab({
             <p className="summaryEyebrow">제품별 분석</p>
             <h1 className="summaryH1">{productCategoryKo(selectedCategory)} — Site별 PF/PDP/Buying 비교</h1>
             <p className="summaryDesc">
-              폰, 태블릿, 버즈/오디오, 워치, 노트북/PC처럼 제품군을 먼저 고른 뒤 Site별로 어떤 PF/PDP/Buying URL을 관리하고 실제 수집됐는지 확인합니다.
+              제품군별로 PF/PDP/Buying 흐름이 갖춰졌는지 보고, 비어 있는 역할은 오늘 할 일로 바로 연결합니다.
             </p>
           </div>
         </div>
@@ -133,13 +130,33 @@ export function ProductTab({
           {(metricTab === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [metricTab]).map((m) => (
             <div key={m} className="sevRow">
               <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
-              <span className="sevDesc">이 제품군에서 수집된 페이지를 기준으로 상세 근거를 아래에서 확인하세요. 수집 전 URL은 근거 부족으로 분리 표시합니다.</span>
+              <span className="sevDesc">{m === "data" ? metricActionSentence("data") : m === "copy" ? metricActionSentence("copy") : metricActionSentence("visual")}</span>
             </div>
           ))}
         </div>
 
-        <div className="avgGrid" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-          {visibleSites.map((site) => <AverageBox key={site} title={siteName(site)} site={site} data={metricForSite(site)} metric={metricTab} />)}
+      </div>
+
+      <div className="card">
+        <p className="cardTitle">PF/PDP/Buying 완성도 — {productCategoryKo(selectedCategory)}</p>
+        <p className="muted" style={{ marginBottom: 10 }}>제품별 탭은 URL 목록보다 역할 완성도를 먼저 보여줍니다. 셀은 숫자만 표시하지 않고 상태와 해야 할 일을 함께 제공합니다.</p>
+        <div className="productMatrixTable">
+          <div className="productMatrixRow head"><span>Site</span><span>PF</span><span>PDP</span><span>Buying</span><span>오늘 할 일</span></div>
+          {visibleSites.map((site) => {
+            const rows = visibleRows.filter((r) => r.site === site);
+            const cells = ["pf", "pdp", "buying"].map((role) => roleCellFor(rows, role));
+            return (
+              <div key={site} className="productMatrixRow">
+                <span><span className={`badge ${siteClass(site)}`}>{siteName(site)}</span></span>
+                {cells.map((cell, idx) => (
+                  <span key={idx} className={`roleStatus ${cell.cls}`} title={cell.detail}>
+                    <b>{cell.label}</b><small>{cell.detail}</small>
+                  </span>
+                ))}
+                <span className="matrixActionText">{productMatrixAction(rows)}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -157,7 +174,7 @@ export function ProductTab({
       </div>
 
       <div className="card">
-        <p className="cardTitle">제품별 URL 목록 — {productCategoryKo(selectedCategory)} ({visibleRows.length}개)</p>
+        <p className="cardTitle">제품별 상세 URL — {productCategoryKo(selectedCategory)} ({visibleRows.length}개)</p>
         {visibleSites.map((site) => {
           const rows = visibleRows.filter((r) => r.site === site);
           const roles = Array.from(new Set(rows.map((r) => r.page_role))).sort((a, b) => roleRank(a) - roleRank(b));

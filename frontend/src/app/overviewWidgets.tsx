@@ -5,6 +5,7 @@ import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass, levelKo, levelClass,
   shortUrl, bucketOf, actionForChange, pageRoleFromUrl, pageRoleKo, pageRoleFromText,
+  metricActionSentence, metricIssueSentence, metricAreaLabel,
 } from "./shared";
 import {
   firstNarrativeLine, siteMetricSummary, compactSummary, siteMatchesQuery,
@@ -36,7 +37,7 @@ type PriorityIssue = {
   area: string;
   issue: string;
   action: string;
-  source: "change" | "quality";
+  source: "change" | "insight" | "evidence";
 };
 
 export type BoardDigest = {
@@ -44,6 +45,9 @@ export type BoardDigest = {
   allSites: SiteKey[];
   siteRows: SiteDashboardRow[];
   priorityRows: PriorityIssue[];
+  samsungActions: string[];
+  competitorBenchmarks: string[];
+  evidenceWarnings: string[];
   headline: string;
   lead: string;
   overallLabel: string;
@@ -58,10 +62,10 @@ export type BoardDigest = {
 };
 
 const HEALTH_META: Record<HealthState, { label: string; cls: string }> = {
-  good: { label: "Good", cls: "good" },
-  watch: { label: "Watch", cls: "watch" },
-  risk: { label: "Risk", cls: "risk" },
-  unknown: { label: "Unknown", cls: "unknown" },
+  good: { label: "우수", cls: "good" },
+  watch: { label: "확인 필요", cls: "watch" },
+  risk: { label: "개선 필요", cls: "risk" },
+  unknown: { label: "근거 부족", cls: "unknown" },
 };
 
 const priorityRank: Record<PriorityLevel, number> = { High: 0, Medium: 1, Low: 2 };
@@ -125,17 +129,17 @@ const worstHealth = (states: HealthState[]): HealthState => {
 function metricHealth(metric: MetricTab, block: AnalysisBlock | undefined, metricChanges: Change[]): MetricHealth {
   const high = metricChanges.some((c) => c.level === "High");
   const changed = metricChanges.length > 0;
-  if (!block) return { state: "unknown", label: "근거 없음", summary: "이번 리포트에 수집 근거 없음" };
+  if (!block) return { state: "unknown", label: "근거 부족", summary: `${metricAreaLabel(metric)} 근거가 부족합니다` };
 
   if (metric === "data") {
     const totalPages = pageCountFromBlock(metric, block);
     const coverage = schemaCoverage(block);
     const h1Pct = asNumber((block.facts as any)?.html_structure?.h_tag_coverage?.h1_coverage_pct, 0);
-    if (!totalPages) return { state: "unknown", label: "판단 보류", summary: "DATA 페이지 근거 없음" };
-    if (high) return { state: "risk", label: "High 변경", summary: "검색·AI 구조 영향 가능성 있는 변경" };
-    if (coverage === 0 && h1Pct === 0) return { state: "risk", label: "구조 근거 낮음", summary: `Schema 0% · H1 ${h1Pct}%` };
-    if ((coverage ?? 0) < 40) return { state: "watch", label: "보강 후보", summary: `Schema ${coverage ?? "-"}%` };
-    return { state: changed ? "watch" : "good", label: changed ? "변경 확인" : "정상", summary: `Schema ${coverage ?? "-"}%` };
+    if (!totalPages) return { state: "unknown", label: "근거 부족", summary: "DATA / Schema 페이지 근거가 부족합니다" };
+    if (high) return { state: "risk", label: "변화 있음", summary: "Schema/H-tag 변경이 검색·AI 해석에 영향을 줄 수 있습니다" };
+    if (coverage === 0 && h1Pct === 0) return { state: "risk", label: "개선 필요", summary: "Schema와 H-tag 역할 신호가 약합니다" };
+    if ((coverage ?? 0) < 40) return { state: "watch", label: "확인 필요", summary: `Schema 적용 범위가 낮습니다 (${coverage ?? "-"}%)` };
+    return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `Schema ${coverage ?? "-"}% · 역할 신호를 유지하세요` };
   }
 
   if (metric === "copy") {
@@ -145,23 +149,23 @@ function metricHealth(metric: MetricTab, block: AnalysisBlock | undefined, metri
     const cta = asNumber((block.facts as any)?.commerce_cta?.pages_with_buy_cta, 0);
     const roles = (block.facts as any)?.page_inventory?.by_page_role || {};
     const conversionRoles = asNumber(roles.pf, 0) + asNumber(roles.pdp, 0) + asNumber(roles.buying, 0);
-    if (!totalPages) return { state: "unknown", label: "판단 보류", summary: "COPY 페이지 근거 없음" };
-    if (words !== null && words < 30) return { state: "risk", label: "수집 의심", summary: `평균 ${words} words` };
-    if (high) return { state: "risk", label: "High 변경", summary: "핵심 카피/CTA 변경 확인 필요" };
+    if (!totalPages) return { state: "unknown", label: "근거 부족", summary: "COPY / CTA 페이지 근거가 부족합니다" };
+    if (words !== null && words < 30) return { state: "unknown", label: "근거 부족", summary: "카피 본문 근거가 부족합니다" };
+    if (high) return { state: "risk", label: "변화 있음", summary: "핵심 카피/CTA 변경을 확인해야 합니다" };
     if ((score !== null && score < 40) || (conversionRoles > 0 && cta === 0)) {
-      return { state: "watch", label: "보강 후보", summary: `카피 ${score ?? "-"}점 · CTA ${cta}p` };
+      return { state: "risk", label: "개선 필요", summary: "구매 CTA와 카피 연결이 약합니다" };
     }
-    return { state: changed ? "watch" : "good", label: changed ? "변경 확인" : "정상", summary: `카피 ${score ?? "-"}점 · CTA ${cta}p` };
+    return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `카피 ${score ?? "-"}점 · CTA ${cta}p` };
   }
 
   const totalPages = pageCountFromBlock(metric, block);
   const imageCount = visualImageCount(block);
   const altPct = visualAltPct(block);
-  if (!totalPages) return { state: "unknown", label: "판단 보류", summary: "VISUAL 페이지 근거 없음" };
-  if (imageCount === 0) return { state: "risk", label: "이미지 근거 없음", summary: "수집 이미지 0개" };
-  if (high) return { state: "risk", label: "High 변경", summary: "핵심 이미지/alt 변경 확인 필요" };
-  if ((altPct ?? 0) < 40) return { state: "watch", label: "alt 보강", summary: `이미지 ${imageCount ?? "-"}개 · alt ${altPct ?? "-"}%` };
-  return { state: changed ? "watch" : "good", label: changed ? "변경 확인" : "정상", summary: `이미지 ${imageCount ?? "-"}개 · alt ${altPct ?? "-"}%` };
+  if (!totalPages) return { state: "unknown", label: "근거 부족", summary: "VISUAL / ALT COPY 페이지 근거가 부족합니다" };
+  if (imageCount === 0) return { state: "unknown", label: "근거 부족", summary: "이미지/ALT COPY 근거가 부족합니다" };
+  if (high) return { state: "risk", label: "변화 있음", summary: "핵심 이미지/ALT COPY 변경을 확인해야 합니다" };
+  if ((altPct ?? 0) < 40) return { state: "risk", label: "개선 필요", summary: "ALT COPY의 구체성이 부족합니다" };
+  return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `이미지 ${imageCount ?? "-"}개 · ALT COPY ${altPct ?? "-"}%` };
 }
 
 function collectionHealth(site: SiteKey, scopedMetrics: MetricTab[], dcv: Report["dcv"] | undefined, siteChanges: Change[]): MetricHealth {
@@ -181,17 +185,17 @@ function collectionHealth(site: SiteKey, scopedMetrics: MetricTab[], dcv: Report
   const missingScoped = scopedMetrics.filter((m) => !dcv?.[m]?.[site]);
   const high = siteChanges.some((c) => c.level === "High");
 
-  if (!totalPages) return { state: "risk", label: "수집 실패 의심", summary: "페이지 카운트 0" };
+  if (!totalPages) return { state: "unknown", label: "근거 부족", summary: "핵심 비교에 넣기 전 원본 페이지 확인이 필요합니다" };
   if (words !== null && words < 30 && (images === 0 || images === null)) {
-    return { state: "risk", label: "수집 실패 의심", summary: `평균 ${words} words · 이미지 ${images ?? 0}개` };
+    return { state: "unknown", label: "근거 부족", summary: "본문/이미지 근거가 부족해 보조 확인으로 분리합니다" };
   }
-  if (high) return { state: "watch", label: "변경 우선 확인", summary: "High 변경 포함" };
+  if (high) return { state: "watch", label: "변화 있음", summary: "High 변경 포함" };
   if (missingScoped.length > 0) {
-    return { state: "watch", label: "부분 수집", summary: `${missingScoped.map(metricShortLabel).join("/")} 근거 부족` };
+    return { state: "watch", label: "확인 필요", summary: `${missingScoped.map(metricShortLabel).join("/")} 근거를 보강하세요` };
   }
-  if (words !== null && words < 80) return { state: "watch", label: "텍스트 근거 낮음", summary: `평균 ${words} words` };
-  if (scopedMetrics.includes("visual") && images === 0) return { state: "watch", label: "이미지 근거 낮음", summary: "이미지 0개" };
-  return { state: "good", label: "정상 비교 가능", summary: `${totalPages}p 수집 근거` };
+  if (words !== null && words < 80) return { state: "watch", label: "확인 필요", summary: "카피 근거가 짧아 핵심 문구를 확인하세요" };
+  if (scopedMetrics.includes("visual") && images === 0) return { state: "watch", label: "확인 필요", summary: "이미지/ALT COPY 근거를 확인하세요" };
+  return { state: "good", label: "우수", summary: `${totalPages}p 근거 확보` };
 }
 
 function issueFromRow(row: SiteDashboardRow): string {
@@ -199,14 +203,15 @@ function issueFromRow(row: SiteDashboardRow): string {
   if (row.collection.state === "risk" || row.collection.state === "unknown") return row.collection.summary;
   const weakMetric = (Object.entries(row.metrics) as [MetricTab, MetricHealth][]).find(([, h]) => h.state === "risk" || h.state === "unknown" || h.state === "watch");
   if (weakMetric) return `${metricShortLabel(weakMetric[0])}: ${weakMetric[1].summary}`;
-  return "큰 변화 없음 · 기준선 유지";
+  return "중요 변경 없음 · 현재 구성을 유지";
 }
 
 function actionFromRow(row: SiteDashboardRow): string {
   if (row.changes.length) return actionForChange(row.changes[0]);
-  if (row.collection.state === "risk" || row.collection.state === "unknown") return "URL·차단·JS 렌더링·에러 페이지 여부 우선 확인";
-  if (row.collection.state === "watch") return "근거가 낮은 지표만 재수집 후 리포트 반영";
-  return "다음 수집까지 모니터링 유지";
+  const weakMetric = (Object.entries(row.metrics) as [MetricTab, MetricHealth][]).find(([, h]) => h.state === "risk" || h.state === "watch" || h.state === "unknown");
+  if (weakMetric) return metricActionSentence(weakMetric[0]);
+  if (row.collection.state === "risk" || row.collection.state === "unknown") return "핵심 비교에서는 제외하고 URL·리다이렉트·렌더링 상태를 확인하세요.";
+  return "현재 구성을 유지하고 다음 수집에서 변화만 확인하세요.";
 }
 
 function buildSiteRows(changes: Change[], dcv: Report["dcv"] | undefined, scopedMetrics: MetricTab[], expectedSites: SiteKey[]) {
@@ -255,26 +260,50 @@ function buildPriorityRows(rows: SiteDashboardRow[], changes: Change[], scopedMe
       source: "change" as const,
     }));
 
-  const qualityRows = rows
+  const insightRows = rows
     .filter((row) => row.priority !== "Low" && !changeRows.some((x) => x.site === row.site))
     .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])
     .slice(0, 6)
     .map((row) => {
       const weakMetric = scopedMetrics.find((m) => row.metrics[m].state === "risk" || row.metrics[m].state === "unknown" || row.metrics[m].state === "watch");
       return {
-        id: `quality-${row.site}`,
+        id: `insight-${row.site}`,
         priority: row.priority,
         site: row.site,
-        area: weakMetric ? METRICS[weakMetric].label : "Collection",
-        issue: row.issue,
+        area: weakMetric ? METRICS[weakMetric].label : "근거 상태",
+        issue: weakMetric ? metricIssueSentence(weakMetric) : row.issue,
         action: row.action,
-        source: "quality" as const,
+        source: row.collection.state === "unknown" ? "evidence" as const : "insight" as const,
       };
     });
 
-  return [...changeRows, ...qualityRows]
+  return [...changeRows, ...insightRows]
     .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])
     .slice(0, 8);
+}
+
+function actionLinesForRow(row: SiteDashboardRow, scopedMetrics: MetricTab[]): string[] {
+  const lines: string[] = [];
+  const changed = row.changes.slice(0, 2).map((c) => actionForChange(c));
+  lines.push(...changed);
+  scopedMetrics.forEach((m) => {
+    const health = row.metrics[m];
+    if (health.state === "risk" || health.state === "watch") {
+      lines.push(`${metricIssueSentence(m)} ${metricActionSentence(m)}`);
+    }
+  });
+  if (!lines.length && (row.collection.state === "risk" || row.collection.state === "unknown")) {
+    lines.push(`${siteShortName(row.site)}는 근거가 부족해 핵심 비교에서 제외하고 원본 URL·렌더링을 확인하세요.`);
+  }
+  if (!lines.length) lines.push(`${siteShortName(row.site)}는 중요 변경이 없어 현재 구성을 유지하세요.`);
+  return Array.from(new Set(lines));
+}
+
+function benchmarkLineForRow(row: SiteDashboardRow, scopedMetrics: MetricTab[]): string {
+  const bestMetric = scopedMetrics.find((m) => row.metrics[m].state === "good") || scopedMetrics.find((m) => row.metrics[m].state === "watch") || scopedMetrics[0];
+  if (bestMetric === "data") return `${siteShortName(row.site)}는 DATA / Schema 구조를 참고할 수 있습니다. Samsung의 PF/PDP/Buying 역할별 Schema와 비교하세요.`;
+  if (bestMetric === "visual") return `${siteShortName(row.site)}는 VISUAL / ALT COPY 흐름을 참고할 수 있습니다. 제품명·기능·사용 장면 설명 방식을 비교하세요.`;
+  return `${siteShortName(row.site)}는 COPY / CTA 흐름을 참고할 수 있습니다. PDP에서 구매/혜택 CTA가 어떻게 이어지는지 비교하세요.`;
 }
 
 export function buildDashboardDigest({
@@ -293,55 +322,52 @@ export function buildDashboardDigest({
   const priorityRows = buildPriorityRows(siteRows, changes, scopedMetrics);
   const actionCount = priorityRows.filter((row) => row.priority !== "Low").length;
 
-  const confidenceRatio = allSites.length ? comparableCount / allSites.length : 0;
-  const confidenceLabel = !allSites.length
-    ? "No Data"
-    : riskCount + unknownCount > 0
-    ? "Medium-Low"
-    : confidenceRatio >= 0.8
-    ? "High"
-    : confidenceRatio >= 0.5
-    ? "Medium"
-    : "Low";
-  const overallLabel = !allSites.length
-    ? "No Data"
-    : highChangeCount > 0 || riskCount + unknownCount > 0
-    ? "Watch"
-    : changes.length > 0 || watchCount > 0
-    ? "Monitor"
-    : "Stable";
-  const headline = !allSites.length
-    ? "수집 데이터 없음"
-    : highChangeCount > 0
-    ? `즉시 확인 필요 · High ${highChangeCount}건`
-    : riskCount + unknownCount > 0
-    ? "변경 판단 보류 · 수집 품질 확인 필요"
-    : changes.length > 0
-    ? `변경 감지 · ${changes.length}건 우선순위 확인`
-    : watchCount > 0
-    ? "대체로 안정 · 일부 지표 재확인"
-    : "안정 · 정상 비교 가능";
-  const lead = !allSites.length
-    ? "관리 URL을 추가하거나 수집을 실행하면 리더십용 현황판이 표시됩니다."
-    : `관리 대상 ${allSites.length}개 중 비교 가능 ${comparableCount}개, 확인 필요 ${riskCount + unknownCount}개, 우선 액션 ${actionCount}개.`;
+  const samsungRow = siteRows.find((row) => row.site === "samsung");
+  const samsungActions = samsungRow
+    ? actionLinesForRow(samsungRow, scopedMetrics).slice(0, 4)
+    : ["Samsung 관리 URL과 수집 결과가 없어 개선 포인트를 만들 수 없습니다."];
+  const competitorBenchmarks = siteRows
+    .filter((row) => row.site !== "samsung" && row.collection.state !== "unknown")
+    .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])
+    .slice(0, 4)
+    .map((row) => benchmarkLineForRow(row, scopedMetrics));
+  const evidenceWarnings = siteRows
+    .filter((row) => row.collection.state === "unknown" || row.metrics && scopedMetrics.some((m) => row.metrics[m].state === "unknown"))
+    .slice(0, 4)
+    .map((row) => `${siteShortName(row.site)}는 근거가 부족해 핵심 인사이트가 아니라 보조 확인으로 보세요.`);
 
-  const issueSites = siteRows.filter((row) => row.priority !== "Low").slice(0, 4).map((row) => siteShortName(row.site));
+  const headline = !allSites.length
+    ? "분석 데이터 없음"
+    : highChangeCount > 0
+    ? `오늘 확인할 변화 ${highChangeCount}건`
+    : changes.length > 0
+    ? `경쟁사 변화 ${changes.length}건 확인`
+    : "오늘의 경쟁사 인사이트";
+  const lead = !allSites.length
+    ? "관리 URL을 추가하거나 수집을 실행하면 인사이트와 오늘 할 일이 표시됩니다."
+    : `${metricTab === "all" ? "전체 분석" : METRICS[metricTab as MetricTab].label} 기준으로 Samsung 개선 포인트, 경쟁사 벤치마크, 근거 부족 항목을 분리했습니다.`;
+  const overallLabel = !allSites.length
+    ? "데이터 없음"
+    : highChangeCount > 0 || samsungActions.some((x) => !/유지/.test(x))
+    ? "오늘 확인"
+    : changes.length > 0
+    ? "변화 확인"
+    : "유지";
+  const confidenceLabel = evidenceWarnings.length ? "근거 보강 필요" : "근거 확보";
+
   const changedSites = orderedSiteKeys(changes.map((c) => c.site || "")).slice(0, 4).map(siteShortName);
   const executiveBullets = [
+    samsungActions[0] || "Samsung 개선 포인트가 없습니다.",
+    competitorBenchmarks[0] || "현재 비교 가능한 경쟁사 벤치마크가 없습니다.",
     changes.length
-      ? `변경 ${changes.length}건 감지: ${changedSites.join(", ") || "상세 목록"} 중심으로 확인 필요`
-      : "신규 변경점은 없으며, 현재 수집분은 다음 비교 기준선으로 활용 가능",
-    riskCount + unknownCount
-      ? `수집 품질 확인 필요: ${issueSites.join(", ") || "일부 사이트"}의 빈 데이터/근거 부족 여부 점검`
-      : "수집 품질상 치명적 공백은 보이지 않음",
-    actionCount
-      ? `오늘 확인할 액션 ${actionCount}개: 아래 Priority Issues부터 처리`
-      : "즉시 처리할 액션 없음 · 정기 모니터링 유지",
+      ? `변화 감지: ${changedSites.join(", ") || "상세 목록"} 중심으로 확인하세요.`
+      : "큰 변경은 없으므로 오늘 할 일과 벤치마크 포인트만 확인하세요.",
   ];
 
   return {
-    scopedMetrics, allSites, siteRows, priorityRows, headline, lead, overallLabel, confidenceLabel,
-    executiveBullets, comparableCount, watchCount, riskCount, unknownCount, highChangeCount, actionCount,
+    scopedMetrics, allSites, siteRows, priorityRows, samsungActions, competitorBenchmarks, evidenceWarnings,
+    headline, lead, overallLabel, confidenceLabel, executiveBullets,
+    comparableCount, watchCount, riskCount, unknownCount, highChangeCount, actionCount,
   };
 }
 
@@ -366,7 +392,7 @@ export function WatchPointPanel({ changes, dcv, metricTab, expectedSites = [] }:
     <div className="card watchPointCard execBoard">
       <div className="execHero">
         <div className="execHeroText">
-          <p className="summaryEyebrow">Executive Overview</p>
+          <p className="summaryEyebrow">Insight Board</p>
           <h2>{digest.headline}</h2>
           <p className="execLead">{digest.lead}</p>
           <div className="execBullets">
@@ -375,44 +401,44 @@ export function WatchPointPanel({ changes, dcv, metricTab, expectedSites = [] }:
           </div>
         </div>
         <div className="execKpiGrid" aria-label="Executive KPI">
-          <div><b>{digest.allSites.length}</b><span>관리 Site</span></div>
-          <div><b>{digest.comparableCount}</b><span>비교 가능</span></div>
-          <div><b>{digest.riskCount + digest.unknownCount}</b><span>확인 필요</span></div>
-          <div><b>{digest.actionCount}</b><span>Action</span></div>
+          <div><b>{digest.samsungActions.length}</b><span>Samsung 개선</span></div>
+          <div><b>{digest.competitorBenchmarks.length}</b><span>벤치마크</span></div>
+          <div><b>{digest.highChangeCount || changes.length}</b><span>변화 감지</span></div>
+          <div><b>{digest.evidenceWarnings.length}</b><span>근거 부족</span></div>
         </div>
       </div>
 
-      <div className="decisionStrip">
+      <div className="decisionStrip insightStrip">
         <div>
-          <span>Overall Status</span>
-          <b>{digest.overallLabel}</b>
-          <p>{digest.headline}</p>
+          <span>Samsung 개선 포인트</span>
+          <b>{digest.samsungActions.length}개</b>
+          <p>{digest.samsungActions[0] || "현재 즉시 수정할 항목은 없습니다."}</p>
         </div>
         <div>
-          <span>Data Confidence</span>
+          <span>경쟁사 벤치마크</span>
+          <b>{digest.competitorBenchmarks.length}개</b>
+          <p>{digest.competitorBenchmarks[0] || "비교 가능한 경쟁사 포인트가 없습니다."}</p>
+        </div>
+        <div>
+          <span>근거 상태</span>
           <b>{digest.confidenceLabel}</b>
-          <p>비교 가능 {digest.comparableCount}/{digest.allSites.length || 0} · Watch {digest.watchCount}</p>
-        </div>
-        <div>
-          <span>Action Required</span>
-          <b>{digest.actionCount} items</b>
-          <p>{digest.priorityRows[0]?.action || "즉시 처리할 이슈 없음"}</p>
+          <p>{digest.evidenceWarnings[0] || "핵심 인사이트에 사용할 근거가 확보되어 있습니다."}</p>
         </div>
       </div>
 
       <div className="execSectionHead">
         <div>
-          <p className="summaryEyebrow">Priority Issues</p>
-          <h3>오늘 먼저 볼 항목</h3>
+          <p className="summaryEyebrow">오늘 할 일</p>
+          <h3>오늘 할 일</h3>
         </div>
-        <small>변경점과 수집 품질 이슈를 같은 우선순위로 정렬</small>
+        <small>모든 탭 공통 규칙: 판단 + 오늘 할 일로 표시</small>
       </div>
       <div className="priorityTableWrap">
         <div className="priorityRow head">
-          <span>Priority</span><span>Site</span><span>Area</span><span>Issue</span><span>Action</span>
+          <span>우선순위</span><span>Site</span><span>영역</span><span>판단</span><span>오늘 할 일</span>
         </div>
         {digest.priorityRows.length === 0 ? (
-          <div className="priorityEmpty">우선 확인할 항목 없음 · 다음 수집까지 기준선 유지</div>
+          <div className="priorityEmpty">오늘 할 일 없음 · 현재 구성을 유지</div>
         ) : digest.priorityRows.map((row) => (
           <div key={row.id} className="priorityRow">
             <span><span className={`sevBadge ${levelClass(row.priority)}`}>{levelKo(row.priority)}</span></span>
@@ -426,17 +452,17 @@ export function WatchPointPanel({ changes, dcv, metricTab, expectedSites = [] }:
 
       <div className="execSectionHead matrixHead">
         <div>
-          <p className="summaryEyebrow">Competitor Matrix</p>
-          <h3>사이트 × 분석축 현황</h3>
+          <p className="summaryEyebrow">Status Matrix</p>
+          <h3>사이트 × 분석축 요약</h3>
         </div>
-        <small>Good / Watch / Risk / Unknown으로 압축</small>
+        <small>우수 / 확인 필요 / 개선 필요 / 근거 부족으로 통일</small>
       </div>
       <div className={`matrixGrid cols-${displayMetrics.length}`}>
         <div className="matrixRow matrixHeader">
           <span>Site</span>
           {displayMetrics.map((m) => <span key={m}>{metricShortLabel(m)}</span>)}
-          <span>Collection</span>
-          <span>Priority</span>
+          <span>근거 상태</span>
+          <span>우선순위</span>
         </div>
         {digest.siteRows.map((row) => (
           <div key={row.site} className="matrixRow">
@@ -473,7 +499,7 @@ export function WatchPointPanel({ changes, dcv, metricTab, expectedSites = [] }:
                     </div>
                   ))}
                 </div>
-                <p className="scorecardAction">Action: {row.action}</p>
+                <p className="scorecardAction">오늘 할 일: {row.action}</p>
               </div>
             );
           })}
@@ -522,10 +548,10 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
       }
       const qualityWarnings = digest.siteRows.filter((row) => row.priority !== "Low").slice(0, 4);
       if (qualityWarnings.length) {
-        setAnswer("조건에 맞는 변경점은 없습니다. 다만 변경 없음으로 단정하기 전 아래 수집 품질을 먼저 확인해야 합니다.\n" + qualityWarnings.map((row) => `- ${siteName(row.site)}: ${row.issue} → ${row.action}`).join("\n"));
+        setAnswer("조건에 맞는 변경점은 없습니다. 다만 변경 없음으로 보기 전 아래 근거 부족 항목을 보조 확인하세요.\n" + qualityWarnings.map((row) => `- ${siteName(row.site)}: ${row.issue} → ${row.action}`).join("\n"));
         return;
       }
-      setAnswer("조건에 맞는 변경점은 없습니다. 수집 품질상 큰 공백이 없으면 현재 상태를 baseline으로 두고, 다음 수집에서 Schema/CTA/카피/alt.copy 변화를 비교하면 됩니다.");
+      setAnswer("조건에 맞는 변경점은 없습니다. 큰 근거 공백이 없으면 현재 구성을 유지하고, 다음 수집에서 Schema/CTA/카피/ALT COPY 변화만 비교하면 됩니다.");
       return;
     }
 
@@ -564,7 +590,7 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
         return `- ${siteName(s)} ${roleText}${METRICS[metric].label} 변경: ${siteChanges.slice(0, 2).map((c) => `${c.summary || c.field} (${shortUrl(c.url)})`).join(" / ")}`;
       }
       if (!block || health.state === "risk" || health.state === "unknown") {
-        return `- ${siteName(s)} ${roleText}${METRICS[metric].label}: 변경 판단 보류. ${health.summary} → 수집 실패/차단/JS 렌더링 여부 확인 필요.`;
+        return `- ${siteName(s)} ${roleText}${METRICS[metric].label}: 근거 부족. ${health.summary} → 핵심 비교에서는 제외하고 URL·렌더링을 확인하세요.`;
       }
       return `- ${siteName(s)} ${roleText}${METRICS[metric].label}: ${health.label}. 현재 근거: ${compactSummary(firstNarrativeLine(block), 180)}`;
     });
@@ -588,7 +614,7 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
             <button onClick={() => answerFor(q)}>질문</button>
           </div>
           <pre>{answer}</pre>
-          <p className="muted">현재 수집된 facts/changes와 수집 품질 상태 안에서만 rule-based로 답합니다.</p>
+          <p className="muted">현재 수집된 facts/changes 안에서만 판단과 오늘 할 일을 rule-based로 답합니다.</p>
         </div>
       )}
     </div>

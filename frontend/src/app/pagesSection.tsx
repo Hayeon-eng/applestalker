@@ -6,6 +6,7 @@ import {
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
   metricAverage, metricOneLiner, bucketOf, shortUrl, pageRoleFromUrl,
   productCategoryFromRow, productCategoryKo, productPageLabel, roleDisplayKo, isLegacySamsungUsUrl, PRODUCT_CATEGORY_ORDER,
+  metricActionSentence,
 } from "./shared";
 import { AverageBox, PageDrilldown } from "./sectionCommon";
 
@@ -150,7 +151,7 @@ export function PagesTab({
     const faq = f.faq || {};
     const dup = f.duplication || {};
     const rich = f.copy_richness || {};
-    if (!block) return "COPY 인사이트: 아직 이 사이트의 카피 분석 근거가 없습니다. 먼저 PF/PDP/Buying 수집 성공 여부를 확인해야 합니다.";
+    if (!block) return "COPY / CTA 인사이트: 아직 이 사이트의 카피 분석 근거가 없습니다. 핵심 비교에서는 제외하고 URL·렌더링 상태를 확인하세요.";
 
     const buyPages = Array.isArray(cta.buy_cta_pages) ? cta.buy_cta_pages : [];
     const missingBuy = Array.isArray(cta.missing_buy_cta_pages) ? cta.missing_buy_cta_pages : [];
@@ -162,28 +163,28 @@ export function PagesTab({
     ].filter(Boolean);
     const ctaText = buyPages.length
       ? `구매 CTA가 ${buyPages.length}개 페이지에서 잡혀 Buying/PDP 전환 메시지 비교가 가능합니다`
-      : "Buy/Shop/Add to cart 계열 CTA가 아직 잡히지 않아 전환 문구 비교 근거가 부족합니다";
+      : "구매 CTA 연결이 약합니다. PDP/Buying에서 Buy/Shop/Add to cart 계열 CTA 위치와 문구를 확인하세요";
     const faqText = faq.pages_with_faq
       ? `FAQ는 ${faq.pages_with_faq}개 페이지/${faq.total_items || 0}문항으로 AI 답변 근거 후보가 있습니다`
       : "FAQ 구조는 확인되지 않았습니다";
     const dupText = dupCount ? `중복 CTA/문구 후보 ${dupCount}건은 본문 반복인지 확인 필요` : "눈에 띄는 중복 CTA/문구 후보는 적습니다";
-    return `COPY 인사이트: ${ctaText}. ${faqText}. ${dupText}.${samples.length ? ` 우선 확인: ${samples.join(", ")}.` : ""}`;
+    return `COPY / CTA 인사이트: ${ctaText}. ${faqText}. ${dupText}.${samples.length ? ` 우선 확인: ${samples.join(", ")}.` : ""}`;
   };
 
   const dataInsight = (siteRows: PageRow[], block?: Report["dcv"]["data"][string]) => {
     const f: any = block?.facts || {};
-    if (!block) return "DATA 인사이트: 아직 이 사이트의 구조화 데이터/HTML 분석 근거가 없습니다.";
+    if (!block) return "DATA / Schema 인사이트: 아직 이 사이트의 구조화 데이터/HTML 분석 근거가 없습니다. 핵심 비교에서는 제외하고 URL·렌더링 상태를 확인하세요.";
     const coverage = typeof f.schema?.coverage_pct === "number" ? `${f.schema.coverage_pct}%` : "-";
     const types = f.schema?.schema_type_counts ? Object.keys(f.schema.schema_type_counts).slice(0, 4).join(", ") : "확인된 타입 없음";
-    return `DATA 인사이트: Schema 적용률은 ${coverage}이고 주요 타입은 ${types}입니다. 단, 사이트마다 Linked/Inline 구현 방식이 다르므로 삼성 구조를 정답으로 두지 않고 PF/PDP/Buying 역할에 맞는 타입인지 중심으로 확인합니다.`;
+    return `DATA / Schema 인사이트: Schema 적용률은 ${coverage}이고 주요 타입은 ${types}입니다. ${metricActionSentence("data")}`;
   };
 
   const visualInsight = (siteRows: PageRow[], block?: Report["dcv"]["visual"][string]) => {
     const f: any = block?.facts || {};
-    if (!block) return "VISUAL 인사이트: 아직 이 사이트의 alt/src 기반 이미지 분석 근거가 없습니다.";
+    if (!block) return "VISUAL / ALT COPY 인사이트: 아직 이 사이트의 alt/src 기반 이미지 분석 근거가 없습니다. 핵심 비교에서는 제외하고 URL·렌더링 상태를 확인하세요.";
     const d = f.image_diversity || {};
     const alt = f.alt_text_quality || {};
-    return `VISUAL 인사이트: HTML 기준 이미지 ${d.total_images ?? "-"}장 중 product 신호 ${d.product ?? "-"}장, lifestyle 신호 ${d.lifestyle ?? "-"}장입니다. 설명적 alt 비율은 ${alt.descriptive_ratio_pct ?? "-"}%로, 실제 스크린샷 판정이 아니라 alt/src/파일명 기준의 메타데이터 신호입니다.`;
+    return `VISUAL / ALT COPY 인사이트: 이미지 ${d.total_images ?? "-"}장, product 신호 ${d.product ?? "-"}장, lifestyle 신호 ${d.lifestyle ?? "-"}장, 설명형 ALT COPY ${alt.descriptive_ratio_pct ?? "-"}%입니다. ${metricActionSentence("visual")}`;
   };
 
   const pageInsights = (site: SiteKey) => {
@@ -195,7 +196,7 @@ export function PagesTab({
 
     if (rows.length === 0) return "관리 URL이 없습니다. 먼저 이 사이트의 제품군별 PF/PDP/Buying URL 등록 여부를 확인하세요.";
     if (crawled.length === 0) {
-      return `수집 범위: ${categories.map((cat) => roleCoverageForCategory(rows, cat)).join(" · ") || "제품군 미분류"}. 아직 스냅샷이 없어서 인사이트를 만들지 않습니다. 차단, JS 렌더링, 리다이렉트, 타임아웃 여부를 먼저 확인하세요.`;
+      return `수집 범위: ${categories.map((cat) => roleCoverageForCategory(rows, cat)).join(" · ") || "제품군 미분류"}. 아직 상세 근거가 없어 핵심 인사이트에 넣지 않습니다. 차단, JS 렌더링, 리다이렉트, 타임아웃 여부를 확인하세요.`;
     }
 
     const scope = `수집 범위: ${categories.map((cat) => roleCoverageForCategory(rows, cat)).join(" · ")}. ${completeCategories.length ? `PF/PDP/Buying 3종이 모두 있는 제품군은 ${completeCategories.map(productCategoryKo).join(", ")}입니다.` : "PF/PDP/Buying 3종이 모두 갖춰진 제품군은 아직 없습니다."}${missing.length ? ` 수집 전: ${missing.join(", ")}.` : ""}`;
@@ -211,7 +212,7 @@ export function PagesTab({
     if (high) return { url: high.url, reason: "변경점 중 가장 심각한 페이지" };
     if (pool[0]) return { url: pool[0].url, reason: "변경이 감지된 페이지" };
     const firstCrawled = crawledRows[0];
-    if (firstCrawled) return { url: firstCrawled.url, reason: "변경이 없어 수집된 첫 페이지를 기준선으로 표시" };
+    if (firstCrawled) return { url: firstCrawled.url, reason: "변경이 없어 수집된 첫 페이지를 상세 근거로 표시" };
     return null;
   }, [metricTab, allChanges, crawledRows]);
 
@@ -267,7 +268,7 @@ export function PagesTab({
 
       <div className="card">
         <p className="cardTitle">
-          대표 페이지 상세 근거 — {selectedPage ? shortUrl(selectedPage.url) : ""} &nbsp;
+          선택 페이지 상세 근거 — {selectedPage ? shortUrl(selectedPage.url) : ""} &nbsp;
           <button style={{ fontSize: 11, color: "var(--blue)", fontWeight: 400 }} onClick={() => onOpenDrawer()}>
             분석 기준 보기 ↗
           </button>
@@ -279,7 +280,7 @@ export function PagesTab({
       </div>
 
       <div className="card">
-        <p className="cardTitle">경쟁사별 분석 요약 — 수집 범위 + 선택 지표 인사이트</p>
+        <p className="cardTitle">경쟁사별 인사이트 — 판단 + 오늘 할 일</p>
         <div className="siteSplit">
           {visibleSiteKeys.map((site) => (
             <div key={site}>
@@ -291,7 +292,7 @@ export function PagesTab({
       </div>
 
       <div className="card">
-        <p className="cardTitle">Site별 분석 — 관리 URL/수집 페이지 목록 ({pageRows.length}개) · 제품군 + PF/PDP/Buying 기준</p>
+        <p className="cardTitle">Site별 상세 URL — 관리 URL/수집 페이지 목록 ({pageRows.length}개) · 제품군 + PF/PDP/Buying 기준</p>
         {visibleSiteKeys.map((site) => {
           const rows = pageRows.filter((p) => p.site === site);
           if (!rows.length) return null;
@@ -344,7 +345,7 @@ export function PagesTab({
           );
         })}
         <p className="muted" style={{ marginTop: 8 }}>
-          기준: 관리 URL의 제품군(폰/태블릿/버즈/워치/노트북)과 페이지 역할(PF/PDP/Buying 등)을 함께 봅니다. 수집 전 URL은 비교 근거가 아니므로 인사이트 산정에서 제외하고, 먼저 크롤 성공 여부를 확인합니다.
+          기준: 관리 URL의 제품군(폰/태블릿/버즈/워치/노트북)과 페이지 역할(PF/PDP/Buying 등)을 함께 봅니다. 근거 부족 URL은 핵심 인사이트에서 제외하고, 원본 URL·렌더링·리다이렉트 상태를 확인합니다.
         </p>
       </div>
     </div>
