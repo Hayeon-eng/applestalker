@@ -321,38 +321,174 @@ function detailRowsForFinding(metric: MetricTab, label: string, block?: Analysis
   ];
 }
 
+
+
+type EvidenceAudienceLens = {
+  risk: "high" | "medium" | "low";
+  leadershipTitle: string;
+  leadership: string;
+  ownerTitle: string;
+  owner: string;
+  evidenceTitle: string;
+  evidence: string;
+  rawIntro: string;
+};
+
+const safeNumber = (v: any): number | undefined => {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v.replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+};
+
+function currentStatusLens(
+  metric: MetricTab,
+  site: SiteKey,
+  label: string,
+  line: string,
+  block: AnalysisBlock | undefined,
+  rows: DetailRow[],
+): EvidenceAudienceLens {
+  const f = block?.facts || {};
+  const imageDiversity = f.image_diversity || {};
+  const totalImages = safeNumber(imageDiversity.total_images);
+  const product = safeNumber(imageDiversity.product) ?? 0;
+  const lifestyle = safeNumber(imageDiversity.lifestyle) ?? 0;
+  const unclassified = safeNumber(imageDiversity.unclassified) ?? 0;
+  const siteLabel = siteName(site);
+  const metricLabel = METRICS[metric].label;
+
+  if (metric === "visual" && label === "이미지 분류" && totalImages === 0) {
+    return {
+      risk: "high",
+      leadershipTitle: "리더십 판단",
+      leadership: `${siteLabel}의 Visual 경쟁력은 이번 화면에서 판단하면 안 됩니다. 이미지가 0장으로 수집되어 경쟁사 강점/약점이 아니라 수집 품질 이슈로 봐야 합니다.`,
+      ownerTitle: "실무자 액션",
+      owner: "URL·지역/언어 리다이렉트·lazy-loaded 이미지·스크린샷 저장 여부를 확인한 뒤 재수집하세요. 정상 수집 전까지 이 값을 리포트 결론이나 경쟁사 비교에 넣지 않는 것이 맞습니다.",
+      evidenceTitle: "근거 참고",
+      evidence: `HTML 메타데이터 기준 이미지 ${totalImages}장, product ${product}장, lifestyle ${lifestyle}장, 미분류 ${unclassified}장입니다. 실제 이미지를 본 Vision 판정이 아니며, Error/빈 페이지 수집 가능성을 먼저 봐야 합니다.`,
+      rawIntro: "아래 표는 사람이 조치할 때 참고하는 원시 집계값입니다. 리더십 요약에는 그대로 노출하지 않는 것을 권장합니다.",
+    };
+  }
+
+  if (metric === "visual" && label === "이미지 분류") {
+    const ratio = safeNumber(imageDiversity.lifestyle_ratio_pct);
+    const ratioTextValue = ratio == null ? "확인 필요" : `${Math.round(ratio)}%`;
+    return {
+      risk: ratio == null ? "medium" : ratio >= 25 ? "low" : "medium",
+      leadershipTitle: "리더십 판단",
+      leadership: `${siteLabel}의 Visual은 현재 ${totalImages ?? "-"}장 기준으로 lifestyle 비율 ${ratioTextValue}입니다. 단, 픽셀 분석이 아니라 HTML 신호 기반이므로 방향성 참고로만 봅니다.`,
+      ownerTitle: "실무자 액션",
+      owner: "대표 PDP/PF에서 실제 스크린샷과 image src가 같이 잡혔는지 확인하고, product/lifestyle 분류가 맞는 샘플 3~5개를 수동 검증하세요.",
+      evidenceTitle: "근거 참고",
+      evidence: `product ${product}장 / lifestyle ${lifestyle}장 / 미분류 ${unclassified}장으로 분류되었습니다. alt, src, 파일명, 주변 텍스트 신호를 사용했습니다.`,
+      rawIntro: "아래 표는 자동 분류 근거입니다. 실제 이미지 의미와 다를 수 있으므로 샘플 검증이 필요합니다.",
+    };
+  }
+
+  if (metric === "visual") {
+    return {
+      risk: "medium",
+      leadershipTitle: "리더십 판단",
+      leadership: `${siteLabel}의 ${label}은 Visual 전략 자체보다 데이터 신뢰도를 먼저 확인해야 하는 항목입니다. 리더십에는 큰 방향성만 공유하고 원시 수치는 부록으로 넘기는 것이 좋습니다.`,
+      ownerTitle: "실무자 액션",
+      owner: "대표 페이지 1~2개를 열어 실제 이미지, alt, gallery 구성이 자동 집계와 맞는지 확인하세요. 불일치하면 크롤러 이미지 추출 로직을 먼저 수정해야 합니다.",
+      evidenceTitle: "근거 참고",
+      evidence: line,
+      rawIntro: "아래 표는 자동 집계에 사용된 facts입니다. 현업 확인용 근거로 사용하세요.",
+    };
+  }
+
+  if (metric === "copy") {
+    return {
+      risk: "medium",
+      leadershipTitle: "리더십 판단",
+      leadership: `${siteLabel}의 ${label}은 메시지/전환 영향 가능성을 보는 항목입니다. 리더십에는 경쟁사 메시지 변화 또는 구매 CTA 리스크가 있을 때만 올리면 됩니다.`,
+      ownerTitle: "실무자 액션",
+      owner: "PF/PDP/Buying 역할별로 실제 페이지를 열어 카피 길이, CTA 위치, FAQ 품질이 자동 집계와 맞는지 확인하세요.",
+      evidenceTitle: "근거 참고",
+      evidence: line,
+      rawIntro: "아래 표는 카피 분석 facts입니다. 문구 수정 판단 전 페이지 역할과 함께 확인하세요.",
+    };
+  }
+
+  return {
+    risk: "medium",
+    leadershipTitle: "리더십 판단",
+    leadership: `${siteLabel}의 ${metricLabel} / ${label}은 구조적 리스크 여부를 판단하는 항목입니다. 검색·AI 요약·구매전환 영향이 있을 때만 리더십 요약으로 올리면 됩니다.`,
+    ownerTitle: "실무자 액션",
+    owner: "Schema, H-tag, meta, page role이 실제 페이지 목적과 맞는지 확인하고, 기준선 대비 비교 가능한 상태인지 먼저 보세요.",
+    evidenceTitle: "근거 참고",
+    evidence: line,
+    rawIntro: "아래 표는 자동 집계된 구조 facts입니다. 수정 여부 판단 전 원본 페이지와 함께 확인하세요.",
+  };
+}
+
 export function CurrentStatusDrilldown({
   metric, site, block, selection,
 }: {
   metric: MetricTab; site: SiteKey; block?: AnalysisBlock; selection: CurrentFindingSelection;
 }) {
   const rows = detailRowsForFinding(metric, selection.label, block);
+  const lens = currentStatusLens(metric, site, selection.label, selection.line, block, rows);
   return (
     <div className="currentEvidenceBox">
       <p className="currentEvidenceKicker">
         <span className={`badge ${site}`}>{siteName(site)}</span>
         <span className={`badge ${metric === "data" ? "c1" : metric === "copy" ? "c2" : "c4"}`}>{METRICS[metric].label}</span>
         <span className="badge c6">{selection.label}</span>
+        <span className={`badge audienceRisk ${lens.risk}`}>{lens.risk === "high" ? "확인 필요" : lens.risk === "medium" ? "실무 검증" : "참고"}</span>
       </p>
-      <div className="diffBlock">
-        <p className="diffLabel">요약 문장</p>
+
+      <div className="audienceEvidenceStack">
+        <section className={`audienceEvidenceCard leadership ${lens.risk}`}>
+          <div className="audienceEvidenceHead">
+            <span className="audienceLevelBadge">Leadership</span>
+            <strong>{lens.leadershipTitle}</strong>
+          </div>
+          <p>{lens.leadership}</p>
+        </section>
+
+        <section className={`audienceEvidenceCard owner ${lens.risk}`}>
+          <div className="audienceEvidenceHead">
+            <span className="audienceLevelBadge">Owner</span>
+            <strong>{lens.ownerTitle}</strong>
+          </div>
+          <p>{lens.owner}</p>
+        </section>
+
+        <section className="audienceEvidenceCard raw">
+          <div className="audienceEvidenceHead">
+            <span className="audienceLevelBadge">Evidence</span>
+            <strong>{lens.evidenceTitle}</strong>
+          </div>
+          <p>{lens.evidence}</p>
+        </section>
+      </div>
+
+      <div className="diffBlock compactEvidenceSummary">
+        <p className="diffLabel">자동 요약 원문 · 참고</p>
         <p className="diffContent after">{selection.line}</p>
       </div>
-      {rows.length > 0 ? (
-        <div className="evidenceGrid" style={{ marginTop: 10 }}>
-          {rows.map((r, i) => (
-            <>
-              <span key={`${i}_k`} className="evidenceKey">{r.key}</span>
-              <span key={`${i}_v`} className="evidenceVal">{r.value}</span>
-            </>
-          ))}
-        </div>
-      ) : (
-        <p className="muted">표시할 상세 facts가 없습니다.</p>
-      )}
-      <p className="termDetail" style={{ marginTop: 10 }}>
-        변경점이 없어도 현재 상태 집계에 사용된 facts를 보여주는 영역입니다. 외부 AI 문장 생성이 없어도 규칙기반 집계값을 근거로 표시합니다.
-      </p>
+
+      <details className="rawEvidenceDetails">
+        <summary>원시 facts 표 보기</summary>
+        <p className="termDetail">{lens.rawIntro}</p>
+        {rows.length > 0 ? (
+          <div className="evidenceGrid rawEvidenceGrid" style={{ marginTop: 10 }}>
+            {rows.map((r, i) => (
+              <>
+                <span key={`${i}_k`} className="evidenceKey">{r.key}</span>
+                <span key={`${i}_v`} className="evidenceVal">{r.value}</span>
+              </>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">표시할 상세 facts가 없습니다.</p>
+        )}
+      </details>
     </div>
   );
 }

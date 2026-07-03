@@ -8,7 +8,7 @@ import {
 } from "./shared";
 import { ChangeDrilldown, CurrentStatusDrilldown, type CurrentFindingSelection } from "./evidencePanels";
 import { FindingList, Stat, sitesFromBlocks } from "./sectionCommon";
-import { WatchPointPanel, InsightChat } from "./overviewWidgets";
+import { WatchPointPanel, InsightChat, buildDashboardDigest } from "./overviewWidgets";
 
 /* ════════════════════════════════════════════════════
    Overview 탭 — 순서: ①변화N건+액션 ②사이트별 현황/변경 요약 ③지표별 분석 ④변경점목록
@@ -170,8 +170,7 @@ export function Overview({
   const [urlFilter, setUrlFilter] = useState<string | null>(null);
   const displayedChanges = urlFilter ? changes.filter((c) => c.url === urlFilter) : changes;
   const expectedSites = orderedSiteKeys(urls.map((u) => u.site_key || ""));
-  const collectedSites = orderedSiteKeys(Object.values(dcv || {}).flatMap((blocks) => Object.keys(blocks || {})));
-  const missingSites = expectedSites.filter((site) => !collectedSites.includes(site));
+  const boardDigest = buildDashboardDigest({ changes: scopedChanges, dcv, metricTab, expectedSites });
 
   // 상세보기 클릭 → 탭 이동 후, 해당 변경점 카드로 자동 스크롤
   useEffect(() => {
@@ -196,23 +195,21 @@ export function Overview({
           <div className="summaryText">
             <p className="summaryEyebrow">{report?.timestamp || "최근 수집 없음"}</p>
             <h1 className="summaryH1">
-              {report
-                ? (scopedChanges.length > 0
-                    ? `${metricTab === "all" ? "전체" : METRICS[metricTab].label} 변화 ${scopedChanges.length}건 감지`
-                    : "변화 없음 — 현행 유지")
-                : "수집 데이터 없음"}
+              {report ? boardDigest.headline : "수집 데이터 없음"}
             </h1>
             <p className="summaryDesc">
-              {metricTab === "all"
-                ? `관리 대상 ${expectedSites.length || "-"}개 사이트 중 수집 근거 ${collectedSites.length}개 사이트 · 미수집/근거부족 ${missingSites.length}개 · 글로벌 경쟁사 변경 ${competitors}건 · Samsung 변경 ${samsung}건`
-                : metricOneLiner(metricTab, dcv?.[metricTab], changes, expectedSites)}
+              {report
+                ? (metricTab === "all"
+                    ? `${boardDigest.lead} · 글로벌 경쟁사 변경 ${competitors}건 · Samsung 변경 ${samsung}건`
+                    : `${METRICS[metricTab].label}: ${boardDigest.lead} · ${metricOneLiner(metricTab, dcv?.[metricTab], changes, expectedSites)}`)
+                : "관리 URL을 추가하거나 수집을 실행하면 현황판이 표시됩니다."}
             </p>
           </div>
           <div className="statsRow">
-            <Stat label={metricTab === "all" ? "전체 변경" : `${METRICS[metricTab].label} 변경`} value={scopedChanges.length} />
-            <Stat label="높음" value={high} tone="red" />
-            <Stat label="경쟁사" value={competitors} />
-            <Stat label="Samsung" value={samsung} tone="blue" />
+            <Stat label="비교 가능" value={boardDigest.comparableCount} tone="blue" />
+            <Stat label="확인 필요" value={boardDigest.riskCount + boardDigest.unknownCount} tone={boardDigest.riskCount + boardDigest.unknownCount ? "red" : undefined} />
+            <Stat label="Action" value={boardDigest.actionCount} />
+            <Stat label="변경" value={scopedChanges.length} />
           </div>
         </div>
 
