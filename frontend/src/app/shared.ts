@@ -371,6 +371,22 @@ export const bucketOf = (c: Change): MetricTab => {
   if (/visual|image|screenshot|alt|lifestyle/.test(raw)) return "visual";
   return "copy";
 };
+// 사이트 하나의 DATA/COPY/VISUAL 점수(0~100)만 뽑아낸다. 근거 없으면 null.
+export const siteMetricScore = (metric: MetricTab, block?: AnalysisBlock): number | null => {
+  const f = block?.facts || {};
+  if (metric === "data") {
+    return typeof f.schema?.coverage_pct === "number" ? Math.round(f.schema.coverage_pct) : null;
+  }
+  if (metric === "copy") {
+    const pages = f.copy_richness?.all_pages;
+    if (!Array.isArray(pages) || pages.length === 0) return null;
+    const total = pages.reduce((sum: number, p: any) => sum + (Number(p?.score) || 0), 0);
+    return Math.round(total / pages.length);
+  }
+  return typeof f.image_diversity?.lifestyle_ratio_pct === "number"
+    ? Math.round(f.image_diversity.lifestyle_ratio_pct) : null;
+};
+
 export const metricAverage = (sitePages: PageLite[], block?: AnalysisBlock) => {
   const f = block?.facts || {};
   const copyPages = Array.isArray(f.copy_richness?.all_pages) ? f.copy_richness.all_pages.length : null;
