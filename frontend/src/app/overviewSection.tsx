@@ -252,33 +252,9 @@ export function Overview({
         </details>
       )}
 
-      {/* ② '전체요약'이면 DATA/COPY/VISUAL 축약카드(클릭→해당 탭 상세로 이동, 정보 중복 없음)
-             특정 지표 탭이면 분석기준→현황요약→변경점목록 풀 디테일 */}
-      {metricTab === "all" ? (
-        (["data", "copy", "visual"] as MetricTab[]).map((m) => {
-          const mChanges = allChanges.filter((c) => bucketOf(c) === m);
-          const mTopSev = topSeverityChanges(mChanges, 0);
-          const mHighCount = mChanges.filter((c) => c.level === "High").length;
-          return (
-            <button key={m} className="card metricSummaryCard" onClick={() => onJumpToMetric(m)}>
-              <p className="cardTitle">
-                <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
-                <span className="metricSummaryGo">상세 보기 →</span>
-              </p>
-              <p className="metricSummaryLine">{metricOneLiner(m, dcv?.[m], mChanges, expectedSites)}</p>
-              {mTopSev && (
-                <p
-                  className="metricSummarySub"
-                  style={{ color: mTopSev.level === "High" ? "var(--high)" : mTopSev.level === "Medium" ? "var(--med)" : "var(--tier-good)" }}
-                >
-                  {severityEmoji(mTopSev.level)} {levelKo(mTopSev.level)} 변화 {mChanges.filter((c) => c.level === mTopSev.level).length}건
-                  {mTopSev.level !== "High" && mHighCount === 0 && " (High 없음, 최고 심각도)"}
-                </p>
-              )}
-            </button>
-          );
-        })
-      ) : (
+      {/* ② 전체요약이 아니면(특정 지표 탭) 분석기준→현황요약→변경점목록 풀 디테일.
+             전체요약은 위 WatchPointPanel의 '축별 핵심 발견' + '전체 액션'으로 충분해 별도 요약을 넣지 않음 */}
+      {metricTab !== "all" && (
         <MetricSection
           metric={metricTab}
           changes={displayedChanges}

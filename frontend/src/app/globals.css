@@ -551,6 +551,9 @@ input, select { font-family: inherit; }
 .chatPanelHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .chatPanelHead b { font-size: 14px; }
 .chatPanelHead button { font-size: 20px; color: var(--ter); padding: 0 4px; }
+.qaPickRow { display: flex; gap: 6px; margin-bottom: 10px; }
+.qaPickRow select { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; font-size: 12px; background: #fff; color: var(--label); }
+.qaPickGo { background: var(--blue); color: #fff; border-radius: 10px; padding: 0 10px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
 .presetGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
 .presetGrid button { background: var(--bg); color: var(--label2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 8px; font-size: 11.3px; font-weight: 700; text-align: left; line-height: 1.35; }
 .presetGrid button:hover { background: var(--blue-soft); color: var(--blue); }

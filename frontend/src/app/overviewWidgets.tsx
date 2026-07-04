@@ -5,7 +5,7 @@ import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass, levelKo, levelClass,
   shortUrl, bucketOf, actionForChange, pageRoleFromUrl, pageRoleKo, pageRoleFromText,
-  metricActionSentence, metricIssueSentence, metricAreaLabel,
+  metricActionSentence, metricIssueSentence, metricAreaLabel, siteMetricScore,
 } from "./shared";
 import {
   firstNarrativeLine, compactSummary, siteMatchesQuery,
@@ -277,19 +277,28 @@ function buildPriorityRows(rows: SiteDashboardRow[], changes: Change[], scopedMe
       change: c,
     }));
 
+  const samsungRowForCompare = rows.find((r) => r.site === "samsung");
   const insightRows = rows
     .filter((row) => row.priority !== "Low" && !changeRows.some((x) => x.site === row.site))
     .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])
     .slice(0, 6)
     .map((row) => {
       const weakMetric = scopedMetrics.find((m) => row.metrics[m].state === "risk" || row.metrics[m].state === "unknown" || row.metrics[m].state === "watch");
+      const samsungMetric = weakMetric ? samsungRowForCompare?.metrics[weakMetric] : undefined;
+      const action = !weakMetric
+        ? row.action
+        : row.site === "samsung"
+          ? metricActionSentence(weakMetric)
+          : samsungMetric && (samsungMetric.state === "good" || samsungMetric.state === "watch")
+            ? `Samsung은 ${samsungMetric.summary} 수준을 유지·보완하세요.`
+            : metricActionSentence(weakMetric);
       return {
         id: `insight-${row.site}`,
         priority: row.priority,
         site: row.site,
         area: weakMetric ? METRICS[weakMetric].label : "근거 상태",
-        issue: weakMetric ? metricIssueSentence(weakMetric) : row.issue,
-        action: row.action,
+        issue: weakMetric ? row.metrics[weakMetric].summary : row.issue,
+        action,
         source: row.collection.state === "unknown" ? "evidence" as const : "insight" as const,
         metric: weakMetric || scopedMetrics[0] || "copy",
         change: row.changes[0],
@@ -355,24 +364,36 @@ function buildAxisHighlights(rows: SiteDashboardRow[], scopedMetrics: MetricTab[
 
     if (worstState === "risk" || worstState === "watch") {
       const sameGapCount = withEvidence.filter((r) => r.metrics[metric].state === worstState).length - 1;
+      const worstChange = worst.changes.find((c) => bucketOf(c) === metric);
+      const samsungMetric = samsungRow?.metrics[metric];
+      const gapAction = worstChange
+        ? actionForChange(worstChange)
+        : samsungMetric && (samsungMetric.state === "good" || samsungMetric.state === "watch")
+          ? `Samsung은 ${samsungMetric.summary} 수준을 유지하며 이 격차를 활용하세요.`
+          : samsungMetric
+            ? `Samsung도 ${METRICS[metric].label}이 약한 편이니, ${siteName(worst.site)}의 약점을 반면교사 삼아 먼저 보완하세요.`
+            : `Samsung ${METRICS[metric].label} 근거가 없어 비교가 어렵습니다. 근거부터 확보하세요.`;
       return {
         metric, kind: "gap", site: worst.site,
         priority: worstState === "risk" ? "High" : "Medium",
         stat: worst.metrics[metric].summary,
         caption: `${siteName(worst.site)} · 경쟁사 격차`,
-        action: worst.changes.find((c) => bucketOf(c) === metric) ? actionForChange(worst.changes.find((c) => bucketOf(c) === metric)!) : `Samsung은 지금 ${METRICS[metric].label} 수준을 유지·보완하세요.`,
+        action: gapAction,
         moreSitesCount: Math.max(0, sameGapCount),
       };
     }
 
     // ③ 다들 양호하면 제일 잘하는 경쟁사를 벤치마크 대상으로 제시
     const best = [...withEvidence].sort((a, b) => healthPriorityRank[b.metrics[metric].state] - healthPriorityRank[a.metrics[metric].state])[0];
+    const samsungMetricForBench = samsungRow?.metrics[metric];
     return {
       metric, kind: "benchmark", site: best.site,
       priority: "Low",
       stat: best.metrics[metric].summary,
       caption: `${siteName(best.site)} · 경쟁사 중 최고`,
-      action: `Samsung도 ${METRICS[metric].label} 수준을 벤치마크해보세요.`,
+      action: samsungMetricForBench
+        ? `Samsung은 지금 ${samsungMetricForBench.summary} 수준 — ${siteName(best.site)}의 방식을 참고해 벤치마크해보세요.`
+        : `${siteName(best.site)}의 ${METRICS[metric].label} 방식을 참고해 Samsung에도 적용해보세요.`,
       moreSitesCount: 0,
     };
   }).filter((x): x is AxisHighlight => x !== null);
@@ -601,6 +622,30 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
     setAnswer(answers.length ? answers.join("\n") : "현재 리포트에서 해당 사이트/페이지/지표 조합에 대한 근거가 없습니다.");
   };
 
+  const allQaSites = orderedSiteKeys([...expectedSites, ...Object.keys(dcv?.data || {}), ...Object.keys(dcv?.copy || {}), ...Object.keys(dcv?.visual || {}), ...changes.map((c) => c.site || "")]);
+  const [qaSite, setQaSite] = useState<string>("all");
+  const [qaMetric, setQaMetric] = useState<string>("all");
+
+  const askStructured = () => {
+    const metricsToShow = qaMetric === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [qaMetric as MetricTab];
+    const sitesToShow = qaSite === "all" ? allQaSites : [qaSite as SiteKey];
+    if (!sitesToShow.length) {
+      setAnswer("표시할 사이트가 없습니다. 관리 URL을 추가하고 수집을 실행하세요.");
+      return;
+    }
+    const lines = sitesToShow.flatMap((s) =>
+      metricsToShow.map((m) => {
+        const block = dcv?.[m]?.[s];
+        const score = siteMetricScore(m, block);
+        const sChanges = changes.filter((c) => bucketOf(c) === m && c.site === s);
+        const health = metricHealth(m, block, sChanges);
+        return `- ${siteName(s)} · ${METRICS[m].label}: ${score != null ? `${score}점` : "근거 없음"} · ${health.summary}`;
+      })
+    );
+    setQ(`${qaSite === "all" ? "전체 브랜드" : siteName(qaSite as SiteKey)} · ${qaMetric === "all" ? "전체 지표" : METRICS[qaMetric as MetricTab].label} 상세히 알려줘`);
+    setAnswer(lines.join("\n"));
+  };
+
   return (
     <div className={`floatingChat ${open ? "open" : ""}`}>
       {!open && <button className="chatToggle" onClick={() => setOpen(true)}>Q&A</button>}
@@ -609,6 +654,19 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
           <div className="chatPanelHead">
             <b>간단 Q&A</b>
             <button onClick={() => setOpen(false)} title="닫기">×</button>
+          </div>
+          <div className="qaPickRow">
+            <select value={qaSite} onChange={(e) => setQaSite(e.target.value)}>
+              <option value="all">브랜드 전체</option>
+              {allQaSites.map((s) => <option key={s} value={s}>{siteName(s)}</option>)}
+            </select>
+            <select value={qaMetric} onChange={(e) => setQaMetric(e.target.value)}>
+              <option value="all">지표 전체</option>
+              <option value="data">DATA / Schema</option>
+              <option value="copy">COPY / CTA</option>
+              <option value="visual">VISUAL / ALT COPY</option>
+            </select>
+            <button className="qaPickGo" onClick={askStructured}>점수·근거 보기</button>
           </div>
           <div className="presetGrid">
             {presets.map((p) => <button key={p} onClick={() => { setQ(p); answerFor(p); }}>{p}</button>)}
