@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MetricTab, MetricView, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
-  metricAverage, metricOneLiner, bucketOf, shortUrl, pageRoleFromUrl,
+  metricOneLiner, bucketOf, shortUrl, pageRoleFromUrl, siteMetricScore,
   productCategoryFromRow, productCategoryKo, productPageLabel, roleDisplayKo, isLegacySamsungUsUrl, PRODUCT_CATEGORY_ORDER,
   metricActionSentence,
 } from "./shared";
-import { AverageBox, PageDrilldown } from "./sectionCommon";
+import { SiteScoreCard, PageDrilldown, compactSummary } from "./sectionCommon";
+import { CurrentStatusDrilldown } from "./evidencePanels";
 
 export type PageRow = PageLite & {
   site: SiteKey;
@@ -20,6 +21,7 @@ export type PageRow = PageLite & {
 };
 
 export const ROLE_ORDER = ["pf", "pdp", "buying", "specs", "campaign_or_compare", "campaign", "compare", "home", "content"];
+const SCORE_METRIC_LABEL_KO: Record<MetricTab, string> = { data: "스키마 점수", copy: "카피 점수", visual: "이미지 점수" };
 export const roleRank = (role?: string) => {
   const idx = ROLE_ORDER.indexOf(role || "");
   return idx === -1 ? 99 : idx;
@@ -122,15 +124,30 @@ export function PagesTab({
 
   const crawledRows = pageRows.filter((p) => p.status === "수집됨");
 
-  const avgFor = (site: SiteKey): ReturnType<typeof metricAverage> => {
-    if (metricTab === "all") {
-      const sitePages = pages[site] || [];
-      const d = metricAverage(sitePages, dcv?.data?.[site]);
-      const c = metricAverage(sitePages, dcv?.copy?.[site]);
-      const v = metricAverage(sitePages, dcv?.visual?.[site]);
-      return { pages: d.pages, avgWords: d.avgWords, schema: d.schema, thin: c.thin, lifestyle: v.lifestyle };
-    }
-    return metricAverage(pages[site] || [], dcv?.[metricTab]?.[site]);
+  const insightForMetric = (site: SiteKey, metric: MetricTab): string => {
+    const raw = metric === "copy"
+      ? copyInsight(pageRows.filter((r) => r.site === site), dcv?.copy?.[site])
+      : metric === "visual"
+        ? visualInsight(pageRows.filter((r) => r.site === site), dcv?.visual?.[site])
+        : dataInsight(pageRows.filter((r) => r.site === site), dcv?.data?.[site]);
+    const stripped = raw.replace(/^[^:]+:\s*/, "");
+    const firstSentence = stripped.split(/(?<=[.다요])\s+/)[0] || stripped;
+    return compactSummary(firstSentence, 90);
+  };
+
+  const siteAverages = useMemo(() => {
+    const avgOf = (metric: MetricTab) => {
+      const vals = siteKeys.map((s) => siteMetricScore(metric, dcv?.[metric]?.[s])).filter((v): v is number => v != null);
+      return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+    };
+    return { data: avgOf("data"), copy: avgOf("copy"), visual: avgOf("visual") };
+  }, [siteKeys, dcv]);
+
+  const [selectedScore, setSelectedScore] = useState<{ site: SiteKey; metric: MetricTab } | null>(null);
+  const scoreEvidenceId = "score-evidence-pages";
+  const onSelectScore = (site: SiteKey, metric: MetricTab) => {
+    setSelectedScore((prev) => (prev?.site === site && prev?.metric === metric ? null : { site, metric }));
+    setTimeout(() => document.getElementById(scoreEvidenceId)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
   const roleCoverageForCategory = (rows: PageRow[], category: string) => {
@@ -262,8 +279,53 @@ export function PagesTab({
         </div>
 
         <div className="avgGrid" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
-          {visibleSiteKeys.map((site) => <AverageBox key={site} title={siteName(site)} site={site} data={avgFor(site)} metric={metricTab} />)}
+          {visibleSiteKeys.map((site) => (
+            <SiteScoreCard
+              key={site}
+              title={siteName(site)}
+              site={site}
+              isOwn={site === "samsung"}
+              blocks={{ data: dcv?.data?.[site], copy: dcv?.copy?.[site], visual: dcv?.visual?.[site] }}
+              siteAverages={siteAverages}
+              selectedMetric={selectedScore?.site === site ? selectedScore.metric : null}
+              onSelectScore={(metric) => onSelectScore(site, metric)}
+              worstText={insightForMetric(site, ["data", "copy", "visual"].reduce((worst, m) => {
+                const s = siteMetricScore(m as MetricTab, dcv?.[m as MetricTab]?.[site]);
+                const ws = siteMetricScore(worst as MetricTab, dcv?.[worst as MetricTab]?.[site]);
+                if (s == null) return worst;
+                if (ws == null) return m;
+                return s < ws ? m : worst;
+              }, "data") as MetricTab)}
+            />
+          ))}
         </div>
+        <p className="scoreLegend">
+          <span><span className="scoreDot good" /> 평균 이상</span>
+          <span><span className="scoreDot mid" /> 평균 근처</span>
+          <span><span className="scoreDot bad" /> 평균 이하</span>
+          <span style={{ color: "var(--sec)" }}>(같은 지표, 수집된 사이트 전체 평균 기준)</span>
+        </p>
+
+        {selectedScore && (
+          <details className="card currentEvidenceCard" id={scoreEvidenceId} open style={{ marginTop: 14 }}>
+            <summary className="summaryEvidenceSummary">
+              상세 근거 — {siteName(selectedScore.site)} / {SCORE_METRIC_LABEL_KO[selectedScore.metric]}
+            </summary>
+            <div className="summaryEvidenceBody">
+              <CurrentStatusDrilldown
+                metric={selectedScore.metric}
+                site={selectedScore.site}
+                block={dcv?.[selectedScore.metric]?.[selectedScore.site]}
+                selection={{
+                  site: selectedScore.site,
+                  index: 0,
+                  label: SCORE_METRIC_LABEL_KO[selectedScore.metric],
+                  line: insightForMetric(selectedScore.site, selectedScore.metric),
+                }}
+              />
+            </div>
+          </details>
+        )}
       </div>
 
       <div className="card">
@@ -280,7 +342,7 @@ export function PagesTab({
       </div>
 
       <div className="card">
-        <p className="cardTitle">경쟁사별 인사이트 — 판단 + 오늘 할 일</p>
+        <p className="cardTitle">경쟁사별 인사이트 — 판단 + 액션</p>
         <div className="siteSplit">
           {visibleSiteKeys.map((site) => (
             <div key={site}>

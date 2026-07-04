@@ -5,7 +5,7 @@ import {
   MetricView, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
   PRODUCT_CATEGORY_ORDER, productCategoryKo, productCategoryDesc,
   orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf,
-  productPageLabel, METRICS, MetricTab, metricActionSentence,
+  productPageLabel,
 } from "./shared";
 import { PageDrilldown } from "./sectionCommon";
 import { buildPageRows, PageRow, roleRank, roleLabel } from "./pagesSection";
@@ -38,14 +38,14 @@ const roleCellFor = (rows: PageRow[], role: string): RoleCell => {
   return { label: "없음", cls: "watch", detail: "역할 URL 또는 PDP 내부 CTA 확인 필요", count: 0 };
 };
 
-const productMatrixAction = (rows: PageRow[]) => {
+const productMatrixAction = (rows: PageRow[]): string | null => {
   const pf = roleCellFor(rows, "pf");
   const pdp = roleCellFor(rows, "pdp");
   const buying = roleCellFor(rows, "buying");
   if (pdp.label !== "있음") return "PDP 근거를 먼저 확보하고 제품 상세의 COPY/CTA와 Schema를 비교하세요.";
   if (buying.label !== "있음") return "Buying URL이 없으면 PDP 내부 구매 CTA와 혜택 영역을 확인하세요.";
   if (pf.label !== "있음") return "PF가 없으면 제품군 탐색에서 PDP/Buying으로 이어지는 CTA 흐름을 확인하세요.";
-  return `${metricActionSentence("copy")} ${metricActionSentence("visual")}`;
+  return null;
 };
 
 export function ProductTab({
@@ -108,7 +108,7 @@ export function ProductTab({
             <p className="summaryEyebrow">제품별 분석</p>
             <h1 className="summaryH1">{productCategoryKo(selectedCategory)} — Site별 PF/PDP/Buying 비교</h1>
             <p className="summaryDesc">
-              제품군별로 PF/PDP/Buying 흐름이 갖춰졌는지 보고, 비어 있는 역할은 오늘 할 일로 바로 연결합니다.
+              제품군별로 PF/PDP/Buying 흐름이 갖춰졌는지 보고, 비어 있는 역할은 액션로 바로 연결합니다.
             </p>
           </div>
         </div>
@@ -127,33 +127,40 @@ export function ProductTab({
             <span className="badge c1">수집 기준</span>
             <span className="sevDesc">{productInsight(selectedCategory, visibleRows)}</span>
           </div>
-          {(metricTab === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [metricTab]).map((m) => (
-            <div key={m} className="sevRow">
-              <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
-              <span className="sevDesc">{m === "data" ? metricActionSentence("data") : m === "copy" ? metricActionSentence("copy") : metricActionSentence("visual")}</span>
-            </div>
-          ))}
         </div>
 
       </div>
 
       <div className="card">
         <p className="cardTitle">PF/PDP/Buying 완성도 — {productCategoryKo(selectedCategory)}</p>
-        <p className="muted" style={{ marginBottom: 10 }}>제품별 탭은 URL 목록보다 역할 완성도를 먼저 보여줍니다. 셀은 숫자만 표시하지 않고 상태와 해야 할 일을 함께 제공합니다.</p>
-        <div className="productMatrixTable">
-          <div className="productMatrixRow head"><span>Site</span><span>PF</span><span>PDP</span><span>Buying</span><span>오늘 할 일</span></div>
+        <p className="muted" style={{ marginBottom: 10 }}>역할이 다 갖춰졌으면 "특이사항 없음", 비어 있으면 무엇부터 확인할지만 보여줍니다.</p>
+        <div className="siteSplit">
           {visibleSites.map((site) => {
             const rows = visibleRows.filter((r) => r.site === site);
-            const cells = ["pf", "pdp", "buying"].map((role) => roleCellFor(rows, role));
+            const roleCells = (["pf", "pdp", "buying"] as const).map((role) => ({ role, cell: roleCellFor(rows, role) }));
+            const action = productMatrixAction(rows);
             return (
-              <div key={site} className="productMatrixRow">
-                <span><span className={`badge ${siteClass(site)}`}>{siteName(site)}</span></span>
-                {cells.map((cell, idx) => (
-                  <span key={idx} className={`roleStatus ${cell.cls}`} title={cell.detail}>
-                    <b>{cell.label}</b><small>{cell.detail}</small>
-                  </span>
+              <div key={site} className="card metricSummaryCard" style={{ padding: 13, cursor: "default" }}>
+                <p className="siteSplitHead" style={{ marginBottom: 6 }}>
+                  <span className={`badge ${siteClass(site)}`}>{siteName(site)}</span>
+                  {site === "samsung" && <span className="ownTag">당사</span>}
+                </p>
+                {roleCells.map(({ role, cell }) => (
+                  <div key={role} className="scoreRow" style={{ cursor: "default" }}>
+                    <span>{role.toUpperCase()}</span>
+                    <span>
+                      <span className={`scoreDot ${cell.cls === "good" ? "good" : cell.cls === "unknown" ? "mid" : "bad"}`} />
+                      <span className="scoreVal" style={{ fontSize: 12.5 }}>{cell.label}</span>
+                    </span>
+                  </div>
                 ))}
-                <span className="matrixActionText">{productMatrixAction(rows)}</span>
+                <div className="worstBox">
+                  {action ? (
+                    <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>{action}</p>
+                  ) : (
+                    <p className="findingText" style={{ fontSize: 12, color: "var(--sec)" }}>PF/PDP/Buying 흐름 완비 · 특이사항 없음</p>
+                  )}
+                </div>
               </div>
             );
           })}

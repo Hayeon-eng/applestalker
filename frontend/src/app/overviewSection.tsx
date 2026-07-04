@@ -7,7 +7,7 @@ import {
   groupByUrl, shortUrl, linesFromBlock, metricOneLiner, bucketOf, actionForChange, orderedSiteKeys,
 } from "./shared";
 import { ChangeDrilldown, CurrentStatusDrilldown, type CurrentFindingSelection } from "./evidencePanels";
-import { FindingList, Stat, sitesFromBlocks } from "./sectionCommon";
+import { FindingList, sitesFromBlocks } from "./sectionCommon";
 import { WatchPointPanel, InsightChat, buildDashboardDigest } from "./overviewWidgets";
 
 /* ════════════════════════════════════════════════════
@@ -205,12 +205,6 @@ export function Overview({
                 : "관리 URL을 추가하거나 수집을 실행하면 현황판이 표시됩니다."}
             </p>
           </div>
-          <div className="statsRow">
-            <Stat label="Samsung 개선" value={boardDigest.samsungActions.length} tone="blue" />
-            <Stat label="벤치마크" value={boardDigest.competitorBenchmarks.length} />
-            <Stat label="근거 부족" value={boardDigest.evidenceWarnings.length} tone={boardDigest.evidenceWarnings.length ? "red" : undefined} />
-            <Stat label="변화 감지" value={scopedChanges.length} />
-          </div>
         </div>
 
         {/* High(또는 그 다음 등급) 변화 요약 + 액션 제시 — 클릭하면 해당 영역 탭으로 이동해 상세가 열림 */}
@@ -237,7 +231,13 @@ export function Overview({
         )}
       </div>
 
-      <WatchPointPanel changes={scopedChanges} dcv={dcv} metricTab={metricTab} expectedSites={expectedSites} />
+      <WatchPointPanel
+        changes={scopedChanges}
+        dcv={dcv}
+        metricTab={metricTab}
+        expectedSites={expectedSites}
+        onJumpToMetric={onJumpToMetric}
+      />
       <InsightChat dcv={dcv} changes={scopedChanges} expectedSites={expectedSites} />
 
       {/* ①.5 가장 심각한 변화의 상세 근거 — 전체요약에서는 접은 상태로 보관해 요약 흐름을 방해하지 않음 */}

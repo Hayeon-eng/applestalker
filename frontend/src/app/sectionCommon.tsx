@@ -3,7 +3,7 @@
 import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, PageDetail,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
-  shortUrl, linesFromBlock, tagForLine, metricAverage, metricActionSentence,
+  shortUrl, linesFromBlock, tagForLine, metricAverage, metricActionSentence, siteMetricScore,
 } from "./shared";
 
 
@@ -49,7 +49,7 @@ export function FindingList({
               title="상세 근거 보기"
             >
               <span className={`badge ${tag.cls}`}>{tag.label}</span>
-              <span className="findingText">{line}{actionHint && <small className="findingActionHint">오늘 할 일: {actionHint}</small>}</span>
+              <span className="findingText">{line}{actionHint && <small className="findingActionHint">액션: {actionHint}</small>}</span>
               <span className="findingGo">근거 ↓</span>
             </button>
           );
@@ -57,7 +57,7 @@ export function FindingList({
         return (
           <div className="findingRow" key={i}>
             <span className={`badge ${tag.cls}`}>{tag.label}</span>
-            <span className="findingText">{line}{actionHint && <small className="findingActionHint">오늘 할 일: {actionHint}</small>}</span>
+            <span className="findingText">{line}{actionHint && <small className="findingActionHint">액션: {actionHint}</small>}</span>
           </div>
         );
       })}
@@ -65,31 +65,69 @@ export function FindingList({
   );
 }
 
-export function AverageBox({
-  title, site, data, metric,
+const SCORE_METRIC_LABEL: Record<MetricTab, string> = { data: "스키마 점수", copy: "카피 점수", visual: "이미지 점수" };
+const SCORE_METRICS: MetricTab[] = ["data", "copy", "visual"];
+
+// 사이트 평균 대비 신호등 색: 근거 없으면 회색, 평균보다 뚜렷이 낮으면 빨강, 뚜렷이 높으면 초록, 그 외 노랑
+function scoreDotClass(score: number | null, avg: number | null): string {
+  if (score == null) return "none";
+  if (avg == null) return "mid";
+  if (score >= avg + 5) return "good";
+  if (score <= avg - 10) return "bad";
+  return "mid";
+}
+
+export function SiteScoreCard({
+  title, site, isOwn, blocks, siteAverages, onSelectScore, selectedMetric, worstText,
 }: {
-  title: string; site: SiteKey; data: ReturnType<typeof metricAverage>; metric: MetricView;
+  title: string; site: SiteKey; isOwn?: boolean;
+  blocks: Partial<Record<MetricTab, AnalysisBlock | undefined>>;
+  siteAverages: Partial<Record<MetricTab, number | null>>;
+  onSelectScore?: (metric: MetricTab) => void;
+  selectedMetric?: MetricTab | null;
+  worstText?: string;
 }) {
+  const scores = SCORE_METRICS.map((m) => ({ metric: m, score: siteMetricScore(m, blocks[m]) }));
+  const scored = scores.filter((s) => s.score != null) as { metric: MetricTab; score: number }[];
+  const worst = scored.length
+    ? scored.reduce((a, b) => {
+        const gapA = a.score - (siteAverages[a.metric] ?? a.score);
+        const gapB = b.score - (siteAverages[b.metric] ?? b.score);
+        return gapB < gapA ? b : a;
+      })
+    : null;
+
   return (
     <div className="avgBox">
       <p className="avgBoxTitle">
         <span className="avgBoxSite" style={{ background: site === "samsung" ? "var(--samsung)" : site === "apple" ? "var(--apple)" : "var(--competitor)" }} />
         {title}
+        {isOwn && <span className="ownTag">당사</span>}
       </p>
-      <div className="avgStat"><span>{data.pages}페이지 수집</span><span className="avgStatVal">{data.pages}</span></div>
-      <div className="avgStat"><span>평균 단어 수</span><span className="avgStatVal">{data.avgWords}</span></div>
-      {metric === "all" ? (
-        <>
-          <div className="avgStat"><span>Schema 적용률</span><span className="avgStatVal">{data.schema}</span></div>
-          <div className="avgStat"><span>짧은 텍스트 페이지</span><span className="avgStatVal">{data.thin}</span></div>
-          <div className="avgStat"><span>Lifestyle 이미지</span><span className="avgStatVal">{data.lifestyle}</span></div>
-        </>
-      ) : (
-        <div className="avgStat">
-          <span>{metric === "data" ? "Schema 적용률" : metric === "copy" ? "구매 CTA 확인" : "Lifestyle 이미지"}</span>
-          <span className="avgStatVal">{metric === "data" ? data.schema : metric === "copy" ? data.thin : data.lifestyle}</span>
-        </div>
-      )}
+      {scores.map(({ metric, score }) => (
+        <button
+          key={metric}
+          className={`scoreRow ${selectedMetric === metric ? "active" : ""}`}
+          onClick={() => onSelectScore?.(metric)}
+        >
+          <span>{SCORE_METRIC_LABEL[metric]}</span>
+          <span>
+            <span className={`scoreDot ${scoreDotClass(score, siteAverages[metric] ?? null)}`} />
+            <span className="scoreVal">{score == null ? "-" : `${score}점`}</span>
+            {score != null && <span className="scoreChev">›</span>}
+          </span>
+        </button>
+      ))}
+      <div className="worstBox">
+        {worst ? (
+          <>
+            <p className="worstLabel">가장 부족한 지표 — {SCORE_METRIC_LABEL[worst.metric]} ({worst.score}점)</p>
+            {worstText && <p className="findingText" style={{ fontSize: 12 }}>{worstText}</p>}
+          </>
+        ) : (
+          <p className="findingText" style={{ fontSize: 12, color: "var(--sec)" }}>이번 수집엔 근거 없음 · 비교 대상에서 제외, URL·렌더링 확인</p>
+        )}
+      </div>
     </div>
   );
 }

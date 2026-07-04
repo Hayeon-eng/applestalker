@@ -164,6 +164,23 @@ input, select { font-family: inherit; }
 /* ── 카드 */
 .card { background: var(--surface); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow-sm); }
 .cardTitle { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+.cardTitleHint { font-size: 11px; color: var(--sec); font-weight: 400; }
+
+.axisGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 720px) { .axisGrid { grid-template-columns: 1fr; } }
+.axisCard { text-align: left; cursor: pointer; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.axisCard:hover { box-shadow: var(--shadow-sm); border-color: var(--blue); }
+.axisCard.own { border-left: 4px solid var(--blue); }
+.axisCardLabel { font-size: 10.5px; font-weight: 800; color: var(--sec); letter-spacing: .03em; text-transform: uppercase; margin-bottom: 6px; }
+.axisCardStat { font-size: 14.5px; font-weight: 800; color: var(--label); line-height: 1.35; margin: 2px 0 3px; }
+.axisCardCap { font-size: 11px; color: var(--sec); margin-bottom: 8px; }
+.axisCardHr { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
+.axisCardAct { font-size: 12px; font-weight: 700; color: var(--blue); }
+.axisCardMore { font-size: 10.5px; color: var(--sec); margin-top: 6px; }
+.chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; margin-bottom: 8px; }
+.chip.high { background: #fde8e8; color: #b42318; }
+.chip.med { background: #fef3e0; color: #a15c00; }
+.chip.bench { background: #e8f0fe; color: #1a56b0; }
 
 /* ── 전체 요약 카드 */
 .summaryCard { background: var(--surface); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow-sm); }
@@ -353,7 +370,25 @@ input, select { font-family: inherit; }
 .avgStat { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0;
   border-bottom: 1px solid var(--line); font-size: 12px; }
 .avgStat:last-child { border-bottom: none; }
+.avgBoxInsight { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--label2); line-height: 1.4; }
 .avgStatVal { font-weight: 700; font-family: var(--mono); font-size: 13px; }
+.ownTag { font-size: 9px; font-weight: 800; background: var(--blue); color: #fff; padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
+.scoreRow { display: flex; width: 100%; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); border-top: none; border-left: none; border-right: none; background: none; font: inherit; text-align: left; cursor: pointer; }
+.scoreRow:last-of-type { border-bottom: none; }
+.scoreRow:hover { background: var(--bg); }
+.scoreRow.active { background: var(--bg); }
+.scoreRow > span:first-child { font-size: 12px; color: var(--label2); }
+.scoreDot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.scoreDot.good { background: var(--tier-good, #1a7f37); }
+.scoreDot.mid { background: #e0a300; }
+.scoreDot.bad { background: var(--high); }
+.scoreDot.none { background: var(--line); }
+.scoreVal { font-size: 14px; font-weight: 800; }
+.scoreChev { font-size: 10px; color: var(--sec); margin-left: 5px; }
+.worstBox { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--line); }
+.worstLabel { font-size: 10px; font-weight: 800; color: var(--high); letter-spacing: .03em; margin-bottom: 2px; }
+.scoreLegend { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--sec); margin-top: 10px; }
+.scoreLegend span { display: flex; align-items: center; gap: 5px; }
 
 /* ── 페이지 테이블 */
 .pageTable { margin-top: 10px; }
@@ -586,6 +621,9 @@ input, select { font-family: inherit; }
 .priorityRow { display: grid; grid-template-columns: 86px 132px 128px minmax(220px, 1.2fr) minmax(220px, 1fr); gap: 10px; align-items: center; padding: 11px 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--label2); }
 .priorityRow:first-child { border-top: none; }
 .priorityRow.head { background: var(--bg); color: var(--sec); font-size: 10.5px; font-weight: 850; text-transform: uppercase; letter-spacing: .025em; }
+button.priorityRow { width: 100%; border: none; background: #fff; font: inherit; text-align: left; cursor: pointer; }
+button.priorityRow:hover { background: var(--bg); }
+.siteInsightAction { color: var(--blue); margin-top: 4px; }
 .priorityEmpty { padding: 15px 14px; color: var(--sec); font-size: 12px; }
 .matrixHead { margin-top: 20px; }
 .matrixGrid { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: #fff; }

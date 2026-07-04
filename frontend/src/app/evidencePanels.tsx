@@ -1,6 +1,6 @@
 "use client";
 
-import { Change, AnalysisBlock, MetricTab, SiteKey, METRICS, siteName, shortUrl } from "./shared";
+import { Change, AnalysisBlock, MetricTab, SiteKey, METRICS, siteName, shortUrl, actionForChange } from "./shared";
 
 const EVIDENCE_LABELS: Record<string, string> = {
   kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
@@ -58,6 +58,12 @@ export function ChangeDrilldown({ change: c }: { change: Change }) {
   const hasStructureDetail = !!(countDeltas || ev.tag_deltas || ev.heading_deltas || ev.cta_deltas);
   const isDomHashOnly = "dom_hash_before" in ev && !("kind" in ev) && !hasStructureDetail;
   const hasKindLabel = !!(ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string]);
+  const otherEvidence = Object.entries(ev).filter(
+    ([k]) => k !== "count_deltas" && k !== "sentences_added" && k !== "sentences_removed"
+      && !(hasKindLabel && (k === "kind" || k === "type"))
+  );
+  const hasMoreEvidence = !!countDeltas || isDomHashOnly || otherEvidence.length > 0;
+
   return (
     <div className="drilldown">
       <h3>상세 근거</h3>
@@ -66,8 +72,14 @@ export function ChangeDrilldown({ change: c }: { change: Change }) {
         <a href={c.url} target="_blank" rel="noreferrer">{c.url}</a>
       </p>
       <p><b>분류:</b> {c.category || "-"} / {c.field || "-"}</p>
+      <p className="findingText siteInsightAction" style={{ margin: "6px 0 4px" }}>액션: {actionForChange(c)}</p>
+      {ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string] && (
+        <p style={{ marginTop: 4, fontSize: 12.5, fontWeight: 600 }}>
+          {EVIDENCE_KIND_LABELS[ev.kind as string]}{ev.type ? ` — ${ev.type}` : ""}
+        </p>
+      )}
 
-      {/* 정확히 무엇이 바뀌었는지 — 추가/삭제된 문장을 색으로 바로 보이게 (가장 중요한 정보라 최상단에 배치) */}
+      {/* 정확히 무엇이 바뀌었는지 — 추가/삭제된 문장을 색으로 바로 보이게 (가장 중요한 정보라 상단에 배치) */}
       {(sentencesAdded.length > 0 || sentencesRemoved.length > 0) && (
         <div style={{ marginTop: 8, marginBottom: 4 }}>
           {sentencesRemoved.length > 0 && (
@@ -101,46 +113,45 @@ export function ChangeDrilldown({ change: c }: { change: Change }) {
           <p className="diffContent after">{c.after}</p>
         </div>
       )}
-      {ev.kind && EVIDENCE_KIND_LABELS[ev.kind as string] && (
-        <p style={{ marginTop: 8, fontSize: 12.5, fontWeight: 600 }}>
-          {EVIDENCE_KIND_LABELS[ev.kind as string]}{ev.type ? ` — ${ev.type}` : ""}
-        </p>
-      )}
-      {countDeltas && (
-        <div style={{ marginTop: 8 }}>
-          <p style={{ fontSize: 11.5, fontWeight: 600, color: "var(--sec)", marginBottom: 4 }}>
-            구조 세부 변화 (h2/h3/CTA/FAQ/이미지 개수 비교)
-          </p>
-          <div className="evidenceGrid">
-            {Object.values(countDeltas).map((d) => (
-              <>
-                <span key={d.label + "_k"} className="evidenceKey">{d.label}</span>
-                <span key={d.label + "_v"} className="evidenceVal">
-                  {d.before} → {d.after} ({d.diff > 0 ? "+" : ""}{d.diff})
-                </span>
-              </>
-            ))}
-          </div>
-        </div>
-      )}
-      {isDomHashOnly && (
-        <p className="termDetail" style={{ marginTop: 8 }}>
-          저장된 구조 지표 기준으로 DOM 골격 변화가 감지되었습니다. H2/H3·CTA·FAQ·이미지 개수 변화가 없다면
-          요소의 순서, 중첩, 속성 또는 배치가 달라진 케이스로 표시됩니다.
-        </p>
-      )}
-      {Object.keys(ev).length > 0 && (
-        <div className="evidenceGrid" style={{ marginTop: 8 }}>
-          {Object.entries(ev)
-            .filter(([k]) => k !== "count_deltas" && k !== "sentences_added" && k !== "sentences_removed"
-                           && !(hasKindLabel && (k === "kind" || k === "type")))
-            .map(([k, v]) => (
-              <>
-                <span key={k + "_k"} className="evidenceKey">{EVIDENCE_LABELS[k] || k}</span>
-                <span key={k + "_v"} className="evidenceVal">{evidenceValueToText(v, k)}</span>
-              </>
-            ))}
-        </div>
+
+      {/* 기술적 원시값(해시, 태그 개수 등)은 필요할 때만 펼쳐서 봄 */}
+      {hasMoreEvidence && (
+        <details className="siteScoreDetails" style={{ marginTop: 10 }}>
+          <summary>근거 더보기</summary>
+          {countDeltas && (
+            <div style={{ marginTop: 10 }}>
+              <p style={{ fontSize: 11.5, fontWeight: 600, color: "var(--sec)", marginBottom: 4 }}>
+                구조 세부 변화 (h2/h3/CTA/FAQ/이미지 개수 비교)
+              </p>
+              <div className="evidenceGrid">
+                {Object.values(countDeltas).map((d) => (
+                  <>
+                    <span key={d.label + "_k"} className="evidenceKey">{d.label}</span>
+                    <span key={d.label + "_v"} className="evidenceVal">
+                      {d.before} → {d.after} ({d.diff > 0 ? "+" : ""}{d.diff})
+                    </span>
+                  </>
+                ))}
+              </div>
+            </div>
+          )}
+          {isDomHashOnly && (
+            <p className="termDetail" style={{ marginTop: 8 }}>
+              저장된 구조 지표 기준으로 DOM 골격 변화가 감지되었습니다. H2/H3·CTA·FAQ·이미지 개수 변화가 없다면
+              요소의 순서, 중첩, 속성 또는 배치가 달라진 케이스로 표시됩니다.
+            </p>
+          )}
+          {otherEvidence.length > 0 && (
+            <div className="evidenceGrid" style={{ marginTop: 8 }}>
+              {otherEvidence.map(([k, v]) => (
+                <>
+                  <span key={k + "_k"} className="evidenceKey">{EVIDENCE_LABELS[k] || k}</span>
+                  <span key={k + "_v"} className="evidenceVal">{evidenceValueToText(v, k)}</span>
+                </>
+              ))}
+            </div>
+          )}
+        </details>
       )}
     </div>
   );
@@ -323,15 +334,11 @@ function detailRowsForFinding(metric: MetricTab, label: string, block?: Analysis
 
 
 
-type EvidenceAudienceLens = {
+type EvidenceLens = {
   risk: "high" | "medium" | "low";
-  leadershipTitle: string;
-  leadership: string;
-  ownerTitle: string;
-  owner: string;
-  evidenceTitle: string;
-  evidence: string;
-  rawIntro: string;
+  conclusion: string;
+  action: string;
+  evidenceLine: string;
 };
 
 const safeNumber = (v: any): number | undefined => {
@@ -350,7 +357,7 @@ function currentStatusLens(
   line: string,
   block: AnalysisBlock | undefined,
   rows: DetailRow[],
-): EvidenceAudienceLens {
+): EvidenceLens {
   const f = block?.facts || {};
   const imageDiversity = f.image_diversity || {};
   const totalImages = safeNumber(imageDiversity.total_images);
@@ -363,13 +370,9 @@ function currentStatusLens(
   if (metric === "visual" && label === "이미지 분류" && totalImages === 0) {
     return {
       risk: "high",
-      leadershipTitle: "리더십 판단",
-      leadership: `${siteLabel}의 Visual 경쟁력은 이번 화면에서 판단하지 않습니다. 이미지/ALT COPY 근거가 없어 경쟁사 강점이 아니라 보조 확인 항목으로 분리하세요.`,
-      ownerTitle: "실무자 액션",
-      owner: "URL·지역/언어 리다이렉트·lazy-loaded 이미지·스크린샷 저장 여부를 확인하세요. 근거가 확보되기 전까지 이 값을 리포트 결론이나 경쟁사 비교에 넣지 마세요.",
-      evidenceTitle: "근거 참고",
-      evidence: `HTML 메타데이터 기준 이미지 ${totalImages}장, product ${product}장, lifestyle ${lifestyle}장, 미분류 ${unclassified}장입니다. 실제 이미지를 본 Vision 판정이 아니므로 원본 페이지와 렌더링 상태를 함께 확인해야 합니다.`,
-      rawIntro: "아래 표는 사람이 조치할 때 참고하는 원시 집계값입니다. 리더십 요약에는 그대로 노출하지 않는 것을 권장합니다.",
+      conclusion: `${siteLabel}은 이미지/ALT COPY 근거가 없어 이번 리포트에서 Visual 경쟁력을 판단하지 않았습니다.`,
+      action: "URL·지역/언어 리다이렉트·lazy-loaded 이미지·스크린샷 저장 여부를 확인하고, 근거가 확보되기 전까지는 경쟁사 비교에 넣지 마세요.",
+      evidenceLine: `HTML 메타데이터 기준 이미지 ${totalImages}장, product ${product}장, lifestyle ${lifestyle}장, 미분류 ${unclassified}장입니다. 실제 이미지를 본 판정이 아니므로 원본 페이지도 함께 확인이 필요합니다.`,
     };
   }
 
@@ -378,51 +381,35 @@ function currentStatusLens(
     const ratioTextValue = ratio == null ? "확인 필요" : `${Math.round(ratio)}%`;
     return {
       risk: ratio == null ? "medium" : ratio >= 25 ? "low" : "medium",
-      leadershipTitle: "리더십 판단",
-      leadership: `${siteLabel}의 Visual은 현재 ${totalImages ?? "-"}장 기준으로 lifestyle 비율 ${ratioTextValue}입니다. 단, 픽셀 분석이 아니라 HTML 신호 기반이므로 방향성 참고로만 봅니다.`,
-      ownerTitle: "실무자 액션",
-      owner: "대표 PDP/PF에서 실제 스크린샷과 image src가 같이 잡혔는지 확인하고, product/lifestyle 분류가 맞는 샘플 3~5개를 수동 검증하세요.",
-      evidenceTitle: "근거 참고",
-      evidence: `product ${product}장 / lifestyle ${lifestyle}장 / 미분류 ${unclassified}장으로 분류되었습니다. alt, src, 파일명, 주변 텍스트 신호를 사용했습니다.`,
-      rawIntro: "아래 표는 자동 분류 근거입니다. 실제 이미지 의미와 다를 수 있으므로 샘플 검증이 필요합니다.",
+      conclusion: `${siteLabel}의 Visual은 현재 ${totalImages ?? "-"}장 기준으로 lifestyle 비율 ${ratioTextValue}입니다. 픽셀 분석이 아니라 HTML 신호 기반이라 방향성 참고용입니다.`,
+      action: "대표 PDP/PF에서 실제 스크린샷과 image src가 같이 잡혔는지 확인하고, product/lifestyle 분류가 맞는 샘플 3~5개를 수동 검증하세요.",
+      evidenceLine: `product ${product}장 / lifestyle ${lifestyle}장 / 미분류 ${unclassified}장으로 분류되었습니다. alt, src, 파일명, 주변 텍스트 신호를 사용했습니다.`,
     };
   }
 
   if (metric === "visual") {
     return {
       risk: "medium",
-      leadershipTitle: "리더십 판단",
-      leadership: `${siteLabel}의 ${label}은 Visual 전략을 바로 단정하기보다 실제 페이지와 자동 집계가 맞는지 확인해야 합니다. 리더십에는 결론과 해야 할 일만 공유하세요.`,
-      ownerTitle: "실무자 액션",
-      owner: "대표 페이지 1~2개를 열어 실제 이미지, ALT COPY, gallery 구성이 자동 집계와 맞는지 확인하세요. 불일치하면 이미지 추출 로직을 수정하세요.",
-      evidenceTitle: "근거 참고",
-      evidence: line,
-      rawIntro: "아래 표는 자동 집계에 사용된 facts입니다. 현업 확인용 근거로 사용하세요.",
+      conclusion: `${siteLabel}의 ${label}은 실제 페이지와 자동 집계가 맞는지 먼저 확인이 필요한 항목입니다.`,
+      action: "대표 페이지 1~2개를 열어 실제 이미지, ALT COPY, gallery 구성이 자동 집계와 맞는지 확인하세요. 불일치하면 이미지 추출 로직을 수정하세요.",
+      evidenceLine: line,
     };
   }
 
   if (metric === "copy") {
     return {
       risk: "medium",
-      leadershipTitle: "리더십 판단",
-      leadership: `${siteLabel}의 ${label}은 메시지/전환 영향 가능성을 보는 항목입니다. 리더십에는 경쟁사 메시지 변화 또는 구매 CTA 리스크가 있을 때만 올리면 됩니다.`,
-      ownerTitle: "실무자 액션",
-      owner: "PF/PDP/Buying 역할별로 실제 페이지를 열어 카피 길이, CTA 위치, FAQ 품질이 자동 집계와 맞는지 확인하세요.",
-      evidenceTitle: "근거 참고",
-      evidence: line,
-      rawIntro: "아래 표는 카피 분석 facts입니다. 문구 수정 판단 전 페이지 역할과 함께 확인하세요.",
+      conclusion: `${siteLabel}의 ${label}은 메시지·구매 전환에 영향을 줄 수 있는 항목입니다.`,
+      action: "PF/PDP/Buying 역할별로 실제 페이지를 열어 카피 길이, CTA 위치, FAQ 품질이 자동 집계와 맞는지 확인하세요.",
+      evidenceLine: line,
     };
   }
 
   return {
     risk: "medium",
-    leadershipTitle: "리더십 판단",
-    leadership: `${siteLabel}의 ${metricLabel} / ${label}은 구조적 리스크 여부를 판단하는 항목입니다. 검색·AI 요약·구매전환 영향이 있을 때만 리더십 요약으로 올리면 됩니다.`,
-    ownerTitle: "실무자 액션",
-    owner: "Schema, H-tag, meta, page role이 실제 페이지 목적과 맞는지 확인하세요. PF/PDP/Buying 역할별로 Product, Breadcrumb, Offer 적용 여부를 점검하세요.",
-    evidenceTitle: "근거 참고",
-    evidence: line,
-    rawIntro: "아래 표는 자동 집계된 구조 facts입니다. 수정 여부 판단 전 원본 페이지와 함께 확인하세요.",
+    conclusion: `${siteLabel}의 ${metricLabel} / ${label}은 검색·AI 요약 노출에 영향을 줄 수 있는 구조 항목입니다.`,
+    action: "Schema, H-tag, meta, page role이 실제 페이지 목적과 맞는지 확인하세요. PF/PDP/Buying 역할별로 Product, Breadcrumb, Offer 적용 여부를 점검하세요.",
+    evidenceLine: line,
   };
 }
 
@@ -439,45 +426,19 @@ export function CurrentStatusDrilldown({
         <span className={`badge ${site}`}>{siteName(site)}</span>
         <span className={`badge ${metric === "data" ? "c1" : metric === "copy" ? "c2" : "c4"}`}>{METRICS[metric].label}</span>
         <span className="badge c6">{selection.label}</span>
-        <span className={`badge audienceRisk ${lens.risk}`}>{lens.risk === "high" ? "확인 필요" : lens.risk === "medium" ? "실무 검증" : "참고"}</span>
+        <span className={`priorityPill ${lens.risk === "high" ? "high" : lens.risk === "medium" ? "med" : "low"}`}>
+          {lens.risk === "high" ? "확인 필요" : lens.risk === "medium" ? "검증 필요" : "참고"}
+        </span>
       </p>
 
-      <div className="audienceEvidenceStack">
-        <section className={`audienceEvidenceCard leadership ${lens.risk}`}>
-          <div className="audienceEvidenceHead">
-            <span className="audienceLevelBadge">Leadership</span>
-            <strong>{lens.leadershipTitle}</strong>
-          </div>
-          <p>{lens.leadership}</p>
-        </section>
+      <p className="findingText" style={{ fontSize: 13, color: "var(--label)", marginBottom: 8 }}>{lens.conclusion}</p>
+      <p className="findingText siteInsightAction" style={{ marginBottom: 12 }}>액션: {lens.action}</p>
 
-        <section className={`audienceEvidenceCard owner ${lens.risk}`}>
-          <div className="audienceEvidenceHead">
-            <span className="audienceLevelBadge">Owner</span>
-            <strong>{lens.ownerTitle}</strong>
-          </div>
-          <p>{lens.owner}</p>
-        </section>
-
-        <section className="audienceEvidenceCard raw">
-          <div className="audienceEvidenceHead">
-            <span className="audienceLevelBadge">Evidence</span>
-            <strong>{lens.evidenceTitle}</strong>
-          </div>
-          <p>{lens.evidence}</p>
-        </section>
-      </div>
-
-      <div className="diffBlock compactEvidenceSummary">
-        <p className="diffLabel">자동 요약 원문 · 참고</p>
-        <p className="diffContent after">{selection.line}</p>
-      </div>
-
-      <details className="rawEvidenceDetails">
-        <summary>원시 facts 표 보기</summary>
-        <p className="termDetail">{lens.rawIntro}</p>
+      <details className="siteScoreDetails">
+        <summary>근거 더보기</summary>
+        <p className="termDetail" style={{ marginTop: 10 }}>{lens.evidenceLine}</p>
         {rows.length > 0 ? (
-          <div className="evidenceGrid rawEvidenceGrid" style={{ marginTop: 10 }}>
+          <div className="evidenceGrid" style={{ marginTop: 10 }}>
             {rows.map((r, i) => (
               <>
                 <span key={`${i}_k`} className="evidenceKey">{r.key}</span>
