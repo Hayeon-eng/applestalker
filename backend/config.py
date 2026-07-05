@@ -92,6 +92,11 @@ SEED_TARGETS: Dict[str, Target] = {
             # Keep the SG computer PF and Galaxy Book content page; the crawler still detects Buy/Shop CTA when present.
             "https://www.samsung.com/sg/computers/",
             "https://www.samsung.com/sg/business/tablets/galaxy-book/",
+            # Compare pages — 실제 존재 확인됨 (2026-07 기준)
+            "https://www.samsung.com/sg/smartphones/galaxy-s26-ultra/compare/",
+            "https://www.samsung.com/sg/tablets/compare/",
+            "https://www.samsung.com/sg/watches/compare/",
+            "https://www.samsung.com/sg/audio-sound/compare/",
         ],
     ),
     "apple": Target(
@@ -120,6 +125,14 @@ SEED_TARGETS: Dict[str, Target] = {
             "https://www.apple.com/mac/",
             "https://www.apple.com/macbook-pro/",
             "https://www.apple.com/shop/buy-mac/macbook-pro",
+            # Laptop: MacBook Air — 기존에 누락되어 있던 라인업, PF / Buying 추가
+            "https://www.apple.com/macbook-air/",
+            "https://www.apple.com/shop/buy-mac/macbook-air",
+            # Compare pages — 실제 존재 확인됨 (2026-07 기준)
+            "https://www.apple.com/iphone/compare/",
+            "https://www.apple.com/ipad/compare/",
+            "https://www.apple.com/watch/compare/",
+            "https://www.apple.com/mac/compare/",
         ],
     ),
     "google_pixel": Target(
