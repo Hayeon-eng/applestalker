@@ -490,7 +490,7 @@ export default function Page() {
       </div>
 
       {/* Q&A는 탭과 무관하게 항상 떠 있음 */}
-      <InsightChat dcv={report?.dcv} changes={allChanges} expectedSites={orderedSiteKeys(urls.map((u) => u.site_key || ""))} />
+      <InsightChat dcv={report?.dcv} changes={allChanges} expectedSites={orderedSiteKeys(urls.map((u) => u.site_key || ""))} urls={urls} />
 
       {/* ── 기준 설명 Drawer */}
       <CriteriaDrawer open={drawerOpen} section={drawerSection} onClose={() => setDrawerOpen(false)} />

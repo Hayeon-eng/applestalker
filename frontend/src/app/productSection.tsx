@@ -191,6 +191,25 @@ export function ProductTab({
           </button>
         </p>
         {representative && <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>선정 이유: {representative.reason}{!autoMode && " (수동 선택됨)"}</p>}
+        {selectedPage && (() => {
+          const currentRow = allRows.find((r) => r.url === selectedPage.url);
+          const siblings = currentRow
+            ? allRows.filter((r) => r.site === currentRow.site && r.url !== currentRow.url && r.status === "수집됨")
+                .sort((a, b) => (a.product_category === b.product_category
+                  ? roleRank(a.page_role) - roleRank(b.page_role)
+                  : PRODUCT_CATEGORY_ORDER.indexOf(a.product_category as any) - PRODUCT_CATEGORY_ORDER.indexOf(b.product_category as any)))
+            : [];
+          return siblings.length > 0 ? (
+            <div className="pageSwitcherRow">
+              <span className="pageSwitcherLabel">{siteName(currentRow!.site)}의 다른 제품 페이지:</span>
+              {siblings.slice(0, 8).map((r) => (
+                <button key={r.url} className="pageSwitcherChip" onClick={() => pick(r.url)}>
+                  {productCategoryKo(r.product_category)} · {r.page_label || shortUrl(r.url)}
+                </button>
+              ))}
+            </div>
+          ) : null;
+        })()}
         {loadingPage && <p className="muted">불러오는 중…</p>}
         {!loadingPage && !selectedPage && <p className="muted">아래 수집된 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>}
         {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} focusMetric={metricTab} />}

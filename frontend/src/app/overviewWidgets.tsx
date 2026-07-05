@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report,
+  MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report, UrlRow,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass, levelKo, levelClass,
   shortUrl, bucketOf, actionForChange, metricActionSentence, metricIssueSentence, metricAreaLabel, siteMetricScore,
   PRODUCT_CATEGORY_ORDER, productCategoryKo, productCategoryFromRow,
@@ -44,6 +44,7 @@ type PriorityIssue = {
   change?: Change;
 };
 
+type AxisComponentStat = { label: string; value: number | null; competitorAvg: number | null; delta: number | null };
 type AxisHighlight = {
   metric: MetricTab;
   score: number | null;
@@ -52,6 +53,7 @@ type AxisHighlight = {
   delta: number | null; // Samsung score - 경쟁사 평균
   keyStatLabel: string;
   keyStatValue: number | null;
+  componentStats: AxisComponentStat[];
   insight: string;
   action: string;
   change?: Change;
@@ -376,13 +378,23 @@ function buildAxisHighlights(
     const score = samsungBreak.total;
     const tier = scoreTier(score);
 
-    const competitorScores = allSites
+    const competitorBreakdowns = allSites
       .filter((s) => s !== "samsung")
-      .map((s) => metricScoreBreakdown(metric, dcv?.[metric]?.[s]).total)
-      .filter((v): v is number => v != null);
+      .map((s) => metricScoreBreakdown(metric, dcv?.[metric]?.[s]));
+    const competitorScores = competitorBreakdowns.map((b) => b.total).filter((v): v is number => v != null);
     const competitorAvg = competitorScores.length
       ? Math.round(competitorScores.reduce((a, b) => a + b, 0) / competitorScores.length) : null;
     const delta = score != null && competitorAvg != null ? score - competitorAvg : null;
+
+    // 하위지표(예: Copy richness/CTA coverage/Word coverage) 각각을 경쟁사 평균과 함께 — CTA 하나만 부각되지 않도록 3개 다 계산
+    const componentStats: AxisComponentStat[] = samsungBreak.components.map((c) => {
+      const peerVals = competitorBreakdowns
+        .map((b) => b.components.find((x) => x.label === c.label)?.value ?? null)
+        .filter((v): v is number => v != null);
+      const peerAvg = peerVals.length ? Math.round(peerVals.reduce((a, b) => a + b, 0) / peerVals.length) : null;
+      const compDelta = c.value != null && peerAvg != null ? c.value - peerAvg : null;
+      return { label: c.label, value: c.value, competitorAvg: peerAvg, delta: compDelta };
+    });
 
     const weakestComponent = [...samsungBreak.components]
       .filter((c) => c.value != null)
@@ -403,6 +415,7 @@ function buildAxisHighlights(
       metric, score, tier, competitorAvg, delta,
       keyStatLabel: weakestComponent?.label || METRICS[metric].label,
       keyStatValue: weakestComponent?.value ?? score,
+      componentStats,
       insight: buildAxisInsight(metric, weakestComponent?.label, delta, tier),
       action,
       change: samsungChange,
@@ -503,14 +516,19 @@ export function WatchPointPanel({
                 <span className="axisCardScoreNum">{h.score == null ? "-" : h.score}</span>
                 <span className="axisCardTier">{scoreTierLabel(h.tier)}</span>
               </p>
-              <p className="axisCardStat">
-                {h.keyStatLabel} {h.keyStatValue == null ? "근거 없음" : `${h.keyStatValue}%`}
-                {h.delta != null && (
-                  <span className={h.delta < 0 ? "axisCardDeltaBad" : "axisCardDeltaGood"}>
-                    {" "}({h.delta > 0 ? "+" : ""}{h.delta}%p vs 경쟁사)
-                  </span>
-                )}
-              </p>
+              <div className="axisCardStatList">
+                {h.componentStats.map((c) => (
+                  <p key={c.label} className="axisCardStatLine">
+                    <span className="axisCardStatLabel">{c.label}</span>
+                    <span className="axisCardStatVal">{c.value == null ? "근거 없음" : `${c.value}%`}</span>
+                    {c.delta != null && (
+                      <span className={c.delta < 0 ? "axisCardDeltaBad" : "axisCardDeltaGood"}>
+                        {c.delta > 0 ? "+" : ""}{c.delta}%p vs 경쟁사
+                      </span>
+                    )}
+                  </p>
+                ))}
+              </div>
               <p className="axisCardInsight">{h.insight}</p>
               <hr className="axisCardHr" />
               <p className="axisCardAct">우선 액션: {h.action}</p>
@@ -549,7 +567,7 @@ type QaResultRow = {
   health: MetricHealth; evidenceItems: { url: string; text: string }[];
 };
 
-export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report["dcv"]; changes: Change[]; expectedSites?: SiteKey[] }) {
+export function InsightChat({ dcv, changes, expectedSites = [], urls = [] }: { dcv?: Report["dcv"]; changes: Change[]; expectedSites?: SiteKey[]; urls?: UrlRow[] }) {
   const [open, setOpen] = useState(false);
   const [qaSite, setQaSite] = useState<string>("all");
   const [qaMetric, setQaMetric] = useState<string>("all");
@@ -558,6 +576,21 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
   const [resultLabel, setResultLabel] = useState<string>("");
 
   const allQaSites = orderedSiteKeys([...expectedSites, ...Object.keys(dcv?.data || {}), ...Object.keys(dcv?.copy || {}), ...Object.keys(dcv?.visual || {}), ...changes.map((c) => c.site || "")]);
+
+  // 선택된 브랜드가 실제로 보유한 제품군만 — Garmin처럼 워치만 파는 브랜드는 워치만 보여야 함
+  const categoriesForSite = (site: string): string[] => {
+    if (site === "all") return PRODUCT_CATEGORY_ORDER;
+    const siteUrls = urls.filter((u) => u.site_key === site);
+    const cats = Array.from(new Set(siteUrls.map((u) => productCategoryFromRow(u, u.url)).filter(Boolean)));
+    return cats.length ? PRODUCT_CATEGORY_ORDER.filter((c) => cats.includes(c)) : PRODUCT_CATEGORY_ORDER;
+  };
+  const availableCategories = categoriesForSite(qaSite);
+
+  const handleQaSiteChange = (site: string) => {
+    setQaSite(site);
+    const nextCats = categoriesForSite(site);
+    if (qaCategory !== "all" && !nextCats.includes(qaCategory)) setQaCategory("all");
+  };
 
   const askStructured = () => {
     const metricsToShow = qaMetric === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [qaMetric as MetricTab];
@@ -587,21 +620,21 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
 
   return (
     <div className={`floatingChat ${open ? "open" : ""}`}>
-      {!open && <button className="chatToggle" onClick={() => setOpen(true)}>Q&A</button>}
+      {!open && <button className="chatToggle" onClick={() => setOpen(true)}>💡 Quick View</button>}
       {open && (
         <div className="chatPanel">
           <div className="chatPanelHead">
-            <b>간단 Q&A</b>
+            <b>💡 Quick View</b>
             <button onClick={() => setOpen(false)} title="닫기">×</button>
           </div>
           <div className="qaPickRow">
-            <select value={qaSite} onChange={(e) => setQaSite(e.target.value)}>
+            <select value={qaSite} onChange={(e) => handleQaSiteChange(e.target.value)}>
               <option value="all">브랜드 전체</option>
               {allQaSites.map((s) => <option key={s} value={s}>{siteName(s)}</option>)}
             </select>
             <select value={qaCategory} onChange={(e) => setQaCategory(e.target.value)}>
               <option value="all">제품 전체</option>
-              {PRODUCT_CATEGORY_ORDER.map((c) => <option key={c} value={c}>{productCategoryKo(c)}</option>)}
+              {availableCategories.map((c) => <option key={c} value={c}>{productCategoryKo(c)}</option>)}
             </select>
             <select value={qaMetric} onChange={(e) => setQaMetric(e.target.value)}>
               <option value="all">지표 전체</option>
