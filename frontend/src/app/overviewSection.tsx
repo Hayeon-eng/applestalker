@@ -5,9 +5,10 @@ import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report, UrlRow,
   METRICS, siteName, siteShortName, siteClass, levelKo, levelClass, severityEmoji, topSeverityChanges,
   groupByUrl, shortUrl, linesFromBlock, metricOneLiner, bucketOf, actionForChange, orderedSiteKeys,
+  metricScoreBreakdown, scoreTier, detailedAction, tagForLine,
 } from "./shared";
 import { ChangeDrilldown, CurrentStatusDrilldown, type CurrentFindingSelection } from "./evidencePanels";
-import { FindingList, sitesFromBlocks } from "./sectionCommon";
+import { FindingList, sitesFromBlocks, compactSummary } from "./sectionCommon";
 import { WatchPointPanel, buildDashboardDigest } from "./overviewWidgets";
 
 /* ════════════════════════════════════════════════════
@@ -45,28 +46,60 @@ function MetricSection({
         </p>
       )}
 
-      {/* 현황 요약 — 변경 유무 관계없는 현재 상태 (사이트별) */}
+      {/* 현황 요약 — 변경 유무 관계없는 현재 상태 (사이트별). 근거를 전부 나열하지 않고
+         점수+대표 발견+액션만 보여주고, 전체 근거는 펼쳐야 나오게 접어둠 */}
       <div className="card">
         <p className="cardTitle">현황/변경점 분석 — {METRICS[metric].label}</p>
         <div className="siteSplit">
-          {sites.map((site) => (
-            <div key={site}>
-              <p className="siteSplitHead">
-                <span className={`badge ${siteClass(site)}`}>{siteName(site)}</span>
-                {siteBlocks[site]?._source === "gemini" ? (
-                  <span className="badge c2" title="Gemini가 근거 기반으로 서술 — evidence 없는 내용은 생성하지 않음">🤖 AI 분석 기반</span>
-                ) : siteBlocks[site]?._source === "rule_based" ? (
-                  <span className="badge c6" title="현재 facts를 규칙으로 집계한 결과입니다. 외부 AI 문장 생성 없이 근거값만 사용합니다.">📐 규칙기반 분석</span>
-                ) : null}
-              </p>
-              <FindingList
-                metric={metric}
-                lines={linesFromBlock(siteBlocks[site])}
-                selectedIndex={selectedFinding?.site === site ? selectedFinding.index : undefined}
-                onSelectLine={(index, line, label) => openCurrentEvidence(site, index, line, label)}
-              />
-            </div>
-          ))}
+          {sites.map((site) => {
+            const block = siteBlocks[site];
+            const lines = linesFromBlock(block);
+            const breakdown = metricScoreBreakdown(metric, block);
+            const tier = scoreTier(breakdown.total);
+            const topLine = lines[0];
+            const topLabel = topLine ? tagForLine(metric, topLine).label : "";
+            return (
+              <div key={site} className="card metricSummaryCard" style={{ padding: 13 }}>
+                <p className="siteSplitHead" style={{ justifyContent: "space-between" }}>
+                  <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span className={`badge ${siteClass(site)}`}>{siteName(site)}</span>
+                    {block?._source === "gemini" ? (
+                      <span className="badge c2" title="Gemini가 근거 기반으로 서술">🤖 AI 분석</span>
+                    ) : block?._source === "rule_based" ? (
+                      <span className="badge c6" title="facts를 규칙으로 집계">📐 규칙기반</span>
+                    ) : null}
+                  </span>
+                  <span className="siteOverallScore">
+                    <span className={`scoreDot ${tier}`} />
+                    {breakdown.total == null ? "-" : breakdown.total}
+                  </span>
+                </p>
+                {topLine ? (
+                  <>
+                    <p className="findingText" style={{ fontSize: 12 }}>{topLabel && <b>{topLabel}: </b>}{compactSummary(topLine, 130)}</p>
+                    <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>
+                      액션: {detailedAction(metric, block)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="muted" style={{ fontSize: 12 }}>근거 없음</p>
+                )}
+                {lines.length > 0 && (
+                  <details className="siteScoreDetails" style={{ marginTop: 8 }}>
+                    <summary>전체 근거 보기 ({lines.length}개)</summary>
+                    <div style={{ marginTop: 8 }}>
+                      <FindingList
+                        metric={metric}
+                        lines={lines}
+                        selectedIndex={selectedFinding?.site === site ? selectedFinding.index : undefined}
+                        onSelectLine={(index, line, label) => openCurrentEvidence(site, index, line, label)}
+                      />
+                    </div>
+                  </details>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

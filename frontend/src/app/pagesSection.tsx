@@ -117,6 +117,20 @@ export function PagesTab({
     [siteKeys, selectedSite]
   );
 
+  const pickRepresentativeUrl = (site: SiteKey): string | null => {
+    const sitePages = pages[site] || [];
+    if (!sitePages.length) return null;
+    const pdp = sitePages.find((p) => pageRoleFromUrl(p.url) === "pdp");
+    return (pdp || sitePages[0]).url;
+  };
+
+  const handleSelectSite = (site: SiteKey | "all") => {
+    setSelectedSite(site);
+    if (site !== "all") {
+      const rep = pickRepresentativeUrl(site);
+      if (rep) onPick(rep);
+    }
+  };
   const pageRows = useMemo<PageRow[]>(
     () => buildPageRows(visibleSiteKeys, urls, pages, siteKeys),
     [visibleSiteKeys, urls, pages, siteKeys]
@@ -270,9 +284,9 @@ export function PagesTab({
         </div>
 
         <div className="siteFilterRow">
-          <button className={selectedSite === "all" ? "on" : ""} onClick={() => setSelectedSite("all")}>전체 Site</button>
+          <button className={selectedSite === "all" ? "on" : ""} onClick={() => handleSelectSite("all")}>전체 Site</button>
           {siteKeys.map((site) => (
-            <button key={site} className={selectedSite === site ? "on" : ""} onClick={() => setSelectedSite(site)}>
+            <button key={site} className={selectedSite === site ? "on" : ""} onClick={() => handleSelectSite(site)}>
               {siteName(site)}
             </button>
           ))}
@@ -336,6 +350,22 @@ export function PagesTab({
           </button>
         </p>
         {representative && <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>선정 이유: {representative.reason}{!autoMode && " (수동 선택됨)"}</p>}
+        {selectedPage && (() => {
+          const currentRow = pageRows.find((r) => r.url === selectedPage.url);
+          const siblings = currentRow
+            ? pageRows.filter((r) => r.site === currentRow.site && r.url !== currentRow.url && r.status === "수집됨").sort((a, b) => roleRank(a.page_role) - roleRank(b.page_role))
+            : [];
+          return siblings.length > 0 ? (
+            <div className="pageSwitcherRow">
+              <span className="pageSwitcherLabel">{siteName(currentRow!.site)}의 다른 페이지:</span>
+              {siblings.slice(0, 8).map((r) => (
+                <button key={r.url} className="pageSwitcherChip" onClick={() => onPick(r.url)}>
+                  {r.page_label || shortUrl(r.url)}
+                </button>
+              ))}
+            </div>
+          ) : null;
+        })()}
         {loadingPage && <p className="muted">불러오는 중…</p>}
         {!loadingPage && !selectedPage && <p className="muted">아래 수집된 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>}
         {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} focusMetric={metricTab} />}
