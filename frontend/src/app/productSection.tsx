@@ -5,7 +5,7 @@ import {
   MetricView, MetricTab, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
   PRODUCT_CATEGORY_ORDER, productCategoryKo, productCategoryDesc,
   orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf,
-  productPageLabel, METRICS, metricScoreBreakdown, scoreTier, scoreTierEmoji, scoreTierLabel, metricPhrase, shortActionPhrase,
+  productPageLabel, METRICS, metricScoreBreakdown, scoreTier, scoreTierEmoji, scoreTierLabel, metricPhrase, shortActionPhrase, detailedAction,
 } from "./shared";
 import { PageDrilldown } from "./sectionCommon";
 import { buildPageRows, PageRow, roleRank, roleLabel } from "./pagesSection";
@@ -148,7 +148,7 @@ export function ProductTab({
             const overall = scored.length ? Math.round(scored.reduce((a, b) => a + b.total, 0) / scored.length) : null;
             const overallTier = scoreTier(overall);
             const worstAxis = scored.length ? [...scored].sort((a, b) => a.total - b.total)[0] : null;
-            const priorityAction = roleAction || (worstAxis ? shortActionPhrase(worstAxis.metric, worstAxis.tier) : "관리 URL과 수집 결과부터 확보하세요.");
+            const priorityAction = roleAction || (worstAxis ? detailedAction(worstAxis.metric, dcv?.[worstAxis.metric]?.[site]) : "관리 URL과 수집 결과부터 확보하세요.");
 
             return (
               <div key={site} className="card metricSummaryCard" style={{ padding: 13, cursor: "default" }}>

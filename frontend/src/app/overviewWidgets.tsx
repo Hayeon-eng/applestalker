@@ -6,7 +6,7 @@ import {
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass, levelKo, levelClass,
   shortUrl, bucketOf, actionForChange, metricActionSentence, metricIssueSentence, metricAreaLabel, siteMetricScore,
   PRODUCT_CATEGORY_ORDER, productCategoryKo, productCategoryFromRow,
-  metricScoreBreakdown, scoreTier, ScoreTier, scoreTierEmoji, scoreTierLabel, shortActionPhrase,
+  metricScoreBreakdown, scoreTier, ScoreTier, scoreTierEmoji, scoreTierLabel, shortActionPhrase, detailedAction,
 } from "./shared";
 import {
   compactSummary,
@@ -25,6 +25,7 @@ type SiteDashboardRow = {
   site: SiteKey;
   collection: MetricHealth;
   metrics: Record<MetricTab, MetricHealth>;
+  blocks: Partial<Record<MetricTab, AnalysisBlock | undefined>>;
   priority: PriorityLevel;
   issue: string;
   action: string;
@@ -226,7 +227,7 @@ function issueFromRow(row: SiteDashboardRow): string {
 function actionFromRow(row: SiteDashboardRow): string {
   if (row.changes.length) return actionForChange(row.changes[0]);
   const weakMetric = (Object.entries(row.metrics) as [MetricTab, MetricHealth][]).find(([, h]) => h.state === "risk" || h.state === "watch" || h.state === "unknown");
-  if (weakMetric) return metricActionSentence(weakMetric[0]);
+  if (weakMetric) return detailedAction(weakMetric[0], row.blocks[weakMetric[0]]);
   if (row.collection.state === "risk" || row.collection.state === "unknown") return "핵심 비교에서는 제외하고 URL·리다이렉트·렌더링 상태를 확인하세요.";
   return "현재 구성을 유지하고 다음 수집에서 변화만 확인하세요.";
 }
@@ -253,8 +254,11 @@ function buildSiteRows(changes: Change[], dcv: Report["dcv"] | undefined, scoped
       : maxChangeLevel === "Medium" || collection.state === "watch" || worstScoped === "watch"
       ? "Medium"
       : "Low";
+    const blocks: Partial<Record<MetricTab, AnalysisBlock | undefined>> = {
+      data: dcv?.data?.[site], copy: dcv?.copy?.[site], visual: dcv?.visual?.[site],
+    };
     const row: SiteDashboardRow = {
-      site, metrics, collection, priority, changes: siteChanges,
+      site, metrics, blocks, collection, priority, changes: siteChanges,
       issue: "", action: "",
     };
     row.issue = issueFromRow(row);
@@ -290,12 +294,12 @@ function buildPriorityRows(rows: SiteDashboardRow[], changes: Change[], scopedMe
       const action = !weakMetric
         ? row.action
         : row.site === "samsung"
-          ? metricActionSentence(weakMetric)
+          ? detailedAction(weakMetric, row.blocks[weakMetric])
           : samsungMetric && samsungMetric.state === "good"
             ? `Samsung은 지금 ${samsungMetric.summary} 수준을 유지하세요.`
             : samsungMetric && samsungMetric.state === "watch"
-              ? `Samsung도 ${METRICS[weakMetric].label}이 완전하지 않으니, 함께 점검하세요: ${metricActionSentence(weakMetric)}`
-              : metricActionSentence(weakMetric);
+              ? `Samsung도 ${METRICS[weakMetric].label}이 완전하지 않으니, 함께 점검하세요: ${detailedAction(weakMetric, samsungRowForCompare?.blocks[weakMetric])}`
+              : detailedAction(weakMetric, row.blocks[weakMetric]);
       return {
         id: `insight-${row.site}`,
         priority: row.priority,
@@ -321,7 +325,7 @@ function actionLinesForRow(row: SiteDashboardRow, scopedMetrics: MetricTab[]): s
   scopedMetrics.forEach((m) => {
     const health = row.metrics[m];
     if (health.state === "risk" || health.state === "watch") {
-      lines.push(`${metricIssueSentence(m)} ${metricActionSentence(m)}`);
+      lines.push(`${metricIssueSentence(m)} ${detailedAction(m, row.blocks[m])}`);
     }
   });
   if (!lines.length && (row.collection.state === "risk" || row.collection.state === "unknown")) {
@@ -392,8 +396,8 @@ function buildAxisHighlights(
     const action = samsungChange
       ? actionForChange(samsungChange)
       : aheadButModerate
-        ? `경쟁 우위는 유지하면서 ${shortActionPhrase(metric, tier)}`
-        : shortActionPhrase(metric, tier);
+        ? `경쟁 우위는 유지하면서 ${detailedAction(metric, samsungBlock)}`
+        : detailedAction(metric, samsungBlock);
 
     return {
       metric, score, tier, competitorAvg, delta,

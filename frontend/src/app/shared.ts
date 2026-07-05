@@ -468,6 +468,75 @@ export const shortActionPhrase = (metric: MetricTab, tier: ScoreTier): string =>
   return tier === "bad" ? "기능 중심 ALT 보강" : tier === "mid" ? "사용 장면 ALT 추가" : "현재 이미지 구성 유지";
 };
 
+// ── 세분화된 액션 규칙표 ──
+// 등급(tier) 3단만으로는 액션이 다 똑같아 보이므로, 실제 facts(스키마 타입 종류/CTA 개수/이미지 개수 등)를
+// 조건으로 걸어 축마다 10개 이상의 서로 다른 액션이 나오게 한다. 위에서부터 먼저 맞는 규칙을 채택.
+const hasType = (types: string[], re: RegExp) => types.some((t) => re.test(t));
+
+export const detailedAction = (metric: MetricTab, block?: AnalysisBlock): string => {
+  const f: any = block?.facts || {};
+  const breakdown = metricScoreBreakdown(metric, block);
+  const val = (label: string) => breakdown.components.find((c) => c.label === label)?.value ?? null;
+
+  if (metric === "data") {
+    const schema = val("Schema");
+    const h1 = val("H-tag");
+    const types = f.schema?.schema_type_counts ? Object.keys(f.schema.schema_type_counts) : [];
+    const roles = f.page_inventory?.by_page_role || {};
+    const hasPf = (roles.pf || 0) > 0, hasPdp = (roles.pdp || 0) > 0, hasBuying = (roles.buying || 0) > 0;
+
+    if (schema == null && h1 == null) return "관리 URL과 수집 결과부터 확보하세요.";
+    if (schema === 0 && h1 === 0) return "Schema와 H-tag 기본 마크업부터 추가하세요.";
+    if (hasPdp && !hasType(types, /product/i)) return "PDP에 Product 스키마를 추가하세요.";
+    if (hasBuying && !hasType(types, /offer/i)) return "Buying 페이지에 Offer 스키마를 추가해 가격·재고 신호를 노출하세요.";
+    if (hasPf && !hasType(types, /itemlist|collectionpage/i)) return "PF에 ItemList/CollectionPage 스키마를 추가하세요.";
+    if (!hasType(types, /breadcrumb/i) && types.length > 0) return "Breadcrumb 스키마를 추가해 탐색 경로 신호를 보강하세요.";
+    if ((schema ?? 0) < 40 && (h1 ?? 100) >= 70) return "Schema 마크업 적용 페이지를 늘리세요.";
+    if ((h1 ?? 0) < 40 && (schema ?? 100) >= 70) return "H1/H2 태그 계층을 정리하세요.";
+    if (types.length > 0 && types.length <= 2 && hasType(types, /webpage|organization/i)) return "일반 타입(WebPage/Organization) 외에 역할별 스키마 타입을 확장하세요.";
+    if ((schema ?? 0) >= 40 && (schema ?? 0) < 70) return "역할별(PF/PDP/Buying) 스키마 적용 범위를 점검하세요.";
+    if ((schema ?? 0) >= 70 && (h1 ?? 0) >= 70 && types.length >= 3) return "현재 구조 유지, 다음 수집에서 변화만 확인하세요.";
+    return "PF는 ItemList/Breadcrumb, PDP는 Product/Breadcrumb, Buying은 Offer 중심으로 점검하세요.";
+  }
+
+  if (metric === "copy") {
+    const richness = val("Copy richness");
+    const cta = val("CTA coverage");
+    const words = val("Word coverage");
+    const buyCtaPages = typeof f.commerce_cta?.pages_with_buy_cta === "number" ? f.commerce_cta.pages_with_buy_cta : null;
+    const faqCount = typeof f.faq?.count === "number" ? f.faq.count : null;
+
+    if (richness == null && cta == null) return "카피 근거부터 확보하세요.";
+    if (cta === 0 && buyCtaPages === 0) return "구매 관련 페이지에 CTA 버튼부터 추가하세요.";
+    if ((cta ?? 100) < 30) return "구매 CTA가 있는 페이지 비율을 늘리세요.";
+    if (faqCount === 0) return "FAQ 콘텐츠를 추가해 탐색 단계 이탈을 줄이세요.";
+    if ((words ?? 100) < 40) return "제품 설명 분량(스펙·소재·기능)을 보강하세요.";
+    if ((richness ?? 100) < 40 && (cta ?? 0) >= 60) return "카피 구체성(수치·소재·기능 언급)을 보강하세요.";
+    if ((cta ?? 0) >= 60 && (richness ?? 0) < 60) return "PDP 상단 CTA 문구를 더 명확하게 다듬으세요.";
+    if ((richness ?? 0) >= 40 && (richness ?? 0) < 70) return "톤 일관성과 혜택 문구를 함께 점검하세요.";
+    if ((cta ?? 0) >= 70 && (richness ?? 0) >= 70 && (words ?? 0) < 70) return "페이지별 설명 분량 편차를 줄이세요.";
+    if ((richness ?? 0) >= 70 && (cta ?? 0) >= 70 && (words ?? 0) >= 70) return "현재 카피 유지, 경쟁사 CTA 문구 변화만 주기적으로 확인하세요.";
+    return "PDP 상단과 Buying 영역에 구매·혜택·보상판매 CTA를 명확히 배치하세요.";
+  }
+
+  const alt = val("ALT ratio");
+  const diversity = val("Image diversity");
+  const coverage = val("Coverage");
+  const totalImages = typeof f.image_diversity?.total_images === "number" ? f.image_diversity.total_images : 0;
+
+  if (alt == null && diversity == null) return "이미지 근거부터 확보하세요.";
+  if (totalImages === 0) return "제품 페이지에 이미지부터 확보하세요.";
+  if (alt === 0) return "ALT 텍스트부터 전 페이지에 추가하세요.";
+  if ((alt ?? 100) < 30) return "ALT 텍스트에 제품명·핵심 기능을 구체적으로 담으세요.";
+  if ((diversity ?? 100) < 20 && (alt ?? 0) >= 50) return "제품 단독 컷 위주라 사용 장면 이미지를 추가하세요.";
+  if ((diversity ?? 0) >= 20 && (diversity ?? 0) < 40) return "라이프스타일 이미지 비중을 조금 더 늘리세요.";
+  if ((coverage ?? 100) < 50) return "이미지가 적은 페이지부터 추가 촬영/소싱하세요.";
+  if ((alt ?? 0) >= 40 && (alt ?? 0) < 70) return "설명형 ALT 비율을 페이지 전반으로 확대하세요.";
+  if ((diversity ?? 0) >= 60 && (alt ?? 0) < 60) return "이미지 구성은 다양하나 설명(ALT)이 상대적으로 부족하니 보강하세요.";
+  if ((alt ?? 0) >= 70 && (diversity ?? 0) >= 40) return "현재 이미지 구성 유지, 신제품 출시 시 사용 장면 컷만 추가하세요.";
+  return "제품명, 핵심 기능, 사용 장면이 드러나도록 ALT COPY와 이미지 설명을 보강하세요.";
+};
+
 export const metricAverage = (sitePages: PageLite[], block?: AnalysisBlock) => {
   const f = block?.facts || {};
   const copyPages = Array.isArray(f.copy_richness?.all_pages) ? f.copy_richness.all_pages.length : null;

@@ -4,7 +4,7 @@ import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, PageDetail,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
   shortUrl, linesFromBlock, tagForLine, metricAverage, metricActionSentence, siteMetricScore,
-  scoreTier, metricScoreBreakdown, ScoreTier, metricPhrase, shortActionPhrase,
+  scoreTier, metricScoreBreakdown, ScoreTier, metricPhrase, shortActionPhrase, detailedAction,
 } from "./shared";
 
 
@@ -95,7 +95,7 @@ export function SiteScoreCard({
     : best && worst && best.metric !== worst.metric
       ? `${METRICS[best.metric].label} 흐름은 강하지만 ${METRICS[worst.metric].label} 쪽이 상대적으로 약한 구조입니다.`
       : `${METRICS[scored[0].metric].label} 기준으로 비교적 고른 상태입니다.`;
-  const priorityAction = worst ? shortActionPhrase(worst.metric, worst.tier) : "관리 URL과 수집 결과부터 확보하세요.";
+  const priorityAction = worst ? detailedAction(worst.metric, blocks[worst.metric]) : "관리 URL과 수집 결과부터 확보하세요.";
 
   return (
     <div className="avgBox">
