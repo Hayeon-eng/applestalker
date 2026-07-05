@@ -7,3 +7,4 @@ export { Overview } from "./overviewSection";
 export { PagesTab } from "./pagesSection";
 export { ProductTab } from "./productSection";
 export { CriteriaDrawer } from "./criteriaDrawer";
+export { InsightChat } from "./overviewWidgets";

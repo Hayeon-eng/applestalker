@@ -6,7 +6,7 @@ import {
   PageLite, PageDetail, UrlRow,
   METRICS, CRITERIA, DEFAULT_SITE_ORDER, orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf, captureScreen, productPageLabel,
 } from "./shared";
-import { Landing, Overview, PagesTab, ProductTab, CriteriaDrawer } from "./sections";
+import { Landing, Overview, PagesTab, ProductTab, CriteriaDrawer, InsightChat } from "./sections";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -488,6 +488,9 @@ export default function Page() {
           )}
         </div>
       </div>
+
+      {/* Q&A는 탭과 무관하게 항상 떠 있음 */}
+      <InsightChat dcv={report?.dcv} changes={allChanges} expectedSites={orderedSiteKeys(urls.map((u) => u.site_key || ""))} />
 
       {/* ── 기준 설명 Drawer */}
       <CriteriaDrawer open={drawerOpen} section={drawerSection} onClose={() => setDrawerOpen(false)} />

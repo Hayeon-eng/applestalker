@@ -291,9 +291,11 @@ function buildPriorityRows(rows: SiteDashboardRow[], changes: Change[], scopedMe
         ? row.action
         : row.site === "samsung"
           ? metricActionSentence(weakMetric)
-          : samsungMetric && (samsungMetric.state === "good" || samsungMetric.state === "watch")
-            ? `Samsung은 ${samsungMetric.summary} 수준을 유지·보완하세요.`
-            : metricActionSentence(weakMetric);
+          : samsungMetric && samsungMetric.state === "good"
+            ? `Samsung은 지금 ${samsungMetric.summary} 수준을 유지하세요.`
+            : samsungMetric && samsungMetric.state === "watch"
+              ? `Samsung도 ${METRICS[weakMetric].label}이 완전하지 않으니, 함께 점검하세요: ${metricActionSentence(weakMetric)}`
+              : metricActionSentence(weakMetric);
       return {
         id: `insight-${row.site}`,
         priority: row.priority,
@@ -347,7 +349,7 @@ const AXIS_INSIGHT_MEANING: Record<MetricTab, string> = {
   visual: "이미지 의미 전달 범위가 제한될 수 있습니다.",
 };
 
-function buildAxisInsight(metric: MetricTab, weakestLabel: string | undefined, delta: number | null): string {
+function buildAxisInsight(metric: MetricTab, weakestLabel: string | undefined, delta: number | null, tier: ScoreTier): string {
   const compareText = delta == null
     ? "경쟁사 비교 근거가 아직 부족합니다"
     : delta < 0
@@ -355,7 +357,10 @@ function buildAxisInsight(metric: MetricTab, weakestLabel: string | undefined, d
       : delta > 0
         ? `${weakestLabel || METRICS[metric].label} 적용 범위가 경쟁사보다 ${delta}%p 넓습니다`
         : `${weakestLabel || METRICS[metric].label} 적용 범위가 경쟁사와 비슷한 수준입니다`;
-  return `${AXIS_INSIGHT_OBSERVATION[metric]} ${compareText}. ${AXIS_INSIGHT_MEANING[metric]}`;
+  const nuance = (delta != null && delta > 0 && tier !== "good")
+    ? ` 경쟁사보다는 앞서 있지만, 절대 점수 기준으로는 아직 ${scoreTierLabel(tier)} 구간입니다.`
+    : "";
+  return `${AXIS_INSIGHT_OBSERVATION[metric]} ${compareText}.${nuance} ${AXIS_INSIGHT_MEANING[metric]}`;
 }
 
 function buildAxisHighlights(
@@ -383,12 +388,19 @@ function buildAxisHighlights(
       .filter((c) => c.site === "samsung" && bucketOf(c) === metric)
       .sort((a, b) => priorityRank[(a.level || "Low") as PriorityLevel] - priorityRank[(b.level || "Low") as PriorityLevel])[0];
 
+    const aheadButModerate = delta != null && delta > 0 && tier !== "good";
+    const action = samsungChange
+      ? actionForChange(samsungChange)
+      : aheadButModerate
+        ? `경쟁 우위는 유지하면서 ${shortActionPhrase(metric, tier)}`
+        : shortActionPhrase(metric, tier);
+
     return {
       metric, score, tier, competitorAvg, delta,
       keyStatLabel: weakestComponent?.label || METRICS[metric].label,
       keyStatValue: weakestComponent?.value ?? score,
-      insight: buildAxisInsight(metric, weakestComponent?.label, delta),
-      action: samsungChange ? actionForChange(samsungChange) : shortActionPhrase(metric, tier),
+      insight: buildAxisInsight(metric, weakestComponent?.label, delta, tier),
+      action,
       change: samsungChange,
     };
   });
@@ -528,8 +540,9 @@ export function WatchPointPanel({
 }
 
 type QaResultRow = {
-  site: SiteKey; metric: MetricTab; score: number | null; dot: "good" | "mid" | "bad" | "none";
-  health: MetricHealth; evidenceLines: string[];
+  site: SiteKey; metric: MetricTab; score: number | null; tier: ScoreTier;
+  components: { label: string; value: number | null }[];
+  health: MetricHealth; evidenceItems: { url: string; text: string }[];
 };
 
 export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report["dcv"]; changes: Change[]; expectedSites?: SiteKey[] }) {
@@ -542,21 +555,6 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
 
   const allQaSites = orderedSiteKeys([...expectedSites, ...Object.keys(dcv?.data || {}), ...Object.keys(dcv?.copy || {}), ...Object.keys(dcv?.visual || {}), ...changes.map((c) => c.site || "")]);
 
-  // 지표별 평균 — 신호등(빨강/노랑/초록) 판단 기준
-  const metricAverages: Record<MetricTab, number | null> = (["data", "copy", "visual"] as MetricTab[]).reduce((acc, m) => {
-    const vals = allQaSites.map((s) => siteMetricScore(m, dcv?.[m]?.[s])).filter((v): v is number => v != null);
-    acc[m] = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-    return acc;
-  }, {} as Record<MetricTab, number | null>);
-
-  const dotFor = (score: number | null, avg: number | null): "good" | "mid" | "bad" | "none" => {
-    if (score == null) return "none";
-    if (avg == null) return "mid";
-    if (score >= avg + 5) return "good";
-    if (score <= avg - 5) return "bad";
-    return "mid";
-  };
-
   const askStructured = () => {
     const metricsToShow = qaMetric === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [qaMetric as MetricTab];
     const sitesToShow = qaSite === "all" ? allQaSites : [qaSite as SiteKey];
@@ -568,14 +566,15 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
     const rows: QaResultRow[] = sitesToShow.flatMap((s) =>
       metricsToShow.map((m) => {
         const block = dcv?.[m]?.[s];
-        const score = siteMetricScore(m, block);
+        const breakdown = metricScoreBreakdown(m, block);
         const sChanges = changes.filter((c) => bucketOf(c) === m && c.site === s
-          && (qaCategory === "all" || productCategoryFromRow(undefined, c.url) === qaCategory));
+          && (qaCategory === "all" || productCategoryFromRow(undefined, c.url) === qaCategory))
+          .sort((a, b) => priorityRank[(a.level || "Low") as PriorityLevel] - priorityRank[(b.level || "Low") as PriorityLevel]);
         const health = metricHealth(m, block, sChanges);
-        const evidenceLines = sChanges.length
-          ? sChanges.slice(0, 3).map((c) => `${shortUrl(c.url)} — ${c.summary || c.field || "변경 감지"}`)
-          : [health.summary];
-        return { site: s, metric: m, score, dot: dotFor(score, metricAverages[m]), health, evidenceLines };
+        const evidenceItems = sChanges.length
+          ? sChanges.slice(0, 5).map((c) => ({ url: c.url || "", text: `${levelKo((c.level || "Low") as PriorityLevel)} · ${c.summary || c.field || "변경 감지"}` }))
+          : [];
+        return { site: s, metric: m, score: breakdown.total, tier: scoreTier(breakdown.total), components: breakdown.components, health, evidenceItems };
       })
     );
     setResultLabel(`${qaSite === "all" ? "브랜드 전체" : siteName(qaSite as SiteKey)} · ${qaCategory === "all" ? "제품 전체" : productCategoryKo(qaCategory)} · ${qaMetric === "all" ? "지표 전체" : METRICS[qaMetric as MetricTab].label}`);
@@ -619,13 +618,25 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
                   <p className="qaResultHead">
                     <span className={`badge ${siteClass(r.site)}`}>{siteName(r.site)}</span>
                     <span className="qaResultMetric">{METRICS[r.metric].label}</span>
-                    <span className={`scoreDot ${r.dot}`} />
-                    <span className="scoreVal">{r.score == null ? "근거 없음" : `${r.score}점`}</span>
-                    {metricAverages[r.metric] != null && <span className="qaResultAvg">평균 {metricAverages[r.metric]}점</span>}
+                    <span className={`scoreDot ${r.tier}`} />
+                    <span className="scoreVal">{r.score == null ? "근거 없음" : `${r.score}점 · ${scoreTierLabel(r.tier)}`}</span>
                   </p>
-                  <ul className="qaResultEvidence">
-                    {r.evidenceLines.map((line, j) => <li key={j}>{line}</li>)}
-                  </ul>
+                  <p className="qaResultComponents">
+                    {r.components.map((c) => `${c.label} ${c.value == null ? "-" : c.value + "%"}`).join(" · ")}
+                  </p>
+                  <p className="qaResultSummary">{r.health.summary}</p>
+                  {r.evidenceItems.length > 0 && (
+                    <ul className="qaResultEvidence">
+                      {r.evidenceItems.map((item, j) => (
+                        <li key={j}>
+                          {item.text}
+                          {item.url && (
+                            <a href={item.url} target="_blank" rel="noreferrer" className="qaResultUrl">{shortUrl(item.url)}</a>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>

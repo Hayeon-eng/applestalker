@@ -176,10 +176,10 @@ export const TIER_META: Record<number, { label: string; desc: string }> = {
 
 // ── 세부 항목 뱃지 분류기: narrative 한 줄이 어느 세부 기준에 해당하는지 키워드로 판정 ──
 export const DATA_LINE_TAGS: [RegExp, LineTag][] = [
-  [/Schema 적용 범위|Schema 적용 현황|구조화 데이터/, { label: "Schema Coverage", cls: "c1" }],
-  [/페이지 역할|PF|PDP|Buying|Role-fit|역할별 Schema|Schema 보강/, { label: "Role-fit Schema", cls: "c1" }],
-  [/스키마.*충족|Product detail|충족률|필수 속성|Product schema/, { label: "Product Completeness", cls: "c2" }],
-  [/스키마 아키텍처|Linked|Inline|@id/, { label: "@id 연결성", cls: "c4" }],
+  [/Schema 적용 범위|Schema 적용 현황|구조화 데이터/, { label: "구조화 데이터 적용률", cls: "c1" }],
+  [/페이지 역할|PF|PDP|Buying|Role-fit|역할별 Schema|Schema 보강/, { label: "페이지 역할 적합성", cls: "c1" }],
+  [/스키마.*충족|Product detail|충족률|필수 속성|Product schema/, { label: "제품 정보 완성도", cls: "c2" }],
+  [/스키마 아키텍처|Linked|Inline|@id/, { label: "스키마 연결 구조", cls: "c4" }],
   [/H-?tag|heading|계층/i, { label: "H-tag 구조", cls: "c5" }],
   [/meta description|메타 디스크립션/i, { label: "Meta description", cls: "c6" }],
 ];
@@ -270,10 +270,11 @@ export const groupByUrl = (changes: Change[]): { url: string; items: Change[] }[
 export const shortUrl = (u: string) => {
   try { const x = new URL(u); return (x.hostname + x.pathname).replace(/\/$/, ""); } catch { return u; }
 };
+const RAW_JARGON_LINE_PATTERN = /@id|Inline\(|Inline형|Linked\s*구조|노드가 페이지별|스키마 아키텍처/;
 export const linesFromBlock = (b?: AnalysisBlock) => [
   ...(b?.narrative || []),
   ...((b?.insights || []).map((x) => x.point || "").filter(Boolean)),
-];
+].filter((line) => !RAW_JARGON_LINE_PATTERN.test(line));
 export const pageRoleFromUrl = (u: string): "home" | "pf" | "pdp" | "buying" | "compare" | "campaign" | "campaign_or_compare" | "specs" | "content" => {
   try {
     const url = new URL(u);

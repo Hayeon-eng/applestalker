@@ -226,10 +226,10 @@ export function PageDrilldown({ page, focusMetric = "data" }: { page: PageDetail
                 {METRICS[key].label}
               </summary>
               <div style={{ paddingTop: 8 }}>
-                {(block?.narrative || []).length === 0 ? (
+                {linesFromBlock(block).length === 0 ? (
                   <p className="muted">근거 없음</p>
                 ) : (
-                  <FindingList metric={key} lines={block.narrative} />
+                  <FindingList metric={key} lines={linesFromBlock(block)} />
                 )}
               </div>
             </details>

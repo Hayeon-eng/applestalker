@@ -8,7 +8,7 @@ import {
 } from "./shared";
 import { ChangeDrilldown, CurrentStatusDrilldown, type CurrentFindingSelection } from "./evidencePanels";
 import { FindingList, sitesFromBlocks } from "./sectionCommon";
-import { WatchPointPanel, InsightChat, buildDashboardDigest } from "./overviewWidgets";
+import { WatchPointPanel, buildDashboardDigest } from "./overviewWidgets";
 
 /* ════════════════════════════════════════════════════
    Overview 탭 — 순서: ①변화N건+액션 ②사이트별 현황/변경 요약 ③지표별 분석 ④변경점목록
@@ -238,7 +238,6 @@ export function Overview({
         expectedSites={expectedSites}
         onJumpToMetric={onJumpToMetric}
       />
-      <InsightChat dcv={dcv} changes={scopedChanges} expectedSites={expectedSites} />
 
       {/* ①.5 가장 심각한 변화의 상세 근거 — 전체요약에서는 접은 상태로 보관해 요약 흐름을 방해하지 않음 */}
       {highChanges.length > 0 && topSev && (
