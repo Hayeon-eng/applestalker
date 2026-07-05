@@ -1,6 +1,9 @@
 "use client";
 
-import { Change, AnalysisBlock, MetricTab, SiteKey, METRICS, siteName, shortUrl, actionForChange } from "./shared";
+import {
+  Change, AnalysisBlock, MetricTab, SiteKey, METRICS, siteName, shortUrl, actionForChange,
+  metricScoreBreakdown, scoreTier, scoreTierEmoji, scoreTierLabel,
+} from "./shared";
 
 const EVIDENCE_LABELS: Record<string, string> = {
   kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
@@ -413,6 +416,12 @@ function currentStatusLens(
   };
 }
 
+const METRIC_WHY_MATTERS: Record<MetricTab, string> = {
+  data: "구조 데이터는 존재 여부보다 페이지 역할에 맞는 적합성이 검색·AI 요약 노출에 더 크게 작용합니다.",
+  copy: "탐색 이후 다음 행동으로 이어지는 연결이 약하면 페이지 방문이 구매로 이어지는 비율이 줄어들 수 있습니다.",
+  visual: "이미지 양보다 설명 밀도 차이가 크면, 이미지가 전달하는 의미 범위가 제한될 수 있습니다.",
+};
+
 export function CurrentStatusDrilldown({
   metric, site, block, selection,
 }: {
@@ -420,23 +429,50 @@ export function CurrentStatusDrilldown({
 }) {
   const rows = detailRowsForFinding(metric, selection.label, block);
   const lens = currentStatusLens(metric, site, selection.label, selection.line, block, rows);
+  const breakdown = metricScoreBreakdown(metric, block);
+  const tier = scoreTier(breakdown.total);
+  const title = lens.conclusion.split(/(?<=[.다요])\s+/)[0] || lens.conclusion;
+
   return (
     <div className="currentEvidenceBox">
       <p className="currentEvidenceKicker">
         <span className={`badge ${site}`}>{siteName(site)}</span>
         <span className={`badge ${metric === "data" ? "c1" : metric === "copy" ? "c2" : "c4"}`}>{METRICS[metric].label}</span>
         <span className="badge c6">{selection.label}</span>
-        <span className={`priorityPill ${lens.risk === "high" ? "high" : lens.risk === "medium" ? "med" : "low"}`}>
-          {lens.risk === "high" ? "확인 필요" : lens.risk === "medium" ? "검증 필요" : "참고"}
+        <span className="detailScoreBadge">
+          {scoreTierEmoji(tier)} {breakdown.total == null ? "-" : breakdown.total} {scoreTierLabel(tier)}
         </span>
       </p>
 
-      <p className="findingText" style={{ fontSize: 13, color: "var(--label)", marginBottom: 8 }}>{lens.conclusion}</p>
-      <p className="findingText siteInsightAction" style={{ marginBottom: 12 }}>액션: {lens.action}</p>
+      {/* 제목 — 인사이트형 헤드라인 */}
+      <p className="detailTitle">{title}</p>
+      {/* 1줄 인사이트 */}
+      <p className="findingText" style={{ fontSize: 13, color: "var(--label)", marginBottom: 10 }}>{lens.conclusion}</p>
+
+      {/* 핵심 근거 — 점수 구성요소를 사람이 읽을 수 있는 표로 (원시 로그 아님) */}
+      <p className="detailSectionLabel">핵심 근거</p>
+      <div className="evidenceGrid" style={{ marginBottom: 10 }}>
+        {breakdown.components.map((c) => (
+          <>
+            <span key={`${c.label}_k`} className="evidenceKey">{c.label}</span>
+            <span key={`${c.label}_v`} className="evidenceVal">{c.value == null ? "근거 없음" : `${c.value}%`}</span>
+          </>
+        ))}
+      </div>
+
+      {/* 해석 */}
+      <p className="detailSectionLabel">해석</p>
+      <p className="findingText" style={{ fontSize: 12.5, marginBottom: 10 }}>{lens.evidenceLine}</p>
+
+      {/* 왜 중요한가 */}
+      <p className="detailSectionLabel">왜 중요한가</p>
+      <p className="findingText" style={{ fontSize: 12.5, marginBottom: 10 }}>{METRIC_WHY_MATTERS[metric]}</p>
+
+      {/* 추천 액션 */}
+      <p className="findingText siteInsightAction" style={{ marginBottom: 12 }}>추천 액션: {lens.action}</p>
 
       <details className="siteScoreDetails">
-        <summary>근거 더보기</summary>
-        <p className="termDetail" style={{ marginTop: 10 }}>{lens.evidenceLine}</p>
+        <summary>기술 상세 보기</summary>
         {rows.length > 0 ? (
           <div className="evidenceGrid" style={{ marginTop: 10 }}>
             {rows.map((r, i) => (

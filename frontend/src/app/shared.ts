@@ -221,8 +221,8 @@ export const metricAreaLabel = (metric: MetricTab) => {
 
 export const metricIssueSentence = (metric: MetricTab) => {
   if (metric === "data") return "Schema와 H-tag가 페이지 역할에 맞는지 확인이 필요합니다.";
-  if (metric === "copy") return "구매 CTA와 카피 연결이 약한 지점이 있습니다.";
-  return "ALT COPY의 구체성과 사용 장면 설명이 부족한 지점이 있습니다.";
+  if (metric === "copy") return "구매 CTA와 카피 연결 범위가 제한적인 지점이 있습니다.";
+  return "ALT COPY의 구체성과 사용 장면 설명 범위가 제한적인 지점이 있습니다.";
 };
 
 export const metricActionSentence = (metric: MetricTab) => {
@@ -372,19 +372,99 @@ export const bucketOf = (c: Change): MetricTab => {
   return "copy";
 };
 // 사이트 하나의 DATA/COPY/VISUAL 점수(0~100)만 뽑아낸다. 근거 없으면 null.
-export const siteMetricScore = (metric: MetricTab, block?: AnalysisBlock): number | null => {
-  const f = block?.facts || {};
+// (metricScoreBreakdown의 3개 하위지표 평균과 동일한 값 — 아래에서 breakdown 계산 후 재사용)
+export const siteMetricScore = (metric: MetricTab, block?: AnalysisBlock): number | null =>
+  metricScoreBreakdown(metric, block).total;
+
+export type ScoreComponent = { label: string; value: number | null };
+export type ScoreBreakdown = { components: ScoreComponent[]; total: number | null };
+export type ScoreTier = "good" | "mid" | "bad" | "none";
+
+// 점수 = 하위 지표 3개의 단순 평균 (AI 추론 없이 존재하는 facts만 재조합).
+export const metricScoreBreakdown = (metric: MetricTab, block?: AnalysisBlock): ScoreBreakdown => {
+  const f: any = block?.facts || {};
+  let components: ScoreComponent[];
+
   if (metric === "data") {
-    return typeof f.schema?.coverage_pct === "number" ? Math.round(f.schema.coverage_pct) : null;
+    const schema = typeof f.schema?.coverage_pct === "number" ? Math.round(f.schema.coverage_pct) : null;
+    const h1 = typeof f.html_structure?.h_tag_coverage?.h1_coverage_pct === "number"
+      ? Math.round(f.html_structure.h_tag_coverage.h1_coverage_pct) : null;
+    const typeCount = f.schema?.schema_type_counts ? Object.keys(f.schema.schema_type_counts).length : 0;
+    const structured = typeCount > 0 ? Math.min(100, typeCount * 30) : schema;
+    components = [
+      { label: "Schema", value: schema },
+      { label: "H-tag", value: h1 },
+      { label: "Structured", value: structured },
+    ];
+  } else if (metric === "copy") {
+    const pages = Array.isArray(f.copy_richness?.all_pages) ? f.copy_richness.all_pages : [];
+    const richness = pages.length
+      ? Math.round(pages.reduce((s: number, p: any) => s + (Number(p?.score) || 0), 0) / pages.length) : null;
+    const totalPages = pages.length || (typeof f.page_inventory?.total_pages === "number" ? f.page_inventory.total_pages : 0);
+    const buyCta = typeof f.commerce_cta?.pages_with_buy_cta === "number" ? f.commerce_cta.pages_with_buy_cta : null;
+    const ctaCoverage = buyCta != null && totalPages ? Math.round((buyCta / totalPages) * 100) : null;
+    const wordOk = pages.filter((p: any) => (Number(p?.word_count) || 0) >= 80).length;
+    const wordCoverage = pages.length ? Math.round((wordOk / pages.length) * 100) : null;
+    components = [
+      { label: "Copy richness", value: richness },
+      { label: "CTA coverage", value: ctaCoverage },
+      { label: "Word coverage", value: wordCoverage },
+    ];
+  } else {
+    const altRatio = typeof f.alt_text_quality?.descriptive_ratio_pct === "number"
+      ? Math.round(f.alt_text_quality.descriptive_ratio_pct) : null;
+    const diversity = typeof f.image_diversity?.lifestyle_ratio_pct === "number"
+      ? Math.round(f.image_diversity.lifestyle_ratio_pct) : null;
+    const totalImages = typeof f.image_diversity?.total_images === "number" ? f.image_diversity.total_images : 0;
+    const totalPages = typeof f.page_inventory?.total_pages === "number" ? f.page_inventory.total_pages : totalImages;
+    const coverage = totalImages > 0 && totalPages ? Math.min(100, Math.round((totalImages / totalPages) * 100)) : null;
+    components = [
+      { label: "ALT ratio", value: altRatio },
+      { label: "Image diversity", value: diversity },
+      { label: "Coverage", value: coverage },
+    ];
+  }
+
+  const valid = components.map((c) => c.value).filter((v): v is number => v != null);
+  const total = valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
+  return { components, total };
+};
+
+// 절대 기준 신호등 — 평균 대비가 아니라 고정 구간(70/40)으로 판단
+export const scoreTier = (score: number | null): ScoreTier => {
+  if (score == null) return "none";
+  if (score >= 70) return "good";
+  if (score >= 40) return "mid";
+  return "bad";
+};
+export const scoreTierEmoji = (tier: ScoreTier) => tier === "good" ? "🟢" : tier === "mid" ? "🟡" : tier === "bad" ? "🔴" : "⚪";
+export const scoreTierLabel = (tier: ScoreTier) => tier === "good" ? "Strong" : tier === "mid" ? "Moderate" : tier === "bad" ? "Needs Attention" : "근거 없음";
+
+// 지표 상태를 짧은 서술 phrase로 — 배지성 금지어("약함","부족","보완 필요") 대신 구체적 방향성 서술
+export const metricPhrase = (metric: MetricTab, tier: ScoreTier): string => {
+  if (metric === "data") {
+    if (tier === "good") return "구조 데이터 적용 범위 넓음";
+    if (tier === "mid") return "구조 데이터 적용 범위 보통";
+    if (tier === "bad") return "구조 데이터 적용 범위 제한적";
+    return "구조 데이터 근거 없음";
   }
   if (metric === "copy") {
-    const pages = f.copy_richness?.all_pages;
-    if (!Array.isArray(pages) || pages.length === 0) return null;
-    const total = pages.reduce((sum: number, p: any) => sum + (Number(p?.score) || 0), 0);
-    return Math.round(total / pages.length);
+    if (tier === "good") return "CTA 연결 범위 높음";
+    if (tier === "mid") return "CTA 연결 범위 보통";
+    if (tier === "bad") return "CTA 연결 범위 제한적";
+    return "카피 근거 없음";
   }
-  return typeof f.image_diversity?.lifestyle_ratio_pct === "number"
-    ? Math.round(f.image_diversity.lifestyle_ratio_pct) : null;
+  if (tier === "good") return "설명형 ALT 비율 높음";
+  if (tier === "mid") return "설명형 ALT 비율 보통";
+  if (tier === "bad") return "설명형 ALT 비율 낮음";
+  return "이미지 근거 없음";
+};
+
+// 짧은 우선 액션 phrase (문장이 아니라 2~6단어 지시형) — 스펙 톤: "PDP Product Schema 보강" 같은 형태
+export const shortActionPhrase = (metric: MetricTab, tier: ScoreTier): string => {
+  if (metric === "data") return tier === "bad" ? "PDP Product 스키마 보강" : tier === "mid" ? "Buying Offer 스키마 점검" : "현재 구조 유지";
+  if (metric === "copy") return tier === "bad" ? "PDP CTA 우선 추가" : tier === "mid" ? "FAQ 구체성 보강" : "현재 카피 유지";
+  return tier === "bad" ? "기능 중심 ALT 보강" : tier === "mid" ? "사용 장면 ALT 추가" : "현재 이미지 구성 유지";
 };
 
 export const metricAverage = (sitePages: PageLite[], block?: AnalysisBlock) => {

@@ -172,6 +172,12 @@ input, select { font-family: inherit; }
 .axisCard:hover { box-shadow: var(--shadow-sm); border-color: var(--blue); }
 .axisCard.own { border-left: 4px solid var(--blue); }
 .axisCardLabel { font-size: 10.5px; font-weight: 800; color: var(--sec); letter-spacing: .03em; text-transform: uppercase; margin-bottom: 6px; }
+.axisCardScore { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+.axisCardScoreNum { font-size: 22px; font-weight: 800; color: var(--label); }
+.axisCardTier { font-size: 11px; font-weight: 700; color: var(--sec); }
+.axisCardInsight { font-size: 12px; color: var(--label2); line-height: 1.5; margin: 4px 0 2px; }
+.axisCardDeltaBad { color: var(--high); font-weight: 700; }
+.axisCardDeltaGood { color: var(--tier-good, #1a7f37); font-weight: 700; }
 .axisCardStat { font-size: 14.5px; font-weight: 800; color: var(--label); line-height: 1.35; margin: 2px 0 3px; }
 .axisCardCap { font-size: 11px; color: var(--sec); margin-bottom: 8px; }
 .axisCardHr { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
@@ -275,7 +281,13 @@ input, select { font-family: inherit; }
 .currentEvidenceCard { padding: 0; overflow: hidden; scroll-margin-top: 16px; }
 .currentEvidenceCard[open] .summaryEvidenceSummary { border-bottom: 1px solid var(--line); }
 .currentEvidenceBox { padding-top: 2px; }
-.currentEvidenceKicker { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.currentEvidenceKicker { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+.detailTitle { font-size: 15px; font-weight: 800; color: var(--label); margin: 4px 0 8px; line-height: 1.4; }
+.detailSectionLabel { font-size: 10.5px; font-weight: 800; color: var(--sec); letter-spacing: .03em; text-transform: uppercase; margin-bottom: 4px; }
+.detailScoreBadge { margin-left: auto; font-size: 12px; font-weight: 800; color: var(--label); }
+.detailTitle { font-size: 15px; font-weight: 800; color: var(--label); margin: 4px 0 8px; line-height: 1.4; }
+.detailSectionLabel { font-size: 10.5px; font-weight: 800; color: var(--sec); letter-spacing: .03em; text-transform: uppercase; margin-bottom: 4px; }
+.detailScoreBadge { margin-left: auto; font-size: 12px; font-weight: 800; color: var(--label); }
 
 /* ── 용어 설명(글로서리) 토글 ── */
 .termToggle { font-size: 10.5px; color: var(--blue); margin-left: 5px; font-weight: 600; }
@@ -373,6 +385,8 @@ input, select { font-family: inherit; }
 .avgBoxInsight { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--label2); line-height: 1.4; }
 .avgStatVal { font-weight: 700; font-family: var(--mono); font-size: 13px; }
 .ownTag { font-size: 9px; font-weight: 800; background: var(--blue); color: #fff; padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
+.siteOverallScore { margin-left: auto; display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 800; color: var(--label); }
+.scorePhrase { font-size: 11.5px; font-weight: 600; color: var(--label2); }
 .scoreRow { display: flex; width: 100%; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); border-top: none; border-left: none; border-right: none; background: none; font: inherit; text-align: left; cursor: pointer; }
 .scoreRow:last-of-type { border-bottom: none; }
 .scoreRow:hover { background: var(--bg); }
@@ -552,8 +566,17 @@ input, select { font-family: inherit; }
 .chatPanelHead b { font-size: 14px; }
 .chatPanelHead button { font-size: 20px; color: var(--ter); padding: 0 4px; }
 .qaPickRow { display: flex; gap: 6px; margin-bottom: 10px; }
-.qaPickRow select { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; font-size: 12px; background: #fff; color: var(--label); }
+.qaPickRow select { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; font-size: 12px; background: #fff; color: var(--label); min-width: 0; }
 .qaPickGo { background: var(--blue); color: #fff; border-radius: 10px; padding: 0 10px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+.qaPickGoFull { width: 100%; padding: 9px 0; margin-bottom: 12px; }
+.qaResultWrap { border-top: 1px solid var(--line); padding-top: 10px; }
+.qaResultLabel { font-size: 11px; color: var(--sec); font-weight: 700; margin-bottom: 8px; }
+.qaResultRow { border: 1px solid var(--line); border-radius: 12px; padding: 10px 11px; margin-bottom: 8px; }
+.qaResultHead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.qaResultMetric { font-size: 11px; font-weight: 700; color: var(--label2); }
+.qaResultAvg { font-size: 10.5px; color: var(--sec); margin-left: auto; }
+.qaResultEvidence { margin: 0; padding-left: 16px; }
+.qaResultEvidence li { font-size: 11.5px; color: var(--label2); line-height: 1.4; margin-bottom: 2px; }
 .presetGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
 .presetGrid button { background: var(--bg); color: var(--label2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 8px; font-size: 11.3px; font-weight: 700; text-align: left; line-height: 1.35; }
 .presetGrid button:hover { background: var(--blue-soft); color: var(--blue); }

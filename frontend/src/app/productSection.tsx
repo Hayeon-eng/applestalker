@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  MetricView, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
+  MetricView, MetricTab, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
   PRODUCT_CATEGORY_ORDER, productCategoryKo, productCategoryDesc,
   orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf,
-  productPageLabel,
+  productPageLabel, METRICS, metricScoreBreakdown, scoreTier, scoreTierEmoji, scoreTierLabel, metricPhrase, shortActionPhrase,
 } from "./shared";
 import { PageDrilldown } from "./sectionCommon";
 import { buildPageRows, PageRow, roleRank, roleLabel } from "./pagesSection";
@@ -132,34 +132,50 @@ export function ProductTab({
       </div>
 
       <div className="card">
-        <p className="cardTitle">PF/PDP/Buying 완성도 — {productCategoryKo(selectedCategory)}</p>
-        <p className="muted" style={{ marginBottom: 10 }}>역할이 다 갖춰졌으면 "특이사항 없음", 비어 있으면 무엇부터 확인할지만 보여줍니다.</p>
+        <p className="cardTitle">{productCategoryKo(selectedCategory)} — Site별 완성도</p>
+        <p className="muted" style={{ marginBottom: 10 }}>점수는 사이트 전체 DATA/COPY/VISUAL 기준이고, 핵심 발견은 이 제품군의 PF/PDP/Buying 흐름 기준입니다.</p>
         <div className="siteSplit">
           {visibleSites.map((site) => {
             const rows = visibleRows.filter((r) => r.site === site);
             const roleCells = (["pf", "pdp", "buying"] as const).map((role) => ({ role, cell: roleCellFor(rows, role) }));
-            const action = productMatrixAction(rows);
+            const roleAction = productMatrixAction(rows);
+
+            const axisScores = (["data", "copy", "visual"] as MetricTab[]).map((m) => {
+              const total = metricScoreBreakdown(m, dcv?.[m]?.[site]).total;
+              return { metric: m, total, tier: scoreTier(total) };
+            });
+            const scored = axisScores.filter((s) => s.total != null) as { metric: MetricTab; total: number; tier: ReturnType<typeof scoreTier> }[];
+            const overall = scored.length ? Math.round(scored.reduce((a, b) => a + b.total, 0) / scored.length) : null;
+            const overallTier = scoreTier(overall);
+            const worstAxis = scored.length ? [...scored].sort((a, b) => a.total - b.total)[0] : null;
+            const priorityAction = roleAction || (worstAxis ? shortActionPhrase(worstAxis.metric, worstAxis.tier) : "관리 URL과 수집 결과부터 확보하세요.");
+
             return (
               <div key={site} className="card metricSummaryCard" style={{ padding: 13, cursor: "default" }}>
-                <p className="siteSplitHead" style={{ marginBottom: 6 }}>
-                  <span className={`badge ${siteClass(site)}`}>{siteName(site)}</span>
-                  {site === "samsung" && <span className="ownTag">당사</span>}
+                <p className="siteSplitHead" style={{ marginBottom: 6, justifyContent: "space-between" }}>
+                  <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span className={`badge ${siteClass(site)}`}>{siteName(site)}</span>
+                    {site === "samsung" && <span className="ownTag">당사</span>}
+                  </span>
+                  <span className="siteOverallScore">
+                    <span className={`scoreDot ${overallTier}`} />
+                    {overall == null ? "-" : overall}
+                  </span>
                 </p>
-                {roleCells.map(({ role, cell }) => (
-                  <div key={role} className="scoreRow" style={{ cursor: "default" }}>
-                    <span>{role.toUpperCase()}</span>
+                {axisScores.map(({ metric, tier }) => (
+                  <div key={metric} className="scoreRow" style={{ cursor: "default" }}>
+                    <span>{METRICS[metric].label}</span>
                     <span>
-                      <span className={`scoreDot ${cell.cls === "good" ? "good" : cell.cls === "unknown" ? "mid" : "bad"}`} />
-                      <span className="scoreVal" style={{ fontSize: 12.5 }}>{cell.label}</span>
+                      <span className={`scoreDot ${tier}`} />
+                      <span className="scorePhrase">{metricPhrase(metric, tier)}</span>
                     </span>
                   </div>
                 ))}
                 <div className="worstBox">
-                  {action ? (
-                    <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>{action}</p>
-                  ) : (
-                    <p className="findingText" style={{ fontSize: 12, color: "var(--sec)" }}>PF/PDP/Buying 흐름 완비 · 특이사항 없음</p>
-                  )}
+                  <p className="findingText" style={{ fontSize: 12 }}>
+                    핵심 발견: {roleCells.map(({ role, cell }) => `${role.toUpperCase()} ${cell.label}`).join(" · ")}
+                  </p>
+                  <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>추천 액션: {priorityAction}</p>
                 </div>
               </div>
             );

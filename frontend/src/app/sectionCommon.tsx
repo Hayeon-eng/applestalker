@@ -4,6 +4,7 @@ import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, PageDetail,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
   shortUrl, linesFromBlock, tagForLine, metricAverage, metricActionSentence, siteMetricScore,
+  scoreTier, metricScoreBreakdown, ScoreTier, metricPhrase, shortActionPhrase,
 } from "./shared";
 
 
@@ -68,34 +69,33 @@ export function FindingList({
 const SCORE_METRIC_LABEL: Record<MetricTab, string> = { data: "스키마 점수", copy: "카피 점수", visual: "이미지 점수" };
 const SCORE_METRICS: MetricTab[] = ["data", "copy", "visual"];
 
-// 사이트 평균 대비 신호등 색: 근거 없으면 회색, 평균보다 뚜렷이 낮으면 빨강, 뚜렷이 높으면 초록, 그 외 노랑
-function scoreDotClass(score: number | null, avg: number | null): string {
-  if (score == null) return "none";
-  if (avg == null) return "mid";
-  if (score >= avg + 5) return "good";
-  if (score <= avg - 10) return "bad";
-  return "mid";
-}
-
 export function SiteScoreCard({
-  title, site, isOwn, blocks, siteAverages, onSelectScore, selectedMetric, worstText,
+  title, site, isOwn, blocks, onSelectScore, selectedMetric,
 }: {
   title: string; site: SiteKey; isOwn?: boolean;
   blocks: Partial<Record<MetricTab, AnalysisBlock | undefined>>;
-  siteAverages: Partial<Record<MetricTab, number | null>>;
+  siteAverages?: Partial<Record<MetricTab, number | null>>;
   onSelectScore?: (metric: MetricTab) => void;
   selectedMetric?: MetricTab | null;
   worstText?: string;
 }) {
-  const scores = SCORE_METRICS.map((m) => ({ metric: m, score: siteMetricScore(m, blocks[m]) }));
-  const scored = scores.filter((s) => s.score != null) as { metric: MetricTab; score: number }[];
-  const worst = scored.length
-    ? scored.reduce((a, b) => {
-        const gapA = a.score - (siteAverages[a.metric] ?? a.score);
-        const gapB = b.score - (siteAverages[b.metric] ?? b.score);
-        return gapB < gapA ? b : a;
-      })
-    : null;
+  const rows = SCORE_METRICS.map((m) => {
+    const breakdown = metricScoreBreakdown(m, blocks[m]);
+    const tier = scoreTier(breakdown.total);
+    return { metric: m, total: breakdown.total, tier };
+  });
+  const scored = rows.filter((r) => r.total != null) as { metric: MetricTab; total: number; tier: ScoreTier }[];
+  const overall = scored.length ? Math.round(scored.reduce((a, b) => a + b.total, 0) / scored.length) : null;
+  const overallTier = scoreTier(overall);
+  const best = scored.length ? [...scored].sort((a, b) => b.total - a.total)[0] : null;
+  const worst = scored.length ? [...scored].sort((a, b) => a.total - b.total)[0] : null;
+
+  const summary = !scored.length
+    ? "이번 수집엔 근거 없음 · 비교 대상에서 제외, URL·렌더링 확인"
+    : best && worst && best.metric !== worst.metric
+      ? `${METRICS[best.metric].label} 흐름은 강하지만 ${METRICS[worst.metric].label} 쪽이 상대적으로 약한 구조입니다.`
+      : `${METRICS[scored[0].metric].label} 기준으로 비교적 고른 상태입니다.`;
+  const priorityAction = worst ? shortActionPhrase(worst.metric, worst.tier) : "관리 URL과 수집 결과부터 확보하세요.";
 
   return (
     <div className="avgBox">
@@ -103,30 +103,28 @@ export function SiteScoreCard({
         <span className="avgBoxSite" style={{ background: site === "samsung" ? "var(--samsung)" : site === "apple" ? "var(--apple)" : "var(--competitor)" }} />
         {title}
         {isOwn && <span className="ownTag">당사</span>}
+        <span className="siteOverallScore">
+          <span className={`scoreDot ${overallTier}`} />
+          {overall == null ? "-" : `${overall}`}
+        </span>
       </p>
-      {scores.map(({ metric, score }) => (
+      {rows.map(({ metric, total, tier }) => (
         <button
           key={metric}
           className={`scoreRow ${selectedMetric === metric ? "active" : ""}`}
           onClick={() => onSelectScore?.(metric)}
         >
-          <span>{SCORE_METRIC_LABEL[metric]}</span>
+          <span>{METRICS[metric].label}</span>
           <span>
-            <span className={`scoreDot ${scoreDotClass(score, siteAverages[metric] ?? null)}`} />
-            <span className="scoreVal">{score == null ? "-" : `${score}점`}</span>
-            {score != null && <span className="scoreChev">›</span>}
+            <span className={`scoreDot ${tier}`} />
+            <span className="scorePhrase">{metricPhrase(metric, tier)}</span>
+            {total != null && <span className="scoreChev">›</span>}
           </span>
         </button>
       ))}
       <div className="worstBox">
-        {worst ? (
-          <>
-            <p className="worstLabel">가장 부족한 지표 — {SCORE_METRIC_LABEL[worst.metric]} ({worst.score}점)</p>
-            {worstText && <p className="findingText" style={{ fontSize: 12 }}>{worstText}</p>}
-          </>
-        ) : (
-          <p className="findingText" style={{ fontSize: 12, color: "var(--sec)" }}>이번 수집엔 근거 없음 · 비교 대상에서 제외, URL·렌더링 확인</p>
-        )}
+        <p className="findingText" style={{ fontSize: 12 }}>종합 인사이트: {summary}</p>
+        <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>우선 액션: {priorityAction}</p>
       </div>
     </div>
   );

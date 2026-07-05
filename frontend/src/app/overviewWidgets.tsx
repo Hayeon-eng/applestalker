@@ -4,11 +4,12 @@ import { useState } from "react";
 import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass, levelKo, levelClass,
-  shortUrl, bucketOf, actionForChange, pageRoleFromUrl, pageRoleKo, pageRoleFromText,
-  metricActionSentence, metricIssueSentence, metricAreaLabel, siteMetricScore,
+  shortUrl, bucketOf, actionForChange, metricActionSentence, metricIssueSentence, metricAreaLabel, siteMetricScore,
+  PRODUCT_CATEGORY_ORDER, productCategoryKo, productCategoryFromRow,
+  metricScoreBreakdown, scoreTier, ScoreTier, scoreTierEmoji, scoreTierLabel, shortActionPhrase,
 } from "./shared";
 import {
-  firstNarrativeLine, compactSummary, siteMatchesQuery,
+  compactSummary,
 } from "./sectionCommon";
 
 type HealthState = "good" | "watch" | "risk" | "unknown";
@@ -44,14 +45,15 @@ type PriorityIssue = {
 
 type AxisHighlight = {
   metric: MetricTab;
-  kind: "own" | "benchmark" | "gap";
-  site: SiteKey;
-  priority: PriorityLevel;
-  stat: string;
-  caption: string;
+  score: number | null;
+  tier: ScoreTier;
+  competitorAvg: number | null;
+  delta: number | null; // Samsung score - 경쟁사 평균
+  keyStatLabel: string;
+  keyStatValue: number | null;
+  insight: string;
   action: string;
   change?: Change;
-  moreSitesCount: number;
 };
 
 export type BoardDigest = {
@@ -152,7 +154,7 @@ function metricHealth(metric: MetricTab, block: AnalysisBlock | undefined, metri
     const h1Pct = asNumber((block.facts as any)?.html_structure?.h_tag_coverage?.h1_coverage_pct, 0);
     if (!totalPages) return { state: "unknown", label: "근거 부족", summary: "DATA / Schema 페이지 근거가 부족합니다" };
     if (high) return { state: "risk", label: "변화 있음", summary: "Schema/H-tag 변경이 검색·AI 해석에 영향을 줄 수 있습니다" };
-    if (coverage === 0 && h1Pct === 0) return { state: "risk", label: "개선 필요", summary: "Schema와 H-tag 역할 신호가 약합니다" };
+    if (coverage === 0 && h1Pct === 0) return { state: "risk", label: "주의 필요", summary: "Schema와 H-tag 역할 신호 적용 범위가 제한적입니다" };
     if ((coverage ?? 0) < 40) return { state: "watch", label: "확인 필요", summary: `Schema 적용 범위가 낮습니다 (${coverage ?? "-"}%)` };
     return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `Schema ${coverage ?? "-"}% · 역할 신호를 유지하세요` };
   }
@@ -168,7 +170,7 @@ function metricHealth(metric: MetricTab, block: AnalysisBlock | undefined, metri
     if (words !== null && words < 30) return { state: "unknown", label: "근거 부족", summary: "카피 본문 근거가 부족합니다" };
     if (high) return { state: "risk", label: "변화 있음", summary: "핵심 카피/CTA 변경을 확인해야 합니다" };
     if ((score !== null && score < 40) || (conversionRoles > 0 && cta === 0)) {
-      return { state: "risk", label: "개선 필요", summary: "구매 CTA와 카피 연결이 약합니다" };
+      return { state: "risk", label: "주의 필요", summary: "구매 CTA와 카피 연결 범위가 제한적입니다" };
     }
     return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `카피 ${score ?? "-"}점 · CTA ${cta}p` };
   }
@@ -179,7 +181,7 @@ function metricHealth(metric: MetricTab, block: AnalysisBlock | undefined, metri
   if (!totalPages) return { state: "unknown", label: "근거 부족", summary: "VISUAL / ALT COPY 페이지 근거가 부족합니다" };
   if (imageCount === 0) return { state: "unknown", label: "근거 부족", summary: "이미지/ALT COPY 근거가 부족합니다" };
   if (high) return { state: "risk", label: "변화 있음", summary: "핵심 이미지/ALT COPY 변경을 확인해야 합니다" };
-  if ((altPct ?? 0) < 40) return { state: "risk", label: "개선 필요", summary: "ALT COPY의 구체성이 부족합니다" };
+  if ((altPct ?? 0) < 40) return { state: "risk", label: "주의 필요", summary: "ALT COPY의 구체성이 상대적으로 낮습니다" };
   return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `이미지 ${imageCount ?? "-"}개 · ALT COPY ${altPct ?? "-"}%` };
 }
 
@@ -334,69 +336,62 @@ function benchmarkLineForRow(row: SiteDashboardRow, scopedMetrics: MetricTab[]):
   return `${siteShortName(row.site)}는 COPY / CTA 흐름을 참고할 수 있습니다. PDP에서 구매/혜택 CTA가 어떻게 이어지는지 비교하세요.`;
 }
 
-function buildAxisHighlights(rows: SiteDashboardRow[], scopedMetrics: MetricTab[]): AxisHighlight[] {
-  const samsungRow = rows.find((r) => r.site === "samsung");
-  const competitorRows = rows.filter((r) => r.site !== "samsung");
+const AXIS_INSIGHT_OBSERVATION: Record<MetricTab, string> = {
+  data: "페이지 구조 데이터는 존재하지만",
+  copy: "구매 관련 페이지는 존재하지만",
+  visual: "이미지는 확보되어 있지만",
+};
+const AXIS_INSIGHT_MEANING: Record<MetricTab, string> = {
+  data: "검색 엔진이 페이지 역할을 해석하는 신호 범위가 제한될 수 있습니다.",
+  copy: "페이지 수보다 행동 연결 밀도 차이가 더 크게 나타납니다.",
+  visual: "이미지 의미 전달 범위가 제한될 수 있습니다.",
+};
 
-  return scopedMetrics.map((metric): AxisHighlight | null => {
-    // ① Samsung 자체 변경이 있으면 최우선으로 보여줌
-    const samsungChange = (samsungRow?.changes || [])
-      .filter((c) => bucketOf(c) === metric)
+function buildAxisInsight(metric: MetricTab, weakestLabel: string | undefined, delta: number | null): string {
+  const compareText = delta == null
+    ? "경쟁사 비교 근거가 아직 부족합니다"
+    : delta < 0
+      ? `${weakestLabel || METRICS[metric].label} 적용 범위가 경쟁사보다 ${Math.abs(delta)}%p 좁습니다`
+      : delta > 0
+        ? `${weakestLabel || METRICS[metric].label} 적용 범위가 경쟁사보다 ${delta}%p 넓습니다`
+        : `${weakestLabel || METRICS[metric].label} 적용 범위가 경쟁사와 비슷한 수준입니다`;
+  return `${AXIS_INSIGHT_OBSERVATION[metric]} ${compareText}. ${AXIS_INSIGHT_MEANING[metric]}`;
+}
+
+function buildAxisHighlights(
+  dcv: Report["dcv"] | undefined, allSites: SiteKey[], scopedMetrics: MetricTab[], changes: Change[],
+): AxisHighlight[] {
+  return scopedMetrics.map((metric): AxisHighlight => {
+    const samsungBlock = dcv?.[metric]?.["samsung"];
+    const samsungBreak = metricScoreBreakdown(metric, samsungBlock);
+    const score = samsungBreak.total;
+    const tier = scoreTier(score);
+
+    const competitorScores = allSites
+      .filter((s) => s !== "samsung")
+      .map((s) => metricScoreBreakdown(metric, dcv?.[metric]?.[s]).total)
+      .filter((v): v is number => v != null);
+    const competitorAvg = competitorScores.length
+      ? Math.round(competitorScores.reduce((a, b) => a + b, 0) / competitorScores.length) : null;
+    const delta = score != null && competitorAvg != null ? score - competitorAvg : null;
+
+    const weakestComponent = [...samsungBreak.components]
+      .filter((c) => c.value != null)
+      .sort((a, b) => (a.value as number) - (b.value as number))[0];
+
+    const samsungChange = changes
+      .filter((c) => c.site === "samsung" && bucketOf(c) === metric)
       .sort((a, b) => priorityRank[(a.level || "Low") as PriorityLevel] - priorityRank[(b.level || "Low") as PriorityLevel])[0];
-    if (samsungChange) {
-      return {
-        metric, kind: "own", site: "samsung",
-        priority: (samsungChange.level || "Low") as PriorityLevel,
-        stat: compactSummary(samsungChange.summary || samsungChange.field || "변경 감지", 56),
-        caption: shortUrl(samsungChange.url || ""),
-        action: actionForChange(samsungChange),
-        change: samsungChange,
-        moreSitesCount: 0,
-      };
-    }
 
-    // ② 경쟁사 중 이 축에서 근거가 있는 사이트들만 비교 (근거 없는 곳은 순위에서 제외)
-    const withEvidence = competitorRows.filter((r) => r.metrics[metric].state !== "unknown");
-    if (withEvidence.length === 0) return null;
-
-    const worst = [...withEvidence].sort((a, b) => healthPriorityRank[a.metrics[metric].state] - healthPriorityRank[b.metrics[metric].state])[0];
-    const worstState = worst.metrics[metric].state;
-
-    if (worstState === "risk" || worstState === "watch") {
-      const sameGapCount = withEvidence.filter((r) => r.metrics[metric].state === worstState).length - 1;
-      const worstChange = worst.changes.find((c) => bucketOf(c) === metric);
-      const samsungMetric = samsungRow?.metrics[metric];
-      const gapAction = worstChange
-        ? actionForChange(worstChange)
-        : samsungMetric && (samsungMetric.state === "good" || samsungMetric.state === "watch")
-          ? `Samsung은 ${samsungMetric.summary} 수준을 유지하며 이 격차를 활용하세요.`
-          : samsungMetric
-            ? `Samsung도 ${METRICS[metric].label}이 약한 편이니, ${siteName(worst.site)}의 약점을 반면교사 삼아 먼저 보완하세요.`
-            : `Samsung ${METRICS[metric].label} 근거가 없어 비교가 어렵습니다. 근거부터 확보하세요.`;
-      return {
-        metric, kind: "gap", site: worst.site,
-        priority: worstState === "risk" ? "High" : "Medium",
-        stat: worst.metrics[metric].summary,
-        caption: `${siteName(worst.site)} · 경쟁사 격차`,
-        action: gapAction,
-        moreSitesCount: Math.max(0, sameGapCount),
-      };
-    }
-
-    // ③ 다들 양호하면 제일 잘하는 경쟁사를 벤치마크 대상으로 제시
-    const best = [...withEvidence].sort((a, b) => healthPriorityRank[b.metrics[metric].state] - healthPriorityRank[a.metrics[metric].state])[0];
-    const samsungMetricForBench = samsungRow?.metrics[metric];
     return {
-      metric, kind: "benchmark", site: best.site,
-      priority: "Low",
-      stat: best.metrics[metric].summary,
-      caption: `${siteName(best.site)} · 경쟁사 중 최고`,
-      action: samsungMetricForBench
-        ? `Samsung은 지금 ${samsungMetricForBench.summary} 수준 — ${siteName(best.site)}의 방식을 참고해 벤치마크해보세요.`
-        : `${siteName(best.site)}의 ${METRICS[metric].label} 방식을 참고해 Samsung에도 적용해보세요.`,
-      moreSitesCount: 0,
+      metric, score, tier, competitorAvg, delta,
+      keyStatLabel: weakestComponent?.label || METRICS[metric].label,
+      keyStatValue: weakestComponent?.value ?? score,
+      insight: buildAxisInsight(metric, weakestComponent?.label, delta),
+      action: samsungChange ? actionForChange(samsungChange) : shortActionPhrase(metric, tier),
+      change: samsungChange,
     };
-  }).filter((x): x is AxisHighlight => x !== null);
+  });
 }
 
 export function buildDashboardDigest({
@@ -413,7 +408,7 @@ export function buildDashboardDigest({
   const riskCount = siteRows.filter((row) => row.collection.state === "risk").length;
   const unknownCount = siteRows.filter((row) => row.collection.state === "unknown").length;
   const priorityRows = buildPriorityRows(siteRows, changes, scopedMetrics);
-  const axisHighlights = buildAxisHighlights(siteRows, scopedMetrics);
+  const axisHighlights = buildAxisHighlights(dcv, allSites, scopedMetrics, changes);
   const actionCount = priorityRows.filter((row) => row.priority !== "Low").length;
 
   const samsungRow = siteRows.find((row) => row.site === "samsung");
@@ -479,32 +474,30 @@ export function WatchPointPanel({
 
   return (
     <>
-      {/* ① 축별 핵심 발견 — 사이트가 몇 개든 상관없이 DATA/COPY/VISUAL 3장 고정.
-         Samsung 자체 변경 > 경쟁사 격차 > 경쟁사 벤치마크 순으로 축마다 가장 중요한 것 1건만 */}
+      {/* ① 축별 핵심 발견 — DATA/COPY/VISUAL 3장 고정, 항상 Samsung 자체 점수 기준.
+         제목 → 점수+신호등 → 핵심 수치(경쟁사 평균 대비) → 인사이트(관찰→비교→의미) → 우선 액션 */}
       <div className="card">
         <p className="cardTitle">축별 핵심 발견 <span className="cardTitleHint">— 누르면 해당 탭·상세로 이동</span></p>
         <div className="axisGrid">
-          {digest.axisHighlights.length === 0 ? (
-            <p className="muted">표시할 축별 발견이 없습니다. 관리 URL과 수집 결과를 확인하세요.</p>
-          ) : digest.axisHighlights.map((h) => (
-            <button
-              key={h.metric}
-              className={`axisCard ${h.kind === "own" ? "own" : ""}`}
-              onClick={() => jump(h.metric, h.change)}
-            >
-              <p className="axisCardLabel">
-                {metricShortLabel(h.metric)} · {h.kind === "own" ? "Samsung 자체 변경" : h.kind === "gap" ? "경쟁사 격차" : "1등 벤치마크"}
+          {digest.axisHighlights.map((h) => (
+            <button key={h.metric} className="axisCard" onClick={() => jump(h.metric, h.change)}>
+              <p className="axisCardLabel">{metricShortLabel(h.metric)}</p>
+              <p className="axisCardScore">
+                <span>{scoreTierEmoji(h.tier)}</span>
+                <span className="axisCardScoreNum">{h.score == null ? "-" : h.score}</span>
+                <span className="axisCardTier">{scoreTierLabel(h.tier)}</span>
               </p>
-              <span className={`chip ${h.priority === "High" ? "high" : h.priority === "Medium" ? "med" : "bench"}`}>
-                {siteName(h.site)}{h.priority !== "Low" ? ` · ${levelKo(h.priority)}` : h.kind === "benchmark" ? " · 벤치마크" : ""}
-              </span>
-              <p className="axisCardStat">{h.stat}</p>
-              <p className="axisCardCap">{h.caption}</p>
+              <p className="axisCardStat">
+                {h.keyStatLabel} {h.keyStatValue == null ? "근거 없음" : `${h.keyStatValue}%`}
+                {h.delta != null && (
+                  <span className={h.delta < 0 ? "axisCardDeltaBad" : "axisCardDeltaGood"}>
+                    {" "}({h.delta > 0 ? "+" : ""}{h.delta}%p vs 경쟁사)
+                  </span>
+                )}
+              </p>
+              <p className="axisCardInsight">{h.insight}</p>
               <hr className="axisCardHr" />
-              <p className="axisCardAct">{h.action}</p>
-              {h.moreSitesCount > 0 && (
-                <p className="axisCardMore">이 패턴, 경쟁사 {h.moreSitesCount}곳에서 비슷하게 발견됨</p>
-              )}
+              <p className="axisCardAct">우선 액션: {h.action}</p>
             </button>
           ))}
         </div>
@@ -534,116 +527,59 @@ export function WatchPointPanel({
   );
 }
 
+type QaResultRow = {
+  site: SiteKey; metric: MetricTab; score: number | null; dot: "good" | "mid" | "bad" | "none";
+  health: MetricHealth; evidenceLines: string[];
+};
+
 export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report["dcv"]; changes: Change[]; expectedSites?: SiteKey[] }) {
-  const presets = [
-    "이번 주 변경된 페이지는?",
-    "삼성은 뭘 예의주시해야 해?",
-    "Apple PDP에서 copy 의미있는 차이는?",
-    "Xiaomi tablet PDP에서 image 인사이트는?",
-    "스키마에서 의미 있는 차이는?",
-    "PF/PDP/Buying 중 어디가 약해?",
-  ];
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const [answer, setAnswer] = useState("preset을 누르거나, ‘Apple PDP copy’, ‘Xiaomi tablet image’처럼 사이트·페이지·지표를 넣어 물어보세요.");
-
-  const answerFor = (query: string) => {
-    const raw = query.trim().toLowerCase();
-    if (!raw) return;
-    const metricExplicit: MetricTab | undefined = /schema|data|html|h-?tag|스키마|데이터/.test(raw)
-      ? "data" : /visual|image|alt|비주얼|이미지/.test(raw)
-      ? "visual" : /copy|카피|문구|tone|faq|cta/.test(raw)
-      ? "copy" : undefined;
-    const metric: MetricTab = metricExplicit || "copy";
-    const role = pageRoleFromText(raw);
-    const digest = buildDashboardDigest({ changes, dcv, metricTab: metricExplicit || "all", expectedSites });
-    const allMetricSites = orderedSiteKeys([...expectedSites, ...Object.keys(dcv?.[metric] || {}), ...changes.map((c) => c.site || "")]);
-    const site = allMetricSites.find((s) => siteMatchesQuery(s, raw));
-    const filteredChanges = changes.filter((c) => {
-      if (bucketOf(c) !== metric) return false;
-      if (site && c.site !== site) return false;
-      if (role && pageRoleFromUrl(c.url) !== role) return false;
-      return true;
-    });
-
-    if (/이번|변경|바뀐|changed|change/.test(raw) && !/의미|insight|인사이트/.test(raw)) {
-      if (filteredChanges.length) {
-        setAnswer(filteredChanges.slice(0, 5).map((c) => `- ${siteName(c.site)} ${pageRoleKo(pageRoleFromUrl(c.url))} ${METRICS[bucketOf(c)].label}: ${c.summary || c.field} (${shortUrl(c.url)})`).join("\n"));
-        return;
-      }
-      const qualityWarnings = digest.siteRows.filter((row) => row.priority !== "Low").slice(0, 4);
-      if (qualityWarnings.length) {
-        setAnswer("조건에 맞는 변경점은 없습니다. 다만 변경 없음으로 보기 전 아래 근거 부족 항목을 보조 확인하세요.\n" + qualityWarnings.map((row) => `- ${siteName(row.site)}: ${row.issue} → ${row.action}`).join("\n"));
-        return;
-      }
-      setAnswer("조건에 맞는 변경점은 없습니다. 큰 근거 공백이 없으면 현재 구성을 유지하고, 다음 수집에서 Schema/CTA/카피/ALT COPY 변화만 비교하면 됩니다.");
-      return;
-    }
-
-    if (/삼성|samsung|예의주시|watch|action/.test(raw)) {
-      if (digest.priorityRows.length) {
-        setAnswer(digest.priorityRows.slice(0, 5).map((row) => `- ${siteName(row.site)} ${levelKo(row.priority)}: ${row.issue}\n  → 삼성 액션: ${row.action}`).join("\n"));
-        return;
-      }
-      setAnswer("이번 수집에서는 즉시 처리할 이슈가 없습니다. 예의주시 포인트는 ① 경쟁사의 Product/FAQ schema 변화 ② PF/PDP/Buying CTA 위치 변화 ③ hero copy의 톤 변화 ④ alt.copy 보강 여부입니다.");
-      return;
-    }
-
-    if (/pf|pdp|buying|구매|약해/.test(raw)) {
-      const blocks = dcv?.copy || {};
-      const lines = orderedSiteKeys([...expectedSites, ...Object.keys(blocks)]).map((s) => {
-        const block = blocks[s];
-        const row = digest.siteRows.find((x) => x.site === s);
-        const f: any = block?.facts || {};
-        if (!block || row?.collection.state === "risk" || row?.collection.state === "unknown") return `- ${siteName(s)}: ${row?.issue || "아직 COPY 근거가 없습니다."} 수집 성공 후 PF/PDP/Buying별로 판단할 수 있습니다.`;
-        const roles = f.page_inventory?.by_page_role || {};
-        const roleText = Object.entries(roles).map(([k, v]) => `${pageRoleKo(k)} ${v}p`).join(", ") || "역할 정보 없음";
-        const line = firstNarrativeLine(block);
-        return `- ${siteName(s)}: 수집 기준 ${roleText}. ${compactSummary(line, 160)}`;
-      });
-      setAnswer(lines.length ? lines.join("\n") : "PF/PDP/Buying 역할별 COPY 근거가 아직 부족합니다.");
-      return;
-    }
-
-    const targetSites = site ? [site] : allMetricSites;
-    const answers = targetSites.slice(0, 5).map((s) => {
-      const block = dcv?.[metric]?.[s];
-      const siteChanges = changes.filter((c) => bucketOf(c) === metric && c.site === s && (!role || pageRoleFromUrl(c.url) === role));
-      const roleText = role ? `${pageRoleKo(role)} ` : "";
-      const health = metricHealth(metric, block, siteChanges);
-      if (siteChanges.length) {
-        return `- ${siteName(s)} ${roleText}${METRICS[metric].label} 변경: ${siteChanges.slice(0, 2).map((c) => `${c.summary || c.field} (${shortUrl(c.url)})`).join(" / ")}`;
-      }
-      if (!block || health.state === "risk" || health.state === "unknown") {
-        return `- ${siteName(s)} ${roleText}${METRICS[metric].label}: 근거 부족. ${health.summary} → 핵심 비교에서는 제외하고 URL·렌더링을 확인하세요.`;
-      }
-      return `- ${siteName(s)} ${roleText}${METRICS[metric].label}: ${health.label}. 현재 근거: ${compactSummary(firstNarrativeLine(block), 180)}`;
-    });
-    setAnswer(answers.length ? answers.join("\n") : "현재 리포트에서 해당 사이트/페이지/지표 조합에 대한 근거가 없습니다.");
-  };
-
-  const allQaSites = orderedSiteKeys([...expectedSites, ...Object.keys(dcv?.data || {}), ...Object.keys(dcv?.copy || {}), ...Object.keys(dcv?.visual || {}), ...changes.map((c) => c.site || "")]);
   const [qaSite, setQaSite] = useState<string>("all");
   const [qaMetric, setQaMetric] = useState<string>("all");
+  const [qaCategory, setQaCategory] = useState<string>("all");
+  const [results, setResults] = useState<QaResultRow[] | null>(null);
+  const [resultLabel, setResultLabel] = useState<string>("");
+
+  const allQaSites = orderedSiteKeys([...expectedSites, ...Object.keys(dcv?.data || {}), ...Object.keys(dcv?.copy || {}), ...Object.keys(dcv?.visual || {}), ...changes.map((c) => c.site || "")]);
+
+  // 지표별 평균 — 신호등(빨강/노랑/초록) 판단 기준
+  const metricAverages: Record<MetricTab, number | null> = (["data", "copy", "visual"] as MetricTab[]).reduce((acc, m) => {
+    const vals = allQaSites.map((s) => siteMetricScore(m, dcv?.[m]?.[s])).filter((v): v is number => v != null);
+    acc[m] = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+    return acc;
+  }, {} as Record<MetricTab, number | null>);
+
+  const dotFor = (score: number | null, avg: number | null): "good" | "mid" | "bad" | "none" => {
+    if (score == null) return "none";
+    if (avg == null) return "mid";
+    if (score >= avg + 5) return "good";
+    if (score <= avg - 5) return "bad";
+    return "mid";
+  };
 
   const askStructured = () => {
     const metricsToShow = qaMetric === "all" ? (["data", "copy", "visual"] as MetricTab[]) : [qaMetric as MetricTab];
     const sitesToShow = qaSite === "all" ? allQaSites : [qaSite as SiteKey];
     if (!sitesToShow.length) {
-      setAnswer("표시할 사이트가 없습니다. 관리 URL을 추가하고 수집을 실행하세요.");
+      setResults([]);
+      setResultLabel("표시할 사이트가 없습니다. 관리 URL을 추가하고 수집을 실행하세요.");
       return;
     }
-    const lines = sitesToShow.flatMap((s) =>
+    const rows: QaResultRow[] = sitesToShow.flatMap((s) =>
       metricsToShow.map((m) => {
         const block = dcv?.[m]?.[s];
         const score = siteMetricScore(m, block);
-        const sChanges = changes.filter((c) => bucketOf(c) === m && c.site === s);
+        const sChanges = changes.filter((c) => bucketOf(c) === m && c.site === s
+          && (qaCategory === "all" || productCategoryFromRow(undefined, c.url) === qaCategory));
         const health = metricHealth(m, block, sChanges);
-        return `- ${siteName(s)} · ${METRICS[m].label}: ${score != null ? `${score}점` : "근거 없음"} · ${health.summary}`;
+        const evidenceLines = sChanges.length
+          ? sChanges.slice(0, 3).map((c) => `${shortUrl(c.url)} — ${c.summary || c.field || "변경 감지"}`)
+          : [health.summary];
+        return { site: s, metric: m, score, dot: dotFor(score, metricAverages[m]), health, evidenceLines };
       })
     );
-    setQ(`${qaSite === "all" ? "전체 브랜드" : siteName(qaSite as SiteKey)} · ${qaMetric === "all" ? "전체 지표" : METRICS[qaMetric as MetricTab].label} 상세히 알려줘`);
-    setAnswer(lines.join("\n"));
+    setResultLabel(`${qaSite === "all" ? "브랜드 전체" : siteName(qaSite as SiteKey)} · ${qaCategory === "all" ? "제품 전체" : productCategoryKo(qaCategory)} · ${qaMetric === "all" ? "지표 전체" : METRICS[qaMetric as MetricTab].label}`);
+    setResults(rows);
   };
 
   return (
@@ -660,23 +596,41 @@ export function InsightChat({ dcv, changes, expectedSites = [] }: { dcv?: Report
               <option value="all">브랜드 전체</option>
               {allQaSites.map((s) => <option key={s} value={s}>{siteName(s)}</option>)}
             </select>
+            <select value={qaCategory} onChange={(e) => setQaCategory(e.target.value)}>
+              <option value="all">제품 전체</option>
+              {PRODUCT_CATEGORY_ORDER.map((c) => <option key={c} value={c}>{productCategoryKo(c)}</option>)}
+            </select>
             <select value={qaMetric} onChange={(e) => setQaMetric(e.target.value)}>
               <option value="all">지표 전체</option>
               <option value="data">DATA / Schema</option>
               <option value="copy">COPY / CTA</option>
               <option value="visual">VISUAL / ALT COPY</option>
             </select>
-            <button className="qaPickGo" onClick={askStructured}>점수·근거 보기</button>
           </div>
-          <div className="presetGrid">
-            {presets.map((p) => <button key={p} onClick={() => { setQ(p); answerFor(p); }}>{p}</button>)}
-          </div>
-          <div className="chatInputRow">
-            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") answerFor(q); }} placeholder="예: OPPO PDP copy 차이는?" />
-            <button onClick={() => answerFor(q)}>질문</button>
-          </div>
-          <pre>{answer}</pre>
-          <p className="muted">현재 수집된 facts/changes 안에서만 판단과 액션을 rule-based로 답합니다.</p>
+          <button className="qaPickGo qaPickGoFull" onClick={askStructured}>점수·신호등·근거 보기</button>
+
+          {results && (
+            <div className="qaResultWrap">
+              <p className="qaResultLabel">{resultLabel}</p>
+              {results.length === 0 ? (
+                <p className="muted">{resultLabel}</p>
+              ) : results.map((r, i) => (
+                <div key={`${r.site}-${r.metric}-${i}`} className="qaResultRow">
+                  <p className="qaResultHead">
+                    <span className={`badge ${siteClass(r.site)}`}>{siteName(r.site)}</span>
+                    <span className="qaResultMetric">{METRICS[r.metric].label}</span>
+                    <span className={`scoreDot ${r.dot}`} />
+                    <span className="scoreVal">{r.score == null ? "근거 없음" : `${r.score}점`}</span>
+                    {metricAverages[r.metric] != null && <span className="qaResultAvg">평균 {metricAverages[r.metric]}점</span>}
+                  </p>
+                  <ul className="qaResultEvidence">
+                    {r.evidenceLines.map((line, j) => <li key={j}>{line}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="muted" style={{ marginTop: 8 }}>현재 수집된 facts/changes 안에서만 점수와 근거를 rule-based로 보여줍니다.</p>
         </div>
       )}
     </div>
