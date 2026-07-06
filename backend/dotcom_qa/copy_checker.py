@@ -1,7 +1,7 @@
 """
-copy_checker.py — 큐비(QB) — Dotcom QA 체커 [Phase C]
+copy_checker.py — 큐비 — Dotcom QA 체커 [Phase C]
 
-큐비 🐝 — QA의 사촌 QB. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
+큐비 🐝 — 풀네임 QA Bee, 줄여서 큐비. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
 
 페이지 HTML의 '보이는 텍스트'를 copy_rules(스펙 토큰 + 고유명사)와 대조한다.
 번역 사이트를 고려해 '언어 불변' 값만 검사한다:

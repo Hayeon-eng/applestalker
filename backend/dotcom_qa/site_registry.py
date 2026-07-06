@@ -1,7 +1,7 @@
 """
-site_registry.py — 큐비(QB) — Dotcom QA 체커 [Phase D]
+site_registry.py — 큐비 — Dotcom QA 체커 [Phase D]
 
-큐비 🐝 — QA의 사촌 QB. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
+큐비 🐝 — 풀네임 QA Bee, 줄여서 큐비. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
 
 91개 삼성닷컴 사이트 레지스트리(site_registry.json)를 로드/조회/관리한다.
 각 항목: {sitecode, url, region, country, lang, product}

@@ -1,7 +1,7 @@
 """
-runner.py — 큐비(QB) — Dotcom QA 체커 [오케스트레이터 / Phase E 어댑터]
+runner.py — 큐비 — Dotcom QA 체커 [오케스트레이터 / Phase E 어댑터]
 
-큐비 🐝 — QA의 사촌 QB. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
+큐비 🐝 — 풀네임 QA Bee, 줄여서 큐비. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
 
 레지스트리의 URL들에 대해:
   fetch_html(url) → HTML 수집  (기존 백엔드 크롤러를 여기에 주입)

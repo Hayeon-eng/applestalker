@@ -1,7 +1,7 @@
 """
-schema_rule_parser.py — 큐비(QB) — Dotcom QA 체커 [Phase A]
+schema_rule_parser.py — 큐비 — Dotcom QA 체커 [Phase A]
 
-큐비 🐝 — QA의 사촌 QB. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
+큐비 🐝 — 풀네임 QA Bee, 줄여서 큐비. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
 
 Samsung 'JSON-LD Schema Copydeck' 엑셀(schema_deck.xlsx 의 M3/M12 시트)을
 기계가 검수에 쓸 수 있는 '규칙 JSON'으로 변환한다.

@@ -1,7 +1,7 @@
 """
-qb_api.py — 큐비(QB) — Dotcom QA 체커 [Phase H 백엔드]
+qb_api.py — 큐비 — Dotcom QA 체커 [Phase H 백엔드]
 
-큐비 🐝 — QA의 사촌 QB. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
+큐비 🐝 — 풀네임 QA Bee, 줄여서 큐비. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
 
 기존 애플스토커 FastAPI 앱에 라우터로 얹는다(main.py):
     from dotcom_qa.qb_api import qb_router, set_fetcher

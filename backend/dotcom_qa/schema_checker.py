@@ -1,7 +1,7 @@
 """
-schema_checker.py — 큐비(QB) — Dotcom QA 체커 [Phase A]
+schema_checker.py — 큐비 — Dotcom QA 체커 [Phase A]
 
-큐비 🐝 — QA의 사촌 QB. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
+큐비 🐝 — 풀네임 QA Bee, 줄여서 큐비. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
 
 페이지 HTML(또는 추출된 JSON-LD)을 schema_rule_parser 가 만든 '규칙 JSON'과 대조해
 누락/불일치를 as-is/to-be 형태의 findings 로 리턴한다.

@@ -1,7 +1,7 @@
 """
-copy_rule_parser.py — 큐비(QB) — Dotcom QA 체커 [Phase C]
+copy_rule_parser.py — 큐비 — Dotcom QA 체커 [Phase C]
 
-큐비 🐝 — QA의 사촌 QB. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
+큐비 🐝 — 풀네임 QA Bee, 줄여서 큐비. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
 
 Samsung 카피덱(copydeck.xlsx: M3/M12 시트)에서 '언어 불변' 검수 토큰을 뽑아
 copy_rules.json 으로 만든다. 번역 사이트에서도 안 바뀌는 값만 정확 검사 대상으로 삼는다.
