@@ -1,0 +1,584 @@
+{
+  "source": "schema_deck.xlsx",
+  "sitecode_token": "{SITECODE}",
+  "products": {
+    "M3": {
+      "expected_types": [
+        "3DModel",
+        "FAQPage",
+        "ItemPage",
+        "Product",
+        "VideoObject",
+        "WebPage"
+      ],
+      "block_count": 13,
+      "blocks": [
+        {
+          "name": "WebPage, ItemPage",
+          "types": [
+            "WebPage",
+            "ItemPage"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#webpage",
+          "id_slug": "#webpage",
+          "required_properties": [
+            "url",
+            "name",
+            "mainEntity",
+            "about"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "Product",
+          "types": [
+            "Product"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+          "id_slug": "galaxy-s26-ultra",
+          "required_properties": [
+            "name",
+            "description",
+            "brand",
+            "manufacturer",
+            "image",
+            "potentialAction",
+            "hasPart",
+            "mainEntityOfPage",
+            "review"
+          ],
+          "optional_properties": [
+            "review"
+          ],
+          "property_notes": {
+            "review": "'review' property in 'Product' schema will be added as Hotfix after launch."
+          },
+          "haspart_ids": [
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#faq",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#model3d",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-intro",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-privacy-display",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-customized-ap",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-vapor-chamber",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-nightography",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-space-zoom",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-photo-assist",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-nudge-share-photos",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-brief",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/buy",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/compare"
+          ],
+          "conditional": null
+        },
+        {
+          "name": "3DModel",
+          "types": [
+            "3DModel"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#model3d",
+          "id_slug": "#model3d",
+          "required_properties": [
+            "about",
+            "encoding"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #1",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-intro",
+          "id_slug": "#video-intro",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": "Do not include this 'VideoObject' schema in countries where color availability varies."
+        },
+        {
+          "name": "VideoObject #2",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-privacy-display",
+          "id_slug": "#video-privacy-display",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #3",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-customized-ap",
+          "id_slug": "#video-customized-ap",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #4",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-vapor-chamber",
+          "id_slug": "#video-vapor-chamber",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": "Quickfix (02/02)\ndescription updated"
+        },
+        {
+          "name": "VideoObject #5",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-nightography",
+          "id_slug": "#video-nightography",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #6",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-space-zoom",
+          "id_slug": "#video-space-zoom",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #7",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-photo-assist",
+          "id_slug": "#video-photo-assist",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #8",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-nudge-share-photos",
+          "id_slug": "#video-now-nudge-share-photos",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #9",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-brief",
+          "id_slug": "#video-now-brief",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "FAQPage",
+          "types": [
+            "FAQPage"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#faq",
+          "id_slug": "#faq",
+          "required_properties": [
+            "inLanguage",
+            "about",
+            "mainEntity"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        }
+      ]
+    },
+    "M12": {
+      "expected_types": [
+        "3DModel",
+        "FAQPage",
+        "ItemPage",
+        "Product",
+        "VideoObject",
+        "WebPage"
+      ],
+      "block_count": 11,
+      "blocks": [
+        {
+          "name": "WebPage, ItemPage",
+          "types": [
+            "WebPage",
+            "ItemPage"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#webpage",
+          "id_slug": "#webpage",
+          "required_properties": [
+            "url",
+            "name",
+            "mainEntity",
+            "about"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "Product",
+          "types": [
+            "Product"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/",
+          "id_slug": "galaxy-s26",
+          "required_properties": [
+            "name",
+            "description",
+            "brand",
+            "manufacturer",
+            "image",
+            "potentialAction",
+            "hasPart",
+            "mainEntityOfPage",
+            "review"
+          ],
+          "optional_properties": [
+            "review"
+          ],
+          "property_notes": {
+            "review": "'review' property in 'Product' schema will be added as Hotfix after launch."
+          },
+          "haspart_ids": [
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#faq",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#model3d",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-design-form-factor",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-customized-ap",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-vapor-chamber",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-nightography",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-photo-assist",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-now-nudge-share-photos",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-now-brief",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/buy",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/compare"
+          ],
+          "conditional": null
+        },
+        {
+          "name": "3DModel",
+          "types": [
+            "3DModel"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#model3d",
+          "id_slug": "#model3d",
+          "required_properties": [
+            "about",
+            "encoding"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #1",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-design-form-factor",
+          "id_slug": "#video-design-form-factor",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #2",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-customized-ap",
+          "id_slug": "#video-customized-ap",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #3",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-vapor-chamber",
+          "id_slug": "#video-vapor-chamber",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": "Quickfix (02/02)\ndescription updated, \nGRO option for Vapor chamber deleted"
+        },
+        {
+          "name": "VideoObject #4",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-nightography",
+          "id_slug": "#video-nightography",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #5",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-photo-assist",
+          "id_slug": "#video-photo-assist",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #6",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-now-nudge-share-photos",
+          "id_slug": "#video-now-nudge-share-photos",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "VideoObject #7",
+          "types": [
+            "VideoObject"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-now-brief",
+          "id_slug": "#video-now-brief",
+          "required_properties": [
+            "name",
+            "description",
+            "uploadDate",
+            "duration",
+            "thumbnailUrl",
+            "contentUrl",
+            "publisher",
+            "about",
+            "inLanguage"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        },
+        {
+          "name": "FAQPage",
+          "types": [
+            "FAQPage"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#faq",
+          "id_slug": "#faq",
+          "required_properties": [
+            "inLanguage",
+            "about",
+            "mainEntity"
+          ],
+          "optional_properties": [],
+          "property_notes": {},
+          "haspart_ids": [],
+          "conditional": null
+        }
+      ]
+    }
+  }
+}

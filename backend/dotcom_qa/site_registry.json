@@ -1,0 +1,734 @@
+{
+  "product_key": "M3",
+  "count": 91,
+  "sites": [
+    {
+      "sitecode": "sec",
+      "url": "https://www.samsung.com/sec/smartphones/galaxy-s26-ultra/",
+      "region": "SEC KOREA",
+      "country": "Korea",
+      "lang": "ko-KR",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "jp",
+      "url": "https://www.samsung.com/jp/smartphones/galaxy-s26-ultra/",
+      "region": "JAPAN",
+      "country": "Japan",
+      "lang": "ja-JP",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "cn",
+      "url": "https://www.samsung.com.cn/smartphones/galaxy-s26-ultra/",
+      "region": "G.CN",
+      "country": "China",
+      "lang": "zh-CN",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "hk",
+      "url": "https://www.samsung.com/hk/smartphones/galaxy-s26-ultra/",
+      "region": "G.CN",
+      "country": "China",
+      "lang": "zh-HK",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "hk_en",
+      "url": "https://www.samsung.com/hk_en/smartphones/galaxy-s26-ultra/",
+      "region": "G.CN",
+      "country": "China",
+      "lang": "en-HK",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "tw",
+      "url": "https://www.samsung.com/tw/smartphones/galaxy-s26-ultra/",
+      "region": "G.CN",
+      "country": "Taiwan",
+      "lang": "zh-TW",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "sg",
+      "url": "https://www.samsung.com/sg/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "Singapore",
+      "lang": "en-SG",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "au",
+      "url": "https://www.samsung.com/au/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "Australia",
+      "lang": "en-AU",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "nz",
+      "url": "https://www.samsung.com/nz/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "New Zealand",
+      "lang": "en-NZ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "id",
+      "url": "https://www.samsung.com/id/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "Indonesia",
+      "lang": "id-ID",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "th",
+      "url": "https://www.samsung.com/th/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "Thailand",
+      "lang": "th-TH",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "vn",
+      "url": "https://www.samsung.com/vn/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "Vietnam",
+      "lang": "vi-VN",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "my",
+      "url": "https://www.samsung.com/my/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "Malaysia",
+      "lang": "en-MY",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ph",
+      "url": "https://www.samsung.com/ph/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "Philippines",
+      "lang": "en-PH",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "mm",
+      "url": "https://www.samsung.com/mm/smartphones/galaxy-s26-ultra/",
+      "region": "APAC",
+      "country": "Myanmar",
+      "lang": "my-MM",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "us",
+      "url": "https://www.samsung.com/us/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "USA",
+      "lang": "en-US",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ca_fr",
+      "url": "https://www.samsung.com/ca_fr/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Canada",
+      "lang": "fr-CA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ca",
+      "url": "https://www.samsung.com/ca/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Canada",
+      "lang": "en-CA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "mx",
+      "url": "https://www.samsung.com/mx/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Mexico",
+      "lang": "es-MX",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "br",
+      "url": "https://www.samsung.com/br/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Brazil",
+      "lang": "pt-BR",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "latin",
+      "url": "https://www.samsung.com/latin/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Panama",
+      "lang": "es-PA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "latin_en",
+      "url": "https://www.samsung.com/latin_en/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Panama",
+      "lang": "en-TT",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "co",
+      "url": "https://www.samsung.com/co/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Colombia",
+      "lang": "es-CO",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ar",
+      "url": "https://www.samsung.com/ar/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Argentina",
+      "lang": "es-AR",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "py",
+      "url": "https://www.samsung.com/py/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Paraguay",
+      "lang": "es-PY",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "uy",
+      "url": "https://www.samsung.com/uy/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Uruguay",
+      "lang": "es-UY",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "cl",
+      "url": "https://www.samsung.com/cl/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Chile",
+      "lang": "es-CL",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "pe",
+      "url": "https://www.samsung.com/pe/smartphones/galaxy-s26-ultra/",
+      "region": "NALA",
+      "country": "Peru",
+      "lang": "es-PE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "uk",
+      "url": "https://www.samsung.com/uk/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "U.K",
+      "lang": "en-GB",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ie",
+      "url": "https://www.samsung.com/ie/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Ireland",
+      "lang": "en-IE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "it",
+      "url": "https://www.samsung.com/it/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Italy",
+      "lang": "it-IT",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "es",
+      "url": "https://www.samsung.com/es/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Spain",
+      "lang": "es-ES",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "hu",
+      "url": "https://www.samsung.com/hu/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Hungary",
+      "lang": "hu-HU",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "de",
+      "url": "https://www.samsung.com/de/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Germany",
+      "lang": "de-DE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "se",
+      "url": "https://www.samsung.com/se/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Sweden",
+      "lang": "sv-SE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "dk",
+      "url": "https://www.samsung.com/dk/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Denmark",
+      "lang": "da-DK",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "fi",
+      "url": "https://www.samsung.com/fi/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Finland",
+      "lang": "fi-FI",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "no",
+      "url": "https://www.samsung.com/no/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Norway",
+      "lang": "no-NO",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "fr",
+      "url": "https://www.samsung.com/fr/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "France",
+      "lang": "fr-FR",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "pt",
+      "url": "https://www.samsung.com/pt/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Portugal",
+      "lang": "pt-PT",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "pl",
+      "url": "https://www.samsung.com/pl/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Poland",
+      "lang": "pl-PL",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "gr",
+      "url": "https://www.samsung.com/gr/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Greece",
+      "lang": "el-GR",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "cz",
+      "url": "https://www.samsung.com/cz/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Czech",
+      "lang": "cs-CZ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "sk",
+      "url": "https://www.samsung.com/sk/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Slovakia",
+      "lang": "sk-SK",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ro",
+      "url": "https://www.samsung.com/ro/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Romania",
+      "lang": "ro-RO",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "bg",
+      "url": "https://www.samsung.com/bg/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Bulgaria",
+      "lang": "bg-BG",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ba",
+      "url": "https://www.samsung.com/ba/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Bosnia",
+      "lang": "bs-BA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ru",
+      "url": "https://www.samsung.com/ru/smartphones/galaxy-s26-ultra/",
+      "region": "CIS",
+      "country": "Russia",
+      "lang": "ru-RU",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ua",
+      "url": "https://www.samsung.com/ua/smartphones/galaxy-s26-ultra/",
+      "region": "EHQ",
+      "country": "Ukraine",
+      "lang": "uk-UA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "kz_ru",
+      "url": "https://www.samsung.com/kz_ru/smartphones/galaxy-s26-ultra/",
+      "region": "CIS",
+      "country": "Kazakhstan",
+      "lang": "ru-KZ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "kz_kz",
+      "url": "https://www.samsung.com/kz_kz/smartphones/galaxy-s26-ultra/",
+      "region": "CIS",
+      "country": "Kazakhstan",
+      "lang": "kk-KZ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "az",
+      "url": "https://www.samsung.com/az/smartphones/galaxy-s26-ultra/",
+      "region": "CIS",
+      "country": "Azerbaijan",
+      "lang": "az-AZ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "in",
+      "url": "https://www.samsung.com/in/smartphones/galaxy-s26-ultra/",
+      "region": "SWA",
+      "country": "India",
+      "lang": "en-IN",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "bd",
+      "url": "https://www.samsung.com/bd/smartphones/galaxy-s26-ultra/",
+      "region": "SWA",
+      "country": "Bangladesh",
+      "lang": "en-BD",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ae",
+      "url": "https://www.samsung.com/ae/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "UAE",
+      "lang": "en-AE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ae_ar",
+      "url": "https://www.samsung.com/ae_ar/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "UAE",
+      "lang": "ar-AE",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "il",
+      "url": "https://www.samsung.com/il/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Israel",
+      "lang": "he-IL",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "sa",
+      "url": "https://www.samsung.com/sa/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Saudi Arabia",
+      "lang": "ar-SA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "sa_en",
+      "url": "https://www.samsung.com/sa_en/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Saudi Arabia",
+      "lang": "en-SA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "tr",
+      "url": "https://www.samsung.com/tr/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Turkiye",
+      "lang": "tr-TR",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "iran",
+      "url": "https://www.samsung.com/iran/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Iran",
+      "lang": "fa-IR",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "levant",
+      "url": "https://www.samsung.com/levant/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Levant",
+      "lang": "en-JO",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "levant_ar",
+      "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Levant",
+      "lang": "ar-JO",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "pk",
+      "url": "https://www.samsung.com/pk/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Pakistan",
+      "lang": "en-PK",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "eg",
+      "url": "https://www.samsung.com/eg/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Egypt",
+      "lang": "ar-EG",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "n_africa",
+      "url": "https://www.samsung.com/n_africa/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Moroco",
+      "lang": "fr-MA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "africa_en",
+      "url": "https://www.samsung.com/africa_en/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Africa Pan",
+      "lang": "en-BW",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "africa_fr",
+      "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Africa Pan",
+      "lang": "fr-BF",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "africa_pt",
+      "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Africa Pan",
+      "lang": "pt-AO",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "za",
+      "url": "https://www.samsung.com/za/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "South Africa",
+      "lang": "en-ZA",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "uz_uz",
+      "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-s26-ultra/",
+      "region": "CIS",
+      "country": "Uzbekistan",
+      "lang": "uz-UZ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "uz_ru",
+      "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-s26-ultra/",
+      "region": "CIS",
+      "country": "Uzbekistan",
+      "lang": "ru-UZ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "ps",
+      "url": "https://www.samsung.com/ps/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Palestine",
+      "lang": "",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "iq_ar",
+      "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Iraq",
+      "lang": "ar-IQ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "iq_ku",
+      "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Iraq",
+      "lang": "ku-IQ",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "lb",
+      "url": "https://www.samsung.com/lb/smartphones/galaxy-s26-ultra/",
+      "region": "MENA",
+      "country": "Lebanon",
+      "lang": "en-LB",
+      "product": "galaxy-s26-ultra"
+    },
+    {
+      "sitecode": "mn",
+      "url": "https://www.samsung.com/mn/smartphones/galaxy-s26-ultra/",
+      "region": "CIS",
+      "country": "Mongolia",
+      "lang": "mn-MN",
+      "product": "galaxy-s26-ultra"
+    }
+  ]
+}

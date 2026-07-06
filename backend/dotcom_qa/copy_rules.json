@@ -1,0 +1,73 @@
+{
+  "source": "copydeck.xlsx",
+  "products": {
+    "M3": {
+      "spec_tokens": [
+        "12 GB",
+        "16 GB",
+        "256 GB",
+        "512 GB",
+        "12 MP",
+        "50 MP",
+        "200 MP",
+        "1 TB",
+        "45 W",
+        "60 W",
+        "4300 mAh",
+        "4900 mAh",
+        "5000 mAh",
+        "2600 nits",
+        "100x",
+        "10x",
+        "1x",
+        "2x",
+        "4x",
+        "5x"
+      ],
+      "proper_nouns": [
+        "Corning Gorilla Armor 2",
+        "Corning Gorilla Glass Victus 2",
+        "Galaxy AI",
+        "Galaxy S26",
+        "Galaxy S26 Ultra",
+        "Nightography",
+        "Now Brief",
+        "Photo Assist",
+        "Privacy Display",
+        "Snapdragon 8 Elite",
+        "Snapdragon 8 Elite Gen 5",
+        "Vapor Chamber"
+      ]
+    },
+    "M12": {
+      "spec_tokens": [
+        "12 GB",
+        "256 GB",
+        "512 GB",
+        "12 MP",
+        "50 MP",
+        "200 MP",
+        "4300 mAh",
+        "4900 mAh",
+        "5000 mAh",
+        "2600 nits",
+        "2x",
+        "30x",
+        "3x"
+      ],
+      "proper_nouns": [
+        "Corning Gorilla Glass Victus 2",
+        "Exynos 2600",
+        "Galaxy AI",
+        "Galaxy S26",
+        "Galaxy S26 Ultra",
+        "Nightography",
+        "Now Brief",
+        "Photo Assist",
+        "Privacy Display",
+        "Snapdragon 8 Elite",
+        "Vapor Chamber"
+      ]
+    }
+  }
+}
