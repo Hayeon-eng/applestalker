@@ -1,0 +1,15 @@
+{
+  "products": {
+    "galaxy-s26-ultra": [
+      {"category": "display_size", "value": "6.9", "unit": "inch"},
+      {"category": "brightness", "value": "2600", "unit": "nits"},
+      {"category": "refresh_rate", "value": "120", "unit": "Hz"},
+      {"category": "camera_wide", "value": "200", "unit": "MP"},
+      {"category": "camera_ultrawide", "value": "50", "unit": "MP"},
+      {"category": "camera_front", "value": "12", "unit": "MP"},
+      {"category": "space_zoom", "value": "100", "unit": "x"},
+      {"category": "video_playback", "value": "31", "unit": "hours"},
+      {"category": "memory", "value": "16", "unit": "GB"}
+    ]
+  }
+}

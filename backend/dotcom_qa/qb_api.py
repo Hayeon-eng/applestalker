@@ -132,3 +132,82 @@ def qb_report_xlsx(payload: Dict[str, Any] = Body(...)):
 def qb_email_draft(payload: Dict[str, Any] = Body(...)):
     results = payload.get("results") or []
     return HTMLResponse(content=qa_report.build_email_draft(results))
+
+
+# ── URL 추가/삭제 ──
+def _sitecode_from_url(url: str) -> str:
+    import re
+    if "samsung.com.cn" in (url or ""):
+        return "cn"
+    m = re.search(r"samsung\.com/([^/]+)/", url or "")
+    return m.group(1) if m else (url or "").strip("/").split("/")[-1]
+
+
+@qb_router.post("/sites/add")
+def qb_sites_add(payload: Dict[str, Any] = Body(...)):
+    url = (payload.get("url") or "").strip()
+    if not url:
+        raise HTTPException(400, "url이 필요합니다.")
+    sc = payload.get("sitecode") or _sitecode_from_url(url)
+    if _registry.get(sc):
+        _registry.update(sc, url=url)
+    else:
+        _registry.add(sc, url, region=payload.get("region", ""), country=payload.get("country", ""),
+                      lang=payload.get("lang", ""), product=payload.get("product", "galaxy-s26-ultra"))
+    _registry.save()
+    return {"ok": True, "sitecode": sc}
+
+
+@qb_router.post("/sites/remove")
+def qb_sites_remove(payload: Dict[str, Any] = Body(...)):
+    sc = payload.get("sitecode")
+    ok = _registry.remove(sc)
+    if ok:
+        _registry.save()
+    return {"ok": ok}
+
+
+# ── 핵심 스펙(3축: product/category/value/unit) CRUD ──
+_SPEC_PATH = os.path.join(os.path.dirname(__file__), "key_specs.json")
+
+
+def _load_specs() -> Dict[str, Any]:
+    try:
+        return json.load(open(_SPEC_PATH, encoding="utf-8"))
+    except Exception:
+        return {"products": {}}
+
+
+def _save_specs(data: Dict[str, Any]):
+    with open(_SPEC_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+@qb_router.get("/specs")
+def qb_specs(product: str = Query("galaxy-s26-ultra")):
+    return {"product": product, "specs": _load_specs().get("products", {}).get(product, [])}
+
+
+@qb_router.post("/specs/add")
+def qb_specs_add(payload: Dict[str, Any] = Body(...)):
+    product = payload.get("product", "galaxy-s26-ultra")
+    row = {"category": payload.get("category", ""), "value": str(payload.get("value", "")),
+           "unit": payload.get("unit", "")}
+    if not row["category"] or not row["value"]:
+        raise HTTPException(400, "category와 value가 필요합니다.")
+    data = _load_specs()
+    data.setdefault("products", {}).setdefault(product, []).append(row)
+    _save_specs(data)
+    return {"ok": True, "specs": data["products"][product]}
+
+
+@qb_router.post("/specs/remove")
+def qb_specs_remove(payload: Dict[str, Any] = Body(...)):
+    product = payload.get("product", "galaxy-s26-ultra")
+    idx = payload.get("index")
+    data = _load_specs()
+    arr = data.get("products", {}).get(product, [])
+    if isinstance(idx, int) and 0 <= idx < len(arr):
+        arr.pop(idx); _save_specs(data)
+        return {"ok": True, "specs": arr}
+    return {"ok": False, "specs": arr}
