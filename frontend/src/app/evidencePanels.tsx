@@ -410,7 +410,7 @@ function currentStatusLens(
 
   return {
     risk: "medium",
-    conclusion: `${siteLabel}의 ${metricLabel} / ${label}은 검색·AI 요약 노출에 영향을 줄 수 있는 구조 항목입니다.`,
+    conclusion: `${siteLabel}의 ${label}은 검색·AI 요약 노출에 영향을 줄 수 있는 구조 항목입니다.`,
     action: "Schema, H-tag, meta, page role이 실제 페이지 목적과 맞는지 확인하세요. PF/PDP/Buying 역할별로 Product, Breadcrumb, Offer 적용 여부를 점검하세요.",
     evidenceLine: line,
   };
@@ -491,6 +491,7 @@ export function CurrentStatusDrilldown({
   const tier = scoreTier(breakdown.total);
   const peer = buildPeerComparison(metric, site, block, peerBlocks);
   const title = lens.conclusion.split(/(?<=[.다요])\s+/)[0] || lens.conclusion;
+  const restConclusion = lens.conclusion.slice(title.length).trim();
 
   return (
     <div className="currentEvidenceBox">
@@ -505,8 +506,10 @@ export function CurrentStatusDrilldown({
 
       {/* 제목 — 인사이트형 헤드라인 */}
       <p className="detailTitle">{title}</p>
-      {/* 1줄 인사이트 */}
-      <p className="findingText" style={{ fontSize: 13, color: "var(--label)", marginBottom: 10 }}>{lens.conclusion}</p>
+      {/* 보충 설명 — 제목과 겹치지 않는 나머지 문장만 (중복 방지) */}
+      {restConclusion && (
+        <p className="findingText" style={{ fontSize: 13, color: "var(--label)", marginBottom: 10 }}>{restConclusion}</p>
+      )}
 
       {/* 핵심 근거 — 점수 구성요소를 사람이 읽을 수 있는 표로 (원시 로그 아님) */}
       <p className="detailSectionLabel">핵심 근거</p>
