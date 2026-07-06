@@ -69,57 +69,106 @@ class EmailService:
             pov = conn.execute(text("SELECT observation, hypothesis FROM povs WHERE related_crawl_run_id=:run_id LIMIT 1"), {"run_id": run[0]}).fetchone()
         return run, changes, pov, _kst(run[2])
 
-    def _our_analysis(self):
-        """우리(Samsung) 최신 완료 run의 DATA/COPY/VISUAL 분석에서 점수·우선 액션 산출.
-        점수/액션 로직은 export_service 와 동일 함수 재사용(중복 방지)."""
+    def _report_data(self):
+        """최신 세션(가장 최근 크롤 배치) 종합: 사이트별 축 점수 → Samsung 3축 점수 +
+        경쟁사 평균 대비 + 세션 요약 + 세션 전체 변경점(top 30)."""
         import json
         from export_service import _score_breakdown, _priority_action
+        data = {"when": "", "sites": 0, "changes": 0, "axes": [], "summary": "", "rows": []}
+        site_bd, site_facts = {}, {}
         try:
             with self.engine.connect() as conn:
-                row = conn.execute(text(
-                    "SELECT p.data_analysis, p.copy_analysis, p.visual_analysis "
-                    "FROM povs p JOIN crawl_runs r ON p.related_crawl_run_id = r.crawl_run_id "
-                    "WHERE r.site_name = 'samsung' AND r.status = 'completed' "
-                    "ORDER BY r.started_at DESC LIMIT 1")).fetchone()
+                runs = conn.execute(text(
+                    "SELECT crawl_run_id, site_name, session_id, started_at, total_changes_detected "
+                    "FROM crawl_runs WHERE status='completed' ORDER BY started_at DESC LIMIT 60")).fetchall()
+                if not runs:
+                    return data
+                newest = runs[0]
+                sess = newest[2]
+                session_runs = [r for r in runs if sess and r[2] == sess] or [newest]
+                data["when"] = _kst(newest[3])
+                data["sites"] = len(session_runs)
+                data["changes"] = sum((r[4] or 0) for r in session_runs)
+                run_ids = [r[0] for r in session_runs]
+                for r in session_runs:
+                    prow = conn.execute(text(
+                        "SELECT data_analysis, copy_analysis, visual_analysis FROM povs "
+                        "WHERE related_crawl_run_id=:r LIMIT 1"), {"r": r[0]}).fetchone()
+                    if not prow:
+                        continue
+                    for idx, (bucket, _l, _c) in enumerate(AXIS_META):
+                        block = {}
+                        if prow[idx]:
+                            try:
+                                block = json.loads(prow[idx]) or {}
+                            except Exception:
+                                block = {}
+                        facts = block.get("facts") or {}
+                        site_bd.setdefault(r[1], {})[bucket] = _score_breakdown(bucket, facts)
+                        site_facts.setdefault(r[1], {})[bucket] = facts
+                if run_ids:
+                    keys = ",".join(":r%d" % i for i in range(len(run_ids)))
+                    params = {("r%d" % i): rid for i, rid in enumerate(run_ids)}
+                    data["rows"] = conn.execute(text(
+                        "SELECT url, site_key, severity_level, change_type, field_name, summary, before_value, after_value "
+                        "FROM detected_changes WHERE crawl_run_id IN (" + keys + ") "
+                        "ORDER BY severity_level DESC, id DESC LIMIT 30"), params).fetchall()
         except Exception:
-            row = None
-        if not row:
-            return []
-        out = []
-        for idx, (bucket, label, color) in enumerate(AXIS_META):
-            block = {}
-            if row[idx]:
-                try:
-                    block = json.loads(row[idx]) or {}
-                except Exception:
-                    block = {}
-            facts = block.get("facts") or {}
-            bd = _score_breakdown(bucket, facts)
-            total = bd.get("total")
-            out.append({
-                "label": label, "color": color, "total": total,
-                "tier": _tier(total), "action": _priority_action(bucket, facts, bd),
-            })
-        return out
+            return data
 
-    def _scoreboard_html(self, analysis):
-        """우리 3축 점수 카드(가로 3칸) + 우선 액션 목록."""
-        if not analysis:
+        for bucket, label, color in AXIS_META:
+            our_bd = (site_bd.get("samsung") or {}).get(bucket)
+            our_total = our_bd.get("total") if our_bd else None
+            peer_vals = [(site_bd[s].get(bucket) or {}).get("total") for s in site_bd if s != "samsung" and site_bd[s].get(bucket)]
+            peer_vals = [v for v in peer_vals if isinstance(v, (int, float))]
+            peer_avg = round(sum(peer_vals) / len(peer_vals)) if peer_vals else None
+            delta = (our_total - peer_avg) if (our_total is not None and peer_avg is not None) else None
+            facts = (site_facts.get("samsung") or {}).get(bucket) or {}
+            data["axes"].append({
+                "label": label, "color": color, "total": our_total, "tier": _tier(our_total),
+                "peer_avg": peer_avg, "delta": delta,
+                "action": _priority_action(bucket, facts, our_bd or {"all": []}),
+            })
+
+        parts = ["이번 수집 %d개 사이트 · 변경 %d건." % (data["sites"], data["changes"])]
+        if any(a["total"] is not None for a in data["axes"]):
+            parts.append("Samsung 종합 " + " / ".join(
+                "%s %s" % (a["label"], "-" if a["total"] is None else a["total"]) for a in data["axes"]) + ".")
+            dparts = [a for a in data["axes"] if a["delta"] is not None]
+            if dparts:
+                parts.append("경쟁사 평균 대비 " + " / ".join(
+                    "%s %s%d" % (a["label"], "+" if a["delta"] >= 0 else "", a["delta"]) for a in dparts) + ".")
+        data["summary"] = " ".join(parts)
+        return data
+
+    def _scoreboard_html(self, axes):
+        """우리 3축 점수 카드(가로 3칸, 경쟁사 평균 대비 포함) + 우선 액션 목록."""
+        if not axes or not any(a["total"] is not None for a in axes):
             return ""
         cells = ""
-        for a in analysis:
+        for a in axes:
             tc = TIER_COLOR[a["tier"]]
             score_txt = "-" if a["total"] is None else str(a["total"])
+            if a["delta"] is None:
+                delta_html = "<div style='font-size:10.5px;color:#98A2B3'>경쟁사 평균 —</div>"
+            else:
+                dcol = "#1F9E5C" if a["delta"] > 0 else ("#D8362F" if a["delta"] < 0 else "#98A2B3")
+                arrow = "▲ +" if a["delta"] > 0 else ("▼ " if a["delta"] < 0 else "= ")
+                pv = "-" if a["peer_avg"] is None else str(a["peer_avg"])
+                delta_html = (
+                    "<div style='font-size:10.5px;font-weight:700;color:" + dcol + "'>vs 경쟁사 " + arrow + str(abs(a["delta"])) + "p</div>"
+                    "<div style='font-size:10px;color:#98A2B3'>경쟁사 평균 " + pv + "</div>")
             cells += (
                 "<td width='33%' valign='top' style='padding:5px'>"
                 "<div style='border:1px solid #EAECF0;border-radius:10px;padding:12px 8px;text-align:center'>"
                 "<div style='font-size:11px;font-weight:700;color:" + a["color"] + "'>" + a["label"] + "</div>"
                 "<div style='font-size:28px;font-weight:800;color:" + tc + ";line-height:1.2;margin:3px 0'>" + score_txt + "</div>"
-                "<div style='font-size:11px;color:#667085'>" + TIER_LABEL[a["tier"]] + "</div>"
+                "<div style='font-size:11px;color:#667085;margin-bottom:5px'>" + TIER_LABEL[a["tier"]] + "</div>"
+                + delta_html +
                 "</div></td>"
             )
         actions = ""
-        for a in analysis:
+        for a in axes:
             actions += (
                 "<div style='font-size:12.5px;color:#344054;line-height:1.6;margin-top:6px'>"
                 "<span style='display:inline-block;width:8px;height:8px;border-radius:2px;background:"
@@ -127,11 +176,11 @@ class EmailService:
                 "<b style='color:#101318'>" + a["label"] + "</b> " + escape(a["action"]) + "</div>"
             )
         return (
-            "<div style='font-size:13px;font-weight:700;color:#101318;margin:4px 0 6px'>우리 현황 (Samsung) · 종합 점수</div>"
+            "<div style='font-size:13px;font-weight:700;color:#101318;margin:4px 0 6px'>우리 현황 (Samsung) · 종합 점수 <span style='font-weight:400;color:#667085'>(경쟁사 평균 대비)</span></div>"
             "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse'><tr>" + cells + "</tr></table>"
             "<div style='font-size:12px;font-weight:700;color:#101318;margin:14px 0 2px'>우선 액션</div>"
             + actions +
-            "<div style='font-size:10.5px;color:#98A2B3;margin-top:8px'>점수=각 축 하위지표 전체 평균 · VISUAL은 HTML 신호 기준(실제 이미지 미검증)</div>"
+            "<div style='font-size:10.5px;color:#98A2B3;margin-top:8px'>점수=각 축 하위지표 전체 평균 · 경쟁사 평균=비-Samsung 사이트 평균 · VISUAL은 HTML 신호 기준(실제 이미지 미검증)</div>"
         )
 
     def _row(self, change):
@@ -151,15 +200,14 @@ class EmailService:
             "<div style='font-family:monospace;color:#98A2B3;font-size:11px;margin-top:4px;word-break:break-all'>" + url + "</div></td></tr>")
 
     def build_html(self, report_type="morning"):
-        run, changes, pov, when = self._latest()
-        if not run:
+        d = self._report_data()
+        when = d["when"]
+        if not d["when"] and not d["axes"] and not d["rows"]:
             body = "<p style='color:#667085'>아직 수집 데이터가 없습니다.</p>"
-            count = 0
         else:
-            count = run[3] or 0
-            summary = escape((pov[0] if pov else "") or "최근 모니터링 결과입니다.")
-            scoreboard = self._scoreboard_html(self._our_analysis())
-            rows = "".join(self._row(change) for change in changes)
+            summary = escape(d["summary"] or "최근 모니터링 결과입니다.")
+            scoreboard = self._scoreboard_html(d["axes"])
+            rows = "".join(self._row(r) for r in d["rows"])
             if not rows:
                 rows = "<tr><td colspan='3' style='padding:14px;color:#667085;border-top:1px solid #EAECF0'>이번 수집에서는 변경점이 없습니다. 페이지별 현재 상태를 확인해 주세요.</td></tr>"
             body = (
@@ -168,7 +216,8 @@ class EmailService:
                 + "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>주요 변경점</div>"
                 + "<table style='width:100%;border-collapse:collapse'><tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>구분</th><th style='padding:6px 8px'>중요도</th><th style='padding:6px 8px'>변경 내용</th></tr>" + rows + "</table>"
             )
-        return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>APPLE STALKER · " + escape(report_type) + " report</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>변경 " + str(count) + "건</div><div style='margin-top:16px'>" + body + "</div></div></div>"
+        header_meta = "변경 " + str(d["changes"]) + "건" + (" · " + str(d["sites"]) + "개 사이트" if d["sites"] else "")
+        return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>APPLE STALKER · " + escape(report_type) + " report</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>" + header_meta + "</div><div style='margin-top:16px'>" + body + "</div></div></div>"
 
     def send(self, report_type="morning"):
         if not self.enabled:
@@ -178,8 +227,7 @@ class EmailService:
             return {"status": "skipped", "reason": "missing email settings: " + ", ".join(missing)}
         msg = MIMEMultipart("alternative")
         try:
-            _run = self._latest()[0]
-            _cnt = (_run[3] or 0) if _run else 0
+            _cnt = self._report_data().get("changes", 0)
         except Exception:
             _cnt = 0
         rt_ko = "조간" if report_type == "morning" else ("석간" if report_type == "evening" else report_type)
