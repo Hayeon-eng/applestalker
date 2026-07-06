@@ -563,6 +563,23 @@ def _is_campaign_copy(text: str) -> bool:
     return bool(_CAMPAIGN_COPY_RE.search(stable_text(text)))
 
 
+# CTA 중요도 전용: '개 특이한' 프로모/오퍼성 CTA만 잡는다.
+# 흔한 구매 동사(buy/shop/cart/order/pre-order/reserve/compare/upgrade)는 제외 → 낮음 처리.
+_PROMO_CTA_RE = re.compile(
+    r"("
+    r"save|discount|\boff\b|deal|offer|promo(?:tion)?|coupon|voucher|cashback|bonus|gift|\bfree\b|"
+    r"trade[- ]?in|bundle|limited|exclusive|unpacked|\bsale\b|giveaway|"
+    r"[£$€₩]\s?\d|\d+\s?%|"
+    r"할인|혜택|무료|증정|사은품|한정|단독|이벤트|보상판매|세일|프로모션|쿠폰|경품"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _is_promo_cta(text: str) -> bool:
+    return bool(_PROMO_CTA_RE.search(stable_text(text)))
+
+
 def _is_minor_ui_text(text: str) -> bool:
     txt = stable_text(text).strip(" -–—|·•:[]()")
     if not txt:

@@ -22,6 +22,7 @@ from diff_engine_helpers import (
     _is_campaign_copy,
     _is_critical,
     _is_minor_ui_text,
+    _is_promo_cta,
     _meaningful_tag_deltas,
     _normalize_image_src,
     _s,
@@ -291,12 +292,14 @@ class DiffEngine:
             return {_s(x.get(key) if isinstance(x, dict) else x) for x in (p.get(fld) or [])} - {""}
 
         def sev_for(text: str, default: str) -> str:
-            if _is_critical(fld, "", text, self.critical_keywords):
-                return "L5"
             if fld == "ctas":
-                if _is_campaign_copy(text):
+                # CTA 변화는 기본 '낮음'(L1). '개 특이한' 프로모/오퍼성만 '보통'(L2).
+                # 흔한 구매 CTA(Buy/Shop/Add to cart/Pre-order 등)는 낮음.
+                if _is_promo_cta(text):
                     return "L2"
                 return "L1"
+            if _is_critical(fld, "", text, self.critical_keywords):
+                return "L5"
             if fld == "faqs":
                 if _is_campaign_copy(text):
                     return "L2"
