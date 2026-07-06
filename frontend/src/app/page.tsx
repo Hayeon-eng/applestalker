@@ -7,7 +7,7 @@ import {
   METRICS, CRITERIA, DEFAULT_SITE_ORDER, orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf, captureScreen, productPageLabel,
 } from "./shared";
 import { Landing, Overview, PagesTab, ProductTab, CriteriaDrawer, InsightChat } from "./sections";
-import QubiTab from "./QubiTab";
+import QubiApp from "./QubiApp";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -16,6 +16,7 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace
 ════════════════════════════════════════════════════ */
 export default function Page() {
   const [view, setView] = useState<View>("home");
+  const [appMode, setAppMode] = useState<"applestalker" | "qubi">("applestalker");
   const [mainTab, setMainTab] = useState<MainTab>("overview");
   const [metricTab, setMetricTab] = useState<MetricView>("all");
   const [online, setOnline] = useState<boolean | null>(null);
@@ -234,7 +235,13 @@ export default function Page() {
   );
 
   if (view === "home") {
-    return <Landing onEnter={() => setView("dashboard")} />;
+    return <Landing
+      onEnterApple={() => { setAppMode("applestalker"); setView("dashboard"); }}
+      onEnterQubi={() => { setAppMode("qubi"); setView("dashboard"); }} />;
+  }
+
+  if (appMode === "qubi") {
+    return <QubiApp apiBase={API} onHome={() => setView("home")} />;
   }
 
   return (
@@ -371,9 +378,6 @@ export default function Page() {
               <button className={`tabBtn ${mainTab === "products" ? "on" : ""}`} onClick={() => setMainTab("products")}>
                 제품별 분석
               </button>
-              <button className={`tabBtn ${mainTab === "qubi" ? "on" : ""}`} onClick={() => setMainTab("qubi")}>
-                큐비 🐝 QA
-              </button>
             </div>
 
             {/* 도구 버튼 — 항상 헤더에 고정 */}
@@ -493,7 +497,7 @@ export default function Page() {
               onOpenDrawer={openDrawer}
               focusSite={focusSite}
             />
-          ) : mainTab === "products" ? (
+          ) : (
             <ProductTab
               metricTab={metricTab}
               pages={pages}
@@ -506,8 +510,6 @@ export default function Page() {
               onPick={openPage}
               onOpenDrawer={openDrawer}
             />
-          ) : (
-            <QubiTab apiBase={API} />
           )}
         </div>
       </div>

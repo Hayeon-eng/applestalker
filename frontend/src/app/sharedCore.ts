@@ -5,7 +5,7 @@
 
 /* ── 타입 */
 export type View = "home" | "dashboard";
-export type MainTab = "overview" | "pages" | "products" | "qubi";
+export type MainTab = "overview" | "pages" | "products";
 export type MetricTab = "data" | "copy" | "visual";
 export type MetricView = MetricTab | "all";
 export type SiteKey = string;
