@@ -106,13 +106,14 @@ const roleSummary = (rows: PageRow[]) => {
 ════════════════════════════════════════════════════ */
 export function PagesTab({
   metricTab, pages, urls, dcv, allChanges,
-  selectedUrl, selectedPage, loadingPage, onPick, onOpenDrawer,
+  selectedUrl, selectedPage, loadingPage, onPick, onOpenDrawer, focusSite,
 }: {
   metricTab: MetricView; pages: Record<SiteKey, PageLite[]>; urls: UrlRow[];
   dcv?: Report["dcv"]; allChanges: Change[];
   selectedUrl: string;
   selectedPage: PageDetail | null; loadingPage: boolean; onPick: (url: string) => void;
   onOpenDrawer: (id?: string) => void;
+  focusSite?: SiteKey | null;
 }) {
   const siteKeys = useMemo(
     () => orderedSiteKeys([...urls.map((u) => u.site_key || ""), ...Object.keys(pages)]),
@@ -138,6 +139,11 @@ export function PagesTab({
       if (rep) onPick(rep);
     }
   };
+  // S10: Quick view '해당 사이트 상세 보기'로 진입하면 해당 사이트를 자동 선택
+  useEffect(() => {
+    if (focusSite && siteKeys.includes(focusSite)) handleSelectSite(focusSite);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusSite]);
   const pageRows = useMemo<PageRow[]>(
     () => buildPageRows(visibleSiteKeys, urls, pages, siteKeys),
     [visibleSiteKeys, urls, pages, siteKeys]

@@ -567,7 +567,31 @@ type QaResultRow = {
   health: MetricHealth; evidenceItems: { url: string; text: string }[];
 };
 
-export function InsightChat({ dcv, changes, expectedSites = [], urls = [] }: { dcv?: Report["dcv"]; changes: Change[]; expectedSites?: SiteKey[]; urls?: UrlRow[] }) {
+// S10: Quick view — 경쟁사 평균(삼성 제외)/제품 평균(전체) 및 하위 항목 평균 계산
+type QaMetricAvg = { compTotal: number | null; prodTotal: number | null; compComp: Record<string, number | null> };
+function computeMetricAverages(dcv?: Report["dcv"]): Record<MetricTab, QaMetricAvg> {
+  const mk = (m: MetricTab): QaMetricAvg => {
+    const blocks = (dcv?.[m] || {}) as Record<string, any>;
+    const keys = Object.keys(blocks);
+    const compKeys = keys.filter((s) => s !== "samsung");
+    const totalOf = (ks: string[]) => {
+      const vals = ks.map((s) => metricScoreBreakdown(m, blocks[s]).total).filter((v): v is number => v != null);
+      return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+    };
+    const acc: Record<string, number[]> = {};
+    compKeys.forEach((s) => metricScoreBreakdown(m, blocks[s]).components.forEach((c) => {
+      if (c.value != null) (acc[c.label] = acc[c.label] || []).push(c.value);
+    }));
+    const compComp: Record<string, number | null> = {};
+    Object.entries(acc).forEach(([k, arr]) => { compComp[k] = arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null; });
+    return { compTotal: totalOf(compKeys), prodTotal: totalOf(keys), compComp };
+  };
+  return { data: mk("data"), copy: mk("copy"), visual: mk("visual") };
+}
+
+const deltaMark = (d: number | null): string => d == null ? "" : d > 0 ? ` (▲+${d})` : d < 0 ? ` (▼${d})` : " (≈)";
+
+export function InsightChat({ dcv, changes, expectedSites = [], urls = [], onNavigateSite }: { dcv?: Report["dcv"]; changes: Change[]; expectedSites?: SiteKey[]; urls?: UrlRow[]; onNavigateSite?: (site: SiteKey) => void }) {
   const [open, setOpen] = useState(false);
   const [qaSite, setQaSite] = useState<string>("all");
   const [qaMetric, setQaMetric] = useState<string>("all");
@@ -650,7 +674,12 @@ export function InsightChat({ dcv, changes, expectedSites = [], urls = [] }: { d
               <p className="qaResultLabel">{resultLabel}</p>
               {results.length === 0 ? (
                 <p className="muted">{resultLabel}</p>
-              ) : results.map((r, i) => (
+              ) : results.map((r, i) => {
+                const avg = computeMetricAverages(dcv)[r.metric];
+                const compDelta = r.score != null && avg.compTotal != null ? r.score - avg.compTotal : null;
+                const prodDelta = r.score != null && avg.prodTotal != null ? r.score - avg.prodTotal : null;
+                const isLastOfSite = i === results.length - 1 || results[i + 1].site !== r.site;
+                return (
                 <div key={`${r.site}-${r.metric}-${i}`} className="qaResultRow">
                   <p className="qaResultHead">
                     <span className={`badge ${siteClass(r.site)}`}>{siteName(r.site)}</span>
@@ -658,9 +687,23 @@ export function InsightChat({ dcv, changes, expectedSites = [], urls = [] }: { d
                     <span className={`scoreDot ${r.tier}`} />
                     <span className="scoreVal">{r.score == null ? "근거 없음" : `${r.score}점 · ${scoreTierLabel(r.tier)}`}</span>
                   </p>
-                  <p className="qaResultComponents">
-                    {r.components.map((c) => `${c.label} ${c.value == null ? "-" : c.value + "%"}`).join(" · ")}
+                  <p className="qaResultCompare">
+                    경쟁사 평균 {avg.compTotal == null ? "-" : `${avg.compTotal}점`}{deltaMark(compDelta)}
+                    {" · "}제품 평균 {avg.prodTotal == null ? "-" : `${avg.prodTotal}점`}{deltaMark(prodDelta)}
                   </p>
+                  <div className="qaResultComponents">
+                    {r.components.map((c) => {
+                      const ca = avg.compComp[c.label] ?? null;
+                      const d = c.value != null && ca != null ? c.value - ca : null;
+                      return (
+                        <div key={c.label} className="qaCompRow">
+                          <span>{c.label}</span>
+                          <span>{c.value == null ? "-" : `${c.value}%`}{ca != null ? ` · 경쟁사 평균 ${ca}%` : ""}{deltaMark(d)}</span>
+                        </div>
+                      );
+                    })}
+                    <p className="qaCompReason">→ 위 항목을 종합해 {METRICS[r.metric].label} {r.score == null ? "-" : `${r.score}점`}으로 판단</p>
+                  </div>
                   <p className="qaResultSummary">{r.health.summary}</p>
                   {r.evidenceItems.length > 0 && (
                     <ul className="qaResultEvidence">
@@ -674,8 +717,13 @@ export function InsightChat({ dcv, changes, expectedSites = [], urls = [] }: { d
                       ))}
                     </ul>
                   )}
+                  {isLastOfSite && onNavigateSite && (
+                    <button className="qaResultCta" onClick={() => onNavigateSite(r.site)}>
+                      {siteName(r.site)} 상세 보기 →
+                    </button>
+                  )}
                 </div>
-              ))}
+              );})}
             </div>
           )}
           <p className="muted" style={{ marginTop: 8 }}>현재 수집된 facts/changes 안에서만 점수와 근거를 rule-based로 보여줍니다.</p>

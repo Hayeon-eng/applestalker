@@ -124,7 +124,7 @@ export function ProductTab({
 
         <div className="severityLegend" style={{ marginTop: 12 }}>
           <div className="sevRow">
-            <span className="badge c1">수집 기준</span>
+            <span className="badge c1">제품별 요약</span>
             <span className="sevDesc">{productInsight(selectedCategory, visibleRows)}</span>
           </div>
         </div>
@@ -148,7 +148,17 @@ export function ProductTab({
             const overall = scored.length ? Math.round(scored.reduce((a, b) => a + b.total, 0) / scored.length) : null;
             const overallTier = scoreTier(overall);
             const worstAxis = scored.length ? [...scored].sort((a, b) => a.total - b.total)[0] : null;
-            const priorityAction = roleAction || (worstAxis ? detailedAction(worstAxis.metric, dcv?.[worstAxis.metric]?.[site]) : "관리 URL과 수집 결과부터 확보하세요.");
+            // S9: 종합 인사이트 = 부족 항목(60점 미만)/모두 양호 (점수 포함 → 사이트마다 다름)
+            const weakAxes = scored.filter((s) => s.total < 60).sort((a, b) => a.total - b.total);
+            const okAxes = scored.filter((s) => s.total >= 60).map((s) => `${METRICS[s.metric].label} ${s.total}점`);
+            const summaryLine = !scored.length
+              ? "이번 수집엔 근거 없음 · 비교 대상에서 제외"
+              : weakAxes.length
+                ? `부족 항목 — ${weakAxes.map((s) => `${METRICS[s.metric].label} ${s.total}점`).join(", ")}${okAxes.length ? ` (나머지 양호: ${okAxes.join(", ")})` : ""}`
+                : `세 지표 모두 양호 — ${scored.map((s) => `${METRICS[s.metric].label} ${s.total}점`).join(" · ")}`;
+            // S9: 우선 액션은 역할 누락(roleAction) 우선, 없으면 가장 약한 지표+점수를 앞세워 사이트별 차별화
+            const priorityAction = roleAction
+              || (worstAxis ? `가장 약한 ${METRICS[worstAxis.metric].label}(${worstAxis.total}점)부터: ${detailedAction(worstAxis.metric, dcv?.[worstAxis.metric]?.[site])}` : "관리 URL과 수집 결과부터 확보하세요.");
 
             return (
               <div key={site} className="card metricSummaryCard" style={{ padding: 13, cursor: "default" }}>
@@ -162,16 +172,17 @@ export function ProductTab({
                     {overall == null ? "-" : overall}
                   </span>
                 </p>
-                {axisScores.map(({ metric, tier }) => (
+                {axisScores.map(({ metric, total, tier }) => (
                   <div key={metric} className="scoreRow" style={{ cursor: "default" }}>
                     <span>{METRICS[metric].label}</span>
                     <span>
                       <span className={`scoreDot ${tier}`} />
-                      <span className="scorePhrase">{metricPhrase(metric, tier)}</span>
+                      <span className="scoreNum">{total == null ? "-" : `${total}점`}</span>
                     </span>
                   </div>
                 ))}
                 <div className="worstBox">
+                  <p className="findingText" style={{ fontSize: 12 }}>종합 인사이트: {summaryLine}</p>
                   <p className="findingText" style={{ fontSize: 12 }}>
                     핵심 발견: {roleCells.map(({ role, cell }) => `${role.toUpperCase()} ${cell.label}`).join(" · ")}
                   </p>
