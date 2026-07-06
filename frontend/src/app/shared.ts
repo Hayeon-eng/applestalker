@@ -514,16 +514,18 @@ export const detailedAction = (metric: MetricTab, block?: AnalysisBlock): string
     const faqCount = typeof f.faq?.count === "number" ? f.faq.count : null;
 
     if (richness == null && cta == null) return "카피 근거부터 확보하세요.";
-    if (cta === 0 && buyCtaPages === 0) return "구매 관련 페이지에 CTA 버튼부터 추가하세요.";
-    if ((cta ?? 100) < 30) return "구매 CTA가 있는 페이지 비율을 늘리세요.";
+    // 실제 카피(분량·구체성)를 CTA보다 먼저 판단 — 우선 액션이 CTA로 쏠리지 않도록
+    if ((words ?? 100) < 40) return "제품 설명 분량(스펙·소재·기능)을 먼저 보강하세요.";
+    if ((richness ?? 100) < 40) return "카피 구체성(수치·소재·기능 언급)을 보강하세요.";
+    if ((richness ?? 100) < 60) return "PDP·PF 카피에 수치·혜택·비교 근거를 더해 구체성을 높이세요.";
     if (faqCount === 0) return "FAQ 콘텐츠를 추가해 탐색 단계 이탈을 줄이세요.";
-    if ((words ?? 100) < 40) return "제품 설명 분량(스펙·소재·기능)을 보강하세요.";
-    if ((richness ?? 100) < 40 && (cta ?? 0) >= 60) return "카피 구체성(수치·소재·기능 언급)을 보강하세요.";
-    if ((cta ?? 0) >= 60 && (richness ?? 0) < 60) return "PDP 상단 CTA 문구를 더 명확하게 다듬으세요.";
-    if ((richness ?? 0) >= 40 && (richness ?? 0) < 70) return "톤 일관성과 혜택 문구를 함께 점검하세요.";
-    if ((cta ?? 0) >= 70 && (richness ?? 0) >= 70 && (words ?? 0) < 70) return "페이지별 설명 분량 편차를 줄이세요.";
-    if ((richness ?? 0) >= 70 && (cta ?? 0) >= 70 && (words ?? 0) >= 70) return "현재 카피 유지, 경쟁사 CTA 문구 변화만 주기적으로 확인하세요.";
-    return "PDP·Buying 카피의 구체성(수치·혜택·소재)을 먼저 보강하고, 구매 CTA 문구도 함께 다듬으세요.";
+    if ((words ?? 100) < 70) return "페이지별 설명 분량 편차를 줄이세요.";
+    if ((richness ?? 0) >= 60 && (richness ?? 0) < 70) return "톤 일관성과 혜택 문구를 점검하세요.";
+    // CTA는 실제로 비어 있거나 매우 낮을 때만, 그리고 카피 점검 뒤 후순위로
+    if (cta === 0 && buyCtaPages === 0) return "구매 관련 페이지에 구매 CTA가 없으니 최소한의 CTA부터 추가하세요.";
+    if ((cta ?? 100) < 30) return "카피는 갖춰졌으나 구매 CTA가 부족한 페이지에 CTA를 보강하세요.";
+    if ((richness ?? 0) >= 70 && (words ?? 0) >= 70) return "현재 카피 유지, 경쟁사 문구 변화만 주기적으로 확인하세요.";
+    return "PDP·Buying 카피의 구체성(수치·혜택·소재)을 보강하고, 구매 CTA는 부족한 경우에만 함께 점검하세요.";
   }
 
   const alt = val("ALT ratio");
