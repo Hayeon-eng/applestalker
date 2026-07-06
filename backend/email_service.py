@@ -296,21 +296,50 @@ class EmailService:
             "<div style='font-size:10.5px;color:#98A2B3;margin-top:8px'>점수=각 축 하위지표 전체 평균 · 경쟁사 평균=비-Samsung 사이트 평균</div>"
         )
 
+    def _change_action(self, url, site_key, field_name, change_type):
+        """변경 유형별 '그래서 할 일' 한 줄. 경쟁사 변화는 우리 대응 관점으로."""
+        ours = site_key == "samsung"
+        fn = (field_name or "").lower()
+        ct = (change_type or "").lower()
+        try:
+            from config import page_role_for_url, page_role_label
+            role = page_role_label(page_role_for_url(url or ""))
+        except Exception:
+            role = "페이지"
+        who = "우리" if ours else SITE_KO.get(site_key, site_key or "경쟁사")
+        if "schema" in fn or ct == "technical":
+            return ("의도한 스키마 변경인지 확인" if ours
+                    else f"우리 동일 {role}에 같은 스키마 적용 검토")
+        if fn == "ctas" or ct == "commerce":
+            return ("프로모션·CTA 노출 의도 확인" if ours
+                    else f"{who} {role} 프로모션·CTA에 대응 검토")
+        if fn == "faqs" or fn == "question":
+            return ("FAQ 최신화 확인" if ours
+                    else "동일 FAQ 항목 보강 검토")
+        if ct == "visual" or fn == "image" or fn == "images":
+            return ("이미지·ALT 최신화 확인" if ours
+                    else "우리 비주얼·ALT 대응 점검")
+        if fn == "navigation" or ct == "navigation":
+            return ("내비 변경 의도 확인" if ours
+                    else "내비 구조 변화 참고(대응 우선순위 낮음)")
+        return ("카피 변경 의도 확인" if ours
+                else f"{who} 메시지 변화 모니터링 · 카피 대응 검토")
+
     def _row(self, change):
         level = LEVEL_KO.get(change[2], "낮음")
         color = LEVEL_COLOR[level]
         site = SITE_KO.get(change[1], change[1] or "미분류")
-        summary = _short(change[5], "변경 요약 없음")
-        before = _short(change[6], "이전 값 없음", 120)
-        after = _short(change[7], "현재 값 없음", 120)
-        url = _short(change[0], "URL 없음", 300)
+        summary = _short(change[5], "변경 감지")
+        action = escape(self._change_action(change[0], change[1], change[4], change[3]))
+        url = _short(change[0], "", 200)
         return ("<tr>" +
-            "<td style='padding:10px 8px;border-top:1px solid #EAECF0;font-size:12px;white-space:nowrap'>" + escape(site) + "</td>" +
-            "<td style='padding:10px 8px;border-top:1px solid #EAECF0'><span style='font-size:11px;font-weight:700;color:#fff;background:" + color + ";padding:3px 8px;border-radius:6px'>" + level + "</span></td>" +
-            "<td style='padding:10px 8px;border-top:1px solid #EAECF0;font-size:13px;line-height:1.5'><b>" + summary + "</b>" +
-            "<div style='color:#667085;margin-top:4px'>이전: " + before + "</div>" +
-            "<div style='color:#344054'>현재: " + after + "</div>" +
-            "<div style='font-family:monospace;color:#98A2B3;font-size:11px;margin-top:4px;word-break:break-all'>" + url + "</div></td></tr>")
+            "<td style='padding:10px 8px;border-top:1px solid #EAECF0;font-size:12px;white-space:nowrap;vertical-align:top'>" + escape(site) + "</td>" +
+            "<td style='padding:10px 8px;border-top:1px solid #EAECF0;vertical-align:top'><span style='font-size:11px;font-weight:700;color:#fff;background:" + color + ";padding:3px 8px;border-radius:6px'>" + level + "</span></td>" +
+            "<td style='padding:10px 8px;border-top:1px solid #EAECF0;font-size:13px;line-height:1.5'>" +
+            "<div style='color:#667085;font-size:12px'>" + summary + "</div>" +
+            "<div style='color:#101318;font-weight:700;margin-top:3px'>→ " + action + "</div>" +
+            ("<div style='font-family:monospace;color:#B0B7C0;font-size:10.5px;margin-top:3px;word-break:break-all'>" + url + "</div>" if url else "") +
+            "</td></tr>")
 
     def build_html(self, report_type="morning"):
         d = self._report_data()
@@ -327,22 +356,22 @@ class EmailService:
                 rows = "<tr><td colspan='3' style='padding:14px;color:#667085;border-top:1px solid #EAECF0'>이번 수집에서는 변경점이 없습니다. 페이지별 현재 상태를 확인해 주세요.</td></tr>"
             sep = "<div style='height:1px;background:#EAECF0;margin:18px 0'></div>"
             changes_section = (
-                "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>주요 변경점</div>"
-                "<table style='width:100%;border-collapse:collapse'><tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>구분</th><th style='padding:6px 8px'>중요도</th><th style='padding:6px 8px'>변경 내용</th></tr>" + rows + "</table>"
+                "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>변화 · 권장 액션</div>"
+                "<table style='width:100%;border-collapse:collapse'><tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>구분</th><th style='padding:6px 8px'>중요도</th><th style='padding:6px 8px'>변화 → 액션</th></tr>" + rows + "</table>"
             )
             body = (
                 # 요약 (문장 + Samsung 스코어보드)
                 "<p style='font-size:14px;color:#344054;line-height:1.7;margin:0 0 16px'>" + summary + "</p>"
                 + (scoreboard + sep if scoreboard else "")
-                # 변화
-                + changes_section + sep
                 # 사이트별
                 + (sites_detail + sep if sites_detail else "")
                 # 제품별
-                + (products if products else "")
+                + (products + sep if products else "")
+                # 변화(맨 아래)
+                + changes_section
             )
         header_meta = "변경 " + str(d["changes"]) + "건" + (" · " + str(d["sites"]) + "개 사이트" if d["sites"] else "")
-        return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>애플스토커 사과 🍎</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>" + header_meta + "</div><div style='margin-top:16px'>" + body + "</div></div></div>"
+        return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>애플스토커 🍎</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>" + header_meta + "</div><div style='margin-top:16px'>" + body + "</div></div></div>"
 
     def send(self, report_type="morning"):
         if not self.enabled:
