@@ -42,10 +42,10 @@ def set_fetcher(fn: Callable[[str], Optional[str]]):
     _fetcher = fn
 
 
-def enable_default_crawler(requires_js: bool = False):
+def enable_default_crawler(requires_js: bool = True):
     """기존 애플스토커의 HybridCrawler 를 큐비 fetcher 로 자동 연결.
-    main.py 에서 `enable_default_crawler()` 한 줄이면 /run 이 동작한다.
-    (qb_api 엔드포인트는 동기 def 라 스레드풀에서 실행 → asyncio.run 안전)"""
+    삼성닷컴은 JS 렌더링 페이지가 많아 requires_js=True 를 기본으로 둔다
+    (httpx 로 충분하면 그대로 쓰고, 얇게 오면 Playwright 로 업그레이드)."""
     import asyncio
 
     def _fetch(url: str) -> Optional[str]:

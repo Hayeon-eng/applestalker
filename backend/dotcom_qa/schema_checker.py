@@ -41,8 +41,15 @@ def extract_jsonld(html: str, parse_errors: Optional[List[str]] = None) -> List[
                 data = json.loads(re.sub(r",\s*([}\]])", r"\1", raw))
             except Exception as e2:
                 if parse_errors is not None:
-                    snippet = raw[:60].replace("\n", " ")
-                    parse_errors.append(f"{e2.__class__.__name__}: {e2} — '{snippet}…'")
+                    lineno = getattr(e2, "lineno", None)
+                    colno = getattr(e2, "colno", None)
+                    msg = getattr(e2, "msg", str(e2))
+                    line_text = ""
+                    if lineno:
+                        lines = raw.splitlines()
+                        if 0 < lineno <= len(lines):
+                            line_text = lines[lineno - 1].strip()
+                    parse_errors.append({"msg": msg, "lineno": lineno, "colno": colno, "line_text": line_text})
                 continue
         _collect(data, nodes)
     return nodes
@@ -160,7 +167,9 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
     # Q2=a: JSON-LD 파싱 실패는 조용히 넘기지 않고 오류로 리포트
     for pe in parse_errors:
         f = {"block": "JSON-LD", "types": [], "id_slug": None, "conditional": None,
-             "missing_props": [], "haspart_missing": [], "parse_detail": pe, "status": "fail"}
+             "missing_props": [], "haspart_missing": [], "status": "fail",
+             "parse_msg": pe.get("msg", ""), "parse_lineno": pe.get("lineno"),
+             "parse_colno": pe.get("colno"), "parse_line": pe.get("line_text", "")}
         _apply(f, "schema.parse_error"); fail += 1
         findings.append(f)
 
@@ -212,26 +221,27 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         f["optional_missing"] = soft_missing
 
         # 값 검사 (#5, Q1=b): 기대값 플레이스홀더 치환 후 대조
-        #   url/@id/target/image/@type/@context → 정확(치환), name → 'Galaxy S26 Ultra' 느슨, description → 존재만
-        val_mismatch = []
+        #   url/@id/target/image/@type/@context → 정확(치환, 불일치=오류)
+        #   name → 번역되는 값이므로 '확인(warn)'만 (오류 아님), description → 존재만
+        val_mismatch = []       # 하드 불일치(오류)
+        translate_confirm = []  # 번역성 텍스트 확인(경고)
         for prop, spec in (block.get("expected_values") or {}).items():
             if prop == "hasPart":
                 continue  # hasPart 는 haspart_ids 로 별도 검증
             if prop in f["missing_props"]:
                 continue  # 이미 누락으로 잡힘
             if prop not in node or node.get(prop) in (None, "", [], {}):
-                continue  # 존재 검사에서 다룸(선택 속성 등)
+                continue
             kind = spec.get("kind"); exp = spec.get("value", ""); nested = spec.get("nested")
             actual = _actual_value(node, prop, nested)
             if kind == "text":
-                if prop == "name":
-                    if "galaxy s26 ultra" not in str(actual).lower():
-                        val_mismatch.append({"prop": prop, "expected": "…Galaxy S26 Ultra…", "actual": str(actual)[:60]})
-                # description 등 그 외 text → 존재만(통과)
-                continue
+                if prop == "name" and "galaxy s26 ultra" not in str(actual).lower():
+                    translate_confirm.append({"prop": prop, "actual": str(actual)[:60]})
+                continue  # description 등은 존재만
             if not _val_matches(exp, actual, kind):
                 val_mismatch.append({"prop": prop, "expected": _resolve(exp), "actual": str(actual)[:80]})
         f["val_mismatch"] = val_mismatch
+        f["translate_confirm"] = translate_confirm
 
         # Product.hasPart @id 검증
         if block.get("haspart_ids"):
@@ -243,7 +253,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
 
         problems = bool(f["missing_props"]) or bool(f["haspart_missing"]) or ("id_mismatch" in f) or bool(f["val_mismatch"])
         if not problems:
-            if soft_missing:
+            if soft_missing or f.get("translate_confirm"):
                 f["status"] = "warn"; _apply(f, "schema.optional"); warn += 1
             else:
                 f["status"] = "pass"; _apply(f, "schema.pass"); ok += 1

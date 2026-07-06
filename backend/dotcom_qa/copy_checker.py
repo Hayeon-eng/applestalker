@@ -64,15 +64,36 @@ def check_copy(html: str, product_rules: Dict[str, Any],
     findings: List[Dict[str, Any]] = []
     ok = warn = fail = 0
 
+    spec_toks = product_rules.get("spec_tokens", [])
+    noun_toks = product_rules.get("proper_nouns", [])
+
+    # 0) 수집 품질 가드: 페이지가 지나치게 얇거나(스펙 텍스트 거의 없음) 토큰이 사실상 전무하면
+    #    개별 토큰 20건을 오류로 쏟지 않고 '수집 품질 의심' 1건으로 정리 (JS 미렌더/차단 등)
+    present_cnt = sum(1 for t in spec_toks if _present(t, text))
+    thin = len(text) < 1500
+    if spec_toks and (thin or present_cnt == 0):
+        ko = lang != "en"
+        findings.append({
+            "kind": "collection", "token": "(수집 품질)", "status": "fail", "code": "copy.collection",
+            "as_is": (f"페이지 텍스트가 비정상적으로 적음(본문 {len(text):,}자, 스펙 토큰 {present_cnt}/{len(spec_toks)} 검출)"
+                      if ko else f"Page text abnormally small ({len(text):,} chars, {present_cnt}/{len(spec_toks)} spec tokens found)"),
+            "to_be": ("수집 실패/차단 또는 JS 미렌더링 가능성 — 재수집(JS 렌더링) 후 재검수. 정상 수집 전까지 스펙 검사 결과는 신뢰하지 마세요."
+                      if ko else "Likely fetch failure/block or non-rendered JS — re-crawl (with JS) then re-check. Do not trust spec results until re-collected."),
+        })
+        return {"summary": {"spec_total": len(spec_toks), "noun_total": len(noun_toks),
+                            "keyspec_total": len(key_specs or []), "pass": 0, "warn": 0, "fail": 1,
+                            "value_mismatch": 0, "value_missing": 0, "text_len": len(text),
+                            "collection_suspect": True}, "findings": findings}
+
     # 1) 스펙 토큰 존재
-    for tok in product_rules.get("spec_tokens", []):
+    for tok in spec_toks:
         hit = _present(tok, text)
         ok += hit; fail += (not hit)
         f = {"kind": "spec", "token": tok, "status": "pass" if hit else "fail"}
         findings.append(_finalize(f, "copy.spec_missing", lang) if not hit else {**f, "as_is": "", "to_be": "", "code": "copy.spec_ok"})
 
     # 2) 고유명사 존재
-    for pn in product_rules.get("proper_nouns", []):
+    for pn in noun_toks:
         hit = _present(pn, text)
         ok += hit; warn += (not hit)
         f = {"kind": "proper_noun", "token": pn, "status": "pass" if hit else "warn"}

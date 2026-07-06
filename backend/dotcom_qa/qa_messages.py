@@ -39,19 +39,28 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
 
     if code == "schema.optional":
         soft = _join(f.get("optional_missing", []))
-        return {
-            "as_is": (f"{name} 정상 (선택 속성 미적용: {soft})"
-                      if ko else f"{name} OK (optional property not set: {soft})"),
-            "to_be": (f"선택 항목 — {soft}: 필요 시 추가 검토"
-                      if ko else f"Optional — consider adding: {soft}"),
-        }
+        tc = f.get("translate_confirm") or []
+        bits_as, bits_to = [], []
+        if soft:
+            bits_as.append(f"{name} 정상 (선택 속성 미적용: {soft})" if ko else f"{name} OK (optional not set: {soft})")
+            bits_to.append(f"선택 항목 — {soft}: 필요 시 추가 검토" if ko else f"Optional — consider adding: {soft}")
+        for t in tc:
+            av = str(t.get("actual", ""))
+            bits_as.append(f"{t['prop']} 번역 확인 필요 (현재 '{av}')" if ko else f"{t['prop']} translation check (currently '{av}')")
+            bits_to.append(f"{t['prop']} 가 현지어로 올바르게 번역됐는지 확인 (오류 아님)" if ko else f"Confirm {t['prop']} is correctly localized (not an error)")
+        if not bits_as:
+            bits_as.append(f"{name} 정상" if ko else f"{name} OK")
+        return {"as_is": " / ".join(bits_as), "to_be": "; ".join(bits_to)}
 
     if code == "schema.parse_error":
-        detail = f.get("parse_detail", "")
+        ln = f.get("parse_lineno"); col = f.get("parse_colno"); msg = f.get("parse_msg", "")
+        line = f.get("parse_line", "")
+        loc = (f"{ln}행 {col}열" if ln else "위치 미상"); loc_en = (f"line {ln}, col {col}" if ln else "unknown position")
+        snip = (f" · 문제 줄: {line}" if line else ""); snip_en = (f" · offending line: {line}" if line else "")
         return {
-            "as_is": (f"JSON-LD 파싱 실패 — 문법 오류 ({detail})" if ko else f"JSON-LD failed to parse — syntax error ({detail})"),
-            "to_be": ("<script type=\"application/ld+json\"> 내 JSON 문법 오류 수정(후행 콤마·따옴표·중괄호 확인)"
-                      if ko else "Fix the JSON syntax inside <script type=\"application/ld+json\"> (trailing commas, quotes, braces)"),
+            "as_is": (f"JSON-LD 파싱 실패 — {loc}에서 {msg}{snip}" if ko else f"JSON-LD parse failed — {msg} at {loc_en}{snip_en}"),
+            "to_be": ((f"'{line}' 부분 문법 수정 — 후행 콤마 제거·따옴표/중괄호 짝 확인 후 재검증" if line else "해당 줄 문법 수정 — 후행 콤마·따옴표·중괄호 확인")
+                      if ko else (f"Fix syntax near '{line}' — remove trailing commas, balance quotes/braces, re-validate" if line else "Fix the offending line — trailing commas, quotes, braces")),
         }
 
     if code == "schema.problem":
