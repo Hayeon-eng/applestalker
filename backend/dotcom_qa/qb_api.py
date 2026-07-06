@@ -245,6 +245,18 @@ def qb_rules_schema_add(payload: Dict[str, Any] = Body(...)):
     prop = (payload.get("property") or "").strip()
     if not block or not prop:
         raise HTTPException(400, "block과 property가 필요합니다.")
+    per = os.path.join(os.path.dirname(__file__), f"schema_rules.{product}.json")
+    if os.path.exists(per):  # 제품별 분리 파일
+        data = json.load(open(per, encoding="utf-8"))
+        blocks = data.get("blocks", [])
+        hit = next((b for b in blocks if b.get("name") == block), None)
+        if not hit:
+            raise HTTPException(404, f"블록 '{block}' 없음")
+        if prop not in hit.setdefault("required_properties", []):
+            hit["required_properties"].append(prop)
+        json.dump(data, open(per, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        return {"ok": True, "block": block, "required_properties": hit["required_properties"]}
+    # 통합 파일 폴백
     data = json.load(open(_SCHEMA_PATH, encoding="utf-8"))
     blocks = data["products"].get(product, {}).get("blocks", [])
     hit = next((b for b in blocks if b.get("name") == block), None)

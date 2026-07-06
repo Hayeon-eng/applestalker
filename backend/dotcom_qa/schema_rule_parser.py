@@ -187,12 +187,21 @@ def build_rules(xlsx_path: str, sheets=("M3", "M12")) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
+    import os
     import sys
     src = sys.argv[1] if len(sys.argv) > 1 else "/mnt/user-data/uploads/schema_deck.xlsx"
     dst = sys.argv[2] if len(sys.argv) > 2 else "schema_rules.json"
     rules = build_rules(src)
     with open(dst, "w", encoding="utf-8") as f:
         json.dump(rules, f, ensure_ascii=False, indent=2)
+    # 제품별 분리 파일(미니파이) — 로더가 우선 사용, 업로드 부담 완화
+    base = os.path.dirname(dst) or "."
+    meta = {"source": rules.get("source"), "sitecode_token": rules.get("sitecode_token")}
+    for prod, pd in rules["products"].items():
+        obj = {**meta, **pd}
+        with open(os.path.join(base, f"schema_rules.{prod}.json"), "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+        print(f"  → schema_rules.{prod}.json (블록 {len(pd.get('blocks', []))})")
     for prod, d in rules["products"].items():
         print(f"[{prod}] blocks={d['block_count']} types={d['expected_types']}")
         for b in d["blocks"]:

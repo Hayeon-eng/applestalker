@@ -28,7 +28,12 @@ def load_rules(product: str = "M3",
     schema_path = schema_path or os.path.join(_HERE, "schema_rules.json")
     copy_path = copy_path or os.path.join(_HERE, "copy_rules.json")
     spec_path = spec_path or os.path.join(_HERE, "key_specs.json")
-    sr = json.load(open(schema_path, encoding="utf-8"))["products"].get(product, {})
+    # 스키마 규칙: 제품별 분리 파일(schema_rules.M3.json) 우선, 없으면 통합 파일
+    per_product = os.path.join(_HERE, f"schema_rules.{product}.json")
+    if os.path.exists(per_product):
+        sr = json.load(open(per_product, encoding="utf-8"))
+    else:
+        sr = json.load(open(schema_path, encoding="utf-8"))["products"].get(product, {})
     cr = json.load(open(copy_path, encoding="utf-8"))["products"].get(product, {})
     # 핵심 스펙은 product 키(galaxy-s26-ultra 등)로 저장되어 있어 M3→제품 매핑을 함께 시도
     try:
