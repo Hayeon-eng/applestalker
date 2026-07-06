@@ -247,7 +247,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
       </aside>
 
       {/* ── 메인 ── */}
-      <div className="mainArea">
+      <div className="mainArea" style={{ marginRight: showRules ? "var(--drawer-w)" : 0 }}>
         <header className="topbar">
           <div className="topbarRow1">
             <div className="tabGroup">
@@ -426,12 +426,26 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             </div>
           )}
 
-          {/* 검수 기준 패널 */}
-          {showRules && rules && (
-            <div className="card" style={{ marginTop: 16, padding: 14 }}>
-              <b style={{ fontSize: 14 }}>검수 기준 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</b>
-              {tab === "schema" ? (
-                <div style={{ fontSize: 12.5, marginTop: 8 }}>
+          {/* 검수 기준 — 우측 밀림형 드로어 (본문을 왼쪽으로 밀어냄) */}
+          <div
+            style={{
+              position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 31,
+              width: "var(--drawer-w)", background: "var(--surface)",
+              boxShadow: "-4px 0 24px rgba(0,0,0,.12)",
+              transform: showRules ? "translateX(0)" : "translateX(100%)",
+              transition: "transform .25s",
+              display: "flex", flexDirection: "column",
+            }}
+          >
+            <div className="drawerHead">
+              <span className="drawerTitle">검수 기준 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</span>
+              <button className="drawerClose" onClick={() => setShowRules(false)}>×</button>
+            </div>
+            <div className="drawerBody" style={{ overflowY: "auto", flex: 1 }}>
+              {!rules ? (
+                <p style={{ color: "var(--sec)", fontSize: 12.5 }}>기준을 불러오는 중…</p>
+              ) : tab === "schema" ? (
+                <div style={{ fontSize: 12.5 }}>
                   <p style={{ color: "var(--sec)" }}>{rules.schema?.["설명"]}</p>
                   {(rules.schema?.blocks || []).length === 0 && <p style={{ color: "var(--sec)" }}>이 페이지타입엔 아직 룰이 없어요. ＋룰 추가로 등록하세요.</p>}
                   {(rules.schema?.blocks || []).map((b: any, i: number) => (
@@ -439,14 +453,14 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 12.5, marginTop: 8 }}>
+                <div style={{ fontSize: 12.5 }}>
                   <p style={{ color: "var(--sec)" }}>{rules.copy?.["설명"]}</p>
                   <div><b>스펙 토큰:</b> {(rules.copy?.spec_tokens || []).join(", ")}</div>
                   <div style={{ marginTop: 6 }}><b>고유명사:</b> {(rules.copy?.proper_nouns || []).join(", ")}</div>
                 </div>
               )}
             </div>
-          )}
+          </div>
 
           {/* 결과 — 오류 빨강 강조 */}
           {rows.length > 0 && (
