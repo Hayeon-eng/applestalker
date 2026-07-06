@@ -105,7 +105,9 @@ def qb_check(payload: Dict[str, Any] = Body(...)):
     if not html:
         raise HTTPException(400, "html 필드가 필요합니다.")
     rules = runner.load_rules(product)
-    return runner.check_html(html, rules)
+    # 붙여넣기 검수: sitecode/lang 주면 값 치환 정확검사, 없으면 그 자리만 와일드카드
+    return runner.check_html(html, rules,
+                             sitecode=payload.get("sitecode"), site_lang=payload.get("lang"))
 
 
 @qb_router.post("/run")

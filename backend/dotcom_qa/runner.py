@@ -39,18 +39,21 @@ def load_rules(product: str = "M3",
     return {"schema": sr, "copy": cr, "key_specs": ks}
 
 
-def check_html(html: str, rules: Dict[str, Any]) -> Dict[str, Any]:
+def check_html(html: str, rules: Dict[str, Any],
+               sitecode: str = None, site_lang: str = None) -> Dict[str, Any]:
     """단일 페이지 HTML 검수 → {schema, copy}."""
     return {
-        "schema": schema_checker.check_page(html, rules["schema"]),
+        "schema": schema_checker.check_page(html, rules["schema"],
+                                            sitecode=sitecode, site_lang=site_lang),
         "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs")),
     }
 
 
 def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any]) -> Dict[str, Any]:
-    res = check_html(html, rules)
+    res = check_html(html, rules, sitecode=site.get("sitecode"), site_lang=site.get("lang"))
     return {"sitecode": site.get("sitecode"), "url": site.get("url"),
             "region": site.get("region"), "country": site.get("country"),
+            "product": site.get("product", "galaxy-s26-ultra"), "lang": site.get("lang"),
             "schema": res["schema"], "copy": res["copy"]}
 
 

@@ -46,6 +46,14 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
                       if ko else f"Optional — consider adding: {soft}"),
         }
 
+    if code == "schema.parse_error":
+        detail = f.get("parse_detail", "")
+        return {
+            "as_is": (f"JSON-LD 파싱 실패 — 문법 오류 ({detail})" if ko else f"JSON-LD failed to parse — syntax error ({detail})"),
+            "to_be": ("<script type=\"application/ld+json\"> 내 JSON 문법 오류 수정(후행 콤마·따옴표·중괄호 확인)"
+                      if ko else "Fix the JSON syntax inside <script type=\"application/ld+json\"> (trailing commas, quotes, braces)"),
+        }
+
     if code == "schema.problem":
         bits, fixes = [], []
         if f.get("id_mismatch"):
@@ -59,6 +67,13 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
             hp = _join(f["haspart_missing"])
             bits.append(("hasPart 누락: " if ko else "hasPart missing: ") + hp)
             fixes.append(("Product.hasPart 에 " + hp + " @id 추가" if ko else f"Add @id {hp} to Product.hasPart"))
+        for vm in (f.get("val_mismatch") or []):
+            if ko:
+                bits.append(f"{vm['prop']} 값 불일치(기대 '{vm['expected']}' / 실제 '{vm['actual']}')")
+                fixes.append(f"{vm['prop']} 값을 '{vm['expected']}' 로 수정")
+            else:
+                bits.append(f"{vm['prop']} value mismatch (expected '{vm['expected']}', actual '{vm['actual']}')")
+                fixes.append(f"Correct {vm['prop']} to '{vm['expected']}'")
         return {"as_is": f"{name} — " + " / ".join(bits), "to_be": "; ".join(fixes)}
 
     if code == "copy.spec_missing":

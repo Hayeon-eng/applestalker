@@ -25,8 +25,9 @@ _LD_RE = re.compile(
 
 
 # ---------- JSON-LD 추출 ----------
-def extract_jsonld(html: str) -> List[Dict[str, Any]]:
-    """HTML 안의 모든 ld+json 블록을 파싱해 노드 리스트로 평탄화(@graph 전개)."""
+def extract_jsonld(html: str, parse_errors: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """HTML 안의 모든 ld+json 블록을 파싱해 노드 리스트로 평탄화(@graph 전개).
+    파싱 실패한 블록은 parse_errors(전달 시)에 원인 메시지를 담는다(Q2=a)."""
     nodes: List[Dict[str, Any]] = []
     for m in _LD_RE.finditer(html or ""):
         raw = m.group(1).strip()
@@ -34,11 +35,14 @@ def extract_jsonld(html: str) -> List[Dict[str, Any]]:
             continue
         try:
             data = json.loads(raw)
-        except Exception:
+        except Exception as e1:
             # 흔한 오류(후행 콤마 등) 1회 보정 시도
             try:
                 data = json.loads(re.sub(r",\s*([}\]])", r"\1", raw))
-            except Exception:
+            except Exception as e2:
+                if parse_errors is not None:
+                    snippet = raw[:60].replace("\n", " ")
+                    parse_errors.append(f"{e2.__class__.__name__}: {e2} — '{snippet}…'")
                 continue
         _collect(data, nodes)
     return nodes
@@ -100,7 +104,8 @@ def _collect_ids(value: Any) -> List[str]:
 
 
 # ---------- 검수 ----------
-def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko") -> Dict[str, Any]:
+def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
+               sitecode: Optional[str] = None, site_lang: Optional[str] = None) -> Dict[str, Any]:
     from qa_messages import render
 
     def _apply(f, code):
@@ -109,9 +114,55 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko") -> Di
         f["as_is"], f["to_be"] = m["as_is"], m["to_be"]
         return f
 
-    nodes = extract_jsonld(html)
+    def _resolve(pattern: str) -> str:
+        """기대 패턴의 플레이스홀더를 사이트값으로 치환. 모르면 와일드카드 표식(\x00)."""
+        s = pattern
+        sc = sitecode or "\x00"
+        lg = site_lang or "\x00"
+        s = s.replace("{SITECODE}", sc).replace("[SITECODE]", sc).replace("{LANG-CODE}", lg)
+        return s
+
+    def _norm(u):
+        return str(u).strip().rstrip("/").lower()
+
+    def _one_match(expected: str, actual: Any, kind: str) -> bool:
+        if actual is None:
+            return False
+        actual = str(actual).strip()
+        exp = _resolve(expected).strip()
+        if kind == "enum":
+            want = {t.strip().lower() for t in exp.replace("\n", ",").split(",") if t.strip()}
+            got = {t.strip().lower() for t in actual.replace("\n", ",").split(",") if t.strip()}
+            return bool(want & got) if want else True
+        parts = [re.escape(p) for p in _norm(exp).split("\x00")]
+        rx = re.compile("^" + ".*?".join(parts) + "$", re.IGNORECASE)
+        return rx.match(_norm(actual)) is not None
+
+    def _val_matches(expected: str, actual: Any, kind: str) -> bool:
+        # 기대값 콤마 다중 → 하나만 맞으면 OK / 실제값 리스트 → 원소 하나라도 맞으면 OK
+        exps = [e.strip() for e in str(expected).split(",")] if kind != "enum" else [expected]
+        acts = actual if isinstance(actual, list) else [actual]
+        return any(_one_match(e, a, kind) for e in exps for a in acts)
+
+    def _actual_value(node, prop, nested):
+        v = node.get(prop)
+        if nested and isinstance(v, dict):
+            return v.get(nested)
+        if nested and isinstance(v, list):
+            return [(x.get(nested) if isinstance(x, dict) else x) for x in v]
+        return v
+
+    parse_errors: List[str] = []
+    nodes = extract_jsonld(html, parse_errors)
     findings: List[Dict[str, Any]] = []
     ok = warn = fail = 0
+
+    # Q2=a: JSON-LD 파싱 실패는 조용히 넘기지 않고 오류로 리포트
+    for pe in parse_errors:
+        f = {"block": "JSON-LD", "types": [], "id_slug": None, "conditional": None,
+             "missing_props": [], "haspart_missing": [], "parse_detail": pe, "status": "fail"}
+        _apply(f, "schema.parse_error"); fail += 1
+        findings.append(f)
 
     for block in product_rules.get("blocks", []):
         name = block["name"]
@@ -160,6 +211,28 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko") -> Di
         f["missing_props"] = hard_missing
         f["optional_missing"] = soft_missing
 
+        # 값 검사 (#5, Q1=b): 기대값 플레이스홀더 치환 후 대조
+        #   url/@id/target/image/@type/@context → 정확(치환), name → 'Galaxy S26 Ultra' 느슨, description → 존재만
+        val_mismatch = []
+        for prop, spec in (block.get("expected_values") or {}).items():
+            if prop == "hasPart":
+                continue  # hasPart 는 haspart_ids 로 별도 검증
+            if prop in f["missing_props"]:
+                continue  # 이미 누락으로 잡힘
+            if prop not in node or node.get(prop) in (None, "", [], {}):
+                continue  # 존재 검사에서 다룸(선택 속성 등)
+            kind = spec.get("kind"); exp = spec.get("value", ""); nested = spec.get("nested")
+            actual = _actual_value(node, prop, nested)
+            if kind == "text":
+                if prop == "name":
+                    if "galaxy s26 ultra" not in str(actual).lower():
+                        val_mismatch.append({"prop": prop, "expected": "…Galaxy S26 Ultra…", "actual": str(actual)[:60]})
+                # description 등 그 외 text → 존재만(통과)
+                continue
+            if not _val_matches(exp, actual, kind):
+                val_mismatch.append({"prop": prop, "expected": _resolve(exp), "actual": str(actual)[:80]})
+        f["val_mismatch"] = val_mismatch
+
         # Product.hasPart @id 검증
         if block.get("haspart_ids"):
             present = set(_collect_ids(node.get("hasPart")))
@@ -168,7 +241,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko") -> Di
                 if not any(wrx.match(pid) for pid in present):
                     f["haspart_missing"].append(_slug(want))
 
-        problems = bool(f["missing_props"]) or bool(f["haspart_missing"]) or ("id_mismatch" in f)
+        problems = bool(f["missing_props"]) or bool(f["haspart_missing"]) or ("id_mismatch" in f) or bool(f["val_mismatch"])
         if not problems:
             if soft_missing:
                 f["status"] = "warn"; _apply(f, "schema.optional"); warn += 1

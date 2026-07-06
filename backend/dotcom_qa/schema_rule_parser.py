@@ -55,6 +55,26 @@ def _slug_from_id(id_pattern: str) -> Optional[str]:
     return tail or None
 
 
+_ENUM_HINTS = {"webpage", "itempage", "product", "buyaction", "criticreview", "listitem",
+               "imageobject", "videoobject", "3dmodel", "faqpage", "breadcrumblist", "offer",
+               "aggregaterating", "brand", "organization", "question", "answer"}
+
+
+def _kind(v: str) -> str:
+    """기대값 종류: url / enum / text."""
+    s = (v or "").strip()
+    low = s.lower()
+    if "{sitecode}" in low or "[sitecode]" in low or "{lang-code}" in low or low.startswith("http") or low.startswith("//"):
+        return "url"
+    if low in ("schema.org", "https://schema.org"):
+        return "enum"
+    # 공백 없는 짧은 토큰(콤마 구분 타입 포함) 이면서 enum 후보 → enum
+    toks = [t.strip().lower() for t in s.replace("\n", ",").split(",") if t.strip()]
+    if toks and all((" " not in t and (t in _ENUM_HINTS or t[:1].isupper() or "{" not in t)) for t in toks) and len(s) < 40:
+        return "enum"
+    return "text"
+
+
 def parse_sheet(rows: List[tuple]) -> List[Dict[str, Any]]:
     """한 시트(M3 또는 M12)의 행들을 블록 규칙 리스트로 변환."""
     blocks: List[Dict[str, Any]] = []
@@ -88,11 +108,14 @@ def parse_sheet(rows: List[tuple]) -> List[Dict[str, Any]]:
                 "optional_properties": [],   # Remarks 로 '조건부/후속' 표시된 속성
                 "property_notes": {},
                 "haspart_ids": [],
+                "expected_values": {},   # 속성 → {"value","kind","nested"}
                 "conditional": (c_rem if c_rem and c_rem not in ("-", "–", "—") else None),   # "특정 국가 제외" 등
             }
             blocks.append(cur)
             mode = "head"
             last_prop = None
+            if c_val:
+                cur["expected_values"]["@context"] = {"value": c_val, "kind": _kind(c_val), "nested": None}
             continue
 
         if cur is None:
@@ -119,6 +142,10 @@ def parse_sheet(rows: List[tuple]) -> List[Dict[str, Any]]:
                 if prop not in cur["required_properties"]:
                     cur["required_properties"].append(prop)
                 last_prop = prop
+                # 기대값 캡처(중첩 @id/@type 이면 nested 기록)
+                if c_val:
+                    nested = c_n3 if c_n3 in ("@id", "@type") else None
+                    cur["expected_values"][prop] = {"value": c_val, "kind": _kind(c_val), "nested": nested}
                 # Remarks 가 달린 속성(예: review = 출시 후 핫픽스)은 선택 처리
                 if c_rem and c_rem not in ("-", "–", "—"):
                     if prop not in cur["optional_properties"]:
