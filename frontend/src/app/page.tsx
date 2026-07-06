@@ -147,18 +147,6 @@ export default function Page() {
     }
   };
 
-  const sendEmail = async () => {
-    setEmailState("발송 중…");
-    try {
-      const r = await fetch(API + "/api/email/test", { method: "POST" });
-      const j = await r.json();
-      setEmailState(r.ok ? "발송 완료: " + (j.recipient || "수신자") : "실패: " + (j.detail || j.error || "설정 확인"));
-    } catch {
-      setEmailState("실패: 백엔드 연결 확인");
-    }
-    setTimeout(() => setEmailState(""), 5000);
-  };
-
   const copyEmailBody = async () => {
     setEmailState("본문 준비 중…");
     try {
@@ -402,9 +390,6 @@ export default function Page() {
               )}
               <button className="toolBtn" onClick={copyEmailBody} disabled={!online}>
                 📋 메일 본문 복사
-              </button>
-              <button className="toolBtn" onClick={sendEmail} disabled={!online}>
-                📧 메일 테스트
               </button>
             </div>
           </div>
