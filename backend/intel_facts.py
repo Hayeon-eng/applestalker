@@ -102,31 +102,46 @@ def _page_role(url: str) -> str:
     return "content"
 
 
-def _schema_expectations_for_role(role: str) -> List[str]:
-    # 브랜드별 구현 방식이 다르기 때문에 '정답 스키마'가 아니라 페이지 목적에 맞는 최소 기대 신호로 사용한다.
-    if role == "home":
-        return ["WebPage", "Organization"]
-    if role == "pf":
-        return ["WebPage", "CollectionPage", "ItemList", "BreadcrumbList"]
-    if role in ("pdp", "buying", "specs"):
-        return ["WebPage", "ItemPage", "Product", "BreadcrumbList"]
-    if role == "campaign_or_compare":
-        return ["WebPage", "ItemList", "FAQPage"]
-    return ["WebPage"]
+# ── 페이지 역할별 기대 스키마 (우리 사이트 Schema Link Map 기준, 참고용) ──
+# core   = 역할에 기대되는 필수 신호. 각 원소는 '이 중 하나면 충족'(any-of) 그룹.
+# advanced = 있으면 검색·AI 노출에 유리한 보강 기회. 없어도 문제 아님.
+# 절대 기준이 아니며, @id로 다른 노드에 연결돼 있을 수 있어 누락=오류로 보지 않는다.
+ROLE_SCHEMA_MAP: Dict[str, Dict[str, List]] = {
+    "home":   {"core": [["Organization", "Corporation"]], "advanced": []},
+    "pf":     {"core": [["CollectionPage", "ItemList"], ["BreadcrumbList"]], "advanced": ["Brand"]},
+    "pdp":    {"core": [["Product"], ["BreadcrumbList"]], "advanced": ["FAQPage", "Quotation", "3DModel", "VideoObject"]},
+    "buying": {"core": [["ProductGroup", "Product"], ["BreadcrumbList"]], "advanced": ["FAQPage"]},
+    "specs":  {"core": [["Product"], ["BreadcrumbList"]], "advanced": ["FAQPage"]},
+    "campaign_or_compare": {"core": [["Product", "ItemList"], ["BreadcrumbList"]], "advanced": ["FAQPage"]},
+    "content": {"core": [], "advanced": []},
+}
+# 홈페이지 회사 스키마는 Corporation·Organization 둘 다 인정.
+_SCHEMA_EQUIV = {"Corporation": "Organization", "Organization": "Organization"}
+
+
+def _schema_expectations_for_role(role: str) -> Dict[str, List]:
+    return ROLE_SCHEMA_MAP.get(role, ROLE_SCHEMA_MAP["content"])
+
+
+def _role_core_missing(found_types: set, core_groups: List[List[str]]) -> List[str]:
+    """core 요구그룹 중 어느 타입도 없으면 미충족. 라벨은 그룹 대표(첫 타입)로."""
+    norm = {_SCHEMA_EQUIV.get(t, t) for t in found_types}
+    missing = []
+    for group in core_groups:
+        if not any(_SCHEMA_EQUIV.get(t, t) in norm for t in group):
+            missing.append(group[0])
+    return missing
+
+
+def _role_advanced_missing(found_types: set, advanced: List[str]) -> List[str]:
+    return [t for t in advanced if t not in found_types]
 
 
 def _expected_schema_type(url: str) -> Optional[str]:
-    """URL 패턴 기반 페이지 목적 신호. 브랜드별 Schema 설계 차이를 감안해 참고용으로만 사용."""
+    """URL 패턴 기반 페이지 목적의 대표 core 타입. 브랜드별 설계 차이 감안 참고용."""
     role = _page_role(url)
-    if role == "home":
-        return "WebPage"
-    if role == "pf":
-        return "CollectionPage"
-    if role in ("pdp", "buying", "specs"):
-        return "Product"
-    if role == "campaign_or_compare":
-        return "WebPage"
-    return None
+    core = _schema_expectations_for_role(role).get("core") or []
+    return core[0][0] if core else None
 
 
 def _walk_schema_nodes(sd: Any) -> List[Dict[str, Any]]:
@@ -257,22 +272,26 @@ def data_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         if expected and expected not in found_types:
             mismatches.append({"url": url, "expected": expected, "found": sorted(found_types) or ["없음"]})
 
-    # ── PF/PDP/Buying 등 페이지 역할별 schema 기대값 정합성 ──
+    # ── PF/PDP/Buying 등 페이지 역할별 schema 기대값 정합성 (core=보강후보 / advanced=기회) ──
     role_distribution: Dict[str, int] = {}
     role_alignment = []
+    role_advanced = []
     for p in pages:
         url = p.get("url", "")
         role = _page_role(url)
         role_distribution[role] = role_distribution.get(role, 0) + 1
         nodes = _walk_schema_nodes(p.get("structured_data") or [])
         found_types = {t for n in nodes for t in _node_types(n)}
-        expected_types = _schema_expectations_for_role(role)
-        missing_expected = [t for t in expected_types if t not in found_types]
-        if missing_expected:
+        spec = _schema_expectations_for_role(role)
+        missing_core = _role_core_missing(found_types, spec.get("core") or [])
+        if missing_core:
             role_alignment.append({
-                "url": url, "page_role": role, "expected": expected_types,
-                "missing": missing_expected, "found": sorted(found_types) or ["없음"],
+                "url": url, "page_role": role, "missing": missing_core,
+                "found": sorted(found_types) or ["없음"],
             })
+        missing_adv = _role_advanced_missing(found_types, spec.get("advanced") or [])
+        if missing_adv:
+            role_advanced.append({"url": url, "page_role": role, "opportunity": missing_adv})
 
     # ── HTML 구조: heading depth, semantic 비율(nav 보유율), p-tag 활용(=본문 비율) ──
     heading_issues = []
@@ -310,6 +329,7 @@ def data_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
             "completeness": completeness,
             "alignment_mismatches": mismatches[:10],
             "role_alignment_gaps": role_alignment[:12],
+            "role_advanced_gaps": role_advanced[:12],
             "id_linkage": {
                 "total_id_nodes": len(id_index),
                 "linked_ids": len(referenced_ids),
@@ -386,8 +406,9 @@ def _narrate_schema_completeness(schema: Dict[str, Any]) -> List[str]:
         role_line = ", ".join(f"{k} {v}페이지" for k, v in role_dist.items())
         lines.append(
             "페이지 역할 기준 판단: " + role_line +
-            " — PF는 CollectionPage/ItemList, PDP·Buying은 Product/ItemPage/BreadcrumbList를 기대 신호로 보되, "
-            "브랜드별 Inline/Linked 구현 차이는 감안함."
+            " — 우리 사이트 기준(참고)으로 PF는 CollectionPage/ItemList·Breadcrumb, PDP는 Product·Breadcrumb, "
+            "Buying은 ProductGroup/Product·Breadcrumb, Compare는 Product/ItemList·Breadcrumb를 기대 신호로 본다. "
+            "절대 기준이 아니며, @id로 연결돼 있을 수 있어 누락=오류로 보지 않는다."
         )
 
     role_gaps = schema.get("role_alignment_gaps") or []
@@ -395,8 +416,22 @@ def _narrate_schema_completeness(schema: Dict[str, Any]) -> List[str]:
         sample = []
         for g in role_gaps[:3]:
             missing = ", ".join(g.get("missing") or [])
-            sample.append(f"{_readable_path(g.get('url',''))}({g.get('page_role')})에서 {missing}")
-        lines.append("역할 대비 보강 후보: " + " / ".join(sample) + " — 단, 누락=오류가 아니라 페이지 목적과 실제 Schema 타입이 어긋나는지 확인 필요.")
+            sample.append(f"{_readable_path(g.get('url',''))}({g.get('page_role')})에 {missing}")
+        lines.append(
+            "역할 대비 확인 후보: " + " / ".join(sample) +
+            " — 페이지에 직접 없더라도 @id 참조일 수 있으니, 실제로 어긋나는지 확인 후 보강."
+        )
+
+    adv_gaps = schema.get("role_advanced_gaps") or []
+    if adv_gaps:
+        adv_sample = []
+        for g in adv_gaps[:3]:
+            opp = ", ".join(g.get("opportunity") or [])
+            adv_sample.append(f"{_readable_path(g.get('url',''))}({g.get('page_role')})에 {opp}")
+        lines.append(
+            "고급 스키마 보강 기회(선택): " + " / ".join(adv_sample) +
+            " — FAQPage·Quotation·3DModel·VideoObject 등은 없어도 되지만, 있으면 검색·AI 노출에 유리."
+        )
 
     lk = schema.get("id_linkage") or {}
     if lk.get("total_id_nodes"):
