@@ -32,7 +32,19 @@ def page_type_from_url(url: str) -> str:
     return "PDP"
 
 
-def load_rules(product: str = "M3", page_type: str = "PDP",
+def product_from_url(url: str) -> Optional[str]:
+    """URL 경로에서 마케팅 제품 판별 (galaxy-s26-ultra / -plus / -s26)."""
+    u = (url or "").lower()
+    if "galaxy-s26-ultra" in u:
+        return "galaxy-s26-ultra"
+    if "galaxy-s26-plus" in u or "galaxy-s26+" in u:
+        return "galaxy-s26-plus"
+    if "galaxy-s26" in u:
+        return "galaxy-s26"
+    return None
+
+
+def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str = None,
                schema_path: str = None, copy_path: str = None, spec_path: str = None) -> Dict[str, Any]:
     schema_path = schema_path or os.path.join(_HERE, "schema_rules.json")
     copy_path = copy_path or os.path.join(_HERE, "copy_rules.json")
@@ -46,12 +58,18 @@ def load_rules(product: str = "M3", page_type: str = "PDP",
         sr = json.load(open(per_product, encoding="utf-8"))
     else:
         sr = json.load(open(schema_path, encoding="utf-8"))["products"].get(product, {})
-    cr = json.load(open(copy_path, encoding="utf-8"))["products"].get(product, {})
+    # 카피(스펙) 규칙: 마케팅 제품별 토큰 우선, 없으면 패밀리(M3/M12) 폴백
+    cdata = json.load(open(copy_path, encoding="utf-8"))["products"]
+    cr = cdata.get(market_product) if market_product else None
+    if not cr:
+        cr = cdata.get(product, {})
     try:
         specs_all = json.load(open(spec_path, encoding="utf-8")).get("products", {})
     except Exception:
         specs_all = {}
-    ks = specs_all.get("galaxy-s26-ultra", []) if product in ("M3",) else specs_all.get(product, [])
+    ks = specs_all.get(market_product) if market_product else None
+    if ks is None:
+        ks = specs_all.get("galaxy-s26-ultra", []) if product in ("M3",) else specs_all.get(product, [])
     return {"schema": sr, "copy": cr, "key_specs": ks}
 
 
@@ -82,10 +100,11 @@ def run_all(fetch_html: Callable[[str], Optional[str]],
     registry = registry or SiteRegistry()
     rules_cache: Dict[str, Dict[str, Any]] = {}
 
-    def rules_for(pt: str) -> Dict[str, Any]:
-        if pt not in rules_cache:
-            rules_cache[pt] = load_rules(product, page_type=pt)
-        return rules_cache[pt]
+    def rules_for(pt: str, mp: str) -> Dict[str, Any]:
+        key = f"{pt}|{mp}"
+        if key not in rules_cache:
+            rules_cache[key] = load_rules(product, page_type=pt, market_product=mp)
+        return rules_cache[key]
 
     targets = registry.all()
     if sitecodes:
@@ -93,7 +112,9 @@ def run_all(fetch_html: Callable[[str], Optional[str]],
         targets = [t for t in targets if t["sitecode"] in want]
     results = []
     for site in targets:
-        pt = site.get("page_type") or page_type_from_url(site.get("url", ""))
+        url = site.get("url", "")
+        pt = site.get("page_type") or page_type_from_url(url)
+        mp = product_from_url(url)
         try:
             html = fetch_html(site["url"])
         except Exception:
@@ -107,7 +128,7 @@ def run_all(fetch_html: Callable[[str], Optional[str]],
                                  "as_is": "HTML 수집 실패", "to_be": "URL 접근/렌더링 확인"}]},
                             "copy": {"summary": {}, "findings": []}})
             continue
-        results.append(run_site(site, html, rules_for(pt), page_type=pt))
+        results.append(run_site(site, html, rules_for(pt, mp), page_type=pt))
     return results
 
 

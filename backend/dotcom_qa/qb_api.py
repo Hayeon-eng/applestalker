@@ -118,7 +118,8 @@ def qb_check(payload: Dict[str, Any] = Body(...)):
     page_type = payload.get("page_type", "PDP")
     if not html:
         raise HTTPException(400, "html 필드가 필요합니다.")
-    rules = runner.load_rules(product, page_type=page_type)
+    rules = runner.load_rules(product, page_type=page_type,
+                              market_product=payload.get("market_product") or "galaxy-s26-ultra")
     out = runner.check_html(html, rules, sitecode=payload.get("sitecode"), site_lang=payload.get("lang"))
     out["page_type"] = page_type
     return out
@@ -139,9 +140,10 @@ def qb_check_url(payload: Dict[str, Any] = Body(...)):
     sc = _sitecode_from_url(url)
     known = _registry.get(sc)
     page_type = payload.get("page_type") or runner.page_type_from_url(url)
-    rules = runner.load_rules(product, page_type=page_type)
+    market = runner.product_from_url(url)
+    rules = runner.load_rules(product, page_type=page_type, market_product=market)
     res = runner.check_html(html, rules, sitecode=sc, site_lang=(known or {}).get("lang"))
-    return {"sitecode": sc, "url": url, "page_type": page_type,
+    return {"sitecode": sc, "url": url, "page_type": page_type, "market_product": market,
             "region": (known or {}).get("region"), "country": (known or {}).get("country"),
             "schema": res["schema"], "copy": res["copy"]}
 

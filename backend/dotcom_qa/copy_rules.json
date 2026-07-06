@@ -68,6 +68,94 @@
         "Snapdragon 8 Elite",
         "Vapor Chamber"
       ]
+    },
+    "galaxy-s26-ultra": {
+      "spec_tokens": [
+        "200 MP",
+        "50 MP",
+        "12 MP",
+        "100x",
+        "5000 mAh",
+        "45 W",
+        "2600 nits",
+        "16 GB",
+        "1 TB",
+        "512 GB",
+        "256 GB"
+      ],
+      "proper_nouns": [
+        "Corning Gorilla Armor 2",
+        "Corning Gorilla Glass Victus 2",
+        "Galaxy AI",
+        "Galaxy S26",
+        "Galaxy S26 Ultra",
+        "Nightography",
+        "Now Brief",
+        "Photo Assist",
+        "Privacy Display",
+        "Snapdragon 8 Elite",
+        "Snapdragon 8 Elite Gen 5",
+        "Vapor Chamber"
+      ]
+    },
+    "galaxy-s26-plus": {
+      "spec_tokens": [
+        "50 MP",
+        "12 MP",
+        "10 MP",
+        "4900 mAh",
+        "45 W",
+        "2600 nits",
+        "12 GB",
+        "512 GB",
+        "256 GB"
+      ],
+      "proper_nouns": [
+        "Corning Gorilla Armor 2",
+        "Corning Gorilla Glass Victus 2",
+        "Galaxy AI",
+        "Galaxy S26",
+        "Galaxy S26 Ultra",
+        "Nightography",
+        "Now Brief",
+        "Photo Assist",
+        "Privacy Display",
+        "Snapdragon 8 Elite",
+        "Snapdragon 8 Elite Gen 5",
+        "Vapor Chamber"
+      ]
+    },
+    "galaxy-s26": {
+      "spec_tokens": [
+        "50 MP",
+        "12 MP",
+        "10 MP",
+        "4300 mAh",
+        "25 W",
+        "2600 nits",
+        "12 GB",
+        "512 GB",
+        "256 GB"
+      ],
+      "proper_nouns": [
+        "Corning Gorilla Armor 2",
+        "Corning Gorilla Glass Victus 2",
+        "Galaxy AI",
+        "Galaxy S26",
+        "Galaxy S26 Ultra",
+        "Nightography",
+        "Now Brief",
+        "Photo Assist",
+        "Privacy Display",
+        "Snapdragon 8 Elite",
+        "Snapdragon 8 Elite Gen 5",
+        "Vapor Chamber"
+      ]
     }
+  },
+  "market_map": {
+    "galaxy-s26-ultra": "galaxy-s26-ultra",
+    "galaxy-s26-plus": "galaxy-s26-plus",
+    "galaxy-s26": "galaxy-s26"
   }
 }
