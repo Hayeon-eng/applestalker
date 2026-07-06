@@ -28,6 +28,7 @@
 .worstBox { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--line); }
 .insightLines { margin: 2px 0 0; padding-left: 15px; }
 .insightLines li { font-size: 12px; color: var(--label2); line-height: 1.5; margin-bottom: 3px; }
+.unrenderedFlag { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; color: var(--high); background: var(--blue-soft, rgba(220,38,38,.08)); padding: 1px 5px; border-radius: 5px; white-space: nowrap; }
 .worstLabel { font-size: 10px; font-weight: 800; color: var(--high); letter-spacing: .03em; margin-bottom: 2px; }
 .scoreLegend { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--sec); margin-top: 10px; }
 .scoreLegend span { display: flex; align-items: center; gap: 5px; }

@@ -66,7 +66,14 @@ function MetricSection({
                     {block?._source === "gemini" ? (
                       <span className="badge c2" title="Gemini가 근거 기반으로 서술">🤖 AI 분석</span>
                     ) : block?._source === "rule_based" ? (
-                      <span className="badge c6" title="facts를 규칙으로 집계">📐 규칙기반</span>
+                      <span
+                        className="badge c6"
+                        title={block?._fallback_reason === "ai_response_failed"
+                          ? "AI(Gemini) 응답 실패로 규칙 기반 집계로 대체됨 (레이트리밋·빈 응답 등). 재크롤 시 정상화될 수 있음"
+                          : "facts를 규칙으로 집계"}
+                      >
+                        📐 규칙기반{block?._fallback_reason === "ai_response_failed" ? " (AI 실패)" : ""}
+                      </span>
                     ) : null}
                   </span>
                   <span className="siteOverallScore">

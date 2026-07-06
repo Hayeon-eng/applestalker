@@ -23,6 +23,7 @@ export type AnalysisBlock = {
   insights?: { point?: string; evidence_url?: string }[];
   narrative?: string[];
   _source?: "gemini" | "rule_based";
+  _fallback_reason?: "ai_response_failed" | "ai_disabled";
 };
 export type Report = {
   has_data?: boolean; timestamp?: string; has_changes?: boolean;
@@ -35,7 +36,7 @@ export type Session = {
   session: string; run_ids: string[]; sites: string[];
   pages: number; changes: number; timestamp: string;
 };
-export type PageLite = { url: string; title: string; word_count: number; page_height_px?: number | null };
+export type PageLite = { url: string; title: string; word_count: number; page_height_px?: number | null; rendered_by?: string | null };
 export type PageWireframe = {
   page_role?: string; title?: string; h1?: string; h2?: string[]; h3?: string[];
   ctas?: { text?: string }[]; image_count?: number; faq_count?: number;
