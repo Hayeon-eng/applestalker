@@ -87,15 +87,21 @@ export function SiteScoreCard({
   const scored = rows.filter((r) => r.total != null) as { metric: MetricTab; total: number; tier: ScoreTier }[];
   const overall = scored.length ? Math.round(scored.reduce((a, b) => a + b.total, 0) / scored.length) : null;
   const overallTier = scoreTier(overall);
-  const best = scored.length ? [...scored].sort((a, b) => b.total - a.total)[0] : null;
   const worst = scored.length ? [...scored].sort((a, b) => a.total - b.total)[0] : null;
 
-  const summary = !scored.length
+  // S5: 종합 인사이트 = 부족 항목(60점 미만) 나열, 없으면 '모두 양호'. 점수를 넣어 사이트마다 달라지게
+  const WEAK_BELOW = 60;
+  const weak = scored.filter((r) => r.total < WEAK_BELOW).sort((a, b) => a.total - b.total);
+  const okList = scored.filter((r) => r.total >= WEAK_BELOW).map((r) => `${METRICS[r.metric].label} ${r.total}점`);
+  const summaryLine = !scored.length
     ? "이번 수집엔 근거 없음 · 비교 대상에서 제외, URL·렌더링 확인"
-    : best && worst && best.metric !== worst.metric
-      ? `${METRICS[best.metric].label} 흐름은 강하지만 ${METRICS[worst.metric].label} 쪽이 상대적으로 약한 구조입니다.`
-      : `${METRICS[scored[0].metric].label} 기준으로 비교적 고른 상태입니다.`;
-  const priorityAction = worst ? detailedAction(worst.metric, blocks[worst.metric]) : "관리 URL과 수집 결과부터 확보하세요.";
+    : weak.length
+      ? `부족 항목 — ${weak.map((r) => `${METRICS[r.metric].label} ${r.total}점`).join(", ")}${okList.length ? ` (나머지 양호: ${okList.join(", ")})` : ""}`
+      : `세 지표 모두 양호 — ${scored.map((r) => `${METRICS[r.metric].label} ${r.total}점`).join(" · ")}`;
+  // S5: 우선 액션은 가장 약한 지표+점수를 앞세워 사이트마다 다르게
+  const priorityAction = worst
+    ? `가장 약한 ${METRICS[worst.metric].label}(${worst.total}점)부터: ${detailedAction(worst.metric, blocks[worst.metric])}`
+    : "관리 URL과 수집 결과부터 확보하세요.";
 
   return (
     <div className="avgBox">
@@ -117,13 +123,13 @@ export function SiteScoreCard({
           <span>{METRICS[metric].label}</span>
           <span>
             <span className={`scoreDot ${tier}`} />
-            <span className="scorePhrase">{metricPhrase(metric, tier)}</span>
+            <span className="scoreNum">{total == null ? "-" : `${total}점`}</span>
             {total != null && <span className="scoreChev">›</span>}
           </span>
         </button>
       ))}
       <div className="worstBox">
-        <p className="findingText" style={{ fontSize: 12 }}>종합 인사이트: {summary}</p>
+        <p className="findingText" style={{ fontSize: 12 }}>종합 인사이트: {summaryLine}</p>
         <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>우선 액션: {priorityAction}</p>
       </div>
     </div>

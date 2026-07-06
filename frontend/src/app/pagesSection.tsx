@@ -83,6 +83,13 @@ export const buildPageRows = (
   );
 };
 
+// S7: 줄글 인사이트를 문장(. )·스코프(·) 단위로 잘라 스캔 가능한 줄 목록으로
+const insightToLines = (text: string): string[] =>
+  text
+    .split(/(?:\.\s+)|(?:\s·\s)/)
+    .map((s) => s.replace(/\s*\.\s*$/, "").trim())
+    .filter(Boolean);
+
 const roleSummary = (rows: PageRow[]) => {
   const byRole = rows.reduce<Record<string, number>>((acc, r) => {
     acc[r.page_role] = (acc[r.page_role] || 0) + 1;
@@ -330,6 +337,7 @@ export function PagesTab({
                 metric={selectedScore.metric}
                 site={selectedScore.site}
                 block={dcv?.[selectedScore.metric]?.[selectedScore.site]}
+                peerBlocks={dcv?.[selectedScore.metric]}
                 selection={{
                   site: selectedScore.site,
                   index: 0,
@@ -377,7 +385,9 @@ export function PagesTab({
           {visibleSiteKeys.map((site) => (
             <div key={site}>
               <p className="siteSplitHead"><span className={`badge ${siteClass(site)}`}>{siteName(site)}</span></p>
-              <p className="findingText" style={{ fontSize: 12 }}>{pageInsights(site)}</p>
+              <ul className="insightLines">
+                {insightToLines(pageInsights(site)).map((ln, i) => <li key={i}>{ln}</li>)}
+              </ul>
             </div>
           ))}
         </div>
