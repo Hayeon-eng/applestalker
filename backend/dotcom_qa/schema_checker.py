@@ -100,7 +100,15 @@ def _collect_ids(value: Any) -> List[str]:
 
 
 # ---------- 검수 ----------
-def check_page(html: str, product_rules: Dict[str, Any]) -> Dict[str, Any]:
+def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko") -> Dict[str, Any]:
+    from qa_messages import render
+
+    def _apply(f, code):
+        f["code"] = code
+        m = render(code, lang, f)
+        f["as_is"], f["to_be"] = m["as_is"], m["to_be"]
+        return f
+
     nodes = extract_jsonld(html)
     findings: List[Dict[str, Any]] = []
     ok = warn = fail = 0
@@ -132,15 +140,9 @@ def check_page(html: str, product_rules: Dict[str, Any]) -> Dict[str, Any]:
         if node is None:
             # 없음 → 조건부면 경고, 아니면 실패
             if conditional:
-                f["status"] = "warn"
-                f["as_is"] = f"{name} 스키마 없음"
-                f["to_be"] = f"조건부 항목({name}) — 해당 국가에 필요하면 추가. 주석: {conditional[:80]}"
-                warn += 1
+                f["status"] = "warn"; _apply(f, "schema.missing"); warn += 1
             else:
-                f["status"] = "fail"
-                f["as_is"] = f"{name} 스키마 없음"
-                f["to_be"] = f"@type={'/'.join(types)}, @id={block.get('id_slug')} 형태로 {name} 스키마 추가"
-                fail += 1
+                f["status"] = "fail"; _apply(f, "schema.missing"); fail += 1
             findings.append(f)
             continue
 
@@ -169,35 +171,11 @@ def check_page(html: str, product_rules: Dict[str, Any]) -> Dict[str, Any]:
         problems = bool(f["missing_props"]) or bool(f["haspart_missing"]) or ("id_mismatch" in f)
         if not problems:
             if soft_missing:
-                f["status"] = "warn"
-                f["as_is"] = f"{name} 정상 (선택 속성 미적용: {', '.join(soft_missing)})"
-                notes = "; ".join(f"{p}: {block.get('property_notes', {}).get(p, '')[:60]}" for p in soft_missing)
-                f["to_be"] = f"선택 항목 — {notes}"
-                warn += 1
+                f["status"] = "warn"; _apply(f, "schema.optional"); warn += 1
             else:
-                f["status"] = "pass"
-                f["as_is"] = f"{name} 정상"
-                f["to_be"] = ""
-                ok += 1
+                f["status"] = "pass"; _apply(f, "schema.pass"); ok += 1
         else:
-            f["status"] = "fail"
-            bits = []
-            if "id_mismatch" in f:
-                bits.append(f"@id 불일치({f['id_mismatch']})")
-            if f["missing_props"]:
-                bits.append("누락 속성: " + ", ".join(f["missing_props"]))
-            if f["haspart_missing"]:
-                bits.append("hasPart 누락: " + ", ".join(f["haspart_missing"]))
-            f["as_is"] = f"{name} — " + " / ".join(bits)
-            fixes = []
-            if f["missing_props"]:
-                fixes.append(f"{name}에 {', '.join(f['missing_props'])} 속성 추가")
-            if f["haspart_missing"]:
-                fixes.append("Product.hasPart 에 " + ", ".join(f["haspart_missing"]) + " @id 추가")
-            if "id_mismatch" in f:
-                fixes.append(f"@id 를 {block.get('id_slug')} 규칙에 맞게 수정")
-            f["to_be"] = "; ".join(fixes)
-            fail += 1
+            f["status"] = "fail"; _apply(f, "schema.problem"); fail += 1
         findings.append(f)
 
     return {

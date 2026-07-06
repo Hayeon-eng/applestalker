@@ -1,0 +1,94 @@
+"""
+qa_messages.py — 큐비 — 검수 문구 한/영 렌더러
+
+체커는 문구 문자열 대신 finding 에 code + 구조화 필드를 담고,
+화면은 ko, 엑셀 리포트는 en 으로 이 함수가 렌더한다.
+
+render(code, lang, f) -> {"as_is": str, "to_be": str}
+  f: finding dict (필요한 파라미터 필드 포함)
+"""
+from __future__ import annotations
+from typing import Any, Dict
+
+
+def _join(v):
+    return ", ".join(map(str, v)) if isinstance(v, (list, tuple)) else str(v)
+
+
+def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
+    ko = lang != "en"
+    name = f.get("block", "")
+    types = "/".join(f.get("types", []) or [])
+    idslug = f.get("id_slug", "")
+
+    if code == "schema.pass":
+        return {"as_is": (f"{name} 정상" if ko else f"{name} OK"), "to_be": ""}
+
+    if code == "schema.missing":
+        if f.get("conditional"):
+            return {
+                "as_is": (f"{name} 스키마 없음" if ko else f"{name} schema not found"),
+                "to_be": (f"조건부 항목({name}) — 해당 국가에 필요하면 추가"
+                          if ko else f"Conditional block ({name}) — add if required for this locale"),
+            }
+        return {
+            "as_is": (f"{name} 스키마 없음" if ko else f"{name} schema not found"),
+            "to_be": (f"@type={types}, @id={idslug} 형태로 {name} 스키마 추가"
+                      if ko else f"Add {name} schema with @type={types}, @id={idslug}"),
+        }
+
+    if code == "schema.optional":
+        soft = _join(f.get("optional_missing", []))
+        return {
+            "as_is": (f"{name} 정상 (선택 속성 미적용: {soft})"
+                      if ko else f"{name} OK (optional property not set: {soft})"),
+            "to_be": (f"선택 항목 — {soft}: 필요 시 추가 검토"
+                      if ko else f"Optional — consider adding: {soft}"),
+        }
+
+    if code == "schema.problem":
+        bits, fixes = [], []
+        if f.get("id_mismatch"):
+            bits.append(("@id 불일치(" if ko else "@id mismatch (") + str(f["id_mismatch"]) + ")")
+            fixes.append((f"@id 를 {idslug} 규칙에 맞게 수정" if ko else f"Fix @id to match {idslug}"))
+        if f.get("missing_props"):
+            mp = _join(f["missing_props"])
+            bits.append(("누락 속성: " if ko else "Missing properties: ") + mp)
+            fixes.append((f"{name}에 {mp} 속성 추가" if ko else f"Add {mp} to {name}"))
+        if f.get("haspart_missing"):
+            hp = _join(f["haspart_missing"])
+            bits.append(("hasPart 누락: " if ko else "hasPart missing: ") + hp)
+            fixes.append(("Product.hasPart 에 " + hp + " @id 추가" if ko else f"Add @id {hp} to Product.hasPart"))
+        return {"as_is": f"{name} — " + " / ".join(bits), "to_be": "; ".join(fixes)}
+
+    if code == "copy.spec_missing":
+        tok = f.get("token", "")
+        return {
+            "as_is": (f"스펙 '{tok}' 이(가) 페이지에 없음" if ko else f"Spec '{tok}' not found on page"),
+            "to_be": (f"기준값 '{tok}' 이(가) 페이지에 노출되는지 확인(누락/오기)"
+                      if ko else f"Verify spec value '{tok}' appears on the page (missing/typo)"),
+        }
+
+    if code == "copy.noun_missing":
+        pn = f.get("token", "")
+        return {
+            "as_is": (f"고유명사 '{pn}' 미검출" if ko else f"Proper noun '{pn}' not found"),
+            "to_be": (f"'{pn}' 이(가) 현지어로 대체됐는지/누락인지 확인(영문 유지 대상일 수 있음)"
+                      if ko else f"Check if '{pn}' was localized or omitted (should usually remain in English)"),
+        }
+
+    if code == "copy.value_mismatch":
+        cat = f.get("category", ""); exp = f.get("expected", ""); found = _join(f.get("found", []))
+        return {
+            "as_is": (f"{cat}: 기준 '{exp}' 인데 페이지엔 '{found}'" if ko else f"{cat}: expected '{exp}' but page shows '{found}'"),
+            "to_be": (f"{cat} 값을 기준 '{exp}' 로 수정(오기 의심)" if ko else f"Correct {cat} to '{exp}' (suspected typo)"),
+        }
+
+    if code == "copy.value_missing":
+        cat = f.get("category", ""); exp = f.get("expected", "")
+        return {
+            "as_is": (f"{cat}: 기준값 '{exp}' 이(가) 페이지에 없음" if ko else f"{cat}: expected value '{exp}' not found on page"),
+            "to_be": (f"{cat} 기준값 '{exp}' 노출 여부 확인" if ko else f"Verify {cat} value '{exp}' appears on the page"),
+        }
+
+    return {"as_is": f.get("as_is", ""), "to_be": f.get("to_be", "")}

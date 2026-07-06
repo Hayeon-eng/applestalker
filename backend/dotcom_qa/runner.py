@@ -24,19 +24,26 @@ _HERE = os.path.dirname(__file__)
 
 
 def load_rules(product: str = "M3",
-               schema_path: str = None, copy_path: str = None) -> Dict[str, Any]:
+               schema_path: str = None, copy_path: str = None, spec_path: str = None) -> Dict[str, Any]:
     schema_path = schema_path or os.path.join(_HERE, "schema_rules.json")
     copy_path = copy_path or os.path.join(_HERE, "copy_rules.json")
+    spec_path = spec_path or os.path.join(_HERE, "key_specs.json")
     sr = json.load(open(schema_path, encoding="utf-8"))["products"].get(product, {})
     cr = json.load(open(copy_path, encoding="utf-8"))["products"].get(product, {})
-    return {"schema": sr, "copy": cr}
+    # 핵심 스펙은 product 키(galaxy-s26-ultra 등)로 저장되어 있어 M3→제품 매핑을 함께 시도
+    try:
+        specs_all = json.load(open(spec_path, encoding="utf-8")).get("products", {})
+    except Exception:
+        specs_all = {}
+    ks = specs_all.get("galaxy-s26-ultra", []) if product in ("M3",) else specs_all.get(product, [])
+    return {"schema": sr, "copy": cr, "key_specs": ks}
 
 
 def check_html(html: str, rules: Dict[str, Any]) -> Dict[str, Any]:
     """단일 페이지 HTML 검수 → {schema, copy}."""
     return {
         "schema": schema_checker.check_page(html, rules["schema"]),
-        "copy": copy_checker.check_copy(html, rules["copy"]),
+        "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs")),
     }
 
 
