@@ -69,7 +69,7 @@ class HybridCrawler:
             else os.getenv("ENABLE_SCREENSHOT", "false").lower() == "true"
         )
 
-        self.browser_page_cap = int(os.getenv("BROWSER_PAGE_CAP", "12"))
+        self.browser_page_cap = int(os.getenv("BROWSER_PAGE_CAP", "24"))
         self._browser_used = 0
 
         self._client: Optional[httpx.AsyncClient] = None
@@ -209,8 +209,10 @@ class HybridCrawler:
         if not data or data.get("error"):
             return True
         min_len = 900 if strict else 400
+        min_words = 120 if strict else 60
         return (
             len(data.get("body_content") or "") < min_len
+            or int(data.get("word_count") or 0) < min_words
             or not data.get("title")
         )
 

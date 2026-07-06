@@ -35,6 +35,8 @@ class IntelEngine:
         self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         self.model = None
         self.ready = False
+        # Q3: 여러 사이트를 연속 분석할 때 RPM 초과로 뒤 순번(경쟁사)이 폴백되는 것을 완화하기 위한 호출 간 지연
+        self._call_delay = float(os.getenv("GEMINI_CALL_DELAY_SEC", "0.8"))
         if _GENAI and self.api_key and self.api_key != "your_gemini_api_key_here":
             try:
                 genai.configure(api_key=self.api_key)
@@ -63,9 +65,13 @@ class IntelEngine:
         data_block = self._build_category("DATA", site_display, is_ours, d_facts,
                                             _narrate_schema_completeness(d_facts["schema"]),
                                             [e for e in change_events if self._bucket(e) == "DATA"])
+        if self.ready and self._call_delay > 0:
+            time.sleep(self._call_delay)
         copy_block = self._build_category("COPY", site_display, is_ours, c_facts,
                                            self._narrate_copy(c_facts),
                                            [e for e in change_events if self._bucket(e) == "COPY"])
+        if self.ready and self._call_delay > 0:
+            time.sleep(self._call_delay)
         visual_block = self._build_category("VISUAL", site_display, is_ours, v_facts,
                                              self._narrate_visual(v_facts),
                                              [e for e in change_events if self._bucket(e) == "VISUAL"])
@@ -146,6 +152,7 @@ class IntelEngine:
             "action_items": _normalize_report_tone(rule_actions),
             "confidence": 0.7,
             "_source": "rule_based",
+            "_fallback_reason": ("ai_response_failed" if self.ready else "ai_disabled"),
         }
 
     def _llm_enrich(self, category, site_display, is_ours, facts, narrative_lines, events) -> Optional[Dict[str, Any]]:
@@ -171,7 +178,18 @@ class IntelEngine:
         )
         prompt = f"{guard}\nEVIDENCE(JSON):\n{json.dumps(evidence_block, ensure_ascii=False)[:6500]}\n\nJSON 만 응답:\n{schema}"
         try:
-            resp = self.model.generate_content(prompt)
+            # Q3: JSON 응답 모드 + 넉넉한 출력 토큰 — gemini-2.5 thinking 토큰이 출력을 다 먹어
+            # 빈 응답이 오는 폴백을 줄인다. (구버전 SDK라 thinking 직접 제어는 불가)
+            gen_cfg = {
+                "temperature": 0.3,
+                "max_output_tokens": int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "4096")),
+                "response_mime_type": "application/json",
+            }
+            try:
+                resp = self.model.generate_content(prompt, generation_config=gen_cfg)
+            except Exception:
+                # response_mime_type 등을 모델/SDK가 거부하면 기본 호출로 폴백
+                resp = self.model.generate_content(prompt)
             return self._parse_json(resp.text)
         except Exception as e:
             # [FIX] 기존엔 "llm enrich failed"라고만 찍혀서 gemini-2.5+ thinking 토큰이
