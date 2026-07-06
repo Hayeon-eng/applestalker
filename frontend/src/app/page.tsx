@@ -7,6 +7,7 @@ import {
   METRICS, CRITERIA, DEFAULT_SITE_ORDER, orderedSiteKeys, siteName, siteShortName, siteClass, shortUrl, bucketOf, captureScreen, productPageLabel,
 } from "./shared";
 import { Landing, Overview, PagesTab, ProductTab, CriteriaDrawer, InsightChat } from "./sections";
+import QubiTab from "./QubiTab";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -370,6 +371,9 @@ export default function Page() {
               <button className={`tabBtn ${mainTab === "products" ? "on" : ""}`} onClick={() => setMainTab("products")}>
                 제품별 분석
               </button>
+              <button className={`tabBtn ${mainTab === "qubi" ? "on" : ""}`} onClick={() => setMainTab("qubi")}>
+                큐비 🐝 QA
+              </button>
             </div>
 
             {/* 도구 버튼 — 항상 헤더에 고정 */}
@@ -489,7 +493,7 @@ export default function Page() {
               onOpenDrawer={openDrawer}
               focusSite={focusSite}
             />
-          ) : (
+          ) : mainTab === "products" ? (
             <ProductTab
               metricTab={metricTab}
               pages={pages}
@@ -502,6 +506,8 @@ export default function Page() {
               onPick={openPage}
               onOpenDrawer={openDrawer}
             />
+          ) : (
+            <QubiTab apiBase={API} />
           )}
         </div>
       </div>

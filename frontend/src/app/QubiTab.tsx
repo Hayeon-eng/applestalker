@@ -1,7 +1,7 @@
 "use client";
 /**
- * QubiTab.tsx — 큐비 🐝 (QB) Dotcom QA 탭
- * QA의 사촌 QB. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
+ * QubiTab.tsx — 큐비 🐝 Dotcom QA 탭
+ * 풀네임 QA Bee, 줄여서 큐비. 닷컴 페이지를 붕붕 돌며 규칙대로 검수.
  *
  * 기존 애플스토커 프론트(frontend/src/app/)에 드롭인.
  * page.tsx 등에서 우측 진입점/탭으로 <QubiTab apiBase={API} /> 렌더.
@@ -70,7 +70,7 @@ export default function QubiTab({ apiBase = "" }: { apiBase?: string }) {
   return (
     <div style={{ fontFamily: "-apple-system,Segoe UI,Arial,sans-serif" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <h2 style={{ fontSize: 18, margin: 0 }}>큐비 🐝 <span style={{ fontSize: 12, fontWeight: 400, color: "#667085" }}>QA의 사촌 QB · 닷컴 페이지를 붕붕 돌며 규칙대로 검수</span></h2>
+        <h2 style={{ fontSize: 18, margin: 0 }}>큐비 🐝 <span style={{ fontSize: 12, fontWeight: 400, color: "#667085" }}>QA Bee(약칭 큐비) · 닷컴 페이지를 붕붕 돌며 규칙대로 검수</span></h2>
       </div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
