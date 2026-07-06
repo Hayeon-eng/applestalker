@@ -708,6 +708,14 @@ def email_send(report_type: str = "morning"):
     return email_service.send(report_type)
 
 
+@app.get("/api/export/email-html")
+def export_email_html(report_type: str = "morning"):
+    """SMTP 발송 대신, 메일에 붙여넣을 수 있는 리포트 HTML 본문만 반환.
+    프론트의 '메일 본문 복사' 버튼이 이 HTML을 서식 포함으로 클립보드에 복사한다."""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=email_service.build_html(report_type))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=True)
