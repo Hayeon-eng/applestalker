@@ -221,13 +221,13 @@ export const metricAreaLabel = (metric: MetricTab) => {
 
 export const metricIssueSentence = (metric: MetricTab) => {
   if (metric === "data") return "Schema와 H-tag가 페이지 역할에 맞는지 확인이 필요합니다.";
-  if (metric === "copy") return "구매 CTA와 카피 연결 범위가 제한적인 지점이 있습니다.";
+  if (metric === "copy") return "카피의 구체성과 구매 전환 연결이 제한적인 지점이 있습니다.";
   return "ALT COPY의 구체성과 사용 장면 설명 범위가 제한적인 지점이 있습니다.";
 };
 
 export const metricActionSentence = (metric: MetricTab) => {
   if (metric === "data") return "PF는 ItemList/Breadcrumb, PDP는 Product/Breadcrumb, Buying은 Offer 중심으로 점검하세요.";
-  if (metric === "copy") return "PDP 상단과 Buying 영역에 구매·혜택·보상판매 CTA를 명확히 배치하세요.";
+  if (metric === "copy") return "PDP·Buying 카피의 구체성(수치·혜택·소재)을 보강하고, 구매 CTA는 부족한 페이지에 한해 함께 점검하세요.";
   return "제품명, 핵심 기능, 사용 장면이 드러나도록 ALT COPY와 이미지 설명을 보강하세요.";
 };
 
@@ -247,8 +247,8 @@ export const actionForChange = (c: Change): string => {
       : `${subject}의 이미지/ALT COPY 변경을 확인하고, ${metricActionSentence("visual")}`;
   }
   return isOurs
-    ? `우리 ${role}의 카피/CTA가 구매 전환 흐름에 맞는지 점검하고, ${metricActionSentence("copy")}`
-    : `${subject}의 카피/CTA 변경을 확인하고, ${metricActionSentence("copy")}`;
+    ? `우리 ${role}의 카피가 구매 전환 흐름에 맞는지 점검하고, ${metricActionSentence("copy")}`
+    : `${subject}의 카피 변경을 확인하고, ${metricActionSentence("copy")}`;
 };
 // 이 목록 안에서 가장 심각한 등급의 변화만 골라 반환 (High가 없으면 Medium, 그마저 없으면 Low)
 export const topSeverityChanges = (pool: Change[], n = 3): { level: "High" | "Medium" | "Low"; changes: Change[] } | null => {
