@@ -113,11 +113,15 @@ export function PagesTab({
   selectedUrl: string;
   selectedPage: PageDetail | null; loadingPage: boolean; onPick: (url: string) => void;
   onOpenDrawer: (id?: string) => void;
-  focusSite?: SiteKey | null;
+  focusSite?: { site: SiteKey; n: number } | null;
 }) {
   const siteKeys = useMemo(
-    () => orderedSiteKeys([...urls.map((u) => u.site_key || ""), ...Object.keys(pages)]),
-    [pages, urls]
+    () => orderedSiteKeys([
+      ...urls.map((u) => u.site_key || ""),
+      ...Object.keys(pages),
+      ...Object.keys(dcv?.data || {}), ...Object.keys(dcv?.copy || {}), ...Object.keys(dcv?.visual || {}),
+    ]),
+    [pages, urls, dcv]
   );
   const [selectedSite, setSelectedSite] = useState<SiteKey | "all">("all");
   const visibleSiteKeys = useMemo(
@@ -139,11 +143,6 @@ export function PagesTab({
       if (rep) onPick(rep);
     }
   };
-  // S10: Quick view '해당 사이트 상세 보기'로 진입하면 해당 사이트를 자동 선택
-  useEffect(() => {
-    if (focusSite && siteKeys.includes(focusSite)) handleSelectSite(focusSite);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusSite]);
   const pageRows = useMemo<PageRow[]>(
     () => buildPageRows(visibleSiteKeys, urls, pages, siteKeys),
     [visibleSiteKeys, urls, pages, siteKeys]
@@ -260,13 +259,23 @@ export function PagesTab({
     return null;
   }, [metricTab, allChanges, crawledRows]);
 
-  const [autoMode, setAutoMode] = useState(true);
+  const [autoMode, setAutoMode] = useState(!focusSite);
   const pick = (url: string) => { setAutoMode(false); onPick(url); };
 
   useEffect(() => {
     if (autoMode && representative && representative.url !== selectedUrl) onPick(representative.url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [representative, autoMode]);
+
+  // S10: Quick view '해당 사이트 상세 보기' 진입 — 자동 대표선택을 끄고 해당 사이트를 확정 선택
+  useEffect(() => {
+    if (!focusSite) return;
+    setAutoMode(false);
+    setSelectedSite(focusSite.site);
+    const rep = pickRepresentativeUrl(focusSite.site);
+    if (rep) onPick(rep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusSite?.n]);
 
   return (
     <div className="panelStack">

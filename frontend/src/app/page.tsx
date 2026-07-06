@@ -28,7 +28,7 @@ export default function Page() {
   const [selectedChange, setSelectedChange] = useState<Change | null>(null);
   const [selectedPage, setSelectedPage] = useState<PageDetail | null>(null);
   const [selectedUrl, setSelectedUrl] = useState("");
-  const [focusSite, setFocusSite] = useState<SiteKey | null>(null);
+  const [focusSite, setFocusSite] = useState<{ site: SiteKey; n: number } | null>(null);
   const [loadingPage, setLoadingPage] = useState(false);
   const [loadingSession, setLoadingSession] = useState(false);
   const [crawling, setCrawling] = useState(false);
@@ -493,7 +493,7 @@ export default function Page() {
 
       {/* Q&A는 탭과 무관하게 항상 떠 있음 */}
       <InsightChat dcv={report?.dcv} changes={allChanges} expectedSites={orderedSiteKeys(urls.map((u) => u.site_key || ""))} urls={urls}
-        onNavigateSite={(site) => { setMainTab("pages"); setFocusSite(site); }} />
+        onNavigateSite={(site) => { setMainTab("pages"); setFocusSite((p) => ({ site, n: (p?.n ?? 0) + 1 })); }} />
 
       {/* ── 기준 설명 Drawer */}
       <CriteriaDrawer open={drawerOpen} section={drawerSection} onClose={() => setDrawerOpen(false)} />
