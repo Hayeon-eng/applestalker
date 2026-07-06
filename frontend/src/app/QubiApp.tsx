@@ -103,14 +103,26 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const copyEmail = async () => {
     try {
       const r = await fetch(api("/api/qb/email-draft"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ results }) });
+      if (!r.ok) throw new Error("fetch");
       const htmlBody = await r.text();
       if (navigator.clipboard && "write" in navigator.clipboard && typeof ClipboardItem !== "undefined") {
-        await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([htmlBody], { type: "text/html" }), "text/plain": new Blob([htmlBody], { type: "text/plain" }) })]);
-      } else {
+        await navigator.clipboard.write([new ClipboardItem({
+          "text/html": new Blob([htmlBody], { type: "text/html" }),
+          "text/plain": new Blob([htmlBody], { type: "text/plain" }),
+        })]);
+        flash("메일 본문 복사됨 — 작성창에 붙여넣기(Ctrl/Cmd+V) 🐝");
+      } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(htmlBody);
+        flash("메일 본문 복사됨 (텍스트) 🐝");
+      } else {
+        // 비보안 컨텍스트(http) 등 클립보드 API 미지원 → 새 탭에서 수동 복사
+        const w = window.open("", "_blank");
+        if (w) { w.document.write(htmlBody); w.document.close(); }
+        flash("새 탭에서 전체 선택 후 복사하세요");
       }
-      flash("메일 본문을 복사했어요 🐝");
-    } catch { setErr("메일 복사 실패"); }
+    } catch {
+      setErr("메일 복사 실패 — 백엔드 연결/검수 결과를 확인하세요");
+    }
   };
 
   // URL 관리
