@@ -376,12 +376,16 @@ def qb_rules_copy_add(payload: Dict[str, Any] = Body(...)):
 
 @qb_router.post("/rules/schema/add")
 def qb_rules_schema_add(payload: Dict[str, Any] = Body(...)):
-    """스키마 QA 룰 추가(페이지타입별): 선택 타입의 블록에 필수 속성 추가. 블록이 없으면 생성."""
+    """스키마 QA 룰 추가(페이지타입별): 선택 타입 블록에 속성 + 기대값·값종류 등록. 블록 없으면 생성.
+    value_kind: url(가변 치환·정확) / enum(정확) / text(번역=확인만) / exists(존재만)"""
     product = payload.get("product", "M3")
     page_type = payload.get("page_type", "PDP")
-    block_type = (payload.get("block_type") or payload.get("block") or "").strip()  # @type (드롭다운)
+    block_type = (payload.get("block_type") or payload.get("block") or "").strip()
     prop = (payload.get("property") or "").strip()
     id_slug = (payload.get("id_slug") or "").strip() or None
+    value = (payload.get("value") or "").strip()
+    kind = (payload.get("value_kind") or "exists").strip()   # url|enum|text|exists
+    nested = (payload.get("nested") or "").strip() or None    # @id|@type|None
     if not block_type or not prop:
         raise HTTPException(400, "block_type과 property가 필요합니다.")
     path = os.path.join(os.path.dirname(__file__), f"schema_rules.{product}.{page_type}.json")
@@ -391,16 +395,20 @@ def qb_rules_schema_add(payload: Dict[str, Any] = Body(...)):
         data = {"source": "manual", "sitecode_token": "{SITECODE}", "page_type": page_type, "blocks": []}
     blocks = data.setdefault("blocks", [])
     hit = next((b for b in blocks if b.get("name") == block_type or block_type in (b.get("types") or [])), None)
-    if not hit:  # 새 검수 블록 생성
+    if not hit:
         hit = {"name": block_type, "types": [block_type], "id_pattern": None, "id_slug": id_slug,
                "required_properties": [], "optional_properties": [], "property_notes": {},
                "haspart_ids": [], "expected_values": {}, "conditional": None}
         blocks.append(hit)
     if prop not in hit.setdefault("required_properties", []):
         hit["required_properties"].append(prop)
+    # 기대값·종류 저장 (exists 는 값 검사 안 함 → expected_values 에 안 넣음)
+    if kind != "exists" and value:
+        hit.setdefault("expected_values", {})[prop] = {"value": value, "kind": kind, "nested": nested}
     json.dump(data, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    return {"ok": True, "product": product, "page_type": page_type,
-            "block": block_type, "required_properties": hit["required_properties"]}
+    return {"ok": True, "product": product, "page_type": page_type, "block": block_type,
+            "required_properties": hit["required_properties"],
+            "expected_values": hit.get("expected_values", {})}
 
 
 # ── URL 엑셀 템플릿 다운로드 / 일괄 업로드 ──
