@@ -104,7 +104,7 @@ class DiffEngine:
                 "sentences_added": ts["sentences_added"][:5],
                 "sentences_removed": ts["sentences_removed"][:5],
                 "copy_importance": _copy_importance_note(fld, b_cmp, a_cmp),
-                "comparison_note": "본문은 헤더/푸터/메뉴/쿠키/추천 영역을 제외한 안정화 카피 기준으로 비교" if fld == "body_content" else "",
+                "comparison_note": "헤더·푸터·메뉴·쿠키·추천 영역은 페이지마다 반복되는 공통 요소라 제외하고, 실제 콘텐츠 카피만 비교했습니다." if fld == "body_content" else "",
             }
             if render_evidence:
                 evidence.update(render_evidence)
