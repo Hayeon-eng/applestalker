@@ -79,6 +79,8 @@ def ensure_schema():
         "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64)",
         # [FIX] 렌더링 방식(httpx/playwright) 추적 — diff 노이즈 원인 분석용
         "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS rendered_by VARCHAR(20)",
+        # [S8] 렌더된 페이지 픽셀 높이 (page length)
+        "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS page_height_px INTEGER",
         # [PHASE1 신규] page_snapshots 원본 보존 컬럼
         "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_h2 TEXT",
         "ALTER TABLE page_snapshots ADD COLUMN IF NOT EXISTS raw_h3 TEXT",

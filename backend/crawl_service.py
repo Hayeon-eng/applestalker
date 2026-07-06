@@ -325,9 +325,9 @@ class CrawlServiceV2:
                 (crawl_run_id, url, site_key, title, h1, meta_description,
                  canonical_url, body_content, structural_signature,
                  screenshot_phash, screenshot_thumb, content_hash, rendered_by,
-                 word_count, raw_h2, raw_h3, raw_structured_data,
+                 word_count, page_height_px, raw_h2, raw_h3, raw_structured_data,
                  raw_faqs, raw_images, raw_navigation, raw_ctas, crawled_at)
-                VALUES (:r,:u,:s,:t,:h1,:md,:cu,:bc,:sig,:ph,:thumb,:ch,:rb,:wc,
+                VALUES (:r,:u,:s,:t,:h1,:md,:cu,:bc,:sig,:ph,:thumb,:ch,:rb,:wc,:phx,
                         :h2,:h3,:sd,:faqs,:img,:nav,:cta,:ts)
             """,
             r=run_id, u=url, s=site_key,
@@ -342,6 +342,7 @@ class CrawlServiceV2:
             ch=_content_hash(page),
             rb=page.get("rendered_by"),
             wc=int(page.get("word_count") or 0),
+            phx=(int(page["page_height_px"]) if page.get("page_height_px") else None),
             h2=json.dumps(page.get("h2") or [], ensure_ascii=False),
             h3=json.dumps(page.get("h3") or [], ensure_ascii=False),
             sd=json.dumps(page.get("structured_data") or [], ensure_ascii=False)[:200000],

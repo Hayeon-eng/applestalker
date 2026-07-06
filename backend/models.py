@@ -47,6 +47,7 @@ class PageSnapshot(Base):
     screenshot_thumb = Column(Text)            # ~10KB base64 썸네일(비교샷용)
     content_hash = Column(String(64), index=True)
     word_count = Column(Integer, default=0)
+    page_height_px = Column(Integer, nullable=True)   # [S8] Playwright 렌더 페이지의 픽셀 높이 (httpx-only = None)
     rendered_by = Column(String(20))            # [FIX] "httpx" | "playwright" — 스냅샷 간 렌더링 방식이
                                                  # 바뀌면 body_content/DOM이 실제 사이트 변경 없이도
                                                  # 크게 달라 보일 수 있어 원인 추적용으로 저장

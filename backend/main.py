@@ -571,8 +571,8 @@ def list_pages(site: str = "samsung"):
             "ORDER BY started_at DESC LIMIT 1", s=site)
     if not run:
         return {"pages": []}
-    rows = q("SELECT url,title,word_count FROM page_snapshots WHERE crawl_run_id=:r ORDER BY url", r=run[0][0])
-    return {"pages": [{"url": r[0], "title": r[1] or r[0], "word_count": r[2] or 0} for r in rows]}
+    rows = q("SELECT url,title,word_count,page_height_px FROM page_snapshots WHERE crawl_run_id=:r ORDER BY url", r=run[0][0])
+    return {"pages": [{"url": r[0], "title": r[1] or r[0], "word_count": r[2] or 0, "page_height_px": r[3]} for r in rows]}
 
 
 # ── URL 관리 ──

@@ -156,6 +156,7 @@ class HybridCrawler:
             "html_content": None,
             "rendered_by": None,
             "screenshot_phash": None,
+            "page_height_px": None,
             "collection_issues": [],
         }
 
@@ -330,6 +331,17 @@ class HybridCrawler:
                 data["status_code"] = 200
                 data["final_url"] = final_url
                 data["collection_issues"] = []
+
+                # [S8] 렌더된 전체 페이지 픽셀 높이(page length) 측정
+                try:
+                    height = await page.evaluate(
+                        "() => Math.max("
+                        "document.documentElement ? document.documentElement.scrollHeight : 0,"
+                        "document.body ? document.body.scrollHeight : 0)"
+                    )
+                    data["page_height_px"] = int(height) if height else None
+                except Exception:
+                    data["page_height_px"] = None
 
                 bad_reason = self._detect_bad_page(data, final_url)
                 if bad_reason:
