@@ -4,7 +4,7 @@ import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, PageDetail,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
   shortUrl, linesFromBlock, tagForLine, metricAverage, metricActionSentence, siteMetricScore,
-  scoreTier, metricScoreBreakdown, ScoreTier, metricPhrase, shortActionPhrase, detailedAction,
+  scoreTier, metricScoreBreakdown, ScoreTier, metricPhrase, shortActionPhrase, detailedAction, pageActionLines,
 } from "./shared";
 
 
@@ -237,6 +237,12 @@ export function PageDrilldown({ page, focusMetric = "data" }: { page: PageDetail
                 ) : (
                   <FindingList metric={key} lines={linesFromBlock(block)} />
                 )}
+                <div className="pageActionBox">
+                  <p className="pageActionLabel">이 페이지 액션</p>
+                  {pageActionLines(key, block).map((a, i) => (
+                    <p key={i} className="pageActionItem">{a}</p>
+                  ))}
+                </div>
               </div>
             </details>
           ))}
