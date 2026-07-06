@@ -19,18 +19,18 @@ export function Landing({ onEnterApple, onEnterQubi }: { onEnterApple: () => voi
               <li>데이터·스키마 / 카피 / 프로모션 / 비주얼 <b>3축 분석</b></li>
               <li>변경점 · 현황 비교 · 리포트(PPTX/Excel/메일)</li>
             </ul>
-            <button className="landingCTA" style={{ marginTop: 12 }} onClick={onEnterApple}>애플스토커 열기</button>
+            <button className="landingCTA" style={{ marginTop: 12 }} onClick={onEnterApple}>🍎 애플스토커 깨우기</button>
           </div>
 
           <div className="landingCard" style={{ display: "flex", flexDirection: "column" }}>
             <span className="landingLogo" style={{ fontSize: 40 }}>🐝</span>
-            <p className="landingCardTitle" style={{ fontSize: 18, marginTop: 6 }}>큐비 <span style={{ fontWeight: 400, fontSize: 13, color: "var(--muted)" }}>QA Bee</span></p>
+            <p className="landingCardTitle" style={{ fontSize: 18, marginTop: 6 }}>큐비 <span style={{ fontWeight: 400, fontSize: 13, color: "var(--sec)" }}>QA의 사촌</span></p>
             <ul className="landingFactList" style={{ flex: 1 }}>
-              <li>삼성닷컴 제품 페이지 <b>QA 검수</b> — 91개 사이트</li>
-              <li><b>스키마 QA</b> — JSON-LD를 스펙과 대조</li>
-              <li><b>카피 QA</b> — 스펙 값·고유명사 정확성(번역 대응)</li>
+              <li>삼성닷컴 제품 페이지를 <b>붕붕 돌며 QA</b> — 91개 사이트</li>
+              <li><b>스키마 QA</b> — JSON-LD 속성·값을 스펙과 대조</li>
+              <li><b>스펙 QA</b> — 스펙 값·고유명사 정확성(번역 대응)</li>
             </ul>
-            <button className="landingCTA" style={{ marginTop: 12, background: "#E0A008" }} onClick={onEnterQubi}>큐비 열기</button>
+            <button className="landingCTA" style={{ marginTop: 12, background: "#E0A008" }} onClick={onEnterQubi}>🐝 큐비 부르기</button>
           </div>
         </div>
       </div>
