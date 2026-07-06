@@ -73,10 +73,22 @@ def qb_sites():
             "missing_lang": _registry.missing_lang()}
 
 
+PAGE_TYPES = ["PDP", "Compare", "Buying"]
+# 스키마 타입 사전(룰 추가 드롭다운). 나중에 직접 입력으로도 추가 가능.
+SCHEMA_TYPES = [
+    "WebPage", "ItemPage", "WebSite", "BreadcrumbList", "ItemList", "ListItem", "CollectionPage",
+    "Product", "ProductGroup", "Offer", "AggregateOffer", "Brand", "Organization",
+    "Review", "CriticReview", "AggregateRating", "BuyAction",
+    "ImageObject", "VideoObject", "3DModel", "MediaObject",
+    "FAQPage", "Question", "Answer", "HowTo", "Article",
+    "Person", "Rating", "PropertyValue", "WebPageElement",
+]
+
+
 @qb_router.get("/rules")
-def qb_rules(product: str = Query("M3")):
+def qb_rules(product: str = Query("M3"), page_type: str = Query("PDP")):
     """화면 '?' 기준 패널용 — 규칙을 사람이 읽는 형태로 그대로 반환."""
-    rules = runner.load_rules(product)
+    rules = runner.load_rules(product, page_type=page_type)
     schema_blocks = [{
         "block": b["name"], "types": b["types"], "id": b.get("id_slug"),
         "required_properties": b.get("required_properties", []),
@@ -85,13 +97,14 @@ def qb_rules(product: str = Query("M3")):
         "conditional": b.get("conditional"),
     } for b in rules["schema"].get("blocks", [])]
     return {
-        "product": product,
+        "product": product, "page_type": page_type,
+        "page_types": PAGE_TYPES, "schema_types": SCHEMA_TYPES,
         "schema": {
-            "설명": "필수 스키마 @type/@id/속성, Product.hasPart @id, 조건부(WARN) 규칙",
+            "설명": f"[{page_type}] 필수 스키마 @type/@id/속성, Product.hasPart @id, 값 정확성, 조건부(WARN)",
             "blocks": schema_blocks,
         },
         "copy": {
-            "설명": "번역 불변 값만 검사 — 스펙 토큰(숫자+단위)은 정확 일치, 고유명사는 존재(WARN)",
+            "설명": "번역 불변 값만 검사 — 스펙 토큰(숫자+단위) 정확 일치, 고유명사 존재(WARN), 핵심 스펙 값 대조",
             "spec_tokens": rules["copy"].get("spec_tokens", []),
             "proper_nouns": rules["copy"].get("proper_nouns", []),
         },
@@ -102,12 +115,77 @@ def qb_rules(product: str = Query("M3")):
 def qb_check(payload: Dict[str, Any] = Body(...)):
     html = payload.get("html")
     product = payload.get("product", "M3")
+    page_type = payload.get("page_type", "PDP")
     if not html:
         raise HTTPException(400, "html 필드가 필요합니다.")
-    rules = runner.load_rules(product)
-    # 붙여넣기 검수: sitecode/lang 주면 값 치환 정확검사, 없으면 그 자리만 와일드카드
-    return runner.check_html(html, rules,
-                             sitecode=payload.get("sitecode"), site_lang=payload.get("lang"))
+    rules = runner.load_rules(product, page_type=page_type)
+    out = runner.check_html(html, rules, sitecode=payload.get("sitecode"), site_lang=payload.get("lang"))
+    out["page_type"] = page_type
+    return out
+
+
+@qb_router.post("/check-url")
+def qb_check_url(payload: Dict[str, Any] = Body(...)):
+    """사이트 링크 1개만 넣어서 즉시 검수 (크롤 후 검사). 페이지타입은 URL 자동판별(수동 지정 가능)."""
+    url = (payload.get("url") or "").strip()
+    product = payload.get("product", "M3")
+    if not url:
+        raise HTTPException(400, "url이 필요합니다.")
+    if _fetcher is None:
+        raise HTTPException(501, "크롤러(fetcher)가 연결되지 않았습니다.")
+    html = _fetcher(url)
+    if not html:
+        raise HTTPException(502, "HTML 수집 실패 — URL 접근/렌더링을 확인하세요.")
+    sc = _sitecode_from_url(url)
+    known = _registry.get(sc)
+    page_type = payload.get("page_type") or runner.page_type_from_url(url)
+    rules = runner.load_rules(product, page_type=page_type)
+    res = runner.check_html(html, rules, sitecode=sc, site_lang=(known or {}).get("lang"))
+    return {"sitecode": sc, "url": url, "page_type": page_type,
+            "region": (known or {}).get("region"), "country": (known or {}).get("country"),
+            "schema": res["schema"], "copy": res["copy"]}
+
+
+# ── 표준 스펙 항목 사전(드롭다운 + 예시) ──
+SPEC_CATALOG = [
+    {"category": "display_size", "label": "디스플레이 크기", "ex_value": "6.9", "ex_unit": "inch"},
+    {"category": "brightness", "label": "밝기", "ex_value": "2600", "ex_unit": "nits"},
+    {"category": "refresh_rate", "label": "주사율", "ex_value": "120", "ex_unit": "Hz"},
+    {"category": "camera_wide", "label": "후면 메인(Wide)", "ex_value": "200", "ex_unit": "MP"},
+    {"category": "camera_ultrawide", "label": "울트라와이드", "ex_value": "50", "ex_unit": "MP"},
+    {"category": "camera_telephoto", "label": "망원", "ex_value": "50", "ex_unit": "MP"},
+    {"category": "camera_front", "label": "전면 카메라", "ex_value": "12", "ex_unit": "MP"},
+    {"category": "space_zoom", "label": "공간 줌", "ex_value": "100", "ex_unit": "x"},
+    {"category": "video_playback", "label": "영상 재생(배터리)", "ex_value": "31", "ex_unit": "hours"},
+    {"category": "battery_capacity", "label": "배터리 용량", "ex_value": "5000", "ex_unit": "mAh"},
+    {"category": "charging", "label": "고속충전", "ex_value": "45", "ex_unit": "W"},
+    {"category": "memory", "label": "메모리", "ex_value": "16", "ex_unit": "GB"},
+    {"category": "storage", "label": "저장", "ex_value": "512", "ex_unit": "GB"},
+    {"category": "processor", "label": "프로세서", "ex_value": "Snapdragon 8 Elite Gen 5", "ex_unit": ""},
+    {"category": "display_type", "label": "디스플레이 종류", "ex_value": "Dynamic AMOLED 2X", "ex_unit": ""},
+]
+
+
+@qb_router.get("/spec-catalog")
+def qb_spec_catalog():
+    return {"catalog": SPEC_CATALOG}
+
+
+@qb_router.get("/products")
+def qb_products():
+    data = _load_specs().get("products", {})
+    return {"products": sorted(data.keys())}
+
+
+@qb_router.post("/products/add")
+def qb_products_add(payload: Dict[str, Any] = Body(...)):
+    name = (payload.get("product") or "").strip()
+    if not name:
+        raise HTTPException(400, "product가 필요합니다.")
+    data = _load_specs()
+    data.setdefault("products", {}).setdefault(name, [])
+    _save_specs(data)
+    return {"ok": True, "products": sorted(data["products"].keys())}
 
 
 @qb_router.post("/run")
@@ -239,33 +317,31 @@ def qb_rules_copy_add(payload: Dict[str, Any] = Body(...)):
 
 @qb_router.post("/rules/schema/add")
 def qb_rules_schema_add(payload: Dict[str, Any] = Body(...)):
-    """스키마 QA 룰 추가: 특정 블록에 필수 속성 추가."""
+    """스키마 QA 룰 추가(페이지타입별): 선택 타입의 블록에 필수 속성 추가. 블록이 없으면 생성."""
     product = payload.get("product", "M3")
-    block = payload.get("block", "")
+    page_type = payload.get("page_type", "PDP")
+    block_type = (payload.get("block_type") or payload.get("block") or "").strip()  # @type (드롭다운)
     prop = (payload.get("property") or "").strip()
-    if not block or not prop:
-        raise HTTPException(400, "block과 property가 필요합니다.")
-    per = os.path.join(os.path.dirname(__file__), f"schema_rules.{product}.json")
-    if os.path.exists(per):  # 제품별 분리 파일
-        data = json.load(open(per, encoding="utf-8"))
-        blocks = data.get("blocks", [])
-        hit = next((b for b in blocks if b.get("name") == block), None)
-        if not hit:
-            raise HTTPException(404, f"블록 '{block}' 없음")
-        if prop not in hit.setdefault("required_properties", []):
-            hit["required_properties"].append(prop)
-        json.dump(data, open(per, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-        return {"ok": True, "block": block, "required_properties": hit["required_properties"]}
-    # 통합 파일 폴백
-    data = json.load(open(_SCHEMA_PATH, encoding="utf-8"))
-    blocks = data["products"].get(product, {}).get("blocks", [])
-    hit = next((b for b in blocks if b.get("name") == block), None)
-    if not hit:
-        raise HTTPException(404, f"블록 '{block}' 없음")
+    id_slug = (payload.get("id_slug") or "").strip() or None
+    if not block_type or not prop:
+        raise HTTPException(400, "block_type과 property가 필요합니다.")
+    path = os.path.join(os.path.dirname(__file__), f"schema_rules.{product}.{page_type}.json")
+    if os.path.exists(path):
+        data = json.load(open(path, encoding="utf-8"))
+    else:
+        data = {"source": "manual", "sitecode_token": "{SITECODE}", "page_type": page_type, "blocks": []}
+    blocks = data.setdefault("blocks", [])
+    hit = next((b for b in blocks if b.get("name") == block_type or block_type in (b.get("types") or [])), None)
+    if not hit:  # 새 검수 블록 생성
+        hit = {"name": block_type, "types": [block_type], "id_pattern": None, "id_slug": id_slug,
+               "required_properties": [], "optional_properties": [], "property_notes": {},
+               "haspart_ids": [], "expected_values": {}, "conditional": None}
+        blocks.append(hit)
     if prop not in hit.setdefault("required_properties", []):
         hit["required_properties"].append(prop)
-    json.dump(data, open(_SCHEMA_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    return {"ok": True, "block": block, "required_properties": hit["required_properties"]}
+    json.dump(data, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    return {"ok": True, "product": product, "page_type": page_type,
+            "block": block_type, "required_properties": hit["required_properties"]}
 
 
 # ── URL 엑셀 템플릿 다운로드 / 일괄 업로드 ──

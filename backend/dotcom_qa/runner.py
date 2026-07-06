@@ -23,19 +23,30 @@ from site_registry import SiteRegistry
 _HERE = os.path.dirname(__file__)
 
 
-def load_rules(product: str = "M3",
+def page_type_from_url(url: str) -> str:
+    u = (url or "").lower()
+    if "/compare" in u:
+        return "Compare"
+    if "/buy" in u:
+        return "Buying"
+    return "PDP"
+
+
+def load_rules(product: str = "M3", page_type: str = "PDP",
                schema_path: str = None, copy_path: str = None, spec_path: str = None) -> Dict[str, Any]:
     schema_path = schema_path or os.path.join(_HERE, "schema_rules.json")
     copy_path = copy_path or os.path.join(_HERE, "copy_rules.json")
     spec_path = spec_path or os.path.join(_HERE, "key_specs.json")
-    # 스키마 규칙: 제품별 분리 파일(schema_rules.M3.json) 우선, 없으면 통합 파일
+    # 스키마 규칙: 제품×페이지타입 파일 → 제품별 파일 → 통합 파일 순으로 폴백
+    by_page = os.path.join(_HERE, f"schema_rules.{product}.{page_type}.json")
     per_product = os.path.join(_HERE, f"schema_rules.{product}.json")
-    if os.path.exists(per_product):
+    if os.path.exists(by_page):
+        sr = json.load(open(by_page, encoding="utf-8"))
+    elif os.path.exists(per_product):
         sr = json.load(open(per_product, encoding="utf-8"))
     else:
         sr = json.load(open(schema_path, encoding="utf-8"))["products"].get(product, {})
     cr = json.load(open(copy_path, encoding="utf-8"))["products"].get(product, {})
-    # 핵심 스펙은 product 키(galaxy-s26-ultra 등)로 저장되어 있어 M3→제품 매핑을 함께 시도
     try:
         specs_all = json.load(open(spec_path, encoding="utf-8")).get("products", {})
     except Exception:
@@ -54,12 +65,12 @@ def check_html(html: str, rules: Dict[str, Any],
     }
 
 
-def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any]) -> Dict[str, Any]:
+def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any], page_type: str = "PDP") -> Dict[str, Any]:
     res = check_html(html, rules, sitecode=site.get("sitecode"), site_lang=site.get("lang"))
     return {"sitecode": site.get("sitecode"), "url": site.get("url"),
             "region": site.get("region"), "country": site.get("country"),
             "product": site.get("product", "galaxy-s26-ultra"), "lang": site.get("lang"),
-            "schema": res["schema"], "copy": res["copy"]}
+            "page_type": page_type, "schema": res["schema"], "copy": res["copy"]}
 
 
 def run_all(fetch_html: Callable[[str], Optional[str]],
@@ -67,28 +78,36 @@ def run_all(fetch_html: Callable[[str], Optional[str]],
             sitecodes: Optional[List[str]] = None,
             registry: Optional[SiteRegistry] = None) -> List[Dict[str, Any]]:
     """레지스트리 순회 검수. fetch_html(url)->html|None 을 주입.
-    sitecodes 를 주면 해당 사이트만 검수."""
+    sitecodes 를 주면 해당 사이트만 검수. 페이지타입은 URL 로 자동판별해 해당 룰 적용."""
     registry = registry or SiteRegistry()
-    rules = load_rules(product)
+    rules_cache: Dict[str, Dict[str, Any]] = {}
+
+    def rules_for(pt: str) -> Dict[str, Any]:
+        if pt not in rules_cache:
+            rules_cache[pt] = load_rules(product, page_type=pt)
+        return rules_cache[pt]
+
     targets = registry.all()
     if sitecodes:
         want = {s.lower() for s in sitecodes}
         targets = [t for t in targets if t["sitecode"] in want]
     results = []
     for site in targets:
+        pt = site.get("page_type") or page_type_from_url(site.get("url", ""))
         try:
             html = fetch_html(site["url"])
-        except Exception as e:
+        except Exception:
             html = None
         if not html:
             results.append({"sitecode": site["sitecode"], "url": site["url"],
                             "region": site.get("region"), "country": site.get("country"),
+                            "page_type": pt,
                             "schema": {"summary": {}, "findings": [
                                 {"block": "(수집 실패)", "status": "fail",
                                  "as_is": "HTML 수집 실패", "to_be": "URL 접근/렌더링 확인"}]},
                             "copy": {"summary": {}, "findings": []}})
             continue
-        results.append(run_site(site, html, rules))
+        results.append(run_site(site, html, rules_for(pt), page_type=pt))
     return results
 
 
