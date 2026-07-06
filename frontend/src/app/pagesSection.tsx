@@ -447,16 +447,7 @@ export function PagesTab({
                             >
                               <span><span className={`badge ${siteClass(p.site)}`} style={{ fontSize: 10 }}>{siteShortName(p.site)}</span></span>
                               <span>{p.page_label}</span>
-                              <span>
-                                {p.status === "수집됨" ? (
-                                  <>
-                                    {`${p.word_count || 0}단어${p.page_height_px ? ` · ${p.page_height_px.toLocaleString()}px` : ""}`}
-                                    {(p.word_count || 0) < 30 && p.rendered_by !== "playwright" && (
-                                      <small className="unrenderedFlag" title="본문이 거의 없고 브라우저 렌더가 안 된 페이지로 보입니다 — 핵심 비교에서 제외 권장">⚠ 미렌더 의심</small>
-                                    )}
-                                  </>
-                                ) : "수집 전"}
-                              </span>
+                              <span>{p.status === "수집됨" ? `${p.word_count || 0}단어${p.page_height_px ? ` · ${p.page_height_px.toLocaleString()}px` : ""}` : "수집 전"}</span>
                               <span>
                                 {p.title || shortUrl(p.url)}
                                 <small>{shortUrl(p.url)}{!p.managed ? " · 관리 URL 외 수집" : ""}</small>
