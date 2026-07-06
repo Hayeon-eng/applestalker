@@ -213,3 +213,99 @@ def qb_specs_remove(payload: Dict[str, Any] = Body(...)):
         arr.pop(idx); _save_specs(data)
         return {"ok": True, "specs": arr}
     return {"ok": False, "specs": arr}
+
+
+# ── 검수 룰 추가 (카피/스키마 별도) ──
+_COPY_PATH = os.path.join(os.path.dirname(__file__), "copy_rules.json")
+_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema_rules.json")
+
+
+@qb_router.post("/rules/copy/add")
+def qb_rules_copy_add(payload: Dict[str, Any] = Body(...)):
+    """스펙 QA 룰 추가: spec_token 또는 proper_noun."""
+    product = payload.get("product", "M3")
+    kind = payload.get("kind", "spec")  # "spec" | "proper_noun"
+    token = (payload.get("token") or "").strip()
+    if not token:
+        raise HTTPException(400, "token이 필요합니다.")
+    data = json.load(open(_COPY_PATH, encoding="utf-8"))
+    key = "spec_tokens" if kind == "spec" else "proper_nouns"
+    arr = data["products"].setdefault(product, {}).setdefault(key, [])
+    if token not in arr:
+        arr.append(token)
+    json.dump(data, open(_COPY_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    return {"ok": True, key: arr}
+
+
+@qb_router.post("/rules/schema/add")
+def qb_rules_schema_add(payload: Dict[str, Any] = Body(...)):
+    """스키마 QA 룰 추가: 특정 블록에 필수 속성 추가."""
+    product = payload.get("product", "M3")
+    block = payload.get("block", "")
+    prop = (payload.get("property") or "").strip()
+    if not block or not prop:
+        raise HTTPException(400, "block과 property가 필요합니다.")
+    data = json.load(open(_SCHEMA_PATH, encoding="utf-8"))
+    blocks = data["products"].get(product, {}).get("blocks", [])
+    hit = next((b for b in blocks if b.get("name") == block), None)
+    if not hit:
+        raise HTTPException(404, f"블록 '{block}' 없음")
+    if prop not in hit.setdefault("required_properties", []):
+        hit["required_properties"].append(prop)
+    json.dump(data, open(_SCHEMA_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    return {"ok": True, "block": block, "required_properties": hit["required_properties"]}
+
+
+# ── URL 엑셀 템플릿 다운로드 / 일괄 업로드 ──
+_URL_COLS = ["sitecode", "url", "region", "country", "lang", "product"]
+
+
+@qb_router.get("/sites/template.xlsx")
+def qb_sites_template():
+    from openpyxl import Workbook
+    import io
+    wb = Workbook(); ws = wb.active; ws.title = "URLs"
+    ws.append(_URL_COLS)
+    ws.append(["sg", "https://www.samsung.com/sg/smartphones/galaxy-s26-ultra/compare/",
+               "APAC", "Singapore", "en-SG", "galaxy-s26-ultra"])  # 예시 1행
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": "attachment; filename=qubi_url_template.xlsx"})
+
+
+@qb_router.post("/sites/upload")
+def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
+    """base64 로 받은 xlsx(위 템플릿 형식)를 파싱해 일괄 추가."""
+    import base64
+    import io
+    from openpyxl import load_workbook
+    b64 = payload.get("b64") or ""
+    if "," in b64:
+        b64 = b64.split(",", 1)[1]  # dataURL 접두 제거
+    try:
+        wb = load_workbook(io.BytesIO(base64.b64decode(b64)), read_only=True, data_only=True)
+    except Exception as e:
+        raise HTTPException(400, f"엑셀을 읽을 수 없습니다: {e}")
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return {"ok": True, "added": 0}
+    header = [str(c or "").strip().lower() for c in rows[0]]
+    idx = {c: header.index(c) for c in _URL_COLS if c in header}
+    added = 0
+    for r in rows[1:]:
+        def g(col):
+            i = idx.get(col)
+            return (str(r[i]).strip() if i is not None and i < len(r) and r[i] is not None else "")
+        url = g("url")
+        if not url:
+            continue
+        sc = g("sitecode") or _sitecode_from_url(url)
+        if _registry.get(sc):
+            _registry.update(sc, url=url)
+        else:
+            _registry.add(sc, url, region=g("region"), country=g("country"),
+                          lang=g("lang"), product=g("product") or "galaxy-s26-ultra")
+        added += 1
+    _registry.save()
+    return {"ok": True, "added": added, "count": len(_registry.all())}
