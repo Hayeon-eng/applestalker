@@ -119,7 +119,7 @@ app = FastAPI(title="Apple Stalker API", version="2.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"], expose_headers=["*"])
 
-# 큐비 🐝 (QB) — Dotcom QA 모듈 마운트 (기존 HybridCrawler 자동 연결)
+# 큐비 🐝 — Dotcom QA 모듈 마운트 (기존 HybridCrawler 자동 연결)
 from dotcom_qa.qb_api import qb_router, enable_default_crawler
 app.include_router(qb_router)
 enable_default_crawler()
