@@ -13,7 +13,10 @@ export function Landing({ onEnterApple, onEnterQubi }: { onEnterApple: () => voi
         <div className="landingCardGrid">
           <div className="landingCard" style={{ display: "flex", flexDirection: "column" }}>
             <span className="landingLogo" style={{ fontSize: 40 }}>🍎</span>
-            <p className="landingCardTitle" style={{ fontSize: 18, marginTop: 6 }}>Apple Stalker</p>
+            <p className="landingCardTitle" style={{ marginTop: 6, lineHeight: 1.25 }}>
+              <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--sec)" }}>경쟁사 추적</span>
+              <span style={{ fontSize: 22, fontWeight: 800 }}>Apple Stalker</span>
+            </p>
             <ul className="landingFactList" style={{ flex: 1 }}>
               <li>경쟁사 닷컴 <b>변화 감지</b> — Samsung + Apple/Pixel/Xiaomi/OPPO/Sony/Dell 등</li>
               <li>데이터·스키마 / 카피 / 프로모션 / 비주얼 <b>3축 분석</b></li>
@@ -24,7 +27,10 @@ export function Landing({ onEnterApple, onEnterQubi }: { onEnterApple: () => voi
 
           <div className="landingCard" style={{ display: "flex", flexDirection: "column" }}>
             <span className="landingLogo" style={{ fontSize: 40 }}>🐝</span>
-            <p className="landingCardTitle" style={{ fontSize: 18, marginTop: 6 }}>큐비 <span style={{ fontWeight: 400, fontSize: 13, color: "var(--sec)" }}>QA의 사촌</span></p>
+            <p className="landingCardTitle" style={{ marginTop: 6, lineHeight: 1.25 }}>
+              <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--sec)" }}>QA의 사촌</span>
+              <span style={{ fontSize: 22, fontWeight: 800 }}>큐비</span>
+            </p>
             <ul className="landingFactList" style={{ flex: 1 }}>
               <li>삼성닷컴 제품 페이지를 <b>붕붕 돌며 QA</b> — 91개 사이트</li>
               <li><b>스키마 QA</b> — JSON-LD 속성·값을 스펙과 대조</li>

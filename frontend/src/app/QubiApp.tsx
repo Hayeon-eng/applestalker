@@ -255,7 +255,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <button className={`tabBtn ${tab === "copy" ? "on" : ""}`} onClick={() => setTab("copy")}>스펙 QA</button>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-              <button className="toolBtn" onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}>＋ 룰 추가</button>
               <button className="toolBtn" onClick={() => { setShowRules((v) => !v); setShowRuleAdd(false); }}>ⓘ 검수 기준</button>
               <button className="toolBtn" onClick={copyEmail} disabled={!results.length}>✉ 메일 복사</button>
               <button className="toolBtn" onClick={downloadXlsx} disabled={!results.length}>📊 Excel</button>
@@ -368,6 +367,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <p style={{ fontSize: 11, color: "var(--sec)", marginTop: 6 }}>항목을 고르면 예시 값·단위가 자동 채워집니다. 예: camera_ultrawide → 50 MP</p>
             </div>
           )}
+
+          {/* 룰 추가 버튼 — 패널 바로 위 */}
+          <div style={{ marginTop: 18 }}>
+            <button
+              onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}
+              style={{ padding: "10px 18px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              {showRuleAdd ? "✕ 룰 추가 닫기" : "＋ 룰 추가"}
+            </button>
+          </div>
 
           {/* 룰 추가 패널 */}
           {showRuleAdd && (
