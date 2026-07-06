@@ -159,6 +159,33 @@ export default function Page() {
     setTimeout(() => setEmailState(""), 5000);
   };
 
+  const copyEmailBody = async () => {
+    setEmailState("본문 준비 중…");
+    try {
+      const res = await fetch(API + "/api/export/email-html", { cache: "no-store" });
+      if (!res.ok) throw new Error("fetch");
+      const html = await res.text();
+      // 서식(표·색·점수) 유지하며 클립보드에 복사 → 메일 작성창에 그대로 붙여넣기
+      if (navigator.clipboard && "write" in navigator.clipboard && typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([html], { type: "text/plain" }),
+          }),
+        ]);
+        setEmailState("복사됨 — 메일 작성창에 붙여넣기(Ctrl/Cmd+V)");
+      } else {
+        // 클립보드 API 미지원: 새 탭에 열어 수동 복사
+        const w = window.open("", "_blank");
+        if (w) { w.document.write(html); w.document.close(); }
+        setEmailState("새 탭에서 전체 선택 후 복사하세요");
+      }
+    } catch {
+      setEmailState("복사 실패 — 백엔드 연결/데이터 확인");
+    }
+    setTimeout(() => setEmailState(""), 6000);
+  };
+
   const openPage = async (url: string) => {
     setSelectedUrl(url);
     setSelectedPage(null);
@@ -373,6 +400,9 @@ export default function Page() {
                   🎞 PPTX
                 </a>
               )}
+              <button className="toolBtn" onClick={copyEmailBody} disabled={!online}>
+                📋 메일 본문 복사
+              </button>
               <button className="toolBtn" onClick={sendEmail} disabled={!online}>
                 📧 메일 테스트
               </button>
