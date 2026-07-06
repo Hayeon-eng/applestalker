@@ -1,15 +1,15 @@
-# Apple Stalker 🍎 & 큐비 🐝 (QB)
+# Apple Stalker 🍎 & 큐비 🐝
 
 한 저장소에 두 모듈이 함께 있습니다.
 
 - **애플스토커 🍎 (Apple Stalker)** — 경쟁사 닷컴을 모니터링해 DATA/COPY/VISUAL 3축으로 분석하고,
   변경점·리포트(PPTX/Excel/메일)를 생성하는 기존 웹앱.
-- **큐비 🐝 (QB)** — *QA의 사촌 QB.* 닷컴 페이지를 붕붕 돌며 규칙대로 검수. 삼성닷컴 제품 페이지의
+- **큐비 🐝** — 풀네임 **QA Bee**, 줄여서 **큐비**. 닷컴 페이지를 붕붕 돌며 규칙대로 검수. 삼성닷컴 제품 페이지의
   스키마·카피를 스펙(엑셀)과 대조해 오류를 잡는 **Dotcom QA** 모듈. (본 저장소의 신규 파트)
 
 ---
 
-## 큐비 🐝 (QB) — Dotcom QA
+## 큐비 🐝 — Dotcom QA
 
 ### 무엇을 하나
 | 단계 | 기능 | 파일 |
@@ -46,12 +46,16 @@ python3 copy_checker.py   copy_rules.json   <page.html> M3
 ```
 
 ### 앱에 붙이기 (기존 애플스토커 FastAPI)
-`backend/main.py` 에 3줄 추가:
+`backend/main.py` 의 `app = FastAPI(...)` 아래에 **이 2줄만** 추가하면 끝 (기존 HybridCrawler 자동 연결):
 ```python
-from dotcom_qa.qb_api import qb_router, set_fetcher
+from dotcom_qa.qb_api import qb_router, enable_default_crawler
 app.include_router(qb_router)
-set_fetcher(existing_crawler_fetch)   # url -> html (기존 크롤러 함수 주입; 없으면 /run 은 501)
+enable_default_crawler()      # 91개 자동 순회 검수(/api/qb/run) 활성화
 ```
+- `enable_default_crawler()` 는 기존 `crawler.HybridCrawler().crawl(url)` 로 HTML을 받아 큐비에 넘깁니다(async→sync 브리지 내장).
+- 크롤 연결 없이 써도 됩니다 — 화면의 **HTML 붙여넣기 검수**나 `POST /api/qb/check` 는 크롤러 없이 동작.
+- 커스텀 크롤러를 쓰려면 대신 `set_fetcher(내함수)` — `내함수(url) -> html`.
+
 프론트에서 우측 진입점/탭으로:
 ```tsx
 import QubiTab from "./QubiTab";
@@ -113,7 +117,9 @@ cp <이 zip의 dotcom_qa>/* backend/dotcom_qa/
 touch backend/dotcom_qa/__init__.py
 cp <이 zip의>/QubiTab.tsx frontend/src/app/
 
-# 2) main.py 에 mount 3줄 추가 (위 '앱에 붙이기' 참고)
+# 2) main.py 의 app=FastAPI(...) 아래에 2줄 추가:
+#      from dotcom_qa.qb_api import qb_router, enable_default_crawler
+#      app.include_router(qb_router); enable_default_crawler()
 
 # 3) 문법/타입 확인
 cd backend && python3 -m py_compile dotcom_qa/*.py
@@ -121,7 +127,7 @@ cd ../frontend && npx tsc --noEmit
 
 # 4) 커밋 & 푸시 (배포형이면 자동 재빌드)
 git add backend/dotcom_qa frontend/src/app/QubiTab.tsx backend/main.py README.md
-git commit -m "feat: 큐비(QB) Dotcom QA 모듈 추가 (스키마/카피 QA, 91사이트 레지스트리, 리포트, API, 탭)"
+git commit -m "feat: 큐비 Dotcom QA 모듈 추가 (스키마/카피 QA, 91사이트 레지스트리, 리포트, API, 탭)"
 git push
 ```
 
