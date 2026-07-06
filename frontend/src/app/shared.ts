@@ -35,7 +35,7 @@ export type Session = {
   session: string; run_ids: string[]; sites: string[];
   pages: number; changes: number; timestamp: string;
 };
-export type PageLite = { url: string; title: string; word_count: number };
+export type PageLite = { url: string; title: string; word_count: number; page_height_px?: number | null };
 export type PageWireframe = {
   page_role?: string; title?: string; h1?: string; h2?: string[]; h3?: string[];
   ctas?: { text?: string }[]; image_count?: number; faq_count?: number;

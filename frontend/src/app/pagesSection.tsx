@@ -52,6 +52,7 @@ export const buildPageRows = (
         url: u.url,
         title: p?.title || "",
         word_count: p?.word_count || 0,
+        page_height_px: p?.page_height_px ?? null,
         site,
         page_role: role,
         product_category: category,
@@ -434,7 +435,7 @@ export function PagesTab({
                       return (
                         <div className="pageTable" key={`${site}-${category}-${role}`} style={{ marginBottom: 6 }}>
                           <div className="pageRow head">
-                            <span>Site</span><span>제품/페이지</span><span>상태/단어 수</span><span>URL</span>
+                            <span>Site</span><span>제품/페이지</span><span>상태/단어·길이(px)</span><span>URL</span>
                           </div>
                           {roleRows.map((p) => (
                             <button
@@ -445,7 +446,7 @@ export function PagesTab({
                             >
                               <span><span className={`badge ${siteClass(p.site)}`} style={{ fontSize: 10 }}>{siteShortName(p.site)}</span></span>
                               <span>{p.page_label}</span>
-                              <span>{p.status === "수집됨" ? `${p.word_count || 0}단어` : "수집 전"}</span>
+                              <span>{p.status === "수집됨" ? `${p.word_count || 0}단어${p.page_height_px ? ` · ${p.page_height_px.toLocaleString()}px` : ""}` : "수집 전"}</span>
                               <span>
                                 {p.title || shortUrl(p.url)}
                                 <small>{shortUrl(p.url)}{!p.managed ? " · 관리 URL 외 수집" : ""}</small>
