@@ -378,3 +378,31 @@ input, select { font-family: inherit; }
   font-weight: 500; color: var(--blue); background: var(--blue-soft); padding: 3px 8px; border-radius: 999px; }
 .urlFilterTag button { color: var(--sec); font-weight: 600; }
 
+
+/* ═══════════════════════════════════════════════════════════
+   모바일 전용 (≤768px) — 데스크톱(≥769px) UI는 전혀 건드리지 않음
+   · 사이드바가 화면을 다 먹지 않도록 세로 스택 + 높이 제한
+   · '검수 기준' 드로어는 풀스크린 (--drawer-w 재정의로 JSX 수정 없이 적용)
+═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* 드로어를 화면 전체로 — QubiApp 인라인 var(--drawer-w)와 CriteriaDrawer 둘 다 반영 */
+  :root { --drawer-w: 100vw; }
+
+  /* 사이드바 위 / 본문 아래로 세로 스택 (appShell의 100vh·overflow는 유지) */
+  .appShell { flex-direction: column; }
+
+  /* 사이드바: 폭 100% + 높이 제한(내부 sideScroll이 스크롤) → 본문 공간 확보 */
+  .sidebar {
+    width: 100%;
+    max-height: 38vh;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* 본문: 드로어 밀림(인라인 margin-right) 무력화 → 모바일은 풀스크린 오버레이 */
+  .mainArea { margin-right: 0 !important; }
+
+  /* 랜딩 진입 카드 2열 → 1열 */
+  .landingCardGrid { grid-template-columns: 1fr; }
+  .landingInner { padding: 40px 18px 64px; }
+}
