@@ -351,20 +351,20 @@ const AXIS_INSIGHT_OBSERVATION: Record<MetricTab, string> = {
 };
 const AXIS_INSIGHT_MEANING: Record<MetricTab, string> = {
   data: "검색 엔진이 페이지 역할을 해석하는 신호 범위가 제한될 수 있습니다.",
-  copy: "페이지 수보다 행동 연결 밀도 차이가 더 크게 나타납니다.",
+  copy: "페이지 수보다 실제 카피의 구체성·분량 차이가 전환에 더 크게 작용합니다.",
   visual: "이미지 의미 전달 범위가 제한될 수 있습니다.",
 };
 
-function buildAxisInsight(metric: MetricTab, weakestLabel: string | undefined, delta: number | null, tier: ScoreTier): string {
+function buildAxisInsight(metric: MetricTab, delta: number | null, tier: ScoreTier): string {
   const compareText = delta == null
-    ? "경쟁사 비교 근거가 아직 부족합니다"
+    ? "경쟁사 평균과 비교할 근거가 아직 부족합니다"
     : delta < 0
-      ? `${weakestLabel || METRICS[metric].label} 적용 범위가 경쟁사보다 ${Math.abs(delta)}%p 좁습니다`
+      ? `경쟁사 평균보다 ${Math.abs(delta)}%p 낮습니다 (적용된 페이지가 더 적음 = 열위)`
       : delta > 0
-        ? `${weakestLabel || METRICS[metric].label} 적용 범위가 경쟁사보다 ${delta}%p 넓습니다`
-        : `${weakestLabel || METRICS[metric].label} 적용 범위가 경쟁사와 비슷한 수준입니다`;
+        ? `경쟁사 평균보다 ${delta}%p 높습니다 (더 많은 페이지에 적용됨 = 우위)`
+        : `경쟁사 평균과 비슷한 수준입니다`;
   const nuance = (delta != null && delta > 0 && tier !== "good")
-    ? ` 경쟁사보다는 앞서 있지만, 절대 점수 기준으로는 아직 ${scoreTierLabel(tier)} 구간입니다.`
+    ? ` 경쟁사 평균보다는 앞서 있지만, 절대 점수 기준으로는 아직 ${scoreTierLabel(tier)} 구간입니다.`
     : "";
   return `${AXIS_INSIGHT_OBSERVATION[metric]} ${compareText}.${nuance} ${AXIS_INSIGHT_MEANING[metric]}`;
 }
@@ -416,7 +416,7 @@ function buildAxisHighlights(
       keyStatLabel: weakestComponent?.label || METRICS[metric].label,
       keyStatValue: weakestComponent?.value ?? score,
       componentStats,
-      insight: buildAxisInsight(metric, weakestComponent?.label, delta, tier),
+      insight: buildAxisInsight(metric, delta, tier),
       action,
       change: samsungChange,
     };
@@ -523,7 +523,7 @@ export function WatchPointPanel({
                     <span className="axisCardStatVal">{c.value == null ? "근거 없음" : `${c.value}%`}</span>
                     {c.delta != null && (
                       <span className={c.delta < 0 ? "axisCardDeltaBad" : "axisCardDeltaGood"}>
-                        {c.delta > 0 ? "+" : ""}{c.delta}%p vs 경쟁사
+                        {c.delta > 0 ? "+" : ""}{c.delta}%p vs 경쟁사 평균
                       </span>
                     )}
                   </p>

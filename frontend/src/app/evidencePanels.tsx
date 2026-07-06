@@ -9,7 +9,7 @@ const EVIDENCE_LABELS: Record<string, string> = {
   kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
   phash_before: "이전 이미지 해시", phash_after: "이후 이미지 해시", sentences_added: "추가된 문장",
   structure_note: "구조 비교 기준", tag_deltas: "핵심 태그 구성 변화", heading_deltas: "H2 문구 변화", cta_deltas: "CTA 문구 변화",
-  copy_importance: "카피 중요도 판단",
+  copy_importance: "이 카피의 성격", comparison_note: "비교 기준(본문)",
 };
 const EVIDENCE_KIND_LABELS: Record<string, string> = {
   schema_added: "스키마 추가됨", schema_removed: "스키마 제거됨",
@@ -25,9 +25,9 @@ const TAG_NAME_LABELS: Record<string, string> = {
 };
 
 function evidenceValueToText(v: any, evidenceKey?: string): string {
-  if (v === "campaign_or_conversion_copy") return "캠페인·프로모션·구매 전환 관련 문구";
-  if (v === "minor_ui_or_menu_copy") return "메뉴·탭·짧은 UI 라벨성 문구";
-  if (v === "general_copy") return "일반 본문 문구";
+  if (v === "campaign_or_conversion_copy") return "구매 전환·프로모션 성격의 카피 (중요도 높음)";
+  if (v === "minor_ui_or_menu_copy") return "메뉴·탭 등 UI 라벨성 카피 (중요도 낮음)";
+  if (v === "general_copy") return "일반 본문 카피 (중요도 보통)";
   if (Array.isArray(v)) return v.join(", ");
   if (v && typeof v === "object") {
     if ("added" in v || "removed" in v) {
@@ -422,15 +422,74 @@ const METRIC_WHY_MATTERS: Record<MetricTab, string> = {
   visual: "이미지 양보다 설명 밀도 차이가 크면, 이미지가 전달하는 의미 범위가 제한될 수 있습니다.",
 };
 
+// S4: "구조화 데이터가 뭔지"를 상세탭에서 한 줄로 설명 (DATA 전용)
+const STRUCTURED_DATA_EXPLAINER =
+  "구조화 데이터(Schema)는 페이지 내용을 검색엔진·AI가 이해하도록 표준 형식(Schema.org)으로 표시한 것입니다. Product·FAQPage·BreadcrumbList처럼 페이지 역할에 맞는 타입이 적용될수록 검색·AI 요약 노출에 유리합니다.";
+
+type PeerCompareRow = { label: string; mine: number | null; peerAvg: number | null; delta: number | null };
+type SchemaTypeCompare = { advantage: string[]; gap: string[]; shared: string[] };
+type PeerComparison = { rows: PeerCompareRow[]; schema?: SchemaTypeCompare; peerLabel: string; peerCount: number };
+
+// S4: 현재 사이트 vs 나머지 사이트 평균으로 지표별 우위/열위 + (DATA) 스키마 타입 우위/열위를 계산
+function buildPeerComparison(
+  metric: MetricTab, site: SiteKey, block: AnalysisBlock | undefined,
+  peerBlocks?: Record<string, AnalysisBlock>,
+): PeerComparison | null {
+  const peerKeys = Object.keys(peerBlocks || {}).filter((k) => k !== site);
+  if (peerKeys.length === 0) return null;
+  const peerLabel = site === "samsung" ? "경쟁사 평균" : "타 사이트 평균";
+
+  const mineBreak = metricScoreBreakdown(metric, block);
+  const peerBreaks = peerKeys.map((k) => metricScoreBreakdown(metric, peerBlocks![k]));
+  const rows: PeerCompareRow[] = mineBreak.components.map((c) => {
+    const peerVals = peerBreaks
+      .map((b) => b.components.find((x) => x.label === c.label)?.value ?? null)
+      .filter((v): v is number => v != null);
+    const peerAvg = peerVals.length ? Math.round(peerVals.reduce((a, b) => a + b, 0) / peerVals.length) : null;
+    const delta = c.value != null && peerAvg != null ? c.value - peerAvg : null;
+    return { label: c.label, mine: c.value, peerAvg, delta };
+  });
+
+  let schema: SchemaTypeCompare | undefined;
+  if (metric === "data") {
+    const mineTypes = Object.keys((block?.facts as any)?.schema?.schema_type_counts || {});
+    const mineSet = new Set(mineTypes);
+    const peerTypeCount: Record<string, number> = {};
+    peerKeys.forEach((k) => {
+      const types = Object.keys((peerBlocks![k]?.facts as any)?.schema?.schema_type_counts || {});
+      new Set(types).forEach((t) => { peerTypeCount[t] = (peerTypeCount[t] || 0) + 1; });
+    });
+    const half = Math.max(1, Math.ceil(peerKeys.length / 2));
+    const advantage: string[] = [], gap: string[] = [], shared: string[] = [];
+    new Set<string>([...mineTypes, ...Object.keys(peerTypeCount)]).forEach((t) => {
+      const peers = peerTypeCount[t] || 0;
+      if (mineSet.has(t) && peers < half) advantage.push(t);
+      else if (!mineSet.has(t) && peers >= half) gap.push(t);
+      else if (mineSet.has(t)) shared.push(t);
+    });
+    schema = { advantage, gap, shared };
+  }
+  return { rows, schema, peerLabel, peerCount: peerKeys.length };
+}
+
+const deltaTag = (delta: number | null): string => {
+  if (delta == null) return "";
+  if (delta > 0) return ` (▲우위 +${delta}%p)`;
+  if (delta < 0) return ` (▼열위 ${delta}%p)`;
+  return " (≈ 비슷)";
+};
+
 export function CurrentStatusDrilldown({
-  metric, site, block, selection,
+  metric, site, block, selection, peerBlocks,
 }: {
   metric: MetricTab; site: SiteKey; block?: AnalysisBlock; selection: CurrentFindingSelection;
+  peerBlocks?: Record<string, AnalysisBlock>;
 }) {
   const rows = detailRowsForFinding(metric, selection.label, block);
   const lens = currentStatusLens(metric, site, selection.label, selection.line, block, rows);
   const breakdown = metricScoreBreakdown(metric, block);
   const tier = scoreTier(breakdown.total);
+  const peer = buildPeerComparison(metric, site, block, peerBlocks);
   const title = lens.conclusion.split(/(?<=[.다요])\s+/)[0] || lens.conclusion;
 
   return (
@@ -459,6 +518,39 @@ export function CurrentStatusDrilldown({
           </>
         ))}
       </div>
+
+      {/* S4: 경쟁사(타 사이트) 평균 대비 우위/열위 — 지표별 + (DATA) 스키마 타입별 */}
+      {peer && (
+        <>
+          <p className="detailSectionLabel">{peer.peerLabel} 대비 우위/열위</p>
+          <div className="evidenceGrid" style={{ marginBottom: 10 }}>
+            {peer.rows.map((r) => (
+              <>
+                <span key={`${r.label}_pk`} className="evidenceKey">{r.label}</span>
+                <span key={`${r.label}_pv`} className="evidenceVal">
+                  {r.mine == null ? "근거 없음" : `우리 ${r.mine}%`}
+                  {r.peerAvg != null ? ` · ${peer.peerLabel} ${r.peerAvg}%` : ""}
+                  {deltaTag(r.delta)}
+                </span>
+              </>
+            ))}
+          </div>
+          {metric === "data" && peer.schema && (
+            <p className="findingText" style={{ fontSize: 12.5, marginBottom: 10 }}>
+              {STRUCTURED_DATA_EXPLAINER}
+              {peer.schema.advantage.length > 0 && (
+                <><br /><b>우위 스키마:</b> {peer.schema.advantage.join(", ")} — {peer.peerLabel} 다수는 미보유</>
+              )}
+              {peer.schema.gap.length > 0 && (
+                <><br /><b>열위/기회 스키마:</b> {peer.schema.gap.join(", ")} — {peer.peerLabel} 다수 보유, 우리 미적용</>
+              )}
+              {peer.schema.advantage.length === 0 && peer.schema.gap.length === 0 && (
+                <><br />스키마 타입 구성은 {peer.peerLabel}과 뚜렷한 우열 차이가 없습니다.</>
+              )}
+            </p>
+          )}
+        </>
+      )}
 
       {/* 해석 */}
       <p className="detailSectionLabel">해석</p>

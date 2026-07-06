@@ -234,14 +234,21 @@ export const metricActionSentence = (metric: MetricTab) => {
 export const actionForChange = (c: Change): string => {
   const metric = bucketOf(c);
   const role = pageRoleKo(pageRoleFromUrl(c.url || ""));
-  const subject = c.site === "samsung" ? "Samsung" : `${siteShortName(c.site)} ${role}`;
+  const isOurs = c.site === "samsung";
+  const subject = isOurs ? `우리 ${role}` : `${siteShortName(c.site)} ${role}`;
   if (metric === "data") {
-    return `${subject}의 Schema/H-tag 변경을 확인하고, ${metricActionSentence("data")}`;
+    return isOurs
+      ? `우리 ${role}에 적용된 Schema/H-tag가 페이지 역할과 맞는지 점검하고, ${metricActionSentence("data")}`
+      : `${subject}의 Schema/H-tag 변경을 확인하고, ${metricActionSentence("data")}`;
   }
   if (metric === "visual") {
-    return `${subject}의 이미지/ALT COPY 변경을 확인하고, ${metricActionSentence("visual")}`;
+    return isOurs
+      ? `우리 ${role}의 이미지/ALT COPY가 제품·기능·사용 장면을 충분히 설명하는지 점검하고, ${metricActionSentence("visual")}`
+      : `${subject}의 이미지/ALT COPY 변경을 확인하고, ${metricActionSentence("visual")}`;
   }
-  return `${subject}의 카피/CTA 변경을 확인하고, ${metricActionSentence("copy")}`;
+  return isOurs
+    ? `우리 ${role}의 카피/CTA가 구매 전환 흐름에 맞는지 점검하고, ${metricActionSentence("copy")}`
+    : `${subject}의 카피/CTA 변경을 확인하고, ${metricActionSentence("copy")}`;
 };
 // 이 목록 안에서 가장 심각한 등급의 변화만 골라 반환 (High가 없으면 Medium, 그마저 없으면 Low)
 export const topSeverityChanges = (pool: Change[], n = 3): { level: "High" | "Medium" | "Low"; changes: Change[] } | null => {
@@ -516,7 +523,7 @@ export const detailedAction = (metric: MetricTab, block?: AnalysisBlock): string
     if ((richness ?? 0) >= 40 && (richness ?? 0) < 70) return "톤 일관성과 혜택 문구를 함께 점검하세요.";
     if ((cta ?? 0) >= 70 && (richness ?? 0) >= 70 && (words ?? 0) < 70) return "페이지별 설명 분량 편차를 줄이세요.";
     if ((richness ?? 0) >= 70 && (cta ?? 0) >= 70 && (words ?? 0) >= 70) return "현재 카피 유지, 경쟁사 CTA 문구 변화만 주기적으로 확인하세요.";
-    return "PDP 상단과 Buying 영역에 구매·혜택·보상판매 CTA를 명확히 배치하세요.";
+    return "PDP·Buying 카피의 구체성(수치·혜택·소재)을 먼저 보강하고, 구매 CTA 문구도 함께 다듬으세요.";
   }
 
   const alt = val("ALT ratio");

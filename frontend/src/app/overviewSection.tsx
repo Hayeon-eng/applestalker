@@ -114,6 +114,7 @@ function MetricSection({
               site={selectedFinding.site}
               block={siteBlocks[selectedFinding.site]}
               selection={selectedFinding}
+              peerBlocks={siteBlocks}
             />
           </div>
         </details>
@@ -149,8 +150,8 @@ function MetricSection({
                       {groupByUrl(list).map(({ url, items }) => (
                         <div key={url} className="urlChangeGroup">
                           <p className="urlChangeGroupHead" title={url}>{shortUrl(url)} <span>· {items.length}건</span></p>
-                          {items.map((c, idx) => {
-                            const isOpen = idx === 0 || selectedChange?.id === c.id;
+                          {items.map((c) => {
+                            const isOpen = selectedChange?.id === c.id;
                             return (
                               <div key={c.id} id={`change-${c.id}`}>
                                 <button
