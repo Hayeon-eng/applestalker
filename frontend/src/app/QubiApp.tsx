@@ -49,7 +49,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [newProd, setNewProd] = useState("");
   const [specForm, setSpecForm] = useState({ category: "", value: "", unit: "" });
   const [schemaTypes, setSchemaTypes] = useState<string[]>([]);
-  const [ruleForm, setRuleForm] = useState({ block_type: "", property: "", kind: "spec", token: "" });
+  const [ruleForm, setRuleForm] = useState({ block_type: "", property: "", value: "", value_kind: "exists", nested: "", kind: "spec", token: "" });
 
   // Quick View
   const [quickOpen, setQuickOpen] = useState(false);
@@ -162,12 +162,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const addRule = async () => {
     if (tab === "schema") {
       if (!ruleForm.block_type || !ruleForm.property) return;
-      await fetch(api("/api/qb/rules/schema/add"), J({ product, page_type: pageType, block_type: ruleForm.block_type, property: ruleForm.property }));
+      await fetch(api("/api/qb/rules/schema/add"), J({
+        product, page_type: pageType, block_type: ruleForm.block_type, property: ruleForm.property,
+        value: ruleForm.value, value_kind: ruleForm.value_kind, nested: ruleForm.nested,
+      }));
     } else {
       if (!ruleForm.token) return;
       await fetch(api("/api/qb/rules/copy/add"), J({ product, kind: ruleForm.kind, token: ruleForm.token }));
     }
-    setRuleForm({ ...ruleForm, property: "", token: "" }); loadRules(); flash("룰 추가");
+    setRuleForm({ ...ruleForm, property: "", value: "", token: "" }); loadRules(); flash("룰 추가됨");
   };
 
   // 현재 탭 오류 행
@@ -277,46 +280,52 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {ok && <div style={{ background: "#ECFDF3", color: "#067647", padding: "8px 12px", borderRadius: 8, fontSize: 13, margin: "8px 0" }}>{ok}</div>}
           {err && <div style={{ background: "#FEF3F2", color: "#B42318", padding: 10, borderRadius: 8, fontSize: 13, margin: "8px 0", fontWeight: 600 }}>{err}</div>}
 
-          {/* 입력 3종 */}
-          <div style={{ display: "flex", gap: 6, margin: "12px 0 8px" }}>
-            {([["paste", "붙여넣기"], ["file", "HTML 파일"], ["url", "링크 1개"]] as const).map(([m, l]) => (
-              <button key={m} onClick={() => setInputMode(m)} style={sel(l, inputMode === m)}>{l}</button>
-            ))}
-          </div>
-          {inputMode === "paste" && (
-            <textarea value={html} onChange={(e) => setHtml(e.target.value)} placeholder="<html>… 페이지 소스 …</html>"
-              style={{ width: "100%", height: 100, fontFamily: "monospace", fontSize: 12, padding: 8, border: "1px solid var(--line)", borderRadius: 8 }} />
-          )}
-          {inputMode === "file" && (
-            <div style={{ padding: "18px", border: "1.5px dashed var(--line)", borderRadius: 8, textAlign: "center" }}>
-              <button onClick={() => htmlFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 13, padding: "8px 14px" }}>📄 HTML 파일 선택</button>
-              <input ref={htmlFileRef} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onHtmlFile(f); e.currentTarget.value = ""; }} />
-              {html && <span style={{ marginLeft: 10, fontSize: 12, color: "var(--sec)" }}>불러옴 ({html.length.toLocaleString()}자)</span>}
+          {/* ① 리전별 검수 크롤 (91사이트) — 먼저 노출 */}
+          <div className="card" style={{ marginTop: 12, padding: 14 }}>
+            <b style={{ fontSize: 14 }}>① 리전별 검수 크롤</b>
+            <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 8 }}>등록된 사이트를 권역별로 크롤해 한 번에 검수 (결과는 이력에 저장)</span>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 8px", flexWrap: "wrap" }}>
+              {["전체", ...regionNames].map((rg) => <button key={rg} onClick={() => setRegion(rg)} style={sel(rg, region === rg)}>{rg}{rg !== "전체" && regionsMap[rg] ? ` ${regionsMap[rg].length}` : ""}</button>)}
             </div>
-          )}
-          {inputMode === "url" && (
-            <input value={urlOne} onChange={(e) => setUrlOne(e.target.value)} placeholder="https://www.samsung.com/uk/smartphones/galaxy-s26-ultra/compare/"
-              style={{ ...inputStyle, width: "100%", fontSize: 13, padding: "10px 12px" }} />
-          )}
-          <button onClick={doCheck} disabled={busy} style={{ marginTop: 8, padding: "8px 16px", borderRadius: 8, border: "none", background: "#0A66E0", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-            {busy ? "검수 중…" : "검수하기"}
-          </button>
+            <button onClick={runByRegion} disabled={busy} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+              {busy ? "붕붕 검수 중…" : `${region === "전체" ? allSites.length : (regionsMap[region]?.length || 0)}개 사이트 검수`}
+            </button>
+            {progress.active && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
+                <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🐝 {progress.label} · {progress.done}/{progress.total} 사이트</div>
+              </div>
+            )}
+          </div>
 
-          {/* 91개 리전 크롤 */}
-          <div style={{ borderTop: "1px solid var(--line)", margin: "18px 0 10px" }} />
-          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12.5, color: "var(--sec)" }}>리전 크롤:</span>
-            {["전체", ...regionNames].map((rg) => <button key={rg} onClick={() => setRegion(rg)} style={sel(rg, region === rg)}>{rg}{rg !== "전체" && regionsMap[rg] ? ` ${regionsMap[rg].length}` : ""}</button>)}
-          </div>
-          <button onClick={runByRegion} disabled={busy} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-            {busy ? "붕붕 검수 중…" : `${region === "전체" ? allSites.length : (regionsMap[region]?.length || 0)}개 사이트 검수 (크롤 연동 시)`}
-          </button>
-          {progress.active && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
-              <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🐝 {progress.label} · {progress.done}/{progress.total} 사이트</div>
+          {/* ② 단일 페이지 검수 — 붙여넣기 / 파일 / 링크 */}
+          <div className="card" style={{ marginTop: 14, padding: 14 }}>
+            <b style={{ fontSize: 14 }}>② 단일 페이지 검수</b>
+            <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 8 }}>한 페이지만 빠르게 — HTML 붙여넣기 · 파일 업로드 · 링크 1개</span>
+            <div style={{ display: "flex", gap: 6, margin: "10px 0 8px" }}>
+              {([["paste", "붙여넣기"], ["file", "HTML 파일"], ["url", "링크 1개"]] as const).map(([m, l]) => (
+                <button key={m} onClick={() => setInputMode(m)} style={sel(l, inputMode === m)}>{l}</button>
+              ))}
             </div>
-          )}
+            {inputMode === "paste" && (
+              <textarea value={html} onChange={(e) => setHtml(e.target.value)} placeholder="<html>… 페이지 소스 …</html>"
+                style={{ width: "100%", height: 100, fontFamily: "monospace", fontSize: 12, padding: 8, border: "1px solid var(--line)", borderRadius: 8 }} />
+            )}
+            {inputMode === "file" && (
+              <div style={{ padding: "18px", border: "1.5px dashed var(--line)", borderRadius: 8, textAlign: "center" }}>
+                <button onClick={() => htmlFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 13, padding: "8px 14px" }}>📄 HTML 파일 선택</button>
+                <input ref={htmlFileRef} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onHtmlFile(f); e.currentTarget.value = ""; }} />
+                {html && <span style={{ marginLeft: 10, fontSize: 12, color: "var(--sec)" }}>불러옴 ({html.length.toLocaleString()}자)</span>}
+              </div>
+            )}
+            {inputMode === "url" && (
+              <input value={urlOne} onChange={(e) => setUrlOne(e.target.value)} placeholder="https://www.samsung.com/uk/smartphones/galaxy-s26-ultra/compare/"
+                style={{ ...inputStyle, width: "100%", fontSize: 13, padding: "10px 12px" }} />
+            )}
+            <button onClick={doCheck} disabled={busy} style={{ marginTop: 8, padding: "8px 16px", borderRadius: 8, border: "none", background: "#0A66E0", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+              {busy ? "검수 중…" : "검수하기"}
+            </button>
+          </div>
 
           {/* 스펙 관리 표 (스펙 QA 탭) */}
           {tab === "copy" && (
@@ -365,15 +374,40 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <div className="card" style={{ marginTop: 16, padding: 14 }}>
               <b style={{ fontSize: 14 }}>룰 추가 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</b>
               {tab === "schema" ? (
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                  <input list="qb-schema-types" value={ruleForm.block_type} onChange={(e) => setRuleForm({ ...ruleForm, block_type: e.target.value })} placeholder="스키마 타입 (WebPage…)" style={{ ...inputStyle, width: 200 }} />
-                  <datalist id="qb-schema-types">{schemaTypes.map((t) => <option key={t} value={t} />)}</datalist>
-                  <input value={ruleForm.property} onChange={(e) => setRuleForm({ ...ruleForm, property: e.target.value })} placeholder="추가할 필수 속성 (name, url…)" style={{ ...inputStyle, width: 200 }} />
-                  <button onClick={addRule} className="toolBtn">추가</button>
-                  <span style={{ fontSize: 11, color: "var(--sec)", width: "100%" }}>선택한 타입 블록에 필수 속성을 추가합니다. 블록이 없으면 새로 만들어 이 페이지타입에 등록해요.</span>
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <input list="qb-schema-types" value={ruleForm.block_type} onChange={(e) => setRuleForm({ ...ruleForm, block_type: e.target.value })} placeholder="① 스키마 타입 (WebPage…)" style={{ ...inputStyle, width: 180 }} />
+                    <datalist id="qb-schema-types">{schemaTypes.map((t) => <option key={t} value={t} />)}</datalist>
+                    <input value={ruleForm.property} onChange={(e) => setRuleForm({ ...ruleForm, property: e.target.value })} placeholder="② 속성 (name, url, @id…)" style={{ ...inputStyle, width: 170 }} />
+                    <select value={ruleForm.value_kind} onChange={(e) => setRuleForm({ ...ruleForm, value_kind: e.target.value })} style={{ ...inputStyle, width: 190 }}>
+                      <option value="exists">③ 존재만 (값 검사 안 함)</option>
+                      <option value="url">URL/@id (SITECODE 가변·정확)</option>
+                      <option value="enum">enum/타입 (정확 일치)</option>
+                      <option value="text">번역 텍스트 (확인만·warn)</option>
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+                    {ruleForm.value_kind !== "exists" && ruleForm.value_kind !== "text" && (
+                      <input value={ruleForm.value} onChange={(e) => setRuleForm({ ...ruleForm, value: e.target.value })}
+                        placeholder={ruleForm.value_kind === "url" ? "④ 기대값 예: https://www.samsung.com/{SITECODE}/…/#webpage" : "④ 기대값 예: WebPage,ItemPage"}
+                        style={{ ...inputStyle, width: 420 }} />
+                    )}
+                    <select value={ruleForm.nested} onChange={(e) => setRuleForm({ ...ruleForm, nested: e.target.value })} style={{ ...inputStyle, width: 150 }}>
+                      <option value="">중첩 없음</option>
+                      <option value="@id">중첩 @id 로 검사</option>
+                      <option value="@type">중첩 @type 로 검사</option>
+                    </select>
+                    <button onClick={addRule} className="toolBtn">추가</button>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--sec)", marginTop: 8, lineHeight: 1.6 }}>
+                    타입 블록에 속성을 등록하고, <b>값 종류</b>까지 지정하면 값 검수(#5)에 바로 반영됩니다.
+                    블록이 없으면 새로 만들어 이 페이지타입에 등록해요.<br />
+                    · <b>존재만</b>: 있는지만 확인 · <b>URL/@id</b>: <code>{"{SITECODE}"}</code>·<code>{"{LANG-CODE}"}</code> 자동 치환 후 정확 일치(불일치=오류)
+                    · <b>enum/타입</b>: 정확 일치 · <b>번역 텍스트</b>: 번역 여부 확인(warn, 오류 아님)
+                  </div>
                 </div>
               ) : (
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
                   <select value={ruleForm.kind} onChange={(e) => setRuleForm({ ...ruleForm, kind: e.target.value })} style={{ ...inputStyle, width: 140 }}>
                     <option value="spec">스펙 토큰</option><option value="proper_noun">고유명사</option>
                   </select>
