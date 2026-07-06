@@ -56,13 +56,16 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [qCountry, setQCountry] = useState("전체");
   const [qDetail, setQDetail] = useState<string | null>(null);
 
+  // 검수 이력
+  const [history, setHistory] = useState<any[]>([]);
+
   const api = (p: string) => `${apiBase}${p}`;
   const flash = (m: string) => { setOk(m); setTimeout(() => setOk(""), 2500); };
   const J = (b: any) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
 
   useEffect(() => {
     fetch(api("/api/health")).then((r) => setOnline(r.ok)).catch(() => setOnline(false));
-    loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra");
+    loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra"); loadHistory();
   }, []);
   useEffect(() => { loadRules(); }, [product, pageType]);
   useEffect(() => { loadSpecs(specProduct); }, [specProduct]);
@@ -74,6 +77,12 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   async function loadRules() {
     try { const d = await (await fetch(api(`/api/qb/rules?product=${product}&page_type=${pageType}`))).json(); setRules(d); if (d.schema_types) setSchemaTypes(d.schema_types); } catch (e: any) { setErr(String(e)); }
   }
+  async function loadHistory() { try { setHistory((await (await fetch(api("/api/qb/history"))).json()).history || []); } catch { /* */ } }
+  const openHistory = async (id: string) => {
+    try { const d = await (await fetch(api(`/api/qb/history/${id}`))).json(); setResults(d.results || []); flash(`이력 ${id} 불러옴`); }
+    catch { setErr("이력 불러오기 실패"); }
+  };
+  const removeHistory = async (id: string) => { await fetch(api("/api/qb/history/remove"), J({ run_id: id })); loadHistory(); };
 
   const allSites = useMemo(() => Object.values(regionsMap).flat(), [regionsMap]);
   const regionNames = useMemo(() => Object.keys(regionsMap), [regionsMap]);
@@ -115,7 +124,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         acc.push(...((await r.json()).results || [])); setResults([...acc]);
         setProgress((p) => ({ ...p, done: Math.min(p.done + codes.length, total) }));
       }
-    } catch (e: any) { setErr(e.message); } finally { setBusy(false); setProgress((p) => ({ ...p, active: false })); }
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); setProgress((p) => ({ ...p, active: false })); loadHistory(); }
   };
 
   const downloadXlsx = async () => {
@@ -215,6 +224,20 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <div key={s.sitecode} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 10px", fontSize: 11.5 }}>
               <span title={s.url}>{s.sitecode} <span style={{ color: "var(--sec)" }}>{s.country}</span></span>
               <span role="button" onClick={() => removeUrl(s.sitecode)} style={{ cursor: "pointer", color: "var(--high)", fontSize: 11 }}>삭제</span>
+            </div>
+          ))}
+
+          {/* 검수 이력 */}
+          <div className="sideLabel" style={{ marginTop: 14 }}>검수 이력 <span style={{ color: "var(--sec)" }}>{history.length}건</span></div>
+          {history.length === 0 && <p style={{ padding: "2px 10px", fontSize: 11.5, color: "var(--sec)" }}>아직 저장된 검수가 없어요</p>}
+          {history.map((h) => (
+            <div key={h.run_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 10px", fontSize: 11.5, cursor: "pointer" }} onClick={() => openHistory(h.run_id)}>
+              <span>
+                <span style={{ fontWeight: 600 }}>{h.at?.slice(5, 16) || h.run_id}</span>
+                <span style={{ color: "var(--sec)" }}> · {h.product} · {h.pages}p</span>
+                {h.fail > 0 && <span style={{ color: "var(--high)" }}> · 오류 {h.fail}</span>}
+              </span>
+              <span role="button" onClick={(e) => { e.stopPropagation(); removeHistory(h.run_id); }} style={{ color: "var(--high)", fontSize: 11 }}>삭제</span>
             </div>
           ))}
         </div>
