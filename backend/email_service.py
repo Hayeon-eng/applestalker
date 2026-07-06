@@ -23,6 +23,14 @@ def _tier(score):
     return "good" if score >= 70 else "mid" if score >= 40 else "bad"
 
 
+# 이메일에서는 이 캐비엇 문구를 노출하지 않는다(액션 텍스트에서 제거).
+_CAV = " (HTML 신호 기준, 실제 이미지 미검증)"
+
+
+def _strip_cav(s):
+    return (s or "").replace(_CAV, "")
+
+
 def _kst(dt):
     if not dt:
         return ""
@@ -70,12 +78,14 @@ class EmailService:
         return run, changes, pov, _kst(run[2])
 
     def _report_data(self):
-        """최신 세션(가장 최근 크롤 배치) 종합: 사이트별 축 점수 → Samsung 3축 점수 +
-        경쟁사 평균 대비 + 세션 요약 + 세션 전체 변경점(top 30)."""
+        """최신 세션 종합: 사이트별 축 점수/근거/액션(전 사이트), Samsung 3축 + 경쟁사 평균,
+        제품군별 변경·커버리지 요약, 세션 요약, 세션 변경점(top 30)."""
         import json
         from export_service import _score_breakdown, _priority_action
-        data = {"when": "", "sites": 0, "changes": 0, "axes": [], "summary": "", "rows": []}
-        site_bd, site_facts = {}, {}
+        data = {"when": "", "sites": 0, "changes": 0, "axes": [], "summary": "",
+                "rows": [], "sites_detail": [], "products": []}
+        site_bd, site_facts, site_ins = {}, {}, {}
+        prod_rows = []
         try:
             with self.engine.connect() as conn:
                 runs = conn.execute(text(
@@ -106,6 +116,9 @@ class EmailService:
                         facts = block.get("facts") or {}
                         site_bd.setdefault(r[1], {})[bucket] = _score_breakdown(bucket, facts)
                         site_facts.setdefault(r[1], {})[bucket] = facts
+                        pts = [i.get("point") for i in (block.get("insights") or [])
+                               if isinstance(i, dict) and i.get("point")]
+                        site_ins.setdefault(r[1], {})[bucket] = pts
                 if run_ids:
                     keys = ",".join(":r%d" % i for i in range(len(run_ids)))
                     params = {("r%d" % i): rid for i, rid in enumerate(run_ids)}
@@ -113,6 +126,9 @@ class EmailService:
                         "SELECT url, site_key, severity_level, change_type, field_name, summary, before_value, after_value "
                         "FROM detected_changes WHERE crawl_run_id IN (" + keys + ") "
                         "ORDER BY severity_level DESC, id DESC LIMIT 30"), params).fetchall()
+                    prod_rows = conn.execute(text(
+                        "SELECT url, site_key FROM detected_changes WHERE crawl_run_id IN (" + keys + ") LIMIT 2000"),
+                        params).fetchall()
         except Exception:
             return data
 
@@ -127,8 +143,44 @@ class EmailService:
             data["axes"].append({
                 "label": label, "color": color, "total": our_total, "tier": _tier(our_total),
                 "peer_avg": peer_avg, "delta": delta,
-                "action": _priority_action(bucket, facts, our_bd or {"all": []}),
+                "action": _strip_cav(_priority_action(bucket, facts, our_bd or {"all": []})),
             })
+
+        # 사이트별 상세(전 사이트): 점수 + 근거 + 우선 액션
+        ordered = ([s for s in site_bd if s == "samsung"] +
+                   [s for s in site_bd if s != "samsung"])
+        for site in ordered:
+            axes = []
+            for bucket, label, color in AXIS_META:
+                bd = site_bd[site].get(bucket)
+                total = bd.get("total") if bd else None
+                ev = (site_ins.get(site, {}).get(bucket) or [None])[0]
+                facts = site_facts[site].get(bucket) or {}
+                axes.append({
+                    "label": label, "color": color, "total": total, "tier": _tier(total),
+                    "evidence": ev, "action": _strip_cav(_priority_action(bucket, facts, bd or {"all": []})),
+                })
+            data["sites_detail"].append({
+                "name": SITE_KO.get(site, site), "is_ours": site == "samsung", "axes": axes,
+            })
+
+        # 제품군별 변경·커버리지 요약
+        try:
+            from config import product_category_for_url, product_category_label
+            pmap = {}
+            for row in prod_rows:
+                url = row[0] or ""
+                cat = product_category_for_url(url)
+                d = pmap.setdefault(cat, {"changes": 0, "sites": set()})
+                d["changes"] += 1
+                d["sites"].add(SITE_KO.get(row[1], row[1] or "미분류"))
+            data["products"] = [
+                {"label": product_category_label(cat), "changes": v["changes"],
+                 "sites": sorted(v["sites"])}
+                for cat, v in sorted(pmap.items(), key=lambda kv: -kv[1]["changes"])
+            ]
+        except Exception:
+            data["products"] = []
 
         parts = ["이번 수집 %d개 사이트 · 변경 %d건." % (data["sites"], data["changes"])]
         if any(a["total"] is not None for a in data["axes"]):
@@ -140,6 +192,67 @@ class EmailService:
                     "%s %s%d" % (a["label"], "+" if a["delta"] >= 0 else "", a["delta"]) for a in dparts) + ".")
         data["summary"] = " ".join(parts)
         return data
+
+    def _sites_detail_html(self, sites_detail):
+        """사이트별 현황: 각 사이트 3축 점수 + 근거 + 우선 액션(컴팩트 카드)."""
+        if not sites_detail:
+            return ""
+        cards = ""
+        for s in sites_detail:
+            chips = ""
+            lines = ""
+            for a in s["axes"]:
+                tc = TIER_COLOR[a["tier"]]
+                score = "-" if a["total"] is None else str(a["total"])
+                chips += (
+                    "<td width='33%' valign='top' style='padding:3px'>"
+                    "<div style='border:1px solid #EEF0F3;border-radius:8px;padding:7px 6px;text-align:center'>"
+                    "<span style='font-size:10px;font-weight:700;color:" + a["color"] + "'>" + a["label"] + "</span>"
+                    "<div style='font-size:18px;font-weight:800;color:" + tc + ";line-height:1.1'>" + score + "</div>"
+                    "<span style='font-size:9.5px;color:#98A2B3'>" + TIER_LABEL[a["tier"]] + "</span>"
+                    "</div></td>"
+                )
+                ev = _short(a.get("evidence") or "", "", 72) if a.get("evidence") else ""
+                act = _short(a.get("action") or "", "", 96)
+                detail = ev + (" · " if ev else "") + act
+                lines += (
+                    "<div style='font-size:11.5px;color:#475467;line-height:1.55;margin-top:3px'>"
+                    "<span style='display:inline-block;width:7px;height:7px;border-radius:2px;background:"
+                    + a["color"] + ";margin-right:6px'></span>"
+                    "<b style='color:#101318'>" + a["label"] + "</b> " + detail + "</div>"
+                )
+            star = "★ " if s["is_ours"] else ""
+            border = "#0A66E0" if s["is_ours"] else "#EAECF0"
+            cards += (
+                "<div style='border:1px solid " + border + ";border-radius:10px;padding:12px;margin-top:10px'>"
+                "<div style='font-size:13px;font-weight:800;color:#101318;margin-bottom:6px'>" + star + escape(s["name"]) + "</div>"
+                "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse'><tr>" + chips + "</tr></table>"
+                + lines +
+                "</div>"
+            )
+        return ("<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 2px'>사이트별 현황 "
+                "<span style='font-weight:400;color:#667085'>(점수 · 근거 · 우선 액션)</span></div>" + cards)
+
+    def _products_html(self, products):
+        """제품군별 변경·커버리지 요약."""
+        if not products:
+            return ""
+        rows = ""
+        for p in products:
+            rows += (
+                "<tr>"
+                "<td style='padding:8px;border-top:1px solid #EAECF0;font-size:12.5px;font-weight:700;color:#101318;white-space:nowrap'>" + escape(p["label"]) + "</td>"
+                "<td style='padding:8px;border-top:1px solid #EAECF0;font-size:12.5px;color:#344054'>변경 " + str(p["changes"]) + "건</td>"
+                "<td style='padding:8px;border-top:1px solid #EAECF0;font-size:11.5px;color:#667085'>" + escape(", ".join(p["sites"])) + "</td>"
+                "</tr>"
+            )
+        return (
+            "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>제품군별 요약</div>"
+            "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse'>"
+            "<tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>제품군</th><th style='padding:6px 8px'>변경</th><th style='padding:6px 8px'>변경 감지 사이트</th></tr>"
+            + rows + "</table>"
+            "<div style='font-size:10.5px;color:#98A2B3;margin-top:6px'>제품군별 변경 건수·커버리지 기준. 축 점수는 사이트 단위와 동일 소스(제품군별 별도 점수는 아님).</div>"
+        )
 
     def _scoreboard_html(self, axes):
         """우리 3축 점수 카드(가로 3칸, 경쟁사 평균 대비 포함) + 우선 액션 목록."""
@@ -180,7 +293,7 @@ class EmailService:
             "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse'><tr>" + cells + "</tr></table>"
             "<div style='font-size:12px;font-weight:700;color:#101318;margin:14px 0 2px'>우선 액션</div>"
             + actions +
-            "<div style='font-size:10.5px;color:#98A2B3;margin-top:8px'>점수=각 축 하위지표 전체 평균 · 경쟁사 평균=비-Samsung 사이트 평균 · VISUAL은 HTML 신호 기준(실제 이미지 미검증)</div>"
+            "<div style='font-size:10.5px;color:#98A2B3;margin-top:8px'>점수=각 축 하위지표 전체 평균 · 경쟁사 평균=비-Samsung 사이트 평균</div>"
         )
 
     def _row(self, change):
@@ -207,17 +320,29 @@ class EmailService:
         else:
             summary = escape(d["summary"] or "최근 모니터링 결과입니다.")
             scoreboard = self._scoreboard_html(d["axes"])
+            sites_detail = self._sites_detail_html(d.get("sites_detail") or [])
+            products = self._products_html(d.get("products") or [])
             rows = "".join(self._row(r) for r in d["rows"])
             if not rows:
                 rows = "<tr><td colspan='3' style='padding:14px;color:#667085;border-top:1px solid #EAECF0'>이번 수집에서는 변경점이 없습니다. 페이지별 현재 상태를 확인해 주세요.</td></tr>"
+            sep = "<div style='height:1px;background:#EAECF0;margin:18px 0'></div>"
+            changes_section = (
+                "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>주요 변경점</div>"
+                "<table style='width:100%;border-collapse:collapse'><tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>구분</th><th style='padding:6px 8px'>중요도</th><th style='padding:6px 8px'>변경 내용</th></tr>" + rows + "</table>"
+            )
             body = (
+                # 요약 (문장 + Samsung 스코어보드)
                 "<p style='font-size:14px;color:#344054;line-height:1.7;margin:0 0 16px'>" + summary + "</p>"
-                + (scoreboard + "<div style='height:1px;background:#EAECF0;margin:18px 0'></div>" if scoreboard else "")
-                + "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>주요 변경점</div>"
-                + "<table style='width:100%;border-collapse:collapse'><tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>구분</th><th style='padding:6px 8px'>중요도</th><th style='padding:6px 8px'>변경 내용</th></tr>" + rows + "</table>"
+                + (scoreboard + sep if scoreboard else "")
+                # 변화
+                + changes_section + sep
+                # 사이트별
+                + (sites_detail + sep if sites_detail else "")
+                # 제품별
+                + (products if products else "")
             )
         header_meta = "변경 " + str(d["changes"]) + "건" + (" · " + str(d["sites"]) + "개 사이트" if d["sites"] else "")
-        return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>APPLE STALKER · " + escape(report_type) + " report</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>" + header_meta + "</div><div style='margin-top:16px'>" + body + "</div></div></div>"
+        return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>애플스토커 사과 🍎</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>" + header_meta + "</div><div style='margin-top:16px'>" + body + "</div></div></div>"
 
     def send(self, report_type="morning"):
         if not self.enabled:
