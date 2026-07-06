@@ -42,6 +42,27 @@ def set_fetcher(fn: Callable[[str], Optional[str]]):
     _fetcher = fn
 
 
+def enable_default_crawler(requires_js: bool = False):
+    """기존 애플스토커의 HybridCrawler 를 큐비 fetcher 로 자동 연결.
+    main.py 에서 `enable_default_crawler()` 한 줄이면 /run 이 동작한다.
+    (qb_api 엔드포인트는 동기 def 라 스레드풀에서 실행 → asyncio.run 안전)"""
+    import asyncio
+
+    def _fetch(url: str) -> Optional[str]:
+        async def _run():
+            from crawler import HybridCrawler
+            c = HybridCrawler()
+            await c.start()
+            try:
+                res = await c.crawl(url, requires_js=requires_js)
+                return (res or {}).get("html_content")
+            finally:
+                await c.close()
+        return asyncio.run(_run())
+
+    set_fetcher(_fetch)
+
+
 @qb_router.get("/sites")
 def qb_sites():
     by = _registry.by_region()
