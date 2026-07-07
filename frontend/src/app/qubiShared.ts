@@ -12,8 +12,8 @@ export type Product = { code: string; label: string; spec_only?: boolean };
 
 export const SEV = { fail: { ko: "오류", c: "#D8362F" }, warn: { ko: "확인", c: "#E0A008" }, pass: { ko: "정상", c: "#1F9E5C" }, na: { ko: "해당없음", c: "#98A2B3" } } as const;
 export const HONEY = "#E0A008";
-export const PAGE_TYPES = ["PDP", "Compare", "Buying"];
-// 버즈는 Compare/Buying 페이지가 없음 → PDP만. 폰만 전체 페이지타입.
+export const PAGE_TYPES = ["PDP", "Compare"];
+// 버즈는 Compare 페이지가 없음 → PDP만. 폰은 PDP·Compare. (Buying은 검사 제외라 노출 안 함)
 export const pageTypesFor = (product: string) =>
   product.startsWith("galaxy-buds") ? ["PDP"] : PAGE_TYPES;
 // 마케팅 제품 → 스키마 룰 패밀리(M3=폰 계열 / M12=버즈 계열)
