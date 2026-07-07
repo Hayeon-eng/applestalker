@@ -20,11 +20,48 @@ from typing import Any, Dict, List, Optional
 from qa_messages import render
 
 
-def page_text(html: str) -> str:
+def page_regions(html: str) -> tuple:
+    """페이지 텍스트를 (본문, disclaimer/각주) 로 분리한다.
+    - disclaimer/footnote/legal/cookie/terms 성격의 영역은 본문에서 떼어낸다
+      → 본문 스펙 검사가 각주 참조번호(02, 03, 1965 …)나 법적고지 숫자를 오인하지 않게.
+    - 각주 영역의 값(예: rated capacity 4855 mAh)은 별도(Disclaimer 스코프) 검사에 사용."""
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html or "", "lxml")
+        for t in soup(["script", "style", "noscript"]):
+            t.extract()
+        disc_parts = []
+        kw = re.compile(r"(disclaimer|footnote|legal|terms|cookie|cp-disc|sub-disc|fineprint|fine-print)", re.I)
+        for el in soup.find_all(True):
+            idc = " ".join(filter(None, [el.get("id", "")] + (el.get("class") or [])))
+            if idc and kw.search(idc):
+                disc_parts.append(el.get_text(" ", strip=True))
+                el.extract()
+        # 상단 <sup> 각주 참조번호도 본문에서 제거(숫자 오인 방지)
+        for sup in soup.find_all("sup"):
+            sup.extract()
+        body = re.sub(r"\s+", " ", soup.get_text(" ", strip=True))
+        disc = re.sub(r"\s+", " ", " ".join(disc_parts))
+        return body, disc
+    except Exception:
+        t = _strip(html)
+        return t, ""
+
+
+def _strip(html: str) -> str:
     t = re.sub(r"<script[\s\S]*?</script>", " ", html or "", flags=re.I)
     t = re.sub(r"<style[\s\S]*?</style>", " ", t, flags=re.I)
     t = htmllib.unescape(re.sub(r"<[^>]+>", " ", t))
     return re.sub(r"\s+", " ", t)
+
+
+def page_text(html: str) -> str:
+    body, _ = page_regions(html)
+    return body
+
+
+# 단위 신뢰도: STRONG=값이 다르면 오류로 볼 만큼 고유 / WEAK=페이지에 무관한 숫자가 흔해 오탐 위험
+_WEAK_UNITS = {"x", "mm", "min", "meter", "w", "%", "°"}
 
 
 def _present(token: str, text: str) -> bool:
@@ -60,15 +97,20 @@ def _norm_num(s: str) -> str:
 
 
 def _num_present(num: str, unit: str, text: str) -> bool:
-    """숫자+단위가 페이지에 있는지 — 콤마·공백 표기차 흡수(2,600 nits == 2600 nits)."""
+    """숫자+단위가 페이지에 있는지 — 콤마·공백 표기차 흡수(2,600 nits == 2600 nits),
+    소수점(6.9, 1.5)도 정확히 처리."""
     u = _UNIT_RX.get((unit or "").lower())
-    digits = re.escape(num)
-    sep = r"[,\s]*"  # 천단위 콤마/공백 허용
-    numpat = sep.join(list(digits)) if len(digits) <= 8 else digits
+    # 숫자를 글자 단위로 조립: 자릿수 사이엔 천단위 콤마/공백 허용, 소수점(.)은 그대로
+    pat = ""
+    for ch in str(num):
+        if ch.isdigit():
+            pat += re.escape(ch) + r"[,\s]*"
+        else:
+            pat += re.escape(ch)
     if u:
-        rx = re.compile(numpat + r"\s?" + u, re.I)
+        rx = re.compile(pat + r"\s?" + u, re.I)
     else:
-        rx = re.compile(numpat, re.I)
+        rx = re.compile(pat, re.I)
     return rx.search(text) is not None
 
 
@@ -90,30 +132,36 @@ def _finalize(f: Dict[str, Any], code: str, lang: str = "ko") -> Dict[str, Any]:
 def check_copy(html: str, product_rules: Dict[str, Any],
                key_specs: Optional[List[Dict[str, Any]]] = None, lang: str = "ko",
                page_type: str = "PDP") -> Dict[str, Any]:
-    text = page_text(html)
+    body, disc = page_regions(html)
+    text = body  # 본문 스펙은 본문에서만 검사(각주 숫자 오인 방지)
     findings: List[Dict[str, Any]] = []
     ok = warn = fail = na = 0
     key_specs = key_specs or []
     noun_toks = product_rules.get("proper_nouns", [])
 
-    # 0) 수집 품질 가드: 이 페이지타입에서 '기대되는' 스펙이 하나도 안 잡히고 본문도 얇으면
-    exp = [s for s in key_specs if page_type in (s.get("page_types") or ["PDP"])]
+    def _scope_text(pts):
+        # 스펙의 적용 영역: Disclaimer 스코프면 각주 텍스트, 아니면 본문
+        return disc if ("Disclaimer" in pts) else body
+
+    # 0) 수집 품질 가드 (본문 기준)
+    exp = [s for s in key_specs if page_type in (s.get("page_types") or ["PDP"]) or "Disclaimer" in (s.get("page_types") or [])]
     def _spec_present(s):
         vals = [str(v) for v in (s.get("values") or [])]; unit = s.get("unit", "")
-        return any(_num_present(_norm_num(v), unit, text) if v[:1].isdigit() else _present(v, text) for v in vals)
+        t = _scope_text(s.get("page_types") or ["PDP"])
+        return any(_num_present(_norm_num(v), unit, t) if v[:1].isdigit() else _present(v, t) for v in vals)
     present_cnt = sum(1 for s in exp if _spec_present(s))
-    if exp and (len(text) < 1500 or present_cnt == 0):
+    if exp and (len(body) < 1500 or present_cnt == 0):
         ko = lang != "en"
         findings.append({"kind": "collection", "token": "(수집 품질)", "status": "fail", "code": "copy.collection",
-            "as_is": (f"페이지 텍스트가 비정상적으로 적음(본문 {len(text):,}자, 기대 스펙 {present_cnt}/{len(exp)} 검출)"
-                      if ko else f"Page text abnormally small ({len(text):,} chars, {present_cnt}/{len(exp)} expected specs found)"),
+            "as_is": (f"페이지 텍스트가 비정상적으로 적음(본문 {len(body):,}자, 기대 스펙 {present_cnt}/{len(exp)} 검출)"
+                      if ko else f"Page text abnormally small ({len(body):,} chars, {present_cnt}/{len(exp)} expected specs found)"),
             "to_be": ("수집 실패/차단 또는 JS 미렌더링 가능성 — 재수집(JS 렌더링) 후 재검수." if ko
                       else "Likely fetch failure/block or non-rendered JS — re-crawl (with JS) then re-check.")})
         return {"summary": {"keyspec_total": len(key_specs), "pass": 0, "warn": 0, "fail": 1, "na": 0,
-                            "value_mismatch": 0, "value_missing": 0, "text_len": len(text),
+                            "value_mismatch": 0, "value_missing": 0, "text_len": len(body),
                             "collection_suspect": True}, "findings": findings}
 
-    # 1) 핵심 스펙 값 대조 — any-of(여러 값 허용) + 숫자 정규화 + 페이지타입 회색(해당없음)
+    # 1) 핵심 스펙 값 대조
     vmis = vmiss = 0
     for s in key_specs:
         cat = s.get("category", ""); unit = s.get("unit", "")
@@ -121,43 +169,45 @@ def check_copy(html: str, product_rules: Dict[str, Any],
         pts = s.get("page_types") or ["PDP"]
         if not vals:
             continue
+        is_disc = "Disclaimer" in pts
+        region = "disclaimer" if is_disc else "본문"
+        scope = _scope_text(pts)
         exp_label = " / ".join(f"{v}{(' ' + unit) if unit else ''}" for v in vals)
-        # (a) 이 페이지타입에서 기대하지 않는 스펙 → 회색 '해당없음'(오류 아님)
-        if page_type not in pts:
+        # (a) 이 페이지타입에서 기대하지 않는 스펙(디스클레이머 스코프는 페이지타입 무관하게 검사)
+        if not is_disc and page_type not in pts:
             na += 1
             findings.append({"kind": "spec_value", "token": cat, "category": cat, "expected": exp_label,
-                             "status": "na", "code": "copy.na",
+                             "region": region, "status": "na", "code": "copy.na",
                              "as_is": (f"{cat}: 이 페이지타입({page_type})엔 해당 없음" if lang != "en" else f"{cat}: N/A on {page_type}"),
                              "to_be": ""})
             continue
-        # any-of: 허용 값 중 하나라도 있으면 통과
         is_num = vals[0][:1].isdigit()
-        present = any(_num_present(_norm_num(v), unit, text) if is_num else _present(v, text) for v in vals)
+        present = any(_num_present(_norm_num(v), unit, scope) if is_num else _present(v, scope) for v in vals)
+        base = {"kind": "spec_value", "token": cat, "category": cat, "expected": exp_label, "region": region}
         if present:
             ok += 1
-            findings.append({"kind": "spec_value", "token": cat, "category": cat, "expected": exp_label,
-                             "status": "pass", "as_is": "", "to_be": "", "code": "copy.value_ok"})
+            findings.append({**base, "status": "pass", "as_is": "", "to_be": "", "code": "copy.value_ok"})
             continue
-        # 같은 단위의 '다른 값'이 페이지에 있으면 값 불일치(오류)
-        others = sorted(set(_values_with_unit(text, unit)) - {_norm_num(v) for v in vals}) if (unit and is_num) else []
+        # 같은 단위의 '다른 값'이 있으면 값 불일치(오류) — 단, 신뢰도 낮은 단위(x/mm/% 등)는 오탐이 많아 오류로 안 봄
+        weak = (unit or "").lower() in _WEAK_UNITS
+        others = sorted(set(_values_with_unit(scope, unit)) - {_norm_num(v) for v in vals}) if (unit and is_num and not weak) else []
         if others:
             fail += 1; vmis += 1
-            findings.append(_finalize({"kind": "spec_value", "token": cat, "category": cat,
-                                       "expected": exp_label, "found": others, "status": "fail"}, "copy.value_mismatch", lang))
+            findings.append(_finalize({**base, "found": others, "status": "fail"}, "copy.value_mismatch", lang))
         else:
             warn += 1; vmiss += 1
-            findings.append(_finalize({"kind": "spec_value", "token": cat, "category": cat,
-                                       "expected": exp_label, "status": "warn"}, "copy.value_missing", lang))
+            findings.append(_finalize({**base, "status": "warn"}, "copy.value_missing", lang))
 
-    # 2) 고유명사 존재(WARN)
+    # 2) 고유명사 존재(WARN) — 본문+각주 합쳐서 확인
+    all_text = body + " " + disc
     for pn in noun_toks:
-        hit = _present(pn, text)
+        hit = _present(pn, all_text)
         ok += hit; warn += (not hit)
-        f = {"kind": "proper_noun", "token": pn, "status": "pass" if hit else "warn"}
+        f = {"kind": "proper_noun", "token": pn, "region": "본문", "status": "pass" if hit else "warn"}
         findings.append(_finalize(f, "copy.noun_missing", lang) if not hit else {**f, "as_is": "", "to_be": "", "code": "copy.noun_ok"})
 
     return {"summary": {"keyspec_total": len(key_specs), "pass": ok, "warn": warn, "fail": fail, "na": na,
-                        "value_mismatch": vmis, "value_missing": vmiss, "text_len": len(text)},
+                        "value_mismatch": vmis, "value_missing": vmiss, "text_len": len(body)},
             "findings": findings}
 
 

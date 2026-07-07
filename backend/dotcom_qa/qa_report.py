@@ -150,7 +150,7 @@ def build_xlsx(page_results):
     # ── Sheet 1 — QA Findings (한 행 = 오류/확인 하나, 국가별 정렬) ──
     ws = wb.active; ws.title = "QA Findings"
     ws.append(["#", "Country", "Region", "Site Code", "Product", "Page Type",
-               "Severity", "Area", "Item", "As-Is (issue)", "To-Be (fix)", "URL"])
+               "Severity", "Area", "Item", "Location", "As-Is (issue)", "To-Be (fix)", "URL"])
     _hdr(ws)
     # 모든 오류/확인을 한 행씩으로 펼치고 국가→사이트 순 정렬
     exploded = []
@@ -160,24 +160,27 @@ def build_xlsx(page_results):
         for f in (pr.get("schema") or {}).get("findings", []):
             if f.get("status") in ("fail", "warn"):
                 a, t = _en(f)
-                exploded.append((meta, "Schema", f.get("block", ""), f.get("status"), a, t))
+                exploded.append((meta, "Schema", f.get("block", ""), f.get("block", ""), f.get("status"), a, t))
         for f in (pr.get("copy") or {}).get("findings", []):
             if f.get("status") in ("fail", "warn"):
                 a, t = _en(f)
-                exploded.append((meta, "Spec", f.get("token", "") or f.get("category", ""), f.get("status"), a, t))
+                loc = "Disclaimer" if f.get("region") == "disclaimer" else "Body"
+                if f.get("found"):
+                    loc += f" (page: {', '.join(f['found'][:6])})"
+                exploded.append((meta, "Spec", f.get("token", "") or f.get("category", ""), loc, f.get("status"), a, t))
     # 정렬: 국가 → 사이트 → 심각도(오류 먼저)
     sev_rank = {"fail": 0, "warn": 1}
-    exploded.sort(key=lambda r: (r[0][0] or "zz", r[0][2] or "", sev_rank.get(r[3], 9)))
-    for n, (meta, area, item, sev, a, t) in enumerate(exploded, 1):
+    exploded.sort(key=lambda r: (r[0][0] or "zz", r[0][2] or "", sev_rank.get(r[4], 9)))
+    for n, (meta, area, item, loc, sev, a, t) in enumerate(exploded, 1):
         country, region, site, product, ptype, url = meta
-        ws.append([n, country, region, site, product, ptype, SEV_EN.get(sev, sev), area, str(item), a, t, url])
+        ws.append([n, country, region, site, product, ptype, SEV_EN.get(sev, sev), area, str(item), loc, a, t, url])
         rn = ws.max_row
         sc = ws.cell(row=rn, column=7)  # Severity
         sc.font = Font(bold=True, color=SEV_COLOR2.get(sev, "000000"))
         sc.alignment = Alignment(horizontal="center", vertical="center")
     if not exploded:
-        ws.append(["—", "", "", "", "", "", SEV_EN["pass"], "", "", "No issues found", "", ""])
-    _finish(ws, [4, 13, 12, 9, 16, 9, 9, 8, 22, 52, 52, 40], "A2")
+        ws.append(["—", "", "", "", "", "", SEV_EN["pass"], "", "", "", "No issues found", "", ""])
+    _finish(ws, [4, 13, 12, 9, 16, 9, 9, 8, 22, 18, 48, 48, 40], "A2")
 
     # ── Sheet 2 — Schema Matrix (페이지 1줄 = 타입별 O/△/X 요약) ──
     ws2 = wb.create_sheet("Schema Matrix")
