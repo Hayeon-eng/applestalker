@@ -240,8 +240,9 @@ def qb_products():
     out = []
     for code, entry in data.items():
         label = entry.get("label", code) if isinstance(entry, dict) else code
-        out.append({"code": code, "label": label})
-    out.sort(key=lambda x: x["label"])
+        spec_only = entry.get("spec_only", False) if isinstance(entry, dict) else False
+        out.append({"code": code, "label": label, "spec_only": spec_only})
+    # key_specs.json 의 등록 순서를 그대로 유지(정렬하지 않음)
     return {"products": out}
 
 

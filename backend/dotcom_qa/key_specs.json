@@ -177,18 +177,19 @@
         }
       ]
     },
-    "galaxy-s26-plus": {
-      "label": "Galaxy S26+",
+    "galaxy-s26": {
+      "label": "Galaxy S26 | S26+",
       "specs": [
         {
           "category": "display_size",
           "values": [
+            "6.3",
             "6.7"
           ],
           "unit": "inch",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         },
         {
@@ -198,8 +199,8 @@
           ],
           "unit": "MP",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         },
         {
@@ -235,17 +236,19 @@
         {
           "category": "battery_capacity",
           "values": [
+            "4300",
             "4900"
           ],
           "unit": "mAh",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         },
         {
           "category": "video_playback",
           "values": [
+            "30",
             "31"
           ],
           "unit": "hours",
@@ -256,6 +259,7 @@
         {
           "category": "charging",
           "values": [
+            "25",
             "45"
           ],
           "unit": "W",
@@ -270,8 +274,8 @@
           ],
           "unit": "GB",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         },
         {
@@ -282,24 +286,25 @@
           ],
           "unit": "GB",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         }
-      ]
+      ],
+      "spec_only": false
     },
-    "galaxy-s26": {
-      "label": "Galaxy S26",
+    "galaxy-s26-plus": {
+      "label": "Galaxy S26+",
       "specs": [
         {
           "category": "display_size",
           "values": [
-            "6.3"
+            "6.7"
           ],
           "unit": "inch",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         },
         {
@@ -309,8 +314,8 @@
           ],
           "unit": "MP",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         },
         {
@@ -346,18 +351,20 @@
         {
           "category": "battery_capacity",
           "values": [
-            "4300"
+            "4300",
+            "4900"
           ],
           "unit": "mAh",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         },
         {
           "category": "video_playback",
           "values": [
-            "30"
+            "30",
+            "31"
           ],
           "unit": "hours",
           "page_types": [
@@ -367,7 +374,8 @@
         {
           "category": "charging",
           "values": [
-            "25"
+            "25",
+            "45"
           ],
           "unit": "W",
           "page_types": [
@@ -381,8 +389,8 @@
           ],
           "unit": "GB",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         },
         {
@@ -393,11 +401,12 @@
           ],
           "unit": "GB",
           "page_types": [
-            "PDP",
-            "Compare"
+            "Compare",
+            "PDP"
           ]
         }
-      ]
+      ],
+      "spec_only": true
     },
     "galaxy-buds4-pro": {
       "label": "Galaxy Buds4 Pro",
