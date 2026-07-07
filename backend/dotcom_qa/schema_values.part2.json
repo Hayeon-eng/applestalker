@@ -768,12 +768,17 @@
       ]
     },
     "name_tokens": {
-      "must": [
+      "model_any": [
         "S26"
       ],
-      "forbid": [
-        "Ultra"
-      ]
+      "tier_any": [],
+      "forbid_any": [
+        "ultra",
+        "울트라",
+        "ウルトラ"
+      ],
+      "model_label": "S26",
+      "tier_label": ""
     }
   }
 }

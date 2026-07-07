@@ -292,11 +292,20 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
             astr = str(actual)
 
             if kind == "name_token":
-                # 번역은 허용하되 제품 식별토큰은 유지돼야 함(제품명 오기·모델 혼입 감지)
-                must = name_tokens.get("must", []); forbid = name_tokens.get("forbid", [])
+                # 번역/현지화 허용: 모델 식별자(S26·버즈4 등)는 언어별 표기 중 하나만 있으면 되고,
+                # 등급어(Ultra→울트라/ウルトラ 등)도 변형 중 하나만 있으면 통과.
                 low = astr.lower()
-                miss = [t for t in must if t.lower() not in low]
-                bad = [t for t in forbid if t.lower() in low]
+                model_any = name_tokens.get("model_any", name_tokens.get("must", []))
+                tier_any = name_tokens.get("tier_any", [])
+                forbid_any = name_tokens.get("forbid_any", name_tokens.get("forbid", []))
+                model_ok = (not model_any) or any(t.lower() in low for t in model_any)
+                tier_ok = (not tier_any) or any(t.lower() in low for t in tier_any)
+                bad = [t for t in forbid_any if t.lower() in low]
+                miss = []
+                if not model_ok:
+                    miss.append(name_tokens.get("model_label", "제품 모델명"))
+                if not tier_ok:
+                    miss.append(name_tokens.get("tier_label", "등급표기"))
                 if miss or bad:
                     name_issue.append({"prop": prop, "actual": astr[:60],
                                        "missing": miss, "forbidden": bad})

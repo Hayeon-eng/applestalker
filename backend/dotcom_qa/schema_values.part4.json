@@ -786,10 +786,21 @@
       ]
     },
     "name_tokens": {
-      "must": [
-        "Buds4 Pro"
+      "model_any": [
+        "buds4",
+        "buds 4",
+        "버즈4",
+        "버즈 4",
+        "バズ4"
       ],
-      "forbid": []
+      "tier_any": [
+        "pro",
+        "프로",
+        "プロ"
+      ],
+      "forbid_any": [],
+      "model_label": "Buds4",
+      "tier_label": "Pro(프로)"
     }
   }
 }
