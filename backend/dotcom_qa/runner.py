@@ -33,7 +33,7 @@ def page_type_from_url(url: str) -> str:
 
 
 def product_from_url(url: str) -> Optional[str]:
-    """URL 경로에서 마케팅 제품 판별 (galaxy-s26-ultra / -plus / -s26)."""
+    """URL 경로에서 마케팅 제품 판별."""
     u = (url or "").lower()
     if "galaxy-s26-ultra" in u:
         return "galaxy-s26-ultra"
@@ -41,24 +41,60 @@ def product_from_url(url: str) -> Optional[str]:
         return "galaxy-s26-plus"
     if "galaxy-s26" in u:
         return "galaxy-s26"
+    if "galaxy-buds4-pro" in u:
+        return "galaxy-buds4-pro"
+    if "galaxy-buds4" in u or "galaxy-buds" in u:
+        return "galaxy-buds4"
     return None
 
 
+def is_smartphone(market_product: Optional[str], url: str = "") -> bool:
+    """스마트폰(=Flagship PD 세트) 여부. galaxy-s26* 계열이면 True.
+    판별 불가한 신규/공통 페이지는 안전하게 False(→ Simple 세트)로 폴백."""
+    mp = (market_product or "").lower()
+    u = (url or "").lower()
+    if mp.startswith("galaxy-s") and "buds" not in mp:
+        return True
+    if "/smartphones/" in u and "buds" not in u:
+        return True
+    return False
+
+
+def schema_set_for(page_type: str, market_product: Optional[str], url: str = "") -> Optional[str]:
+    """페이지타입+제품군 → Word 스키마 세트 파일 접두어.
+    - PDP + 스마트폰  → flagship
+    - PDP + 그 외     → simple  (버즈·노트북·태블릿, 판별불가 공통페이지 포함)
+    - Compare         → compare
+    - Buying          → None (스키마 검사 제외)
+    """
+    if page_type == "Buying":
+        return None
+    if page_type == "Compare":
+        return "compare"
+    return "flagship" if is_smartphone(market_product, url) else "simple"
+
+
 def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str = None,
-               schema_path: str = None, copy_path: str = None, spec_path: str = None) -> Dict[str, Any]:
-    schema_path = schema_path or os.path.join(_HERE, "schema_rules.json")
+               url: str = "", schema_path: str = None, copy_path: str = None, spec_path: str = None) -> Dict[str, Any]:
     copy_path = copy_path or os.path.join(_HERE, "copy_rules.json")
     spec_path = spec_path or os.path.join(_HERE, "key_specs.json")
-    # 스키마 규칙: 제품×페이지타입 파일 → 제품별 파일 → 통합 파일 순으로 폴백
-    by_page = os.path.join(_HERE, f"schema_rules.{product}.{page_type}.json")
-    per_product = os.path.join(_HERE, f"schema_rules.{product}.json")
-    if os.path.exists(by_page):
-        sr = json.load(open(by_page, encoding="utf-8"))
-    elif os.path.exists(per_product):
-        sr = json.load(open(per_product, encoding="utf-8"))
+
+    # ── 스키마 규칙: Word(PTK) 세트로 재구성 — flagship/simple/compare, Buying 제외 ──
+    schema_set = schema_set_for(page_type, market_product, url)
+    if schema_set is None:
+        sr = {"page_type": page_type, "set": None, "blocks": [], "skip": True}  # Buying: 스키마 검사 제외
     else:
-        sr = json.load(open(schema_path, encoding="utf-8"))["products"].get(product, {})
-    # 카피(스펙) 규칙: 마케팅 제품별 토큰 우선, 없으면 패밀리(M3/M12) 폴백
+        # 세트 파일: schema_rules.{set}.{PDP|Compare}.json
+        set_page = "Compare" if schema_set == "compare" else "PDP"
+        set_file = os.path.join(_HERE, f"schema_rules.{schema_set}.{set_page}.json")
+        if os.path.exists(set_file):
+            sr = json.load(open(set_file, encoding="utf-8"))
+        else:
+            # 폴백: 구 파일(있으면) → 빈 룰
+            legacy = os.path.join(_HERE, f"schema_rules.{product}.{page_type}.json")
+            sr = json.load(open(legacy, encoding="utf-8")) if os.path.exists(legacy) else {"page_type": page_type, "blocks": []}
+
+    # 카피(스펙) 규칙: 마케팅 제품별 토큰 우선, 없으면 패밀리 폴백
     cdata = json.load(open(copy_path, encoding="utf-8"))["products"]
     cr = cdata.get(market_product) if market_product else None
     if not cr:
@@ -71,7 +107,8 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
     entry = specs_all.get(mp) or specs_all.get("galaxy-s26-ultra") or {}
     ks = entry.get("specs", []) if isinstance(entry, dict) else (entry or [])
     label = entry.get("label", mp) if isinstance(entry, dict) else mp
-    return {"schema": sr, "copy": cr, "key_specs": ks, "product_label": label, "page_type": page_type}
+    return {"schema": sr, "copy": cr, "key_specs": ks, "product_label": label,
+            "page_type": page_type, "schema_set": schema_set}
 
 
 def check_html(html: str, rules: Dict[str, Any],
@@ -102,10 +139,11 @@ def run_all(fetch_html: Callable[[str], Optional[str]],
     registry = registry or SiteRegistry()
     rules_cache: Dict[str, Dict[str, Any]] = {}
 
-    def rules_for(pt: str, mp: str) -> Dict[str, Any]:
-        key = f"{pt}|{mp}"
+    def rules_for(pt: str, mp: str, url: str = "") -> Dict[str, Any]:
+        sset = schema_set_for(pt, mp, url)
+        key = f"{pt}|{mp}|{sset}"
         if key not in rules_cache:
-            rules_cache[key] = load_rules(product, page_type=pt, market_product=mp)
+            rules_cache[key] = load_rules(product, page_type=pt, market_product=mp, url=url)
         return rules_cache[key]
 
     targets = registry.all()
@@ -130,7 +168,7 @@ def run_all(fetch_html: Callable[[str], Optional[str]],
                                  "as_is": "HTML 수집 실패", "to_be": "URL 접근/렌더링 확인"}]},
                             "copy": {"summary": {}, "findings": []}})
             continue
-        results.append(run_site(site, html, rules_for(pt, mp), page_type=pt))
+        results.append(run_site(site, html, rules_for(pt, mp, url), page_type=pt))
     return results
 
 

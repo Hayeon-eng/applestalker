@@ -1,0 +1,530 @@
+{
+  "source": "PTK_schema_set 크롬확장 2.4.14 (Word)",
+  "sitecode_token": "{SITECODE}",
+  "page_type": "PDP",
+  "set": "flagship",
+  "blocks": [
+    {
+      "name": "WebPage, ItemPage",
+      "types": [
+        "WebPage",
+        "ItemPage"
+      ],
+      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#webpage",
+      "id_slug": "#webpage",
+      "required_properties": [
+        "url",
+        "name",
+        "description",
+        "primaryImageOfPage",
+        "mainEntity",
+        "about"
+      ],
+      "optional_properties": [],
+      "property_notes": {},
+      "haspart_ids": [],
+      "expected_values": {
+        "@context": {
+          "value": "https://schema.org",
+          "kind": "url",
+          "nested": null
+        },
+        "url": {
+          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+          "kind": "url",
+          "nested": null
+        },
+        "name": {
+          "value": "Samsung Galaxy S26 Ultra",
+          "kind": "text",
+          "nested": null
+        },
+        "mainEntity": {
+          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "about": {
+          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/buy",
+          "kind": "url",
+          "nested": "@id"
+        }
+      },
+      "field_formats": {
+        "@context": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@type": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@id": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "url": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "name": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "description": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "primaryImageOfPage": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "mainEntity": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        },
+        "about": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        }
+      },
+      "source": "word:PTK_2.4.14",
+      "conditional": null
+    },
+    {
+      "name": "Product",
+      "types": [
+        "Product"
+      ],
+      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+      "id_slug": "galaxy-s26-ultra",
+      "required_properties": [
+        "name",
+        "description",
+        "brand",
+        "manufacturer",
+        "image",
+        "potentialAction",
+        "hasPart",
+        "mainEntityOfPage"
+      ],
+      "optional_properties": [],
+      "property_notes": {
+        "review": "'review' property in 'Product' schema will be added as Hotfix after launch."
+      },
+      "haspart_ids": [
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#faq",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#model3d",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-intro",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-privacy-display",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-customized-ap",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-vapor-chamber",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-nightography",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-space-zoom",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-photo-assist",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-nudge-share-photos",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-brief",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/buy",
+        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/compare"
+      ],
+      "expected_values": {
+        "@context": {
+          "value": "https://schema.org",
+          "kind": "url",
+          "nested": null
+        },
+        "name": {
+          "value": "Samsung Galaxy S26 Ultra",
+          "kind": "text",
+          "nested": null
+        },
+        "description": {
+          "value": "Meet Galaxy S26 Ultra, the new AI phone with a built-in Privacy Display, our brightest camera and customized processor that delivers smarter Galaxy AI.",
+          "kind": "text",
+          "nested": null
+        },
+        "brand": {
+          "value": "https://www.samsung.com/{SITECODE}/#brand-galaxy",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "manufacturer": {
+          "value": "https://www.samsung.com/{SITECODE}/#org",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "image": {
+          "value": "https://images.samsung.com/[SITECODE]/smartphones/galaxy-s26-ultra/images/galaxy-s26-ultra-share-image.jpg, https://www.samsung.com/samsung/resources/global/galaxy-s26-ultra/common/images/galaxy-s26-ultra-thumbnail-image.jpg",
+          "kind": "url",
+          "nested": null
+        },
+        "potentialAction": {
+          "value": "BuyAction",
+          "kind": "enum",
+          "nested": "@type"
+        },
+        "hasPart": {
+          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#faq",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "mainEntityOfPage": {
+          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#webpage",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "review": {
+          "value": "CriticReview",
+          "kind": "enum",
+          "nested": "@type"
+        }
+      },
+      "field_formats": {
+        "@context": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@type": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@id": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "name": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "description": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "brand": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        },
+        "manufacturer": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        },
+        "image": {
+          "type": "required",
+          "format": "array",
+          "nested": null
+        },
+        "potentialAction": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        },
+        "hasPart": {
+          "type": "required",
+          "format": "array",
+          "nested": null
+        },
+        "mainEntityOfPage": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        }
+      },
+      "source": "word:PTK_2.4.14",
+      "conditional": null
+    },
+    {
+      "name": "3DModel",
+      "types": [
+        "3DModel"
+      ],
+      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#model3d",
+      "id_slug": "#model3d",
+      "required_properties": [
+        "about",
+        "encoding"
+      ],
+      "optional_properties": [],
+      "property_notes": {},
+      "haspart_ids": [],
+      "expected_values": {
+        "@context": {
+          "value": "https://schema.org",
+          "kind": "url",
+          "nested": null
+        },
+        "about": {
+          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "encoding": {
+          "value": "MediaObject",
+          "kind": "enum",
+          "nested": "@type"
+        }
+      },
+      "field_formats": {
+        "@context": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@type": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@id": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "about": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        },
+        "encoding": {
+          "type": "required",
+          "format": "array",
+          "nested": null
+        }
+      },
+      "source": "word:PTK_2.4.14",
+      "conditional": null
+    },
+    {
+      "name": "VideoObject",
+      "types": [
+        "VideoObject"
+      ],
+      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-brief",
+      "id_slug": "#video-now-brief",
+      "required_properties": [
+        "name",
+        "description",
+        "uploadDate",
+        "duration",
+        "thumbnailUrl",
+        "publisher",
+        "about",
+        "inLanguage"
+      ],
+      "optional_properties": [
+        "embedUrl",
+        "contentUrl"
+      ],
+      "property_notes": {},
+      "haspart_ids": [],
+      "expected_values": {
+        "@context": {
+          "value": "https://schema.org",
+          "kind": "url",
+          "nested": null
+        },
+        "name": {
+          "value": "Galaxy S26 Ultra's Now Brief",
+          "kind": "text",
+          "nested": null
+        },
+        "description": {
+          "value": "Now Brief on Galaxy S26 Ultra sends more personalized updates based on usage habits and routines, such as playlist recommendations, birthday and booking reminders.",
+          "kind": "text",
+          "nested": null
+        },
+        "uploadDate": {
+          "value": "2026-02-25 00:00:00",
+          "kind": "text",
+          "nested": null
+        },
+        "duration": {
+          "value": "PT5S",
+          "kind": "enum",
+          "nested": null
+        },
+        "thumbnailUrl": {
+          "value": "{VIDEO_THUMBNAIL_URL}",
+          "kind": "text",
+          "nested": null
+        },
+        "contentUrl": {
+          "value": "{MP4_URL}",
+          "kind": "text",
+          "nested": null
+        },
+        "publisher": {
+          "value": "https://www.samsung.com/{SITECODE}/#org",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "about": {
+          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "inLanguage": {
+          "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+          "kind": "text",
+          "nested": null
+        }
+      },
+      "field_formats": {
+        "@context": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@type": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@id": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "name": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "description": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "uploadDate": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "duration": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "thumbnailUrl": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "embedUrl": {
+          "type": "optional",
+          "format": "string",
+          "nested": null
+        },
+        "contentUrl": {
+          "type": "optional",
+          "format": "string",
+          "nested": null
+        },
+        "publisher": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        },
+        "about": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        },
+        "inLanguage": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        }
+      },
+      "source": "word:PTK_2.4.14",
+      "conditional": null
+    },
+    {
+      "name": "FAQPage",
+      "types": [
+        "FAQPage"
+      ],
+      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#faq",
+      "id_slug": "#faq",
+      "required_properties": [
+        "inLanguage",
+        "about",
+        "mainEntity"
+      ],
+      "optional_properties": [],
+      "property_notes": {},
+      "haspart_ids": [],
+      "expected_values": {
+        "@context": {
+          "value": "https://schema.org",
+          "kind": "url",
+          "nested": null
+        },
+        "inLanguage": {
+          "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+          "kind": "text",
+          "nested": null
+        },
+        "about": {
+          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+          "kind": "url",
+          "nested": "@id"
+        },
+        "mainEntity": {
+          "value": "Question",
+          "kind": "enum",
+          "nested": "@type"
+        }
+      },
+      "field_formats": {
+        "@context": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@type": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@id": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "inLanguage": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "about": {
+          "type": "required",
+          "format": "object",
+          "nested": null
+        },
+        "mainEntity": {
+          "type": "required",
+          "format": "array",
+          "nested": null
+        }
+      },
+      "source": "word:PTK_2.4.14",
+      "conditional": null
+    }
+  ]
+}

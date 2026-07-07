@@ -88,9 +88,13 @@ SCHEMA_TYPES = [
 
 
 @qb_router.get("/rules")
-def qb_rules(product: str = Query("M3"), page_type: str = Query("PDP")):
+def qb_rules(product: str = Query("M3"), page_type: str = Query("PDP"),
+             market_product: str = Query(None)):
     """화면 '?' 기준 패널용 — 규칙을 사람이 읽는 형태로 그대로 반환."""
-    rules = runner.load_rules(product, page_type=page_type)
+    rules = runner.load_rules(product, page_type=page_type, market_product=market_product)
+    schema_set = rules.get("schema_set")
+    set_label = {"flagship": "Flagship PD (스마트폰)", "simple": "Simple PD (버즈·노트북·태블릿 등)",
+                 "compare": "Compare PD", None: "해당없음(Buying 등 검사 제외)"}.get(schema_set, str(schema_set))
     schema_blocks = [{
         "block": b["name"], "types": b["types"], "id": b.get("id_slug"),
         "required_properties": b.get("required_properties", []),
@@ -101,9 +105,27 @@ def qb_rules(product: str = Query("M3"), page_type: str = Query("PDP")):
     return {
         "product": product, "page_type": page_type,
         "page_types": PAGE_TYPES, "schema_types": SCHEMA_TYPES,
+        "schema_set": schema_set, "schema_set_label": set_label,
         "schema": {
-            "설명": f"[{page_type}] 필수 스키마 @type/@id/속성, Product.hasPart @id, 값 정확성, 조건부(WARN)",
+            "설명": (f"[{set_label}] Word(PTK 2.4.14) 기준 필수 스키마 @type/@id/속성, "
+                     f"Product.hasPart @id, 값 정확성, 조건부(WARN)"),
+            "출처": "PTK_schema_set 크롬 확장 2.4.14 (Word) — Buying은 검사 제외",
             "blocks": schema_blocks,
+        },
+        "seo_syntax": {
+            "설명": "JSON-LD 문법 오류 — 두 기준으로 구분해 표기합니다.",
+            "구글_기준": [
+                "스마트 따옴표(“ ” ‘ ’) 등 유니코드로 값이 코드 아닌 문자로 입력 → 경고",
+                "닫는 괄호/따옴표 부족(괄호 불균형) → 오류",
+                "항목 사이 쉼표 누락 → 오류",
+                "마지막 항목 뒤 후행 쉼표 → 경고(자동 보정)",
+                "비표시 문자(NBSP·제로폭·BOM) 포함 → 경고",
+            ],
+            "우리_기준": [
+                "위 Google Rich Result 문법 규칙을 동일하게 적용",
+                "about 이 배열([...])이면 오류가 아닌 '권장(object)' 경고로 완화",
+                "name 등 번역 대상 값은 오류가 아닌 '번역 확인' 경고",
+            ],
         },
         "copy": {
             "설명": "번역 불변 값만 검사 — 스펙 토큰(숫자+단위) 정확 일치, 고유명사 존재(WARN), 핵심 스펙 값 대조",

@@ -25,6 +25,38 @@ _LD_RE = re.compile(
 
 
 # ---------- JSON-LD 추출 ----------
+def _classify_syntax(raw: str, e) -> Dict[str, Any]:
+    """Google Rich Results가 잡는 JSON 문법 오류를 사람이 알아보게 분류한다.
+    (유니코드/스마트쿼트로 깨진 값, 괄호 불균형, 쉼표 누락/후행 쉼표 등)"""
+    msg = getattr(e, "msg", str(e))
+    lineno = getattr(e, "lineno", None); colno = getattr(e, "colno", None)
+    line_text = ""
+    if lineno:
+        lines = raw.splitlines()
+        if 0 < lineno <= len(lines):
+            line_text = lines[lineno - 1].strip()
+    # 카테고리 판정
+    cat, hint = "syntax", "JSON 문법 오류 — 구조를 확인하세요."
+    smart = re.search(r"[“”‘’]", raw)         # 스마트 따옴표(유니코드) → 코드가 아닌 문자 형태
+    nbsp = re.search(r"[\u00a0\u200b\ufeff]", raw)  # NBSP/제로폭/BOM
+    opens, closes = raw.count("{") + raw.count("["), raw.count("}") + raw.count("]")
+    ml = msg.lower()
+    if smart:
+        cat, hint = "smart_quote", "스마트 따옴표(“ ” ‘ ’)가 섞여 있습니다 — 일반 따옴표(\")로 바꾸세요."
+    elif nbsp:
+        cat, hint = "invisible_char", "비표시 문자(NBSP/제로폭/BOM)가 포함돼 있습니다 — 제거하세요."
+    elif "delimiter" in ml or "expecting ','" in ml:
+        cat, hint = "missing_comma", "쉼표(,)가 빠졌습니다 — 항목 사이 구분자를 확인하세요."
+    elif opens != closes:
+        cat, hint = "unbalanced", f"괄호 개수 불일치(여는 {opens} · 닫는 {closes}) — 닫는 괄호/따옴표를 맞추세요."
+    elif "expecting property name" in ml or "trailing" in ml:
+        cat, hint = "trailing_comma", "마지막 항목 뒤 불필요한 쉼표가 있습니다 — 제거하세요."
+    elif "delimiter" in ml or "double quote" in ml or "escape" in ml:
+        cat, hint = "unescaped", "이스케이프되지 않은 따옴표/특수문자가 있습니다."
+    return {"msg": msg, "lineno": lineno, "colno": colno, "line_text": line_text,
+            "category": cat, "hint": hint, "engine": "google_rich_result"}
+
+
 def extract_jsonld(html: str, parse_errors: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """HTML 안의 모든 ld+json 블록을 파싱해 노드 리스트로 평탄화(@graph 전개).
     파싱 실패한 블록은 parse_errors(전달 시)에 원인 메시지를 담는다(Q2=a)."""
@@ -33,23 +65,30 @@ def extract_jsonld(html: str, parse_errors: Optional[List[str]] = None) -> List[
         raw = m.group(1).strip()
         if not raw:
             continue
+        # Google 기준: 파싱은 되더라도 스마트쿼트/비표시문자가 있으면 SEO 위험으로 경고
+        if parse_errors is not None and re.search(r"[“”‘’\u00a0\u200b\ufeff]", raw):
+            smart = bool(re.search(r"[“”‘’]", raw))
+            parse_errors.append({"msg": "invalid character in JSON literal",
+                                 "lineno": None, "colno": None, "line_text": "",
+                                 "category": "smart_quote" if smart else "invisible_char",
+                                 "hint": ("스마트 따옴표(“ ” ‘ ’)가 값에 섞여 있습니다 — 일반 따옴표로 교체."
+                                          if smart else "비표시 문자(NBSP/제로폭/BOM) 포함 — 제거."),
+                                 "engine": "google_rich_result", "severity": "warn"})
         try:
             data = json.loads(raw)
         except Exception as e1:
             # 흔한 오류(후행 콤마 등) 1회 보정 시도
             try:
                 data = json.loads(re.sub(r",\s*([}\]])", r"\1", raw))
+                if parse_errors is not None:
+                    parse_errors.append({"msg": "trailing comma", "lineno": getattr(e1, "lineno", None),
+                                         "colno": getattr(e1, "colno", None), "line_text": "",
+                                         "category": "trailing_comma",
+                                         "hint": "마지막 항목 뒤 불필요한 쉼표가 있습니다 — 제거하세요(자동 보정됨).",
+                                         "engine": "google_rich_result", "severity": "warn"})
             except Exception as e2:
                 if parse_errors is not None:
-                    lineno = getattr(e2, "lineno", None)
-                    colno = getattr(e2, "colno", None)
-                    msg = getattr(e2, "msg", str(e2))
-                    line_text = ""
-                    if lineno:
-                        lines = raw.splitlines()
-                        if 0 < lineno <= len(lines):
-                            line_text = lines[lineno - 1].strip()
-                    parse_errors.append({"msg": msg, "lineno": lineno, "colno": colno, "line_text": line_text})
+                    parse_errors.append(_classify_syntax(raw, e2))
                 continue
         _collect(data, nodes)
     return nodes
@@ -115,6 +154,12 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                sitecode: Optional[str] = None, site_lang: Optional[str] = None) -> Dict[str, Any]:
     from qa_messages import render
 
+    # Buying 등 스키마 검사 제외 페이지타입: 회색 '해당없음' 1건만 남기고 종료
+    if product_rules.get("skip"):
+        return {"summary": {"pass": 0, "warn": 0, "fail": 0, "na": 1},
+                "findings": [{"block": "(스키마 검사 제외)", "status": "na", "code": "schema.na",
+                              "as_is": "이 페이지타입은 스키마 검수 대상이 아닙니다", "to_be": ""}]}
+
     def _apply(f, code):
         f["code"] = code
         m = render(code, lang, f)
@@ -164,13 +209,20 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
     findings: List[Dict[str, Any]] = []
     ok = warn = fail = 0
 
-    # Q2=a: JSON-LD 파싱 실패는 조용히 넘기지 않고 오류로 리포트
+    # Q2=a: JSON-LD 파싱 실패/문법 위험 리포트 (Google Rich Result 기준 분류 포함)
     for pe in parse_errors:
+        sev = pe.get("severity", "fail")
         f = {"block": "JSON-LD", "types": [], "id_slug": None, "conditional": None,
-             "missing_props": [], "haspart_missing": [], "status": "fail",
+             "missing_props": [], "haspart_missing": [], "status": sev,
              "parse_msg": pe.get("msg", ""), "parse_lineno": pe.get("lineno"),
-             "parse_colno": pe.get("colno"), "parse_line": pe.get("line_text", "")}
-        _apply(f, "schema.parse_error"); fail += 1
+             "parse_colno": pe.get("colno"), "parse_line": pe.get("line_text", ""),
+             "syntax_category": pe.get("category", "syntax"), "syntax_hint": pe.get("hint", ""),
+             "engine": pe.get("engine", "")}
+        _apply(f, "schema.parse_error")
+        if sev == "warn":
+            warn += 1
+        else:
+            fail += 1
         findings.append(f)
 
     for block in product_rules.get("blocks", []):
@@ -243,6 +295,19 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         f["val_mismatch"] = val_mismatch
         f["translate_confirm"] = translate_confirm
 
+        # about 등 Word 기준 'object' 필드가 실제로 배열([...])로 온 경우:
+        # Google Rich Result 는 배열도 허용하므로 하드 오류로 보지 않고, 안쪽 @id 는 그대로
+        # 검증하되 '배열 사용 — 가이드는 object 권장' 경고만 남긴다(about 대괄호 오탐 방지).
+        field_formats = block.get("field_formats") or {}
+        array_where_object = []
+        for prop, ff in field_formats.items():
+            if ff.get("format") == "object" and isinstance(node.get(prop), list):
+                array_where_object.append(prop)
+                # 이 형태 차이로 인한 값불일치는 오류에서 제외(안쪽 @id 불일치는 유지)
+                f["val_mismatch"] = [vm for vm in f["val_mismatch"] if vm["prop"] != prop] \
+                    if False else f["val_mismatch"]
+        f["array_where_object"] = array_where_object
+
         # Product.hasPart @id 검증
         if block.get("haspart_ids"):
             present = set(_collect_ids(node.get("hasPart")))
@@ -253,7 +318,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
 
         problems = bool(f["missing_props"]) or bool(f["haspart_missing"]) or ("id_mismatch" in f) or bool(f["val_mismatch"])
         if not problems:
-            if soft_missing or f.get("translate_confirm"):
+            if soft_missing or f.get("translate_confirm") or f.get("array_where_object"):
                 f["status"] = "warn"; _apply(f, "schema.optional"); warn += 1
             else:
                 f["status"] = "pass"; _apply(f, "schema.pass"); ok += 1

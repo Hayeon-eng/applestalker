@@ -48,6 +48,11 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
             av = str(t.get("actual", ""))
             bits_as.append(f"{t['prop']} 번역 확인 필요 (현재 '{av}')" if ko else f"{t['prop']} translation check (currently '{av}')")
             bits_to.append(f"{t['prop']} 가 현지어로 올바르게 번역됐는지 확인 (오류 아님)" if ko else f"Confirm {t['prop']} is correctly localized (not an error)")
+        for prop in (f.get("array_where_object") or []):
+            bits_as.append(f"{prop} 가 배열([...])로 되어 있음 — Google은 허용, 가이드는 object 권장"
+                           if ko else f"{prop} is an array — Google allows it, guide recommends a single object")
+            bits_to.append(f"{prop} 를 단일 object({{'@id':…}})로 정리 권장 (오류 아님)"
+                           if ko else f"Prefer a single object for {prop} (not an error)")
         if not bits_as:
             bits_as.append(f"{name} 정상" if ko else f"{name} OK")
         return {"as_is": " / ".join(bits_as), "to_be": "; ".join(bits_to)}
@@ -55,13 +60,22 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
     if code == "schema.parse_error":
         ln = f.get("parse_lineno"); col = f.get("parse_colno"); msg = f.get("parse_msg", "")
         line = f.get("parse_line", "")
+        cat = f.get("syntax_category", "syntax"); hint = f.get("syntax_hint", "")
+        cat_ko = {"smart_quote": "스마트 따옴표", "invisible_char": "비표시 문자",
+                  "missing_comma": "쉼표 누락", "trailing_comma": "후행 쉼표",
+                  "unbalanced": "괄호 불균형", "unescaped": "이스케이프 오류",
+                  "syntax": "문법 오류"}.get(cat, "문법 오류")
         loc = (f"{ln}행 {col}열" if ln else "위치 미상"); loc_en = (f"line {ln}, col {col}" if ln else "unknown position")
         snip = (f" · 문제 줄: {line}" if line else ""); snip_en = (f" · offending line: {line}" if line else "")
+        tag = "[Google Rich Result 기준]"
         return {
-            "as_is": (f"JSON-LD 파싱 실패 — {loc}에서 {msg}{snip}" if ko else f"JSON-LD parse failed — {msg} at {loc_en}{snip_en}"),
-            "to_be": ((f"'{line}' 부분 문법 수정 — 후행 콤마 제거·따옴표/중괄호 짝 확인 후 재검증" if line else "해당 줄 문법 수정 — 후행 콤마·따옴표·중괄호 확인")
-                      if ko else (f"Fix syntax near '{line}' — remove trailing commas, balance quotes/braces, re-validate" if line else "Fix the offending line — trailing commas, quotes, braces")),
+            "as_is": (f"{tag} JSON-LD {cat_ko} — {loc}에서 {msg}{snip}" if ko
+                      else f"[Google Rich Result] JSON-LD {cat} — {msg} at {loc_en}{snip_en}"),
+            "to_be": (hint or ("해당 줄 문법 수정 — 후행 콤마·따옴표·중괄호 확인" if ko else "Fix syntax — commas/quotes/braces")),
         }
+
+    if code == "schema.na":
+        return {"as_is": f.get("as_is", ""), "to_be": ""}
 
     if code == "schema.problem":
         bits, fixes = [], []
