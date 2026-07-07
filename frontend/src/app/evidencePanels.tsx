@@ -5,6 +5,63 @@ import {
   metricScoreBreakdown, scoreTier, scoreTierEmoji, scoreTierLabel,
 } from "./shared";
 
+// ── 인라인 워드 diff ──────────────────────────────────────────
+// "이전 전체 / 이후 전체"를 따로 늘어놓지 않고, 한 문단 안에서 지워진 단어는
+// 취소선+빨강, 추가된 단어는 밑줄+초록으로 바로 보이게 한다(한눈에 비교).
+type DiffTok = { t: "same" | "del" | "ins"; s: string };
+
+function tokenize(s: string): string[] {
+  // 공백은 살려서 토큰에 붙이고, 단어 단위로 쪼갠다 (연속 공백은 하나의 토큰으로)
+  return (s || "").match(/\s+|[^\s]+/g) || [];
+}
+
+function diffWords(before: string, after: string): DiffTok[] {
+  const a = tokenize(before), b = tokenize(after);
+  const n = a.length, m = b.length;
+  // LCS DP (짧은 마케팅 카피 기준 크기라 O(n*m)로 충분)
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const out: DiffTok[] = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { out.push({ t: "same", s: a[i] }); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ t: "del", s: a[i] }); i++; }
+    else { out.push({ t: "ins", s: b[j] }); j++; }
+  }
+  while (i < n) { out.push({ t: "del", s: a[i] }); i++; }
+  while (j < m) { out.push({ t: "ins", s: b[j] }); j++; }
+  // 인접한 같은 타입 토큰은 합쳐서 span 개수를 줄인다
+  const merged: DiffTok[] = [];
+  for (const tok of out) {
+    const last = merged[merged.length - 1];
+    if (last && last.t === tok.t) last.s += tok.s; else merged.push({ ...tok });
+  }
+  return merged;
+}
+
+function InlineDiff({ before, after }: { before: string; after: string }) {
+  const toks = diffWords(before, after);
+  const changed = toks.some((t) => t.t !== "same");
+  if (!changed) return <p className="diffContent" style={{ background: "var(--surface)" }}>{after}</p>;
+  return (
+    <p className="diffContent" style={{ background: "var(--surface)", lineHeight: 1.7 }}>
+      {toks.map((t, i) => {
+        if (t.t === "same") return <span key={i}>{t.s}</span>;
+        if (t.t === "del") return (
+          <span key={i} style={{ textDecoration: "line-through", color: "var(--high)", background: "#FDECEA", borderRadius: 3 }}>{t.s}</span>
+        );
+        return (
+          <span key={i} style={{ textDecoration: "underline", textDecorationColor: "var(--tier-good)", color: "var(--tier-good)", background: "#EAF7EE", fontWeight: 700, borderRadius: 3 }}>{t.s}</span>
+        );
+      })}
+    </p>
+  );
+}
+
 const EVIDENCE_LABELS: Record<string, string> = {
   kind: "종류", type: "스키마 타입", dom_hash_before: "이전 구조 해시", dom_hash_after: "이후 구조 해시",
   phash_before: "이전 이미지 해시", phash_after: "이후 이미지 해시", sentences_added: "추가된 문장",
@@ -82,8 +139,17 @@ export function ChangeDrilldown({ change: c }: { change: Change }) {
         </p>
       )}
 
-      {/* 정확히 무엇이 바뀌었는지 — 추가/삭제된 문장을 색으로 바로 보이게 (가장 중요한 정보라 상단에 배치) */}
-      {(sentencesAdded.length > 0 || sentencesRemoved.length > 0) && (
+      {/* 무엇이 바뀌었는지 — 이전/이후를 한 문단에 겹쳐서 지워진 곳(빨강 취소선)·
+          추가된 곳(초록 밑줄)만 바로 보이게 한다. 같은 내용을 문장별/전체로 3중 반복하지 않음. */}
+      {c.before && c.after ? (
+        <div style={{ marginTop: 8, marginBottom: 4 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "var(--sec)", marginBottom: 3 }}>
+            무엇이 바뀌었나 — <span style={{ textDecoration: "line-through", color: "var(--high)" }}>삭제</span>{" / "}
+            <span style={{ textDecoration: "underline", color: "var(--tier-good)", fontWeight: 700 }}>추가</span>
+          </p>
+          <InlineDiff before={c.before} after={c.after} />
+        </div>
+      ) : (sentencesAdded.length > 0 || sentencesRemoved.length > 0) && (
         <div style={{ marginTop: 8, marginBottom: 4 }}>
           {sentencesRemoved.length > 0 && (
             <div style={{ marginBottom: 6 }}>
@@ -101,19 +167,6 @@ export function ChangeDrilldown({ change: c }: { change: Change }) {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {c.before && (
-        <div className="diffBlock">
-          <p className="diffLabel">이전 (전체)</p>
-          <p className="diffContent before">{c.before}</p>
-        </div>
-      )}
-      {c.after && (
-        <div className="diffBlock">
-          <p className="diffLabel">현재 (전체)</p>
-          <p className="diffContent after">{c.after}</p>
         </div>
       )}
 
