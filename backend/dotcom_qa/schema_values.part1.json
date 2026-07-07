@@ -1,0 +1,897 @@
+{
+  "galaxy-s26-ultra": {
+    "blocks": {
+      "Product": [
+        {
+          "expected_values": {
+            "name": {
+              "value": "Samsung Galaxy S26 Ultra",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Meet Galaxy S26 Ultra, the new AI phone with a built-in Privacy Display, our brightest camera and customized processor that delivers smarter Galaxy AI.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "brand": {
+              "value": "https://www.samsung.com/{SITECODE}/#brand-galaxy",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "manufacturer": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "image": {
+              "value": "https://images.samsung.com/[SITECODE]/smartphones/galaxy-s26-ultra/images/galaxy-s26-ultra-share-image.jpg, https://www.samsung.com/samsung/resources/global/galaxy-s26-ultra/common/images/galaxy-s26-ultra-thumbnail-image.jpg",
+              "kind": "image_path",
+              "check": "이미지경로_패턴",
+              "nested": null
+            },
+            "potentialAction": {
+              "value": "BuyAction",
+              "kind": "enum",
+              "check": "정확히_일치",
+              "nested": "@type"
+            },
+            "mainEntityOfPage": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#webpage",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            }
+          },
+          "haspart_ids": [
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#faq",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#model3d",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-intro",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-privacy-display",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-customized-ap",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-vapor-chamber",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-nightography",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-space-zoom",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-photo-assist",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-nudge-share-photos",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-brief",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-bixby",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#mediaquote-techradar",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#mediaquote-geeky-gadgets",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#samsung-members-comment-1",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#samsung-members-comment-2",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#samsung-members-comment-3",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/buy/",
+            "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/compare/"
+          ],
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/"
+        }
+      ],
+      "Quotation": [
+        {
+          "expected_values": {
+            "text": {
+              "value": "The Samsung Galaxy S26 series wins in the AI department.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "author": {
+              "value": "Organization",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": "@type"
+            },
+            "citation": {
+              "value": "https://www.techradar.com/phones/samsung-galaxy-phones/it-feels-leaps-ahead-of-the-other-guys-the-samsung-galaxy-s26-series-wins-in-the-ai-department-and-were-not-the-only-ones-who-think-so",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#mediaquote-techradar"
+        },
+        {
+          "expected_values": {
+            "text": {
+              "value": "With advanced AI integration, enhanced performance, and robust privacy features, the Galaxy S26 series sets a new standard for flagship smartphones.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "author": {
+              "value": "Organization",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": "@type"
+            },
+            "citation": {
+              "value": "https://www.geeky-gadgets.com/official-samsung-launches-galaxy-s26-series-with-major-ai-and-performance-upgrades/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#mediaquote-geeky-gadgets"
+        }
+      ],
+      "Comment": [
+        {
+          "expected_values": {
+            "text": {
+              "value": "Privacy display is accessible via settings. It allows users to hide the entire screen or just the notification area, supporting all directions—up, down, left, and right.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "author": {
+              "value": "Person",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": "@type"
+            },
+            "datePublished": {
+              "value": "2026-02-28 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#samsung-members-comment-1"
+        },
+        {
+          "expected_values": {
+            "text": {
+              "value": "Nightography mode, with its f/1.4 aperture, not only brightens the scene but also preserves the real textures and colors, delivering incredibly sharp results.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "author": {
+              "value": "Person",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": "@type"
+            },
+            "datePublished": {
+              "value": "2026-02-26 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#samsung-members-comment-2"
+        },
+        {
+          "expected_values": {
+            "text": {
+              "value": "Creative Studio allows you to create emojis, profile cards, or even generate photo editing changes using voice or text without using any markup tools.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "author": {
+              "value": "Person",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": "@type"
+            },
+            "datePublished": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#samsung-members-comment-3"
+        }
+      ],
+      "3DModel": [
+        {
+          "expected_values": {
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "encoding": {
+              "value": "MediaObject",
+              "kind": "enum",
+              "check": "정확히_일치",
+              "nested": "@type"
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#model3d"
+        }
+      ],
+      "VideoObject": [
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's intro video",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Galaxy S26 Ultra comes in four colors, Cobalt Violet, Sky Blue, White and Black and has a built-in S Pen.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT7S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-intro"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's built-in Privacy Display",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Galaxy S26 Ultra's built-in Privacy Display can hide the whole screen from other people's view. You can also customize the settings to have certain parts of the screen hidden, like incoming notifications, for personalized privacy.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT5S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-privacy-display"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's customized processor",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Galaxy S26 Ultra's customized AP delivers better AI performance and improved GPU, NPU and CPU.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT5S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-customized-ap"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's redesigned Vapor Chamber",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Galaxy S26 Ultra's redesigned Vapor Chamber, with more efficient heat dissipation, and Galaxy's powerful processor, Snapdragon 8 Elite Gen 5 for Galaxy, provide hours of gaming.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT5S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-vapor-chamber"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's brighter Nightography video",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Galaxy S26 Ultra's rear camera's wider apertures and Nightography's noise reduction deliver improved brightness even when shot in low light, compared to previous models.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT6S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-nightography"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's Space Zoom",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "When capturing photos with Galaxy S26 Ultra's Space Zoom, details remain clear whether zoomed in or out.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT7S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-space-zoom"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's Photo Assist",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "In Photo Assist on Galaxy S26 Ultra, photos can be edited easily with text prompts written in natural language. For example, objects or accessories can be added onto photos of people or pets.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT8S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-photo-assist"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's all-new Now Nudge with share photos",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "All-new Now Nudge on Galaxy S26 Ultra intelligently suggests prompts when someone asks for photos to be shared while texting, which minimizes steps to find photos saved in the Gallery app. The appropriate photos can then be selected and shared more easily.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT5S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-nudge-share-photos"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's Now Brief",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Now Brief on Galaxy S26 Ultra sends more personalized updates based on usage habits and routines, such as playlist recommendations, birthday and booking reminders.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT5S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-now-brief"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy S26 Ultra's Bixby",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Bixby on Galaxy S26 Ultra can listen to user commands to change the device settings, like turning on Privacy Display.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT8S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "{VIDEO_THUMBNAIL_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "{MP4_URL}",
+              "kind": "exist",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#video-bixby"
+        }
+      ],
+      "FAQPage": [
+        {
+          "expected_values": {
+            "inLanguage": {
+              "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "mainEntity": {
+              "value": "Question",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@type"
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26-ultra/#faq"
+        }
+      ]
+    },
+    "name_tokens": {
+      "must": [
+        "S26 Ultra"
+      ],
+      "forbid": []
+    }
+  }
+}

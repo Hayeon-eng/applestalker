@@ -80,8 +80,16 @@ _SCHEMA_VALUES_CACHE = None
 def _schema_values():
     global _SCHEMA_VALUES_CACHE
     if _SCHEMA_VALUES_CACHE is None:
-        p = os.path.join(_HERE, "schema_values.json")
-        _SCHEMA_VALUES_CACHE = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+        single = os.path.join(_HERE, "schema_values.json")
+        if os.path.exists(single):
+            _SCHEMA_VALUES_CACHE = json.load(open(single, encoding="utf-8"))
+        else:
+            # 대용량이라 분할 배포하는 경우: schema_values.part*.json 을 병합
+            import glob
+            merged = {}
+            for p in sorted(glob.glob(os.path.join(_HERE, "schema_values.part*.json"))):
+                merged.update(json.load(open(p, encoding="utf-8")))
+            _SCHEMA_VALUES_CACHE = merged
     return _SCHEMA_VALUES_CACHE
 
 

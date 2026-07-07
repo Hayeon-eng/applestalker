@@ -1,0 +1,296 @@
+{
+  "galaxy-buds4": {
+    "blocks": {
+      "VideoObject": [
+        {
+          "expected_values": {
+            "Title": {
+              "value": "Galaxy Buds4's Real Metal Blade",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Description": {
+              "value": "Samsung Galaxy Buds4 is zoomed in, highlighting the metal blades crafted with aluminum. The earbuds are placed snugly inside a person's ears to also indicate the comfortable everyday listening experience of Samsung Galaxy Buds4.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Published Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Modified Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Duration": {
+              "value": "PT6S",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Keywords": {
+              "value": "\"galaxy buds4\", \"samsung galaxy buds4\", \"samsung buds4\", \"comfortable earbud\", \"earbud design\",\"metal blade design\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        },
+        {
+          "expected_values": {
+            "Title": {
+              "value": "Galaxy Buds4's Charging Case",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Description": {
+              "value": "Samsung Galaxy Buds4's Charging Case with its simple, compact and lightweight design in focus. The video also shows Samsung Galaxy Buds4 can be charged wirelessly using a wireless pad or dock.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Published Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Modified Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Duration": {
+              "value": "PT5S",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Keywords": {
+              "value": "\"galaxy buds4\", \"samsung galaxy buds4\", \"samsung buds4\", \"comfortable earbud\", \"earbud design\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        },
+        {
+          "expected_values": {
+            "Title": {
+              "value": "Galaxy Buds4's Comfort Fit",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Description": {
+              "value": "Samsung Galaxy Buds4's Comfort Fit being highlighted to emphasize that the earbuds fit different ear shapes and wearing conditions, effortlessly staying in your ears during daily activities.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Published Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Modified Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Duration": {
+              "value": "PT3S",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Keywords": {
+              "value": "\"galaxy buds4\", \"samsung galaxy buds4\", \"samsung buds4\", \"comfortable earbud\", \"earbud design\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        },
+        {
+          "expected_values": {
+            "Title": {
+              "value": "Galaxy Buds4's Pinch Control",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Description": {
+              "value": "Samsung Galaxy Buds4's Pinch Control being explained. There are different motions for Pinch Control, such as Single pinch, Double pinch, Triple pinch, Pinch and hold and Swipe up or down, to control the media conveniently.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Published Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Modified Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Duration": {
+              "value": "PT4S",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Keywords": {
+              "value": "\"galaxy buds4\", \"samsung galaxy buds4\", \"samsung buds4\", \"comfortable earbud\", \"earbud control\", \"gesture control\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        },
+        {
+          "expected_values": {
+            "Title": {
+              "value": "Galaxy Buds4's Sound Quality",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Description": {
+              "value": "Samsung Galaxy Buds4's Sound Quality being highlighted. The components assemble to complete Samsung Galaxy Buds4 indicating balanced sound powered by an 11 mm wide-range speaker, delivering rich sound from solid, controlled bass to clear, detailed highs.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Published Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Modified Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Duration": {
+              "value": "PT5S",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Keywords": {
+              "value": "\"galaxy buds4\", \"samsung galaxy buds4\", \"samsung buds4\", \"earbud sound\",\"call quality\",\"high sound quality \", \"volume eq\",\"adaptive eq\",\"9-band eq\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        },
+        {
+          "expected_values": {
+            "Title": {
+              "value": "Galaxy Buds4's Galaxy AI-powered features",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Description": {
+              "value": "Samsung Galaxy Buds4's Galaxy AI-powered features being highlighted, with the Galaxy AI logo's star shapes rotating.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Published Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Modified Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Duration": {
+              "value": "PT5S",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Keywords": {
+              "value": "\"galaxy buds4\", \"samsung galaxy buds4\", \"samsung buds4\", \"galaxy ai\",\"ai translate\",\"translate earbud\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        },
+        {
+          "expected_values": {
+            "Title": {
+              "value": "Galaxy Buds4's Auto Switch",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Description": {
+              "value": "Samsung Galaxy Buds4's Auto Switch being highlighted. When Samsung Galaxy Buds4 is connected to your Galaxy Tab and Galaxy smartphone, Auto Switch automatically switches the connection to your phone for calls and back to your Tab once you hang up.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Published Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Modified Date": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Duration": {
+              "value": "PT6S",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "Keywords": {
+              "value": "\"galaxy buds4\", \"samsung galaxy buds4\", \"samsung buds4\", \"auto switch\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        }
+      ]
+    },
+    "name_tokens": {
+      "must": [
+        "Buds4"
+      ],
+      "forbid": [
+        "Pro"
+      ]
+    }
+  }
+}

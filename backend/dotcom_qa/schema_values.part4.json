@@ -1,0 +1,795 @@
+{
+  "galaxy-buds4-pro": {
+    "blocks": {
+      "Quotation": [
+        {
+          "expected_values": {
+            "text": {
+              "value": "\"The Galaxy Buds4 Pro are extremely recommendable. I absolutely love the sound quality in them. The fit and the comfort are incredible. The microphones are really, really impressive. And they have pretty much every feature I would want. These are not only a jack of all trades, but also a master of quite a few as well.\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "author": {
+              "value": "Organization",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": "@type"
+            },
+            "citation": {
+              "value": "https://www.youtube.com/watch?app=desktop&v=jye2yt2jbKI",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#mediaquote-mike-o-brien"
+        },
+        {
+          "expected_values": {
+            "text": {
+              "value": "\"Your music will sound fuller with more delicate and precise high tones and an impactful (but not overwhelming) bassline rounding out your scores.\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "author": {
+              "value": "Organization",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": "@type"
+            },
+            "citation": {
+              "value": "https://www.techradar.com/phones/samsung-galaxy-phones/samsungs-new-galaxy-buds4-and-buds4-pro-are-official-i-tried-them-and-take-it-from-me-you-should-only-be-considering-the-pro-model",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#mediaquote-techradar"
+        },
+        {
+          "expected_values": {
+            "text": {
+              "value": "\"The Galaxy Buds4 Pro deliver a warm sound that’s tuned for the mainstream: bass is ample, without being overpowering, vocals are clean, and the high-end gives a great impression of detail. Tool’s Parabola hits hard on the chorus, but I was still able to pick out individual instruments.\"",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "author": {
+              "value": "Organization",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": "@type"
+            },
+            "citation": {
+              "value": "https://www.stuff.tv/review/samsung-galaxy-buds4-pro-review/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#mediaquote-stuff"
+        }
+      ],
+      "VideoObject": [
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro Unveiling",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro is zoomed in, highlighting the premium look of the metal blades that are finely crafted with aluminum. With a booming effect, it is indicated that Samsung Galaxy Buds4 Pro delivers powerful Hi-Fi sound. The earbuds are smoothly placed inside the Charging Case.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT10S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-tb.jpg\nhttps://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-mo-tb.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-unveil"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro in White",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro in White, showcasing the refined look of the earbuds and Charging Case.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT3S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-white-mo.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-white.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-color-white"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro in Black",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro in Black, showcasing the refined look of the earbuds and Charging Case.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT3S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-black-mo.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-black.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-color-black"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro in Pink Gold",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro in Pink Gold, the Samsung dotcom only color, showcasing the refined look of the earbuds and Charging Case.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT3S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-pinkgold-mo.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-pinkgold.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-color-pink-gold"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro's Charging Case",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro's Charging Case with its simple, compact and lightweight design in focus. The video also shows Samsung Galaxy Buds4 Pro can be charged wirelessly using a wireless pad or dock.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT6S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-charging-case-tb.jpg\nhttps://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-charging-case-mo-tb.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-charging-case.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-charging-case"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro's Comfort Fit",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro's Comfort Fit being highlighted to emphasize that the earbuds are ergonomically designed to fit different ear shapes and wearing conditions. Also with an IP57 rating, Samsung Galaxy Buds4 Pro effortlessly stays in your ears during daily activities.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT4S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-comfort-tb.jpg\nhttps://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-comfort-mo-tb.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-comfort.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-comfort-fit"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro's Pinch Control",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro's Pinch Control being explained. There are different motions for Pinch Control, such as Single pinch, Double pinch, Triple pinch, Pinch and hold and Swipe up or down, to control the media conveniently.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT5S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-control-tb.jpg\nhttps://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-control-mo-tb.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-design-control.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-pinch-control"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro's Hi-Fi Tuned Speakers",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro's Hi-Fi Tuned Speakers being highlighted. The bezel on the woofer disappears and the new wider woofer of the advanced 2-way Speaker is shown. The tweeter assembles to show the entire intricate system of the advanced 2-way Speaker with Dual Amp, which meticulously tunes sound from textured sub-bass to rich midrange body to sharp detail.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT7S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-sound-tb.jpg\nhttps://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-sound-mo-tb.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-sound.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-hi-fi-speaker"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro's 2-way Speaker with Dual Amp",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro's advanced 2-way Speaker with Dual Amplifier being highlighted, to illustrate how the new wider woofer and the tweeter work with the dedicated Dual Amp to reproduce high-fidelity sound.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT7S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-sound-2wayspeaker-tb.jpg\nhttps://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-sound-2wayspeaker-mo.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-sound-2wayspeaker.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-2-way-speaker"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro's Galaxy AI-powered features",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro's Galaxy AI-powered features being highlighted, with the Galaxy AI logo's star shapes rotating.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT5S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-galaxy-ai-tb.jpg\nhttps://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-galaxy-ai-mo-tb.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-galaxy-ai.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-galaxy-ai"
+        },
+        {
+          "expected_values": {
+            "name": {
+              "value": "Galaxy Buds4 Pro's Auto Switch",
+              "kind": "name_token",
+              "check": "제품명_올바른지",
+              "nested": null
+            },
+            "description": {
+              "value": "Samsung Galaxy Buds4 Pro's Auto Switch feature being highlighted, showing how the feature works. For example, when Samsung Galaxy Buds4 Pro is connected to Galaxy Tab and you get a call on your Samsung Galaxy smartphone, Auto Switch will automatically switch the connection from your Tab to the phone. You can take the call and then get back to your Tab once you hang up.",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "uploadDate": {
+              "value": "2026-02-25 00:00:00",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "duration": {
+              "value": "PT6S",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-autoswitch-tb.jpg\nhttps://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-autoswitch-mo-tb.jpg",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "contentUrl": {
+              "value": "https://images.samsung.com/{SITECODE}/galaxy-buds4-pro/feature/galaxy-buds4-pro-autoswitch.mp4",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#video-auto-switch"
+        }
+      ],
+      "FAQPage": [
+        {
+          "expected_values": {
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "페이지언어_사이트와_맞는지",
+              "nested": null
+            },
+            "about": {
+              "value": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "mainEntity": {
+              "value": "Question",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@type"
+            }
+          },
+          "id_pattern": "https://www.samsung.com/{SITECODE}/audio-sound/galaxy-buds/galaxy-buds4-pro-{COLOR-NAME}-{SKU}/#faq"
+        }
+      ]
+    },
+    "name_tokens": {
+      "must": [
+        "Buds4 Pro"
+      ],
+      "forbid": []
+    }
+  }
+}
