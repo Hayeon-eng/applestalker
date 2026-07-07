@@ -5,19 +5,8 @@
  * 스펙 관리(메인 표) · 스키마 룰 추가(타입 드롭다운) · Quick View + 권역 신호등
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-
-type Finding = { status: "pass" | "warn" | "fail" | "na"; as_is?: string; to_be?: string; block?: string; token?: string; category?: string; kind?: string };
-type PageResult = { sitecode: string; url: string; region?: string; country?: string; page_type?: string;
-  schema: { findings: Finding[] }; copy: { findings: Finding[] } };
-type SiteRow = { sitecode: string; country?: string; lang?: string; url: string };
-type CatalogItem = { category: string; label: string; ex_value: string; ex_unit: string };
-type Product = { code: string; label: string };
-
-const SEV = { fail: { ko: "오류", c: "#D8362F" }, warn: { ko: "확인", c: "#E0A008" }, pass: { ko: "정상", c: "#1F9E5C" }, na: { ko: "해당없음", c: "#98A2B3" } } as const;
-const HONEY = "#E0A008";
-const PAGE_TYPES = ["PDP", "Compare", "Buying"];
-// 마케팅 제품 → 스키마 룰 패밀리(M3=폰 계열 / M12=버즈 계열)
-const family = (code: string) => (code || "").includes("buds") ? "M12" : "M3";
+import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
+import { SpecTable, RuleAddPanel, CriteriaPanel, QuickView } from "./QubiSections";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
@@ -28,7 +17,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [urlOne, setUrlOne] = useState("");
   const [results, setResults] = useState<PageResult[]>([]);
   const [rules, setRules] = useState<any>(null);
-  const [showRules, setShowRules] = useState(false);
+  const [showRules, setShowRules] = useState(true);
   const rulesRef = useRef<HTMLDivElement | null>(null);
   const [rulesFlash, setRulesFlash] = useState(false);
   const openCriteria = () => {
@@ -84,6 +73,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra"); loadHistory();
   }, []);
   useEffect(() => { loadRules(); setSpecProduct(product); }, [product, pageType]);
+  useEffect(() => { if (!pageTypesFor(product).includes(pageType)) setPageType("PDP"); }, [product]);
   useEffect(() => { loadSpecs(specProduct); }, [specProduct]);
 
   async function loadSites() { try { const d = await (await fetch(api("/api/qb/sites"))).json(); setRegionsMap(d.regions || {}); setPageCount(d.page_count || 0); } catch { /* */ } }
@@ -245,13 +235,19 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     }
     return m;
   }, [results]);
-  const tierOf = (c: { fail: number; warn: number }) => (c.fail > 0 ? "bad" : c.warn > 0 ? "mid" : "good");
 
   const countries = useMemo(() => Array.from(new Set(results.map((r) => r.country).filter(Boolean))) as string[], [results]);
   const quickRows = useMemo(() => rows.filter((x) => qCountry === "전체" || x.r.country === qCountry), [rows, qCountry]);
 
-  const inputStyle = { fontSize: 12, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6 } as const;
-  const sel = (v: string, on: boolean) => ({ fontSize: 12, padding: "4px 10px", borderRadius: 999, cursor: "pointer", border: on ? "1px solid #0A66E0" : "1px solid var(--line)", background: on ? "#0A66E0" : "#fff", color: on ? "#fff" : "var(--label)" });
+  // QubiSections.tsx 로 분리한 렌더 블록에 상태·핸들러를 한 번에 주입
+  const ctx = {
+    tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash,
+    specProduct, setSpecProduct, products, newProd, setNewProd, addProduct,
+    specs, removeSpec, catalog, specForm, pickCatalog, setSpecForm, addSpec,
+    ruleForm, setRuleForm, schemaTypes, addRule,
+    quickOpen, setQuickOpen, results, regionTier, countries, qCountry, setQCountry,
+    quickRows, qDetail, setQDetail,
+  };
 
   return (
     <div className="appShell">
@@ -306,7 +302,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               <button className="toolBtn" onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}>＋ 룰 추가</button>
-              <button className="toolBtn" onClick={() => (showRules ? setShowRules(false) : openCriteria())}>ⓘ 검수 기준</button>
+              <button className="toolBtn" onClick={openCriteria}>ⓘ 검수 기준</button>
               <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
               <a className="toolBtn" href={api("/api/qb/report.xlsx")} onClick={(e) => { if (!results.length) { e.preventDefault(); setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); } }} download>📊 Excel</a>
             </div>
@@ -322,9 +318,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {/* 제품 · 페이지타입 */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 4px", flexWrap: "wrap" }}>
             <span style={{ fontSize: 12.5, color: "var(--sec)" }}>제품:</span>
-            {products.map((p) => <button key={p.code} onClick={() => setProduct(p.code)} style={sel(p.code, product === p.code)}>{p.label}</button>)}
+            {products.filter((p) => !p.spec_only).map((p) => <button key={p.code} onClick={() => setProduct(p.code)} style={sel(p.code, product === p.code)}>{p.label}</button>)}
             <span style={{ fontSize: 12.5, color: "var(--sec)", marginLeft: 10 }}>페이지타입:</span>
-            {PAGE_TYPES.map((p) => <button key={p} onClick={() => setPageType(p)} style={sel(p, pageType === p)}>{p}</button>)}
+            {pageTypesFor(product).map((p) => <button key={p} onClick={() => setPageType(p)} style={sel(p, pageType === p)}>{p}</button>)}
           </div>
 
           {ok && <div style={{ background: "#ECFDF3", color: "#067647", padding: "8px 12px", borderRadius: 8, fontSize: 13, margin: "8px 0" }}>{ok}</div>}
@@ -380,173 +376,10 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             </button>
           </div>
 
-          {/* 스펙 관리 표 (스펙 QA 탭) */}
-          {tab === "copy" && (
-            <div className="card" style={{ marginTop: 18, padding: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <b style={{ fontSize: 14 }}>검수 기준 스펙</b>
-                <span style={{ fontSize: 12, color: "var(--sec)" }}>제품:</span>
-                <select value={specProduct} onChange={(e) => setSpecProduct(e.target.value)} style={{ ...inputStyle }}>
-                  {products.map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
-                </select>
-                <input value={newProd} onChange={(e) => setNewProd(e.target.value)} placeholder="새 제품 추가(galaxy-buds4-pro)" style={{ ...inputStyle, width: 220 }} />
-                <button onClick={addProduct} className="btnSecondary" style={{ fontSize: 12, padding: "5px 10px" }}>＋ 제품</button>
-              </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, fontSize: 12.5 }}>
-                <thead><tr style={{ color: "var(--sec)", fontSize: 11, textAlign: "left" }}>
-                  <th style={{ padding: "4px 6px" }}>항목</th><th style={{ padding: "4px 6px" }}>값(여러 값=콤마)</th><th style={{ padding: "4px 6px" }}>단위</th><th style={{ padding: "4px 6px" }}>적용 페이지</th><th /></tr></thead>
-                <tbody>
-                  {specs.map((sp, i) => (
-                    <tr key={i}>
-                      <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}>{sp.category}</td>
-                      <td style={{ padding: 6, borderTop: "1px solid var(--line)", fontWeight: 700 }}>{(sp.values || (sp.value != null ? [sp.value] : [])).join(" / ")}</td>
-                      <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}>{sp.unit}</td>
-                      <td style={{ padding: 6, borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11 }}>{(sp.page_types || ["PDP"]).join(", ")}</td>
-                      <td style={{ padding: 6, borderTop: "1px solid var(--line)", textAlign: "right" }}><span role="button" onClick={() => removeSpec(i)} style={{ cursor: "pointer", color: "var(--high)", fontSize: 11 }}>삭제</span></td>
-                    </tr>
-                  ))}
-                  {/* 행 추가 */}
-                  <tr>
-                    <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}>
-                      <select value={specForm.category} onChange={(e) => pickCatalog(e.target.value)} style={{ ...inputStyle, width: "100%" }}>
-                        <option value="">항목 선택…</option>
-                        {catalog.map((c) => <option key={c.category} value={c.category}>{c.category} · {c.label}</option>)}
-                      </select>
-                    </td>
-                    <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}><input value={specForm.value} onChange={(e) => setSpecForm({ ...specForm, value: e.target.value })} placeholder="예: 31  또는  7,8" style={{ ...inputStyle, width: 90 }} /></td>
-                    <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}><input value={specForm.unit} onChange={(e) => setSpecForm({ ...specForm, unit: e.target.value })} placeholder="단위" style={{ ...inputStyle, width: 60 }} /></td>
-                    <td style={{ padding: 6, borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11 }}>PDP</td>
-                    <td style={{ padding: 6, borderTop: "1px solid var(--line)", textAlign: "right" }}><button onClick={addSpec} className="btnSecondary" style={{ fontSize: 12, padding: "4px 10px" }}>＋ 추가</button></td>
-                  </tr>
-                </tbody>
-              </table>
-              <p style={{ fontSize: 11, color: "var(--sec)", marginTop: 6 }}>값에 콤마를 넣으면 국별 표기 차이를 모두 인정합니다(예: 재생시간 7,8 → 7h·8h 둘 다 통과). 숫자 콤마·공백(2,600=2600)도 자동 인식.</p>
-            </div>
-          )}
-
-          {/* 룰 추가 패널 */}
-          {showRuleAdd && (
-            <div className="card" style={{ marginTop: 16, padding: 14 }}>
-              <b style={{ fontSize: 14 }}>룰 추가 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</b>
-              {tab === "schema" ? (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                    <input list="qb-schema-types" value={ruleForm.block_type} onChange={(e) => setRuleForm({ ...ruleForm, block_type: e.target.value })} placeholder="① 스키마 타입 (WebPage…)" style={{ ...inputStyle, width: 180 }} />
-                    <datalist id="qb-schema-types">{schemaTypes.map((t) => <option key={t} value={t} />)}</datalist>
-                    <input value={ruleForm.property} onChange={(e) => setRuleForm({ ...ruleForm, property: e.target.value })} placeholder="② 속성 (name, url, @id…)" style={{ ...inputStyle, width: 170 }} />
-                    <select value={ruleForm.value_kind} onChange={(e) => setRuleForm({ ...ruleForm, value_kind: e.target.value })} style={{ ...inputStyle, width: 190 }}>
-                      <option value="exists">③ 존재만 (값 검사 안 함)</option>
-                      <option value="url">URL/@id (SITECODE 가변·정확)</option>
-                      <option value="enum">enum/타입 (정확 일치)</option>
-                      <option value="text">번역 텍스트 (확인만·warn)</option>
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
-                    {ruleForm.value_kind !== "exists" && ruleForm.value_kind !== "text" && (
-                      <input value={ruleForm.value} onChange={(e) => setRuleForm({ ...ruleForm, value: e.target.value })}
-                        placeholder={ruleForm.value_kind === "url" ? "④ 기대값 예: https://www.samsung.com/{SITECODE}/…/#webpage" : "④ 기대값 예: WebPage,ItemPage"}
-                        style={{ ...inputStyle, width: 420 }} />
-                    )}
-                    <select value={ruleForm.nested} onChange={(e) => setRuleForm({ ...ruleForm, nested: e.target.value })} style={{ ...inputStyle, width: 150 }}>
-                      <option value="">중첩 없음</option>
-                      <option value="@id">중첩 @id 로 검사</option>
-                      <option value="@type">중첩 @type 로 검사</option>
-                    </select>
-                    <button onClick={addRule} className="toolBtn">추가</button>
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--sec)", marginTop: 8, lineHeight: 1.6 }}>
-                    타입 블록에 속성을 등록하고, <b>값 종류</b>까지 지정하면 값 검수(#5)에 바로 반영됩니다.
-                    블록이 없으면 새로 만들어 이 페이지타입에 등록해요.<br />
-                    · <b>존재만</b>: 있는지만 확인 · <b>URL/@id</b>: <code>{"{SITECODE}"}</code>·<code>{"{LANG-CODE}"}</code> 자동 치환 후 정확 일치(불일치=오류)
-                    · <b>enum/타입</b>: 정확 일치 · <b>번역 텍스트</b>: 번역 여부 확인(warn, 오류 아님)
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                  <select value={ruleForm.kind} onChange={(e) => setRuleForm({ ...ruleForm, kind: e.target.value })} style={{ ...inputStyle, width: 140 }}>
-                    <option value="spec">스펙 토큰</option><option value="proper_noun">고유명사</option>
-                  </select>
-                  <input value={ruleForm.token} onChange={(e) => setRuleForm({ ...ruleForm, token: e.target.value })} placeholder={ruleForm.kind === "spec" ? "예: 2600 nits" : "예: Corning Gorilla Armor 2"} style={{ ...inputStyle, width: 260 }} />
-                  <button onClick={addRule} className="toolBtn">추가</button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 검수 기준 패널 */}
-          {showRules && rules && (
-            <div ref={rulesRef} className="card" style={{ marginTop: 16, padding: 14,
-              outline: rulesFlash ? `3px solid ${HONEY}` : "3px solid transparent",
-              boxShadow: rulesFlash ? `0 0 0 6px ${HONEY}22` : "none",
-              transition: "outline .3s, box-shadow .3s" }}>
-              <b style={{ fontSize: 14 }}>검수 기준 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</b>
-              {tab === "schema" ? (
-                <div style={{ fontSize: 12.5, marginTop: 8 }}>
-                  {rules.schema_set_label && <p style={{ color: "var(--label)", fontWeight: 700 }}>세트: {rules.schema_set_label}</p>}
-                  <p style={{ color: "var(--sec)" }}>{rules.schema?.["설명"]}</p>
-                  {rules.schema?.["출처"] && <p style={{ color: "var(--sec)", fontSize: 11 }}>{rules.schema["출처"]}</p>}
-                  {(rules.schema?.blocks || []).length === 0 && <p style={{ color: "var(--sec)" }}>이 페이지타입은 스키마 검사 대상이 아니거나 아직 룰이 없어요.</p>}
-                  {(rules.schema?.blocks || []).map((b: any, i: number) => (
-                    <div key={i} style={{ borderTop: "1px solid var(--line)", padding: "6px 0" }}><b>{b.block}</b> <span style={{ color: "var(--sec)" }}>{(b.types || []).join(", ")}</span>{b.required_properties?.length > 0 && <div>필수: {b.required_properties.join(", ")}</div>}</div>
-                  ))}
-                  {rules.check_methods && (
-                    <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
-                      <b>우리 기준 — 검사 방식</b>
-                      <p style={{ color: "var(--sec)", margin: "2px 0 6px" }}>{rules.check_methods["설명"]}</p>
-                      <div style={{ fontWeight: 700, color: "var(--high)" }}>🔴 정확히 일치 안 하면 오류</div>
-                      <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
-                        {(rules.check_methods["정확히_일치_오류"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
-                      </ul>
-                      <div style={{ fontWeight: 700, color: "var(--high)" }}>🔴 필수 항목 없으면 오류</div>
-                      <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
-                        {(rules.check_methods["필수_있어야_함_오류"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
-                      </ul>
-                      <div style={{ fontWeight: 700, color: HONEY }}>🟡 확인(경고) — 오류 아님</div>
-                      <ul style={{ margin: "2px 0 0 16px", color: "var(--sec)", lineHeight: 1.7 }}>
-                        {(rules.check_methods["확인_경고"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                  {rules.seo_syntax && (
-                    <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
-                      <b>JSON-LD 문법 오류 기준</b>
-                      <p style={{ color: "var(--sec)", margin: "2px 0 6px" }}>{rules.seo_syntax["설명"]}</p>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        <div style={{ flex: 1, minWidth: 220 }}>
-                          <div style={{ fontWeight: 700, color: "#0A66E0" }}>Google Rich Result 기준</div>
-                          <ul style={{ margin: "4px 0 0 16px", color: "var(--sec)" }}>
-                            {(rules.seo_syntax["구글_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
-                          </ul>
-                        </div>
-                        <div style={{ flex: 1, minWidth: 220 }}>
-                          <div style={{ fontWeight: 700, color: HONEY }}>우리 기준</div>
-                          <ul style={{ margin: "4px 0 0 16px", color: "var(--sec)" }}>
-                            {(rules.seo_syntax["우리_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12.5, marginTop: 8 }}>
-                  <p style={{ color: "var(--sec)" }}>{rules.copy?.["설명"]}</p>
-                  <div style={{ borderTop: "1px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
-                    <div style={{ fontWeight: 700, color: HONEY, marginBottom: 4 }}>우리 기준 — 검사 방식</div>
-                    <ul style={{ margin: "0 0 0 16px", color: "var(--sec)", lineHeight: 1.7 }}>
-                      <li><b style={{ color: "var(--high)" }}>정확히 일치</b> — 숫자+하드웨어 단위(200 MP · 1 TB · 512 GB · 5000 mAh · 2600 nits · 100x …)는 번역돼도 동일하므로 페이지에 정확히 있는지 검사. 같은 단위인데 <b>다른 값</b>이 있으면 오류(예: 2600 nits 자리에 600).</li>
-                      <li><b style={{ color: HONEY }}>확인(WARN)</b> — 기대 스펙 값이 <b>아예 없으면</b> 확인 필요(나라별로 미표기일 수 있어 오류 아님).</li>
-                      <li><b style={{ color: HONEY }}>확인(WARN)</b> — 고유명사(Snapdragon 8 Elite Gen 5 · Vapor Chamber · Galaxy AI …)는 현지어 대체 가능성이 있어 <b>존재만</b> 확인.</li>
-                      <li><b style={{ color: "var(--sec)" }}>해당없음(회색)</b> — 그 페이지타입에 원래 없는 스펙은 검사 제외.</li>
-                      <li>서술형 문장은 값 일치를 검사하지 않습니다.</li>
-                    </ul>
-                  </div>
-                  {(rules.copy?.spec_tokens || []).length > 0 && <div style={{ marginTop: 8 }}><b>스펙 토큰:</b> {(rules.copy?.spec_tokens || []).join(", ")}</div>}
-                  {(rules.copy?.proper_nouns || []).length > 0 && <div style={{ marginTop: 6 }}><b>고유명사:</b> {(rules.copy?.proper_nouns || []).join(", ")}</div>}
-                </div>
-              )}
-            </div>
-          )}
+          {/* 스펙표 · 룰추가 · 검수기준 패널 (QubiSections.tsx로 분리) */}
+          <SpecTable ctx={ctx} />
+          <RuleAddPanel ctx={ctx} />
+          <CriteriaPanel ctx={ctx} />
 
           {/* 결과 — 오류 빨강 강조 */}
           {rows.length > 0 && (
@@ -576,59 +409,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         </div>
       </div>
 
-      {/* ── Quick View (우하단) ── */}
-      {!quickOpen && (
-        <button onClick={() => setQuickOpen(true)} style={{ position: "fixed", right: 20, bottom: 20, zIndex: 40, background: "#101318", color: "#fff", border: "none", borderRadius: 999, padding: "12px 18px", fontWeight: 700, cursor: "pointer", boxShadow: "0 6px 20px rgba(0,0,0,.2)" }}>
-          🐝 Quick View{results.length ? ` · ${results.length}` : ""}
-        </button>
-      )}
-      {quickOpen && (
-        <div style={{ position: "fixed", right: 20, bottom: 20, zIndex: 40, width: 380, maxHeight: "72vh", overflow: "auto", background: "#fff", border: "1px solid var(--line)", borderRadius: 14, boxShadow: "0 10px 30px rgba(0,0,0,.22)" }}>
-          <div style={{ position: "sticky", top: 0, background: "#101318", color: "#fff", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderRadius: "14px 14px 0 0" }}>
-            <b style={{ fontSize: 13 }}>🐝 Quick View — {tab === "schema" ? "스키마" : "스펙"}</b>
-            <span role="button" onClick={() => setQuickOpen(false)} style={{ cursor: "pointer" }}>✕</span>
-          </div>
-          <div style={{ padding: 14 }}>
-            {/* 권역 신호등 */}
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 6 }}>권역 신호등</div>
-            {Object.keys(regionTier).length === 0 && <p style={{ fontSize: 12, color: "var(--sec)" }}>검수를 실행하면 권역별 상태가 표시됩니다.</p>}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-              {Object.entries(regionTier).map(([rg, c]) => (
-                <span key={rg} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, border: "1px solid var(--line)", borderRadius: 999, padding: "3px 9px" }}>
-                  <span className={`scoreDot ${tierOf(c)}`} />{rg}<span style={{ color: "var(--sec)" }}>{c.fail ? `오류${c.fail}` : c.warn ? `확인${c.warn}` : "정상"}</span>
-                </span>
-              ))}
-            </div>
-            {/* 국가 필터 */}
-            {countries.length > 0 && (
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
-                <button onClick={() => setQCountry("전체")} style={sel("전체", qCountry === "전체")}>전체</button>
-                {countries.map((c) => <button key={c} onClick={() => setQCountry(c)} style={sel(c, qCountry === c)}>{c}</button>)}
-              </div>
-            )}
-            {/* 오류 목록 + 상세 */}
-            {quickRows.length === 0 && <p style={{ fontSize: 12, color: "var(--sec)" }}>표시할 오류가 없어요.</p>}
-            {quickRows.slice(0, 60).map((x, i) => {
-              const key = `${x.r.sitecode}-${i}`;
-              return (
-                <div key={key} style={{ borderTop: "1px solid var(--line)", padding: "7px 0" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 6, cursor: "pointer" }} onClick={() => setQDetail(qDetail === key ? null : key)}>
-                    <span style={{ fontSize: 12 }}><span style={{ background: SEV[x.f.status].c, color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 4, marginRight: 5 }}>{SEV[x.f.status].ko}</span><b>{x.r.sitecode}</b> · {x.item}</span>
-                    <span style={{ fontSize: 11, color: "#0A66E0" }}>{qDetail === key ? "닫기" : "상세"}</span>
-                  </div>
-                  {qDetail === key && (
-                    <div style={{ fontSize: 12, marginTop: 4, background: "#F9FAFB", borderRadius: 6, padding: 8 }}>
-                      <div style={{ color: "var(--sec)" }}>as-is: {x.f.as_is}</div>
-                      <div style={{ fontWeight: 600, marginTop: 2 }}>→ {x.f.to_be}</div>
-                      {x.r.url && <div style={{ fontFamily: "monospace", fontSize: 10.5, color: "#98A2B3", marginTop: 4, wordBreak: "break-all" }}>{x.r.url}</div>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Quick View (QubiSections.tsx로 분리) */}
+      <QuickView ctx={ctx} />
     </div>
   );
 }

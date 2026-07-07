@@ -1,5 +1,6 @@
 import './globals.css';
 import './globals-components.css';
+import './globals-components-2.css';
 import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Apple Stalker',
