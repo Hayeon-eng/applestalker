@@ -111,22 +111,39 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   };
   const onHtmlFile = async (file: File) => { setHtml(await file.text()); setInputMode("paste"); flash(`${file.name} 불러옴 — 검수를 누르세요`); };
 
+  // Apple Stalker의 trigger-crawl/all + crawl-progress 패턴과 동일:
+  // /run 은 즉시 반환(started)되고, 실제 크롤은 서버 백그라운드에서 동시성 제한으로
+  // '나눠서' 진행된다. 프론트는 SSE로 진행률만 구독하다가 done 이벤트에서 결과를 받아온다.
+  // → 91개를 한 요청에 다 물지 않으므로 'Failed to fetch'(게이트웨이 타임아웃)가 사라진다.
   const runByRegion = async () => {
+    if (busy) return;
     setBusy(true); setErr(""); setResults([]);
-    const targetRegions = region === "전체" ? regionNames : [region];
-    const total = targetRegions.reduce((n, r) => n + (regionsMap[r]?.length || 0), 0);
-    setProgress({ active: true, done: 0, total, label: "" });
-    const acc: PageResult[] = [];
+    const codes = region === "전체" ? allSites.map((s) => s.sitecode) : (regionsMap[region] || []).map((s) => s.sitecode);
+    setProgress({ active: true, done: 0, total: codes.length, label: region });
     try {
-      for (const rg of targetRegions) {
-        const codes = (regionsMap[rg] || []).map((s) => s.sitecode);
-        setProgress((p) => ({ ...p, label: `${rg} (${codes.length}개)` }));
-        const r = await fetch(api("/api/qb/run"), J({ product: family(product), market_product: product, sitecodes: codes }));
-        if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일/링크 검수를 이용하세요.");
-        if (!r.ok) throw new Error(`실행 실패 (${r.status})`);
-        acc.push(...((await r.json()).results || [])); setResults([...acc]);
-        setProgress((p) => ({ ...p, done: Math.min(p.done + codes.length, total) }));
-      }
+      const r = await fetch(api("/api/qb/run"), J({ product: family(product), market_product: product, sitecodes: codes }));
+      if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일/링크 검수를 이용하세요.");
+      if (r.status === 409) throw new Error("이미 검수가 진행 중이에요. 완료 후 다시 시도하세요.");
+      if (!r.ok) throw new Error(`실행 실패 (${r.status})`);
+      await new Promise<void>((resolve, reject) => {
+        const es = new EventSource(api("/api/qb/run-progress"));
+        const timeout = setTimeout(() => { es.close(); reject(new Error("진행이 오래 걸려요 — 검수 이력에서 완료 여부를 확인해보세요.")); }, 20 * 60 * 1000);
+        es.onmessage = (ev) => {
+          try {
+            const d = JSON.parse(ev.data);
+            if (d.type === "start") setProgress((p) => ({ ...p, total: d.total || p.total, done: 0 }));
+            else if (d.type === "page_done") setProgress((p) => ({ ...p, done: d.done ?? p.done + 1 }));
+            else if (d.type === "done") {
+              clearTimeout(timeout); es.close();
+              fetch(api(`/api/qb/history/${encodeURIComponent(d.run_id)}`))
+                .then((rr) => rr.ok ? rr.json() : null)
+                .then((dd) => { if (dd?.results) setResults(dd.results); resolve(); })
+                .catch(() => resolve());
+            } else if (d.type === "status" && d.crawling === false) { clearTimeout(timeout); es.close(); resolve(); }
+          } catch { /* heartbeat 무시 */ }
+        };
+        es.onerror = () => { clearTimeout(timeout); es.close(); reject(new Error("진행 상황 연결이 끊겼어요 — 완료 후 검수 이력에서 확인하세요.")); };
+      });
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); setProgress((p) => ({ ...p, active: false })); loadHistory(); }
   };
 
