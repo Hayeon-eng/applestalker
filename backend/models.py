@@ -102,6 +102,23 @@ class MonitoredURL(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class QbHistory(Base):
+    """큐비(닷컴 QA 검수) 이력. [FIX] 기존엔 dotcom_qa/qb_history/*.json 로컬 파일로 저장했으나,
+    Render 무료 플랜은 idle 슬립 후 재시작(또는 재배포) 시 로컬 디스크가 초기화되어
+    저장된 검수 이력이 전부 유실됐음 → DB(영구 저장소)로 이전."""
+    __tablename__ = "qb_history"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String(30), unique=True, index=True, nullable=False)
+    at = Column(String(30))
+    product = Column(String(20))
+    scope = Column(String(50))
+    pages = Column(Integer, default=0)
+    fail = Column(Integer, default=0)
+    warn = Column(Integer, default=0)
+    results = Column(Text)                     # JSON: 검수 결과 배열 전체
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class POV(Base):
     """근거기반 분석 결과 1행(크롤당). UI 현황/이메일에서 사용.
 
