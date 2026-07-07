@@ -6,19 +6,22 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type Finding = { status: "pass" | "warn" | "fail"; as_is?: string; to_be?: string; block?: string; token?: string; kind?: string };
+type Finding = { status: "pass" | "warn" | "fail" | "na"; as_is?: string; to_be?: string; block?: string; token?: string; category?: string; kind?: string };
 type PageResult = { sitecode: string; url: string; region?: string; country?: string; page_type?: string;
   schema: { findings: Finding[] }; copy: { findings: Finding[] } };
 type SiteRow = { sitecode: string; country?: string; lang?: string; url: string };
 type CatalogItem = { category: string; label: string; ex_value: string; ex_unit: string };
+type Product = { code: string; label: string };
 
-const SEV = { fail: { ko: "오류", c: "#D8362F" }, warn: { ko: "확인", c: "#E0A008" }, pass: { ko: "정상", c: "#1F9E5C" } };
+const SEV = { fail: { ko: "오류", c: "#D8362F" }, warn: { ko: "확인", c: "#E0A008" }, pass: { ko: "정상", c: "#1F9E5C" }, na: { ko: "해당없음", c: "#98A2B3" } } as const;
 const HONEY = "#E0A008";
 const PAGE_TYPES = ["PDP", "Compare", "Buying"];
+// 마케팅 제품 → 스키마 룰 패밀리(M3=폰 계열 / M12=버즈 계열)
+const family = (code: string) => (code || "").includes("buds") ? "M12" : "M3";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
-  const [product, setProduct] = useState("M3");
+  const [product, setProduct] = useState("galaxy-s26-ultra");
   const [pageType, setPageType] = useState("PDP");
   const [inputMode, setInputMode] = useState<"paste" | "file" | "url">("paste");
   const [html, setHtml] = useState("");
@@ -43,7 +46,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   // 스펙 관리
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [products, setProducts] = useState<string[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [specProduct, setSpecProduct] = useState("galaxy-s26-ultra");
   const [specs, setSpecs] = useState<any[]>([]);
   const [newProd, setNewProd] = useState("");
@@ -67,7 +70,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     fetch(api("/api/health")).then((r) => setOnline(r.ok)).catch(() => setOnline(false));
     loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra"); loadHistory();
   }, []);
-  useEffect(() => { loadRules(); }, [product, pageType]);
+  useEffect(() => { loadRules(); setSpecProduct(product); }, [product, pageType]);
   useEffect(() => { loadSpecs(specProduct); }, [specProduct]);
 
   async function loadSites() { try { setRegionsMap((await (await fetch(api("/api/qb/sites"))).json()).regions || {}); } catch { /* */ } }
@@ -75,7 +78,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   async function loadProducts() { try { setProducts((await (await fetch(api("/api/qb/products"))).json()).products || []); } catch { /* */ } }
   async function loadSpecs(p: string) { try { setSpecs((await (await fetch(api(`/api/qb/specs?product=${encodeURIComponent(p)}`))).json()).specs || []); } catch { /* */ } }
   async function loadRules() {
-    try { const d = await (await fetch(api(`/api/qb/rules?product=${product}&page_type=${pageType}`))).json(); setRules(d); if (d.schema_types) setSchemaTypes(d.schema_types); } catch (e: any) { setErr(String(e)); }
+    try { const d = await (await fetch(api(`/api/qb/rules?product=${family(product)}&page_type=${pageType}`))).json(); setRules(d); if (d.schema_types) setSchemaTypes(d.schema_types); } catch (e: any) { setErr(String(e)); }
   }
   async function loadHistory() { try { setHistory((await (await fetch(api("/api/qb/history"))).json()).history || []); } catch { /* */ } }
   const openHistory = async (id: string) => {
@@ -93,13 +96,13 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     try {
       if (inputMode === "url") {
         if (!urlOne.trim()) throw new Error("검수할 링크를 입력하세요.");
-        const r = await fetch(api("/api/qb/check-url"), J({ url: urlOne.trim(), product, page_type: pageType }));
+        const r = await fetch(api("/api/qb/check-url"), J({ url: urlOne.trim(), product: family(product), market_product: product, page_type: pageType }));
         if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일 검수를 이용하세요.");
         if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `검수 실패 (${r.status})`);
         setResults([await r.json()]);
       } else {
         if (!html.trim()) throw new Error("검수할 HTML을 넣으세요.");
-        const r = await fetch(api("/api/qb/check"), J({ html, product, page_type: pageType }));
+        const r = await fetch(api("/api/qb/check"), J({ html, product: family(product), market_product: product, page_type: pageType }));
         if (!r.ok) throw new Error(`검수 실패 (${r.status})`);
         const d = await r.json();
         setResults([{ sitecode: "(입력)", url: "", page_type: pageType, schema: d.schema, copy: d.copy }]);
@@ -118,7 +121,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
       for (const rg of targetRegions) {
         const codes = (regionsMap[rg] || []).map((s) => s.sitecode);
         setProgress((p) => ({ ...p, label: `${rg} (${codes.length}개)` }));
-        const r = await fetch(api("/api/qb/run"), J({ product, sitecodes: codes }));
+        const r = await fetch(api("/api/qb/run"), J({ product: family(product), market_product: product, sitecodes: codes }));
         if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일/링크 검수를 이용하세요.");
         if (!r.ok) throw new Error(`실행 실패 (${r.status})`);
         acc.push(...((await r.json()).results || [])); setResults([...acc]);
@@ -127,28 +130,43 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); setProgress((p) => ({ ...p, active: false })); loadHistory(); }
   };
 
+  const downloadBlob = async (url: string, body: any, filename: string) => {
+    try {
+      const r = body === null
+        ? await fetch(api(url))
+        : await fetch(api(url), J(body));
+      if (!r.ok) throw new Error(`서버 오류 (${r.status})`);
+      const blob = await r.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href; a.download = filename; document.body.appendChild(a); a.click();
+      a.remove(); setTimeout(() => URL.revokeObjectURL(href), 1500);
+    } catch (e: any) {
+      setErr(`${filename} 다운로드 실패 — ${e.message || e}`);
+    }
+  };
   const downloadXlsx = async () => {
-    const r = await fetch(api("/api/qb/report.xlsx"), J({ results }));
-    const blob = await r.blob(); const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "qubi_qa_report.xlsx"; a.click();
+    if (!results.length) { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
+    await downloadBlob("/api/qb/report.xlsx", { results }, "qubi_qa_report.xlsx");
   };
   const copyEmail = async () => {
+    if (!results.length) { setErr("먼저 검수를 실행한 뒤 메일 본문을 복사할 수 있어요."); return; }
     try {
       const r = await fetch(api("/api/qb/email-draft"), J({ results }));
-      if (!r.ok) throw new Error("fetch");
+      if (!r.ok) throw new Error(`서버 오류 (${r.status})`);
       const body = await r.text();
       if (navigator.clipboard && "write" in navigator.clipboard && typeof ClipboardItem !== "undefined") {
         await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([body], { type: "text/html" }), "text/plain": new Blob([body], { type: "text/plain" }) })]);
         flash("메일 본문 복사됨 — 붙여넣기 🐝");
       } else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(body); flash("메일 본문 복사됨 🐝"); }
       else { const w = window.open("", "_blank"); if (w) { w.document.write(body); w.document.close(); } flash("새 탭에서 복사하세요"); }
-    } catch { setErr("메일 복사 실패 — 백엔드/결과 확인"); }
+    } catch (e: any) { setErr(`메일 복사 실패 — ${e.message || e}`); }
   };
 
   // ── URL 관리 ──
   const addUrl = async () => { if (!newUrl.trim()) return; await fetch(api("/api/qb/sites/add"), J({ url: newUrl.trim() })); setNewUrl(""); loadSites(); flash("URL 추가"); };
   const removeUrl = async (sc: string) => { await fetch(api("/api/qb/sites/remove"), J({ sitecode: sc })); loadSites(); };
-  const downloadTemplate = () => window.open(api("/api/qb/sites/template.xlsx"), "_blank");
+  const downloadTemplate = () => downloadBlob("/api/qb/sites/template.xlsx", null, "qubi_url_template.xlsx");
   const uploadTemplate = async (file: File) => {
     const b64: string = await new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result)); rd.onerror = rej; rd.readAsDataURL(file); });
     const d = await (await fetch(api("/api/qb/sites/upload"), J({ b64 }))).json(); loadSites(); flash(`${d.added || 0}개 URL 추가`);
@@ -163,7 +181,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     if (tab === "schema") {
       if (!ruleForm.block_type || !ruleForm.property) return;
       await fetch(api("/api/qb/rules/schema/add"), J({
-        product, page_type: pageType, block_type: ruleForm.block_type, property: ruleForm.property,
+        product: family(product), page_type: pageType, block_type: ruleForm.block_type, property: ruleForm.property,
         value: ruleForm.value, value_kind: ruleForm.value_kind, nested: ruleForm.nested,
       }));
     } else {
@@ -178,9 +196,10 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     const out: { r: PageResult; f: Finding; item: string }[] = [];
     for (const r of results) {
       const fs = tab === "schema" ? (r.schema?.findings || []) : (r.copy?.findings || []);
-      for (const f of fs) if (f.status !== "pass") out.push({ r, f, item: f.block || f.token || "" });
+      for (const f of fs) if (f.status !== "pass") out.push({ r, f, item: f.block || f.token || f.category || "" });
     }
-    return out.sort((a, b) => (a.f.status === "fail" ? -1 : 1) - (b.f.status === "fail" ? -1 : 1));
+    const rank: Record<string, number> = { fail: 0, warn: 1, na: 2 };
+    return out.sort((a, b) => (rank[a.f.status] ?? 3) - (rank[b.f.status] ?? 3));
   }, [results, tab]);
   const failCount = rows.filter((x) => x.f.status === "fail").length;
 
@@ -247,7 +266,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
       </aside>
 
       {/* ── 메인 ── */}
-      <div className="mainArea" style={{ marginRight: showRules ? "var(--drawer-w)" : 0 }}>
+      <div className="mainArea">
         <header className="topbar">
           <div className="topbarRow1">
             <div className="tabGroup">
@@ -255,9 +274,10 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <button className={`tabBtn ${tab === "copy" ? "on" : ""}`} onClick={() => setTab("copy")}>스펙 QA</button>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+              <button className="toolBtn" onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}>＋ 룰 추가</button>
               <button className="toolBtn" onClick={() => { setShowRules((v) => !v); setShowRuleAdd(false); }}>ⓘ 검수 기준</button>
-              <button className="toolBtn" onClick={copyEmail} disabled={!results.length}>✉ 메일 복사</button>
-              <button className="toolBtn" onClick={downloadXlsx} disabled={!results.length}>📊 Excel</button>
+              <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
+              <button className="toolBtn" onClick={downloadXlsx}>📊 Excel</button>
             </div>
           </div>
         </header>
@@ -271,7 +291,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {/* 제품 · 페이지타입 */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 4px", flexWrap: "wrap" }}>
             <span style={{ fontSize: 12.5, color: "var(--sec)" }}>제품:</span>
-            {["M3", "M12"].map((p) => <button key={p} onClick={() => setProduct(p)} style={sel(p, product === p)}>{p}</button>)}
+            {products.map((p) => <button key={p.code} onClick={() => setProduct(p.code)} style={sel(p.code, product === p.code)}>{p.label}</button>)}
             <span style={{ fontSize: 12.5, color: "var(--sec)", marginLeft: 10 }}>페이지타입:</span>
             {PAGE_TYPES.map((p) => <button key={p} onClick={() => setPageType(p)} style={sel(p, pageType === p)}>{p}</button>)}
           </div>
@@ -333,20 +353,21 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                 <b style={{ fontSize: 14 }}>검수 기준 스펙</b>
                 <span style={{ fontSize: 12, color: "var(--sec)" }}>제품:</span>
                 <select value={specProduct} onChange={(e) => setSpecProduct(e.target.value)} style={{ ...inputStyle }}>
-                  {products.map((p) => <option key={p} value={p}>{p}</option>)}
+                  {products.map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
                 </select>
                 <input value={newProd} onChange={(e) => setNewProd(e.target.value)} placeholder="새 제품 추가(galaxy-buds4-pro)" style={{ ...inputStyle, width: 220 }} />
                 <button onClick={addProduct} className="btnSecondary" style={{ fontSize: 12, padding: "5px 10px" }}>＋ 제품</button>
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, fontSize: 12.5 }}>
                 <thead><tr style={{ color: "var(--sec)", fontSize: 11, textAlign: "left" }}>
-                  <th style={{ padding: "4px 6px" }}>항목</th><th style={{ padding: "4px 6px" }}>값</th><th style={{ padding: "4px 6px" }}>단위</th><th /></tr></thead>
+                  <th style={{ padding: "4px 6px" }}>항목</th><th style={{ padding: "4px 6px" }}>값(여러 값=콤마)</th><th style={{ padding: "4px 6px" }}>단위</th><th style={{ padding: "4px 6px" }}>적용 페이지</th><th /></tr></thead>
                 <tbody>
                   {specs.map((sp, i) => (
                     <tr key={i}>
                       <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}>{sp.category}</td>
-                      <td style={{ padding: 6, borderTop: "1px solid var(--line)", fontWeight: 700 }}>{sp.value}</td>
+                      <td style={{ padding: 6, borderTop: "1px solid var(--line)", fontWeight: 700 }}>{(sp.values || (sp.value != null ? [sp.value] : [])).join(" / ")}</td>
                       <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}>{sp.unit}</td>
+                      <td style={{ padding: 6, borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11 }}>{(sp.page_types || ["PDP"]).join(", ")}</td>
                       <td style={{ padding: 6, borderTop: "1px solid var(--line)", textAlign: "right" }}><span role="button" onClick={() => removeSpec(i)} style={{ cursor: "pointer", color: "var(--high)", fontSize: 11 }}>삭제</span></td>
                     </tr>
                   ))}
@@ -358,24 +379,16 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                         {catalog.map((c) => <option key={c.category} value={c.category}>{c.category} · {c.label}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}><input value={specForm.value} onChange={(e) => setSpecForm({ ...specForm, value: e.target.value })} placeholder="값" style={{ ...inputStyle, width: 70 }} /></td>
+                    <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}><input value={specForm.value} onChange={(e) => setSpecForm({ ...specForm, value: e.target.value })} placeholder="예: 31  또는  7,8" style={{ ...inputStyle, width: 90 }} /></td>
                     <td style={{ padding: 6, borderTop: "1px solid var(--line)" }}><input value={specForm.unit} onChange={(e) => setSpecForm({ ...specForm, unit: e.target.value })} placeholder="단위" style={{ ...inputStyle, width: 60 }} /></td>
+                    <td style={{ padding: 6, borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11 }}>PDP</td>
                     <td style={{ padding: 6, borderTop: "1px solid var(--line)", textAlign: "right" }}><button onClick={addSpec} className="btnSecondary" style={{ fontSize: 12, padding: "4px 10px" }}>＋ 추가</button></td>
                   </tr>
                 </tbody>
               </table>
-              <p style={{ fontSize: 11, color: "var(--sec)", marginTop: 6 }}>항목을 고르면 예시 값·단위가 자동 채워집니다. 예: camera_ultrawide → 50 MP</p>
+              <p style={{ fontSize: 11, color: "var(--sec)", marginTop: 6 }}>값에 콤마를 넣으면 국별 표기 차이를 모두 인정합니다(예: 재생시간 7,8 → 7h·8h 둘 다 통과). 숫자 콤마·공백(2,600=2600)도 자동 인식.</p>
             </div>
           )}
-
-          {/* 룰 추가 버튼 — 패널 바로 위 */}
-          <div style={{ marginTop: 18 }}>
-            <button
-              onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}
-              style={{ padding: "10px 18px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-              {showRuleAdd ? "✕ 룰 추가 닫기" : "＋ 룰 추가"}
-            </button>
-          </div>
 
           {/* 룰 추가 패널 */}
           {showRuleAdd && (
@@ -426,26 +439,12 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             </div>
           )}
 
-          {/* 검수 기준 — 우측 밀림형 드로어 (본문을 왼쪽으로 밀어냄) */}
-          <div
-            style={{
-              position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 31,
-              width: "var(--drawer-w)", background: "var(--surface)",
-              boxShadow: "-4px 0 24px rgba(0,0,0,.12)",
-              transform: showRules ? "translateX(0)" : "translateX(100%)",
-              transition: "transform .25s",
-              display: "flex", flexDirection: "column",
-            }}
-          >
-            <div className="drawerHead">
-              <span className="drawerTitle">검수 기준 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</span>
-              <button className="drawerClose" onClick={() => setShowRules(false)}>×</button>
-            </div>
-            <div className="drawerBody" style={{ overflowY: "auto", flex: 1 }}>
-              {!rules ? (
-                <p style={{ color: "var(--sec)", fontSize: 12.5 }}>기준을 불러오는 중…</p>
-              ) : tab === "schema" ? (
-                <div style={{ fontSize: 12.5 }}>
+          {/* 검수 기준 패널 */}
+          {showRules && rules && (
+            <div className="card" style={{ marginTop: 16, padding: 14 }}>
+              <b style={{ fontSize: 14 }}>검수 기준 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</b>
+              {tab === "schema" ? (
+                <div style={{ fontSize: 12.5, marginTop: 8 }}>
                   <p style={{ color: "var(--sec)" }}>{rules.schema?.["설명"]}</p>
                   {(rules.schema?.blocks || []).length === 0 && <p style={{ color: "var(--sec)" }}>이 페이지타입엔 아직 룰이 없어요. ＋룰 추가로 등록하세요.</p>}
                   {(rules.schema?.blocks || []).map((b: any, i: number) => (
@@ -453,31 +452,33 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 12.5 }}>
+                <div style={{ fontSize: 12.5, marginTop: 8 }}>
                   <p style={{ color: "var(--sec)" }}>{rules.copy?.["설명"]}</p>
                   <div><b>스펙 토큰:</b> {(rules.copy?.spec_tokens || []).join(", ")}</div>
                   <div style={{ marginTop: 6 }}><b>고유명사:</b> {(rules.copy?.proper_nouns || []).join(", ")}</div>
                 </div>
               )}
             </div>
-          </div>
+          )}
 
           {/* 결과 — 오류 빨강 강조 */}
           {rows.length > 0 && (
             <>
               <div style={{ margin: "18px 0 8px", fontSize: 13, fontWeight: 700, color: failCount ? "#B42318" : "var(--label)" }}>
-                {failCount ? `🔴 오류 ${failCount}건` : "🟡 확인 항목"} · 총 {rows.length}건
+                {failCount ? `🔴 오류 ${failCount}건` : "🟡 검토"}
+                {(() => { const w = rows.filter((x) => x.f.status === "warn").length; const na = rows.filter((x) => x.f.status === "na").length;
+                  return <span style={{ color: "var(--sec)", fontWeight: 400 }}> · 확인 {w}건{na ? ` · 해당없음 ${na}건` : ""}</span>; })()}
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead><tr style={{ color: "var(--sec)", fontSize: 11, textAlign: "left" }}>
                   <th style={{ padding: "6px 8px" }}>사이트</th><th style={{ padding: "6px 8px" }}>항목</th><th style={{ padding: "6px 8px" }}>심각도</th><th style={{ padding: "6px 8px" }}>as-is → to-be</th></tr></thead>
                 <tbody>
                   {rows.map((x, i) => (
-                    <tr key={i} style={{ background: x.f.status === "fail" ? "#FEF3F2" : undefined }}>
+                    <tr key={i} style={{ background: x.f.status === "fail" ? "#FEF3F2" : undefined, opacity: x.f.status === "na" ? 0.6 : 1 }}>
                       <td style={{ padding: 8, borderTop: "1px solid var(--line)", whiteSpace: "nowrap" }}>{x.r.sitecode}</td>
                       <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}>{x.item}</td>
                       <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><span style={{ background: SEV[x.f.status].c, color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5 }}>{SEV[x.f.status].ko}</span></td>
-                      <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><div style={{ color: "var(--sec)" }}>{x.f.as_is}</div><div style={{ fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)" }}>→ {x.f.to_be}</div></td>
+                      <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><div style={{ color: "var(--sec)" }}>{x.f.as_is}</div>{x.f.to_be ? <div style={{ fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)" }}>→ {x.f.to_be}</div> : null}</td>
                     </tr>
                   ))}
                 </tbody>
