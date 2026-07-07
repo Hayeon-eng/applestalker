@@ -67,8 +67,9 @@ def enable_default_crawler(requires_js: bool = True):
 
 @qb_router.get("/sites")
 def qb_sites():
-    by = _registry.by_region()
-    return {"count": len(_registry.all()),
+    by = _registry.by_region_unique()  # 사이트코드 중복 제거 — 지역 칩엔 로케일 1개씩
+    return {"count": len(_registry.unique_sitecodes()),   # 사이트(로케일) 수
+            "page_count": len(_registry.all()),           # 실제 크롤 대상(제품×페이지타입) 수
             "regions": {r: [{"sitecode": s["sitecode"], "country": s["country"],
                              "lang": s["lang"], "url": s["url"]} for s in sites]
                         for r, sites in by.items()},
