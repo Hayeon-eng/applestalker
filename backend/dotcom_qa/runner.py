@@ -74,6 +74,63 @@ def schema_set_for(page_type: str, market_product: Optional[str], url: str = "")
     return "flagship" if is_smartphone(market_product, url) else "simple"
 
 
+_SCHEMA_VALUES_CACHE = None
+
+
+def _schema_values():
+    global _SCHEMA_VALUES_CACHE
+    if _SCHEMA_VALUES_CACHE is None:
+        p = os.path.join(_HERE, "schema_values.json")
+        _SCHEMA_VALUES_CACHE = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+    return _SCHEMA_VALUES_CACHE
+
+
+def _apply_product_values(schema_rules: Dict[str, Any], market_product: str) -> Dict[str, Any]:
+    """Word 세트(구조) 위에 제품별 정답값(카피덱)을 덮어씌운다.
+    - 카피덱에 값이 있는 블록: expected_values/haspart_ids 를 제품 값으로 교체
+    - 카피덱에 없는 블록(예: 버즈의 Product/WebPage): 폰 값이 잘못 남지 않도록 비움(구조만 검사)
+    - WebPage/ItemPage: 카피덱엔 없지만 기존 세트값을 제품 슬러그로 치환해 유지(폰만)."""
+    sv = _schema_values().get(market_product)
+    if not sv:
+        return schema_rules
+    by_type = sv.get("blocks", {})
+    name_tokens = sv.get("name_tokens", {})
+    slug = market_product  # 예: galaxy-s26 / galaxy-buds4-pro
+    is_phone = slug.startswith("galaxy-s")
+
+    for b in schema_rules.get("blocks", []):
+        types = b.get("types", [])
+        # 카피덱의 대표(첫) 블록 찾기
+        deck = None
+        for t in types:
+            if t in by_type and by_type[t]:
+                deck = by_type[t][0]; break
+        if deck:
+            b["expected_values"] = deck.get("expected_values", {})
+            if deck.get("haspart_ids"):
+                b["haspart_ids"] = deck["haspart_ids"]
+        elif ("WebPage" in types or "ItemPage" in types) and is_phone:
+            # 카피덱엔 WebPage가 없음 → 기존 세트값의 슬러그를 제품에 맞게 치환(폰만)
+            ev = b.get("expected_values", {})
+            for prop, spec in ev.items():
+                v = spec.get("value", "")
+                if isinstance(v, str):
+                    spec["value"] = v.replace("galaxy-s26-ultra", slug)
+        else:
+            # 카피덱에 값 없음(예: 버즈 Product/WebPage) → 폰 값 잔재 제거, 구조만 검사
+            b["expected_values"] = {}
+            b["haspart_ids"] = []
+            b["id_pattern"] = ""   # 폰 @id 패턴 잔재 제거(오탐 방지)
+            # 단, 제품명은 확인할 수 있게 name 식별토큰 검사만 주입(name이 이 블록 속성일 때)
+            props = set(b.get("required_properties", [])) | set(b.get("optional_properties", []))
+            if name_tokens and "name" in props:
+                b["expected_values"] = {"name": {"value": "", "kind": "name_token", "check": "제품명_올바른지", "nested": None}}
+        # 제품명 식별토큰(name 검사용)을 블록에 부착
+        if name_tokens:
+            b["name_tokens"] = name_tokens
+    return schema_rules
+
+
 def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str = None,
                url: str = "", schema_path: str = None, copy_path: str = None, spec_path: str = None) -> Dict[str, Any]:
     copy_path = copy_path or os.path.join(_HERE, "copy_rules.json")
@@ -93,6 +150,9 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
             # 폴백: 구 파일(있으면) → 빈 룰
             legacy = os.path.join(_HERE, f"schema_rules.{product}.{page_type}.json")
             sr = json.load(open(legacy, encoding="utf-8")) if os.path.exists(legacy) else {"page_type": page_type, "blocks": []}
+        # 제품별 정답값(카피덱) 오버레이 — 세트=구조, 값=제품별
+        if market_product and not sr.get("skip"):
+            sr = _apply_product_values(sr, market_product)
 
     # 카피(스펙) 규칙: 마케팅 제품별 토큰 우선, 없으면 패밀리 폴백
     cdata = json.load(open(copy_path, encoding="utf-8"))["products"]
@@ -108,16 +168,18 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
     ks = entry.get("specs", []) if isinstance(entry, dict) else (entry or [])
     label = entry.get("label", mp) if isinstance(entry, dict) else mp
     return {"schema": sr, "copy": cr, "key_specs": ks, "product_label": label,
-            "page_type": page_type, "schema_set": schema_set}
+            "market_product": mp, "page_type": page_type, "schema_set": schema_set}
 
 
 def check_html(html: str, rules: Dict[str, Any],
                sitecode: str = None, site_lang: str = None) -> Dict[str, Any]:
     """단일 페이지 HTML 검수 → {schema, copy}."""
     pt = rules.get("page_type", "PDP")
+    mp = rules.get("market_product")
     return {
         "schema": schema_checker.check_page(html, rules["schema"],
-                                            sitecode=sitecode, site_lang=site_lang),
+                                            sitecode=sitecode, site_lang=site_lang,
+                                            market_product=mp),
         "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt),
     }
 

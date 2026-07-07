@@ -151,8 +151,10 @@ def _collect_ids(value: Any) -> List[str]:
 
 # ---------- 검수 ----------
 def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
-               sitecode: Optional[str] = None, site_lang: Optional[str] = None) -> Dict[str, Any]:
+               sitecode: Optional[str] = None, site_lang: Optional[str] = None,
+               market_product: Optional[str] = None) -> Dict[str, Any]:
     from qa_messages import render
+    market_product_slug = market_product or ""
 
     # Buying 등 스키마 검사 제외 페이지타입: 회색 '해당없음' 1건만 남기고 종료
     if product_rules.get("skip"):
@@ -272,28 +274,58 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         f["missing_props"] = hard_missing
         f["optional_missing"] = soft_missing
 
-        # 값 검사 (#5, Q1=b): 기대값 플레이스홀더 치환 후 대조
-        #   url/@id/target/image/@type/@context → 정확(치환, 불일치=오류)
-        #   name → 번역되는 값이므로 '확인(warn)'만 (오류 아님), description → 존재만
+        # 값 검사 — 검사방식(kind)별로 하드/소프트 분리
         val_mismatch = []       # 하드 불일치(오류)
-        translate_confirm = []  # 번역성 텍스트 확인(경고)
+        translate_confirm = []  # 번역/존재 확인(경고)
+        name_issue = []         # 제품명 식별토큰 위반(오류)
+        lang_issue = []         # inLanguage ↔ 사이트 언어 불일치(경고)
+        name_tokens = block.get("name_tokens") or {}
         for prop, spec in (block.get("expected_values") or {}).items():
             if prop == "hasPart":
-                continue  # hasPart 는 haspart_ids 로 별도 검증
+                continue
             if prop in f["missing_props"]:
-                continue  # 이미 누락으로 잡힘
+                continue
             if prop not in node or node.get(prop) in (None, "", [], {}):
                 continue
             kind = spec.get("kind"); exp = spec.get("value", ""); nested = spec.get("nested")
             actual = _actual_value(node, prop, nested)
-            if kind == "text":
-                if prop == "name" and "galaxy s26 ultra" not in str(actual).lower():
-                    translate_confirm.append({"prop": prop, "actual": str(actual)[:60]})
-                continue  # description 등은 존재만
-            if not _val_matches(exp, actual, kind):
-                val_mismatch.append({"prop": prop, "expected": _resolve(exp), "actual": str(actual)[:80]})
+            astr = str(actual)
+
+            if kind == "name_token":
+                # 번역은 허용하되 제품 식별토큰은 유지돼야 함(제품명 오기·모델 혼입 감지)
+                must = name_tokens.get("must", []); forbid = name_tokens.get("forbid", [])
+                low = astr.lower()
+                miss = [t for t in must if t.lower() not in low]
+                bad = [t for t in forbid if t.lower() in low]
+                if miss or bad:
+                    name_issue.append({"prop": prop, "actual": astr[:60],
+                                       "missing": miss, "forbidden": bad})
+                continue
+            if kind == "image_path":
+                # 파일명 변동 허용 — 경로에 제품 슬러그가 들어있는지만(경고)
+                slug = market_product_slug or ""
+                if slug and slug not in astr:
+                    translate_confirm.append({"prop": prop, "actual": astr[:60],
+                                              "note": "image_path"})
+                continue
+            if kind == "duration_fmt":
+                if not re.match(r"^PT(\d+H)?(\d+M)?(\d+S)?$", astr.strip()):
+                    translate_confirm.append({"prop": prop, "actual": astr[:40], "note": "duration_fmt"})
+                continue
+            if kind == "inlanguage":
+                if site_lang and astr and site_lang.split("-")[0].lower() != astr.split("-")[0].lower():
+                    lang_issue.append({"prop": prop, "actual": astr, "expected": site_lang})
+                continue
+            if kind in ("text", "exist"):
+                translate_confirm.append({"prop": prop, "actual": astr[:60]})
+                continue
+            # kind url / enum → 하드 정확 일치
+            if not _val_matches(exp, actual, kind or "url"):
+                val_mismatch.append({"prop": prop, "expected": _resolve(exp), "actual": astr[:80]})
         f["val_mismatch"] = val_mismatch
         f["translate_confirm"] = translate_confirm
+        f["name_issue"] = name_issue
+        f["lang_issue"] = lang_issue
 
         # about 등 Word 기준 'object' 필드가 실제로 배열([...])로 온 경우:
         # Google Rich Result 는 배열도 허용하므로 하드 오류로 보지 않고, 안쪽 @id 는 그대로
@@ -316,9 +348,9 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                 if not any(wrx.match(pid) for pid in present):
                     f["haspart_missing"].append(_slug(want))
 
-        problems = bool(f["missing_props"]) or bool(f["haspart_missing"]) or ("id_mismatch" in f) or bool(f["val_mismatch"])
+        problems = bool(f["missing_props"]) or bool(f["haspart_missing"]) or ("id_mismatch" in f) or bool(f["val_mismatch"]) or bool(f.get("name_issue"))
         if not problems:
-            if soft_missing or f.get("translate_confirm") or f.get("array_where_object"):
+            if soft_missing or f.get("translate_confirm") or f.get("array_where_object") or f.get("lang_issue"):
                 f["status"] = "warn"; _apply(f, "schema.optional"); warn += 1
             else:
                 f["status"] = "pass"; _apply(f, "schema.pass"); ok += 1

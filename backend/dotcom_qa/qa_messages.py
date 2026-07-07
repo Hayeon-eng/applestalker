@@ -53,6 +53,11 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
                            if ko else f"{prop} is an array — Google allows it, guide recommends a single object")
             bits_to.append(f"{prop} 를 단일 object({{'@id':…}})로 정리 권장 (오류 아님)"
                            if ko else f"Prefer a single object for {prop} (not an error)")
+        for li in (f.get("lang_issue") or []):
+            bits_as.append(f"페이지 언어({li['prop']}={li['actual']})가 사이트 언어({li['expected']})와 다름"
+                           if ko else f"inLanguage {li['actual']} differs from site language {li['expected']}")
+            bits_to.append(f"의도된 현지화면 정상, 아니면 {li['expected']} 로 수정 (경고)"
+                           if ko else f"OK if intended; otherwise set to {li['expected']}")
         if not bits_as:
             bits_as.append(f"{name} 정상" if ko else f"{name} OK")
         return {"as_is": " / ".join(bits_as), "to_be": "; ".join(bits_to)}
@@ -97,6 +102,17 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
             else:
                 bits.append(f"{vm['prop']} value mismatch (expected '{vm['expected']}', actual '{vm['actual']}')")
                 fixes.append(f"Correct {vm['prop']} to '{vm['expected']}'")
+        for ni in (f.get("name_issue") or []):
+            miss = ", ".join(ni.get("missing") or []); bad = ", ".join(ni.get("forbidden") or [])
+            if ko:
+                parts = []
+                if miss: parts.append(f"'{miss}' 누락")
+                if bad: parts.append(f"다른 모델명 '{bad}' 혼입")
+                bits.append(f"제품명 오기 — {' · '.join(parts)} (현재 '{ni['actual']}')")
+                fixes.append(f"제품명에 '{miss or ''}'{' 포함' if miss else ''}{(' · ' + bad + ' 제거') if bad else ''} — 올바른 제품명으로 수정")
+            else:
+                bits.append(f"name error (current '{ni['actual']}')")
+                fixes.append("Fix product name")
         return {"as_is": f"{name} — " + " / ".join(bits), "to_be": "; ".join(fixes)}
 
     if code == "copy.spec_missing":
