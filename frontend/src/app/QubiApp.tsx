@@ -36,6 +36,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [online, setOnline] = useState<boolean | null>(null);
 
   const [regionsMap, setRegionsMap] = useState<Record<string, SiteRow[]>>({});
+  const [pageCount, setPageCount] = useState(0);
   const [region, setRegion] = useState<string>("전체");
   const [progress, setProgress] = useState({ active: false, done: 0, total: 0, label: "" });
 
@@ -73,7 +74,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   useEffect(() => { loadRules(); setSpecProduct(product); }, [product, pageType]);
   useEffect(() => { loadSpecs(specProduct); }, [specProduct]);
 
-  async function loadSites() { try { setRegionsMap((await (await fetch(api("/api/qb/sites"))).json()).regions || {}); } catch { /* */ } }
+  async function loadSites() { try { const d = await (await fetch(api("/api/qb/sites"))).json(); setRegionsMap(d.regions || {}); setPageCount(d.page_count || 0); } catch { /* */ } }
   async function loadCatalog() { try { setCatalog((await (await fetch(api("/api/qb/spec-catalog"))).json()).catalog || []); } catch { /* */ } }
   async function loadProducts() { try { setProducts((await (await fetch(api("/api/qb/products"))).json()).products || []); } catch { /* */ } }
   async function loadSpecs(p: string) { try { setSpecs((await (await fetch(api(`/api/qb/specs?product=${encodeURIComponent(p)}`))).json()).specs || []); } catch { /* */ } }
@@ -327,10 +328,13 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <button onClick={runByRegion} disabled={busy} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
               {busy ? "붕붕 검수 중…" : `${region === "전체" ? allSites.length : (regionsMap[region]?.length || 0)}개 사이트 검수`}
             </button>
+            {region === "전체" && pageCount > 0 && !busy && (
+              <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>사이트당 여러 페이지(PDP·Compare·Buds 등) — 총 {pageCount}개 페이지 검수</span>
+            )}
             {progress.active && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
-                <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🐝 {progress.label} · {progress.done}/{progress.total} 사이트</div>
+                <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🐝 {progress.label} · {progress.done}/{progress.total} 페이지</div>
               </div>
             )}
           </div>
