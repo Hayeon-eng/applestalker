@@ -4,7 +4,7 @@
  * 탭: [스키마 QA] [스펙 QA] · 제품×페이지타입 선택 · 입력 3종(붙여넣기/파일/링크)
  * 스펙 관리(메인 표) · 스키마 룰 추가(타입 드롭다운) · Quick View + 권역 신호등
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
 import { SpecTable, RuleAddPanel, CriteriaPanel, QuickView } from "./QubiSections";
 
@@ -58,6 +58,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   // Quick View
   const [quickOpen, setQuickOpen] = useState(false);
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [qCountry, setQCountry] = useState("전체");
   const [qDetail, setQDetail] = useState<string | null>(null);
 
@@ -394,12 +395,32 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                   <th style={{ padding: "6px 8px" }}>사이트</th><th style={{ padding: "6px 8px" }}>항목</th><th style={{ padding: "6px 8px" }}>심각도</th><th style={{ padding: "6px 8px" }}>as-is → to-be</th></tr></thead>
                 <tbody>
                   {rows.map((x, i) => (
-                    <tr key={i} style={{ background: x.f.status === "fail" ? "#FEF3F2" : undefined, opacity: x.f.status === "na" ? 0.6 : 1 }}>
-                      <td style={{ padding: 8, borderTop: "1px solid var(--line)", whiteSpace: "nowrap" }}>{x.r.sitecode}</td>
-                      <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}>{x.item}</td>
-                      <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><span style={{ background: SEV[x.f.status].c, color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5 }}>{SEV[x.f.status].ko}</span></td>
-                      <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><div style={{ color: "var(--sec)" }}>{x.f.as_is}</div>{x.f.to_be ? <div style={{ fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)" }}>→ {x.f.to_be}</div> : null}</td>
-                    </tr>
+                    <Fragment key={i}>
+                      <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)}
+                        style={{ background: x.f.status === "fail" ? "#FEF3F2" : undefined, opacity: x.f.status === "na" ? 0.6 : 1, cursor: "pointer" }}>
+                        <td style={{ padding: 8, borderTop: "1px solid var(--line)", whiteSpace: "nowrap" }}>{x.r.sitecode}</td>
+                        <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}>{x.item}</td>
+                        <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><span style={{ background: SEV[x.f.status].c, color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5 }}>{SEV[x.f.status].ko}</span></td>
+                        <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><div style={{ color: "var(--sec)" }}>{x.f.as_is}</div>{x.f.to_be ? <div style={{ fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)" }}>→ {x.f.to_be}</div> : null}<div style={{ fontSize: 11, color: "#0A66E0", marginTop: 3 }}>{expandedRow === i ? "▲ 근거 접기" : "▼ 상세 근거"}</div></td>
+                      </tr>
+                      {expandedRow === i && (
+                        <tr>
+                          <td colSpan={4} style={{ padding: "10px 12px", background: "#F9FAFB", borderTop: "1px solid var(--line)" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: "4px 10px", fontSize: 12 }}>
+                              <span style={{ color: "var(--sec)" }}>사이트코드</span><b>{x.r.sitecode}</b>
+                              {x.r.country && <><span style={{ color: "var(--sec)" }}>국가</span><span>{x.r.country}</span></>}
+                              {x.r.region && <><span style={{ color: "var(--sec)" }}>권역</span><span>{x.r.region}</span></>}
+                              {x.r.page_type && <><span style={{ color: "var(--sec)" }}>페이지타입</span><span>{x.r.page_type}</span></>}
+                              {tab === "schema" && x.f.block && <><span style={{ color: "var(--sec)" }}>블록</span><span>{x.f.block}</span></>}
+                              {tab === "copy" && x.f.region && <><span style={{ color: "var(--sec)" }}>발견 위치</span><span>{x.f.region === "disclaimer" ? "각주(Disclaimer)" : "본문"}</span></>}
+                              {tab === "copy" && x.f.expected && <><span style={{ color: "var(--sec)" }}>기준값</span><span>{x.f.expected}</span></>}
+                              {tab === "copy" && x.f.found && x.f.found.length > 0 && <><span style={{ color: "var(--sec)" }}>페이지 값</span><span style={{ color: "#B42318" }}>{x.f.found.join(", ")}</span></>}
+                              {x.r.url && <><span style={{ color: "var(--sec)" }}>URL</span><a href={x.r.url} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: 11, color: "#0A66E0", wordBreak: "break-all" }}>{x.r.url}</a></>}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
