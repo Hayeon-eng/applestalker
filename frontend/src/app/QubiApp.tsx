@@ -147,12 +147,13 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   };
   const downloadXlsx = async () => {
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
-    await downloadBlob("/api/qb/report.xlsx", { results }, "qubi_qa_report.xlsx");
+    await downloadBlob("/api/qb/report.xlsx", null, "qubi_qa_report.xlsx");
   };
   const copyEmail = async () => {
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 메일 본문을 복사할 수 있어요."); return; }
     try {
-      const r = await fetch(api("/api/qb/email-draft"), J({ results }));
+      // Apple Stalker와 동일: 서버가 든 마지막 결과를 GET으로 받음(본문 없음 → CORS preflight 없음)
+      const r = await fetch(api("/api/qb/email-draft"), { cache: "no-store" });
       if (!r.ok) throw new Error(`서버 오류 (${r.status})`);
       const body = await r.text();
       if (navigator.clipboard && "write" in navigator.clipboard && typeof ClipboardItem !== "undefined") {
@@ -277,7 +278,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <button className="toolBtn" onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}>＋ 룰 추가</button>
               <button className="toolBtn" onClick={() => { setShowRules((v) => !v); setShowRuleAdd(false); }}>ⓘ 검수 기준</button>
               <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
-              <button className="toolBtn" onClick={downloadXlsx}>📊 Excel</button>
+              <a className="toolBtn" href={api("/api/qb/report.xlsx")} onClick={(e) => { if (!results.length) { e.preventDefault(); setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); } }} download>📊 Excel</a>
             </div>
           </div>
         </header>
