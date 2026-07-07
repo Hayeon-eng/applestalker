@@ -17,9 +17,11 @@ qb_api.py — 큐비 — Dotcom QA 체커 [Phase H 백엔드]
   POST /api/qb/email-draft           {results} → 메일 초안 HTML
 """
 from __future__ import annotations
+import asyncio
 import json
 import os
 import sys
+from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(__file__))  # 패키지/스크립트 양쪽에서 flat import 허용
@@ -215,19 +217,117 @@ def qb_products_add(payload: Dict[str, Any] = Body(...)):
     return {"ok": True, "products": [{"code": c, "label": (e.get("label", c) if isinstance(e, dict) else c)} for c, e in prods.items()]}
 
 
+# ── 대량 크롤(91개 등)을 하나의 긴 요청에 물지 않기 위한 백그라운드 실행 ──
+# Apple Stalker의 /trigger-crawl/all + /api/crawl-progress 패턴과 동일:
+#  1) POST /run 은 즉시 반환(started) — 요청이 오래 걸리지 않아 "Failed to fetch" 방지
+#  2) 실제 크롤은 백그라운드 태스크에서, 동시성 제한(세마포어)으로 "나눠서" 처리
+#     → 91개를 한꺼번에 열지 않고, 한 번에 QB_RUN_CONCURRENCY(기본 6)개씩만 진행
+#  3) 진행 상황은 SSE로 스트리밍, 완료되면 이력에 저장
+_RUN_STATE: Dict[str, Any] = {"running": False, "run_id": None, "done": 0, "total": 0,
+                              "events": [], "result_run_id": None, "summary": None}
+_RUN_CONCURRENCY = int(os.getenv("QB_RUN_CONCURRENCY", "6"))
+
+
+async def _run_batch(product: str, sitecodes: Optional[List[str]], run_id: str):
+    from crawler import HybridCrawler
+
+    targets = _registry.all()
+    if sitecodes:
+        want = {s.lower() for s in sitecodes}
+        targets = [t for t in targets if t["sitecode"] in want]
+
+    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets),
+                      events=[{"type": "start", "total": len(targets)}], result_run_id=None, summary=None)
+
+    crawler = HybridCrawler()
+    await crawler.start()
+    sem = asyncio.Semaphore(_RUN_CONCURRENCY)  # 동시 진행 개수를 제한해 '나눠서' 처리
+    rules_cache: Dict[str, Any] = {}
+    results: List[Optional[Dict[str, Any]]] = [None] * len(targets)
+
+    def rules_for(pt, mp):
+        key = f"{pt}|{mp}"
+        if key not in rules_cache:
+            rules_cache[key] = runner.load_rules(product, page_type=pt, market_product=mp)
+        return rules_cache[key]
+
+    async def one(i: int, site: Dict[str, Any]):
+        async with sem:
+            url = site.get("url", "")
+            pt = site.get("page_type") or runner.page_type_from_url(url)
+            mp = runner.product_from_url(url)
+            html, err = None, None
+            try:
+                res = await crawler.crawl(url, requires_js=True)
+                html = (res or {}).get("html_content")
+                err = (res or {}).get("error")
+            except Exception as e:
+                err = str(e)
+            if html:
+                row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt)
+                ok = True
+            else:
+                row = {"sitecode": site["sitecode"], "url": url, "region": site.get("region"),
+                       "country": site.get("country"), "page_type": pt,
+                       "schema": {"summary": {}, "findings": [
+                           {"block": "(수집 실패)", "status": "fail",
+                            "as_is": f"HTML 수집 실패{(' — ' + err) if err else ''}",
+                            "to_be": "차단/JS 미렌더링/타임아웃 여부 확인 후 재시도"}]},
+                       "copy": {"summary": {}, "findings": []}}
+                ok = False
+            results[i] = row
+            _RUN_STATE["done"] += 1
+            _RUN_STATE["events"].append({"type": "page_done", "sitecode": site.get("sitecode"), "ok": ok,
+                                         "done": _RUN_STATE["done"], "total": _RUN_STATE["total"]})
+
+    try:
+        await asyncio.gather(*(one(i, s) for i, s in enumerate(targets)))
+    finally:
+        await crawler.close()
+
+    final = [r for r in results if r]
+    global _LAST_RESULTS
+    _LAST_RESULTS = final
+    summary = qa_report.summary_counts(final)
+    entry = _history_save(final, summary, product=product,
+                          scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"))
+    _RUN_STATE["events"].append({"type": "done", "run_id": entry["run_id"], "summary": summary})
+    _RUN_STATE.update(running=False, result_run_id=entry["run_id"], summary=summary)
+
+
 @qb_router.post("/run")
-def qb_run(payload: Dict[str, Any] = Body(default={})):
-    if _fetcher is None:
-        raise HTTPException(501, "크롤러(fetcher)가 연결되지 않았습니다. set_fetcher()로 주입하세요.")
+async def qb_run(payload: Dict[str, Any] = Body(default={})):
+    if _RUN_STATE.get("running"):
+        raise HTTPException(409, "이미 검수가 진행 중입니다. 완료 후 다시 시도하세요.")
     product = payload.get("product", "M3")
     sitecodes = payload.get("sitecodes")
-    results = runner.run_all(_fetcher, product=product, sitecodes=sitecodes, registry=_registry)
-    global _LAST_RESULTS
-    _LAST_RESULTS = results
-    summary = qa_report.summary_counts(results)
-    entry = _history_save(results, summary, product=product,
-                          scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"))
-    return {"summary": summary, "results": results, "run_id": entry["run_id"]}
+    run_id = f"qb_{datetime.now():%Y%m%d_%H%M%S}"
+    total = len(sitecodes) if sitecodes else len(_registry.all())
+    asyncio.create_task(_run_batch(product, sitecodes, run_id))
+    return {"status": "started", "run_id": run_id, "total": total}
+
+
+@qb_router.get("/run-status")
+def qb_run_status():
+    return {"running": _RUN_STATE.get("running", False), "done": _RUN_STATE.get("done", 0),
+            "total": _RUN_STATE.get("total", 0), "result_run_id": _RUN_STATE.get("result_run_id")}
+
+
+@qb_router.get("/run-progress")
+async def qb_run_progress():
+    """SSE — Apple Stalker의 /api/crawl-progress와 동일한 이벤트 형식(start/page_done/done/status)."""
+    async def gen():
+        last = 0
+        while True:
+            evs = _RUN_STATE.get("events", [])
+            while last < len(evs):
+                yield f"data: {json.dumps(evs[last], ensure_ascii=False)}\n\n"; last += 1
+            if not _RUN_STATE.get("running") and last >= len(evs):
+                yield f"data: {json.dumps({'type': 'status', 'crawling': False})}\n\n"
+                break
+            yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+            await asyncio.sleep(1)
+    return StreamingResponse(gen(), media_type="text/event-stream")
 
 
 # ── 검수 이력 (JSON 파일 저장) ──
