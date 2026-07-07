@@ -78,7 +78,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   async function loadProducts() { try { setProducts((await (await fetch(api("/api/qb/products"))).json()).products || []); } catch { /* */ } }
   async function loadSpecs(p: string) { try { setSpecs((await (await fetch(api(`/api/qb/specs?product=${encodeURIComponent(p)}`))).json()).specs || []); } catch { /* */ } }
   async function loadRules() {
-    try { const d = await (await fetch(api(`/api/qb/rules?product=${family(product)}&page_type=${pageType}`))).json(); setRules(d); if (d.schema_types) setSchemaTypes(d.schema_types); } catch (e: any) { setErr(String(e)); }
+    try { const d = await (await fetch(api(`/api/qb/rules?product=${family(product)}&page_type=${pageType}&market_product=${encodeURIComponent(product)}`))).json(); setRules(d); if (d.schema_types) setSchemaTypes(d.schema_types); } catch (e: any) { setErr(String(e)); }
   }
   async function loadHistory() { try { setHistory((await (await fetch(api("/api/qb/history"))).json()).history || []); } catch { /* */ } }
   const openHistory = async (id: string) => {
@@ -463,11 +463,33 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <b style={{ fontSize: 14 }}>검수 기준 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</b>
               {tab === "schema" ? (
                 <div style={{ fontSize: 12.5, marginTop: 8 }}>
+                  {rules.schema_set_label && <p style={{ color: "var(--label)", fontWeight: 700 }}>세트: {rules.schema_set_label}</p>}
                   <p style={{ color: "var(--sec)" }}>{rules.schema?.["설명"]}</p>
-                  {(rules.schema?.blocks || []).length === 0 && <p style={{ color: "var(--sec)" }}>이 페이지타입엔 아직 룰이 없어요. ＋룰 추가로 등록하세요.</p>}
+                  {rules.schema?.["출처"] && <p style={{ color: "var(--sec)", fontSize: 11 }}>{rules.schema["출처"]}</p>}
+                  {(rules.schema?.blocks || []).length === 0 && <p style={{ color: "var(--sec)" }}>이 페이지타입은 스키마 검사 대상이 아니거나 아직 룰이 없어요.</p>}
                   {(rules.schema?.blocks || []).map((b: any, i: number) => (
                     <div key={i} style={{ borderTop: "1px solid var(--line)", padding: "6px 0" }}><b>{b.block}</b> <span style={{ color: "var(--sec)" }}>{(b.types || []).join(", ")}</span>{b.required_properties?.length > 0 && <div>필수: {b.required_properties.join(", ")}</div>}</div>
                   ))}
+                  {rules.seo_syntax && (
+                    <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
+                      <b>JSON-LD 문법 오류 기준</b>
+                      <p style={{ color: "var(--sec)", margin: "2px 0 6px" }}>{rules.seo_syntax["설명"]}</p>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 220 }}>
+                          <div style={{ fontWeight: 700, color: "#0A66E0" }}>Google Rich Result 기준</div>
+                          <ul style={{ margin: "4px 0 0 16px", color: "var(--sec)" }}>
+                            {(rules.seo_syntax["구글_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+                          </ul>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 220 }}>
+                          <div style={{ fontWeight: 700, color: HONEY }}>우리 기준</div>
+                          <ul style={{ margin: "4px 0 0 16px", color: "var(--sec)" }}>
+                            {(rules.seo_syntax["우리_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ fontSize: 12.5, marginTop: 8 }}>
