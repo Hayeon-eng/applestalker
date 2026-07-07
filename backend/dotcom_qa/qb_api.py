@@ -32,6 +32,8 @@ from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 import runner
 import qa_report
 from site_registry import SiteRegistry
+from database import SessionLocal
+from models import QbHistory
 
 qb_router = APIRouter(prefix="/api/qb", tags=["qubi"])
 _registry = SiteRegistry()
@@ -373,32 +375,40 @@ async def qb_run_progress():
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
-# ── 검수 이력 (JSON 파일 저장) ──
-_HIST_DIR = os.path.join(os.path.dirname(__file__), "qb_history")
-_HIST_INDEX = os.path.join(_HIST_DIR, "index.json")
-
+# ── 검수 이력 (DB 저장) ──
+# [FIX] 기존엔 dotcom_qa/qb_history/*.json 로컬 파일에 저장했으나, Render 무료 플랜은
+# idle 슬립 후 재시작(또는 재배포) 시 로컬 디스크가 초기화되어 사이트를 나갔다 오면
+# 이력이 전부 유실됐음. 이미 붙어있는 Postgres DB(QbHistory 테이블)에 저장하도록 변경.
 
 def _history_index() -> List[Dict[str, Any]]:
+    db = SessionLocal()
     try:
-        return json.load(open(_HIST_INDEX, encoding="utf-8"))
-    except Exception:
-        return []
+        rows = db.query(QbHistory).order_by(QbHistory.id.desc()).limit(100).all()
+        return [{"run_id": r.run_id, "at": r.at, "product": r.product, "scope": r.scope,
+                  "pages": r.pages, "fail": r.fail, "warn": r.warn} for r in rows]
+    finally:
+        db.close()
 
 
 def _history_save(results, summary, product="M3", scope="") -> Dict[str, Any]:
-    import datetime
-    os.makedirs(_HIST_DIR, exist_ok=True)
-    now = datetime.datetime.now()
+    now = datetime.now()
     run_id = now.strftime("%Y%m%d-%H%M%S")
     entry = {"run_id": run_id, "at": now.strftime("%Y-%m-%d %H:%M:%S"),
              "product": product, "scope": scope, "pages": summary.get("pages", len(results)),
              "fail": summary.get("fail", 0), "warn": summary.get("warn", 0)}
-    json.dump(results, open(os.path.join(_HIST_DIR, f"{run_id}.json"), "w", encoding="utf-8"),
-              ensure_ascii=False, separators=(",", ":"))
-    idx = _history_index()
-    idx.insert(0, entry)
-    idx = idx[:100]  # 최근 100건만 유지
-    json.dump(idx, open(_HIST_INDEX, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    db = SessionLocal()
+    try:
+        db.add(QbHistory(run_id=run_id, at=entry["at"], product=product, scope=scope,
+                          pages=entry["pages"], fail=entry["fail"], warn=entry["warn"],
+                          results=json.dumps(results, ensure_ascii=False, separators=(",", ":"))))
+        db.commit()
+        # 최근 100건만 유지 — 초과분 삭제
+        old_ids = [r.id for r in db.query(QbHistory.id).order_by(QbHistory.id.desc()).offset(100).all()]
+        if old_ids:
+            db.query(QbHistory).filter(QbHistory.id.in_(old_ids)).delete(synchronize_session=False)
+            db.commit()
+    finally:
+        db.close()
     return entry
 
 
@@ -409,22 +419,27 @@ def qb_history():
 
 @qb_router.get("/history/{run_id}")
 def qb_history_one(run_id: str):
-    path = os.path.join(_HIST_DIR, f"{os.path.basename(run_id)}.json")
-    if not os.path.exists(path):
-        raise HTTPException(404, "해당 이력이 없습니다.")
-    results = json.load(open(path, encoding="utf-8"))
-    return {"run_id": run_id, "results": results, "summary": qa_report.summary_counts(results)}
+    db = SessionLocal()
+    try:
+        row = db.query(QbHistory).filter(QbHistory.run_id == run_id).first()
+        if not row:
+            raise HTTPException(404, "해당 이력이 없습니다.")
+        results = json.loads(row.results)
+        return {"run_id": run_id, "results": results, "summary": qa_report.summary_counts(results)}
+    finally:
+        db.close()
 
 
 @qb_router.post("/history/remove")
 def qb_history_remove(payload: Dict[str, Any] = Body(...)):
-    run_id = os.path.basename(payload.get("run_id", ""))
-    path = os.path.join(_HIST_DIR, f"{run_id}.json")
-    if os.path.exists(path):
-        os.remove(path)
-    idx = [e for e in _history_index() if e.get("run_id") != run_id]
-    json.dump(idx, open(_HIST_INDEX, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    return {"ok": True, "history": idx}
+    run_id = payload.get("run_id", "")
+    db = SessionLocal()
+    try:
+        db.query(QbHistory).filter(QbHistory.run_id == run_id).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
+    return {"ok": True, "history": _history_index()}
 
 
 # ── 마지막 검수 결과를 서버가 보관(Apple Stalker latest-report 패턴) ──
@@ -437,9 +452,13 @@ def _resolve_results(payload=None, run_id: str = None):
     if payload and payload.get("results"):
         return payload["results"]
     if run_id:
-        path = os.path.join(_HIST_DIR, f"{os.path.basename(run_id)}.json")
-        if os.path.exists(path):
-            return json.load(open(path, encoding="utf-8"))
+        db = SessionLocal()
+        try:
+            row = db.query(QbHistory).filter(QbHistory.run_id == run_id).first()
+            if row:
+                return json.loads(row.results)
+        finally:
+            db.close()
     return _LAST_RESULTS
 
 
