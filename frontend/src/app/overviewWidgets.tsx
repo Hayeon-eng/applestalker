@@ -344,29 +344,34 @@ function benchmarkLineForRow(row: SiteDashboardRow, scopedMetrics: MetricTab[]):
   return `${siteShortName(row.site)}는 COPY / CTA 흐름을 참고할 수 있습니다. PDP에서 구매/혜택 CTA가 어떻게 이어지는지 비교하세요.`;
 }
 
-const AXIS_INSIGHT_OBSERVATION: Record<MetricTab, string> = {
-  data: "페이지 구조 데이터는 존재하지만",
-  copy: "구매 관련 페이지는 존재하지만",
-  visual: "이미지는 확보되어 있지만",
+// 각 축이 '실제로 재는 것'을 주어로 (COPY는 구매페이지 존재가 아니라 카피·CTA 충실도 점수)
+const AXIS_INSIGHT_SUBJECT: Record<MetricTab, string> = {
+  data: "Schema·페이지 구조 신호",
+  copy: "카피·CTA 충실도",
+  visual: "이미지·ALT 텍스트 충실도",
 };
 const AXIS_INSIGHT_MEANING: Record<MetricTab, string> = {
-  data: "검색 엔진이 페이지 역할을 해석하는 신호 범위가 제한될 수 있습니다.",
+  data: "검색 엔진이 페이지 역할을 해석하는 신호 범위에 영향을 줍니다.",
   copy: "페이지 수보다 실제 카피의 구체성·분량 차이가 전환에 더 크게 작용합니다.",
-  visual: "이미지 의미 전달 범위가 제한될 수 있습니다.",
+  visual: "이미지의 의미 전달 범위에 영향을 줍니다.",
 };
 
 function buildAxisInsight(metric: MetricTab, delta: number | null, tier: ScoreTier): string {
-  const compareText = delta == null
-    ? "경쟁사 평균과 비교할 근거가 아직 부족합니다"
-    : delta < 0
-      ? `경쟁사 평균보다 ${Math.abs(delta)}%p 낮습니다 (적용된 페이지가 더 적음 = 열위)`
-      : delta > 0
-        ? `경쟁사 평균보다 ${delta}%p 높습니다 (더 많은 페이지에 적용됨 = 우위)`
-        : `경쟁사 평균과 비슷한 수준입니다`;
-  const nuance = (delta != null && delta > 0 && tier !== "good")
-    ? ` 경쟁사 평균보다는 앞서 있지만, 절대 점수 기준으로는 아직 ${scoreTierLabel(tier)} 구간입니다.`
-    : "";
-  return `${AXIS_INSIGHT_OBSERVATION[metric]} ${compareText}.${nuance} ${AXIS_INSIGHT_MEANING[metric]}`;
+  const subj = AXIS_INSIGHT_SUBJECT[metric];
+  const meaning = AXIS_INSIGHT_MEANING[metric];
+  if (delta == null) {
+    return `${subj}은 경쟁사 평균과 비교할 근거가 아직 부족합니다. ${meaning}`;
+  }
+  if (delta > 0) {
+    const nuance = tier !== "good"
+      ? ` 다만 절대 점수 기준으로는 아직 ${scoreTierLabel(tier)} 구간이라 개선 여지가 있습니다.`
+      : "";
+    return `${subj} 점수는 경쟁사 평균보다 ${delta}%p 높습니다(우위).${nuance} ${meaning}`;
+  }
+  if (delta < 0) {
+    return `${subj} 점수는 경쟁사 평균보다 ${Math.abs(delta)}%p 낮습니다(열위). ${meaning}`;
+  }
+  return `${subj} 점수는 경쟁사 평균과 비슷한 수준입니다. ${meaning}`;
 }
 
 function buildAxisHighlights(
