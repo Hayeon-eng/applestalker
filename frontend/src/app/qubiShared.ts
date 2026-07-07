@@ -1,6 +1,9 @@
 // qubiShared.ts — 큐비 공용 타입·상수·헬퍼 (QubiApp.tsx / QubiSections.tsx 공유)
 
-export type Finding = { status: "pass" | "warn" | "fail" | "na"; as_is?: string; to_be?: string; block?: string; token?: string; category?: string; kind?: string; region?: string; found?: string[]; expected?: string };
+export type Finding = { status: "pass" | "warn" | "fail" | "na"; as_is?: string; to_be?: string; block?: string; token?: string; category?: string; kind?: string; region?: string; found?: string[]; expected?: string;
+  types?: string[]; missing_props?: string[]; haspart_missing?: string[]; id_mismatch?: string;
+  val_mismatch?: { prop: string; expected: string; actual: string }[];
+  name_issue?: { prop: string; actual: string; missing: string[]; forbidden: string[] }[]; };
 export type PageResult = { sitecode: string; url: string; region?: string; country?: string; page_type?: string;
   schema: { findings: Finding[] }; copy: { findings: Finding[] } };
 export type SiteRow = { sitecode: string; country?: string; lang?: string; url: string };

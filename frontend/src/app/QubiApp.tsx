@@ -400,18 +400,43 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                         style={{ background: x.f.status === "fail" ? "#FEF3F2" : undefined, opacity: x.f.status === "na" ? 0.6 : 1, cursor: "pointer" }}>
                         <td style={{ padding: 8, borderTop: "1px solid var(--line)", whiteSpace: "nowrap" }}>{x.r.sitecode}</td>
                         <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}>{x.item}</td>
-                        <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><span style={{ background: SEV[x.f.status].c, color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5 }}>{SEV[x.f.status].ko}</span></td>
+                        <td style={{ padding: 8, borderTop: "1px solid var(--line)", whiteSpace: "nowrap" }}><span style={{ display: "inline-block", background: SEV[x.f.status].c, color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap", lineHeight: 1.5 }}>{SEV[x.f.status].ko}</span></td>
                         <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><div style={{ color: "var(--sec)" }}>{x.f.as_is}</div>{x.f.to_be ? <div style={{ fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)" }}>→ {x.f.to_be}</div> : null}<div style={{ fontSize: 11, color: "#0A66E0", marginTop: 3 }}>{expandedRow === i ? "▲ 근거 접기" : "▼ 상세 근거"}</div></td>
                       </tr>
                       {expandedRow === i && (
                         <tr>
-                          <td colSpan={4} style={{ padding: "10px 12px", background: "#F9FAFB", borderTop: "1px solid var(--line)" }}>
+                          <td colSpan={4} style={{ padding: "12px 14px", background: "#F9FAFB", borderTop: "1px solid var(--line)" }}>
+                            {/* 문제 → 수정 방법 */}
+                            <div style={{ marginBottom: 10 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--sec)" }}>무엇이 잘못됐나</div>
+                              <div style={{ fontSize: 12.5, color: "var(--label)", marginTop: 2 }}>{x.f.as_is || "—"}</div>
+                              {x.f.to_be && <>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--sec)", marginTop: 6 }}>어떻게 고치나</div>
+                                <div style={{ fontSize: 12.5, fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)", marginTop: 2 }}>→ {x.f.to_be}</div>
+                              </>}
+                            </div>
+                            {/* 스키마: 속성별 수정 상세 */}
+                            {tab === "schema" && (x.f.id_mismatch || (x.f.val_mismatch?.length) || (x.f.missing_props?.length) || (x.f.haspart_missing?.length) || (x.f.name_issue?.length)) && (
+                              <div style={{ marginBottom: 10, fontSize: 12, background: "#fff", border: "1px solid var(--line)", borderRadius: 8, padding: "8px 10px" }}>
+                                <div style={{ fontWeight: 700, color: "var(--sec)", marginBottom: 4 }}>고쳐야 할 속성</div>
+                                {x.f.id_mismatch && <div style={{ marginBottom: 3 }}><b>@id</b> — 실제 <code style={{ color: "#B42318", wordBreak: "break-all" }}>{x.f.id_mismatch}</code> (이 블록의 @id 규칙과 불일치)</div>}
+                                {(x.f.val_mismatch || []).map((v, k) => (
+                                  <div key={k} style={{ marginBottom: 3 }}><b>{v.prop}</b> — 기대 <code style={{ color: "#067647", wordBreak: "break-all" }}>{v.expected}</code> → 실제 <code style={{ color: "#B42318", wordBreak: "break-all" }}>{v.actual}</code></div>
+                                ))}
+                                {(x.f.name_issue || []).map((n, k) => (
+                                  <div key={`n${k}`} style={{ marginBottom: 3 }}><b>{n.prop}(제품명)</b> — 현재 <code style={{ color: "#B42318" }}>{n.actual}</code>{n.missing?.length ? ` · '${n.missing.join(", ")}' 포함 필요` : ""}{n.forbidden?.length ? ` · '${n.forbidden.join(", ")}' 제거` : ""}</div>
+                                ))}
+                                {(x.f.missing_props?.length ?? 0) > 0 && <div style={{ marginBottom: 3 }}><b>누락 속성</b> — {x.f.missing_props!.join(", ")} 추가 필요</div>}
+                                {(x.f.haspart_missing?.length ?? 0) > 0 && <div><b>hasPart 누락</b> — {x.f.haspart_missing!.join(", ")} 추가 필요</div>}
+                              </div>
+                            )}
+                            {/* 발생 위치·근거 */}
                             <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: "4px 10px", fontSize: 12 }}>
                               <span style={{ color: "var(--sec)" }}>사이트코드</span><b>{x.r.sitecode}</b>
                               {x.r.country && <><span style={{ color: "var(--sec)" }}>국가</span><span>{x.r.country}</span></>}
                               {x.r.region && <><span style={{ color: "var(--sec)" }}>권역</span><span>{x.r.region}</span></>}
                               {x.r.page_type && <><span style={{ color: "var(--sec)" }}>페이지타입</span><span>{x.r.page_type}</span></>}
-                              {tab === "schema" && x.f.block && <><span style={{ color: "var(--sec)" }}>블록</span><span>{x.f.block}</span></>}
+                              {tab === "schema" && x.f.block && <><span style={{ color: "var(--sec)" }}>블록</span><span>{x.f.block}{x.f.types?.length ? ` (${x.f.types.join(", ")})` : ""}</span></>}
                               {tab === "copy" && x.f.region && <><span style={{ color: "var(--sec)" }}>발견 위치</span><span>{x.f.region === "disclaimer" ? "각주(Disclaimer)" : "본문"}</span></>}
                               {tab === "copy" && x.f.expected && <><span style={{ color: "var(--sec)" }}>기준값</span><span>{x.f.expected}</span></>}
                               {tab === "copy" && x.f.found && x.f.found.length > 0 && <><span style={{ color: "var(--sec)" }}>페이지 값</span><span style={{ color: "#B42318" }}>{x.f.found.join(", ")}</span></>}
