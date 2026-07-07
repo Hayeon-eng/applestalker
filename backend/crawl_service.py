@@ -10,6 +10,7 @@ crawl_service_v2.py — 이벤트 기반 파이프라인 (안정화 + 디버그 
 """
 
 from __future__ import annotations
+import asyncio
 import json
 import uuid
 from datetime import datetime
@@ -117,7 +118,14 @@ class CrawlServiceV2:
             # ─────────────────────────────────────────────
             summary = summarize_events(all_events)
 
-            self._run_intel(
+            # [FIX] _run_intel 내부의 Gemini 호출 + 재시도 time.sleep()이 동기(sync)라
+            # 그대로 두면 asyncio 이벤트 루프 전체를 그 시간만큼 멈춘다(= SSE 하트비트도
+            # 끊기고 헬스체크도 응답 못 함 → 배포 환경이 멈췄다고 오판해 재시작/연결 종료).
+            # 사이트를 순서대로 돌다 보면 앞선 호출들 때문에 API 레이트리밋이 누적되고,
+            # 뒤쪽 사이트(예: 목록 끝의 Dell·Meta)에서 재시도가 길어지며 이 현상이
+            # "항상 같은 지점에서 멈춘다"로 나타난다. 스레드로 빼서 이벤트 루프를 지킨다.
+            await asyncio.to_thread(
+                self._run_intel,
                 run_id,
                 site_key,
                 target,

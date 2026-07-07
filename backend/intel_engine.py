@@ -185,11 +185,21 @@ class IntelEngine:
                 "max_output_tokens": int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "4096")),
                 "response_mime_type": "application/json",
             }
+            # [FIX] 호출당 상한(기본 20s)을 명시 — 이게 없으면 네트워크 지연/레이트리밋 시
+            # SDK가 내부적으로 얼마나 오래 걸릴지 보장이 없어, 이 함수는 스레드에서 돌더라도
+            # (asyncio.to_thread) 사이트 하나 처리 시간이 한없이 늘어질 수 있다.
+            req_opts = {"timeout": int(os.getenv("GEMINI_CALL_TIMEOUT_S", "20"))}
             try:
-                resp = self.model.generate_content(prompt, generation_config=gen_cfg)
+                resp = self.model.generate_content(prompt, generation_config=gen_cfg, request_options=req_opts)
+            except TypeError:
+                # 구버전 SDK가 request_options 파라미터를 지원하지 않으면 조용히 폴백
+                try:
+                    resp = self.model.generate_content(prompt, generation_config=gen_cfg)
+                except Exception:
+                    resp = self.model.generate_content(prompt)
             except Exception:
                 # response_mime_type 등을 모델/SDK가 거부하면 기본 호출로 폴백
-                resp = self.model.generate_content(prompt)
+                resp = self.model.generate_content(prompt, request_options=req_opts)
             return self._parse_json(resp.text)
         except Exception as e:
             # [FIX] 기존엔 "llm enrich failed"라고만 찍혀서 gemini-2.5+ thinking 토큰이
