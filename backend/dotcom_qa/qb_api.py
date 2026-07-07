@@ -122,6 +122,9 @@ def qb_check(payload: Dict[str, Any] = Body(...)):
                               market_product=payload.get("market_product") or "galaxy-s26-ultra")
     out = runner.check_html(html, rules, sitecode=payload.get("sitecode"), site_lang=payload.get("lang"))
     out["page_type"] = page_type
+    global _LAST_RESULTS
+    _LAST_RESULTS = [{"sitecode": payload.get("sitecode") or "(입력)", "url": "", "page_type": page_type,
+                      "schema": out["schema"], "copy": out["copy"]}]
     return out
 
 
@@ -143,9 +146,12 @@ def qb_check_url(payload: Dict[str, Any] = Body(...)):
     market = runner.product_from_url(url)
     rules = runner.load_rules(product, page_type=page_type, market_product=market)
     res = runner.check_html(html, rules, sitecode=sc, site_lang=(known or {}).get("lang"))
-    return {"sitecode": sc, "url": url, "page_type": page_type, "market_product": market,
-            "region": (known or {}).get("region"), "country": (known or {}).get("country"),
-            "schema": res["schema"], "copy": res["copy"]}
+    row = {"sitecode": sc, "url": url, "page_type": page_type, "market_product": market,
+           "region": (known or {}).get("region"), "country": (known or {}).get("country"),
+           "schema": res["schema"], "copy": res["copy"]}
+    global _LAST_RESULTS
+    _LAST_RESULTS = [row]
+    return row
 
 
 # ── 표준 스펙 항목 사전(드롭다운 + 예시) ──
@@ -216,6 +222,8 @@ def qb_run(payload: Dict[str, Any] = Body(default={})):
     product = payload.get("product", "M3")
     sitecodes = payload.get("sitecodes")
     results = runner.run_all(_fetcher, product=product, sitecodes=sitecodes, registry=_registry)
+    global _LAST_RESULTS
+    _LAST_RESULTS = results
     summary = qa_report.summary_counts(results)
     entry = _history_save(results, summary, product=product,
                           scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"))
@@ -276,20 +284,46 @@ def qb_history_remove(payload: Dict[str, Any] = Body(...)):
     return {"ok": True, "history": idx}
 
 
-@qb_router.post("/report.xlsx")
-def qb_report_xlsx(payload: Dict[str, Any] = Body(...)):
-    results = payload.get("results") or []
-    data = qa_report.build_xlsx(results)
-    return StreamingResponse(
-        iter([data]),
+# ── 마지막 검수 결과를 서버가 보관(Apple Stalker latest-report 패턴) ──
+# → 프론트가 큰 결과를 POST로 보내지 않고 GET으로 내려받게 해 CORS preflight/"Failed to fetch" 회피
+_LAST_RESULTS: List[Dict[str, Any]] = []
+
+
+def _resolve_results(payload=None, run_id: str = None):
+    """우선순위: 요청 body의 results → run_id 이력 → 서버가 든 마지막 결과."""
+    if payload and payload.get("results"):
+        return payload["results"]
+    if run_id:
+        path = os.path.join(_HIST_DIR, f"{os.path.basename(run_id)}.json")
+        if os.path.exists(path):
+            return json.load(open(path, encoding="utf-8"))
+    return _LAST_RESULTS
+
+
+@qb_router.get("/report.xlsx")
+def qb_report_xlsx_get(run_id: str = Query(None)):
+    data = qa_report.build_xlsx(_resolve_results(run_id=run_id))
+    return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=qubi_qa_report.xlsx"})
 
 
+@qb_router.post("/report.xlsx")
+def qb_report_xlsx(payload: Dict[str, Any] = Body(default={})):
+    data = qa_report.build_xlsx(_resolve_results(payload))
+    return StreamingResponse(iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=qubi_qa_report.xlsx"})
+
+
+@qb_router.get("/email-draft")
+def qb_email_draft_get(run_id: str = Query(None)):
+    return HTMLResponse(content=qa_report.build_email_draft(_resolve_results(run_id=run_id)))
+
+
 @qb_router.post("/email-draft")
-def qb_email_draft(payload: Dict[str, Any] = Body(...)):
-    results = payload.get("results") or []
-    return HTMLResponse(content=qa_report.build_email_draft(results))
+def qb_email_draft(payload: Dict[str, Any] = Body(default={})):
+    return HTMLResponse(content=qa_report.build_email_draft(_resolve_results(payload)))
 
 
 # ── URL 추가/삭제 ──
