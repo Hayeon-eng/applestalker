@@ -29,6 +29,18 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [results, setResults] = useState<PageResult[]>([]);
   const [rules, setRules] = useState<any>(null);
   const [showRules, setShowRules] = useState(false);
+  const rulesRef = useRef<HTMLDivElement | null>(null);
+  const [rulesFlash, setRulesFlash] = useState(false);
+  const openCriteria = () => {
+    setShowRuleAdd(false);
+    setShowRules(true);
+    // 패널로 스크롤 + 잠깐 하이라이트(뿅!)
+    setTimeout(() => {
+      rulesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setRulesFlash(true);
+      setTimeout(() => setRulesFlash(false), 1200);
+    }, 60);
+  };
   const [showRuleAdd, setShowRuleAdd] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -294,7 +306,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               <button className="toolBtn" onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}>＋ 룰 추가</button>
-              <button className="toolBtn" onClick={() => { setShowRules((v) => !v); setShowRuleAdd(false); }}>ⓘ 검수 기준</button>
+              <button className="toolBtn" onClick={() => (showRules ? setShowRules(false) : openCriteria())}>ⓘ 검수 기준</button>
               <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
               <a className="toolBtn" href={api("/api/qb/report.xlsx")} onClick={(e) => { if (!results.length) { e.preventDefault(); setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); } }} download>📊 Excel</a>
             </div>
@@ -463,7 +475,10 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
           {/* 검수 기준 패널 */}
           {showRules && rules && (
-            <div className="card" style={{ marginTop: 16, padding: 14 }}>
+            <div ref={rulesRef} className="card" style={{ marginTop: 16, padding: 14,
+              outline: rulesFlash ? `3px solid ${HONEY}` : "3px solid transparent",
+              boxShadow: rulesFlash ? `0 0 0 6px ${HONEY}22` : "none",
+              transition: "outline .3s, box-shadow .3s" }}>
               <b style={{ fontSize: 14 }}>검수 기준 — {tab === "schema" ? `스키마 (${product}·${pageType})` : "스펙"}</b>
               {tab === "schema" ? (
                 <div style={{ fontSize: 12.5, marginTop: 8 }}>
@@ -474,6 +489,24 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                   {(rules.schema?.blocks || []).map((b: any, i: number) => (
                     <div key={i} style={{ borderTop: "1px solid var(--line)", padding: "6px 0" }}><b>{b.block}</b> <span style={{ color: "var(--sec)" }}>{(b.types || []).join(", ")}</span>{b.required_properties?.length > 0 && <div>필수: {b.required_properties.join(", ")}</div>}</div>
                   ))}
+                  {rules.check_methods && (
+                    <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
+                      <b>우리 기준 — 검사 방식</b>
+                      <p style={{ color: "var(--sec)", margin: "2px 0 6px" }}>{rules.check_methods["설명"]}</p>
+                      <div style={{ fontWeight: 700, color: "var(--high)" }}>🔴 정확히 일치 안 하면 오류</div>
+                      <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+                        {(rules.check_methods["정확히_일치_오류"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+                      </ul>
+                      <div style={{ fontWeight: 700, color: "var(--high)" }}>🔴 필수 항목 없으면 오류</div>
+                      <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+                        {(rules.check_methods["필수_있어야_함_오류"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+                      </ul>
+                      <div style={{ fontWeight: 700, color: HONEY }}>🟡 확인(경고) — 오류 아님</div>
+                      <ul style={{ margin: "2px 0 0 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+                        {(rules.check_methods["확인_경고"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+                      </ul>
+                    </div>
+                  )}
                   {rules.seo_syntax && (
                     <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
                       <b>JSON-LD 문법 오류 기준</b>
@@ -498,8 +531,18 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               ) : (
                 <div style={{ fontSize: 12.5, marginTop: 8 }}>
                   <p style={{ color: "var(--sec)" }}>{rules.copy?.["설명"]}</p>
-                  <div><b>스펙 토큰:</b> {(rules.copy?.spec_tokens || []).join(", ")}</div>
-                  <div style={{ marginTop: 6 }}><b>고유명사:</b> {(rules.copy?.proper_nouns || []).join(", ")}</div>
+                  <div style={{ borderTop: "1px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
+                    <div style={{ fontWeight: 700, color: HONEY, marginBottom: 4 }}>우리 기준 — 검사 방식</div>
+                    <ul style={{ margin: "0 0 0 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+                      <li><b style={{ color: "var(--high)" }}>정확히 일치</b> — 숫자+하드웨어 단위(200 MP · 1 TB · 512 GB · 5000 mAh · 2600 nits · 100x …)는 번역돼도 동일하므로 페이지에 정확히 있는지 검사. 같은 단위인데 <b>다른 값</b>이 있으면 오류(예: 2600 nits 자리에 600).</li>
+                      <li><b style={{ color: HONEY }}>확인(WARN)</b> — 기대 스펙 값이 <b>아예 없으면</b> 확인 필요(나라별로 미표기일 수 있어 오류 아님).</li>
+                      <li><b style={{ color: HONEY }}>확인(WARN)</b> — 고유명사(Snapdragon 8 Elite Gen 5 · Vapor Chamber · Galaxy AI …)는 현지어 대체 가능성이 있어 <b>존재만</b> 확인.</li>
+                      <li><b style={{ color: "var(--sec)" }}>해당없음(회색)</b> — 그 페이지타입에 원래 없는 스펙은 검사 제외.</li>
+                      <li>서술형 문장은 값 일치를 검사하지 않습니다.</li>
+                    </ul>
+                  </div>
+                  {(rules.copy?.spec_tokens || []).length > 0 && <div style={{ marginTop: 8 }}><b>스펙 토큰:</b> {(rules.copy?.spec_tokens || []).join(", ")}</div>}
+                  {(rules.copy?.proper_nouns || []).length > 0 && <div style={{ marginTop: 6 }}><b>고유명사:</b> {(rules.copy?.proper_nouns || []).join(", ")}</div>}
                 </div>
               )}
             </div>
