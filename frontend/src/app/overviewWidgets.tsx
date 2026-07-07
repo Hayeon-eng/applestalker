@@ -159,7 +159,7 @@ function metricHealth(metric: MetricTab, block: AnalysisBlock | undefined, metri
     if (high) return { state: "risk", label: "변화 있음", summary: "Schema/H-tag 변경이 검색·AI 해석에 영향을 줄 수 있습니다" };
     if (coverage === 0 && h1Pct === 0) return { state: "risk", label: "주의 필요", summary: "Schema와 H-tag 역할 신호 적용 범위가 제한적입니다" };
     if ((coverage ?? 0) < 40) return { state: "watch", label: "확인 필요", summary: `Schema 적용 범위가 낮습니다 (${coverage ?? "-"}%)` };
-    return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `Schema ${coverage ?? "-"}% · 역할 신호를 유지하세요` };
+    return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `Schema 적용 ${coverage ?? "-"}% · 역할 신호 양호` };
   }
 
   if (metric === "copy") {
@@ -175,7 +175,7 @@ function metricHealth(metric: MetricTab, block: AnalysisBlock | undefined, metri
     if ((score !== null && score < 40) || (conversionRoles > 0 && cta === 0)) {
       return { state: "risk", label: "주의 필요", summary: "구매 CTA와 카피 연결 범위가 제한적입니다" };
     }
-    return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `카피 ${score ?? "-"}점 · CTA ${cta}p` };
+    return { state: changed ? "watch" : "good", label: changed ? "변화 있음" : "우수", summary: `카피 구체성 ${score ?? "-"}점 · 구매 CTA 보유 ${cta}페이지` };
   }
 
   const totalPages = pageCountFromBlock(metric, block);
@@ -298,7 +298,7 @@ function buildPriorityRows(rows: SiteDashboardRow[], changes: Change[], scopedMe
         : row.site === "samsung"
           ? detailedAction(weakMetric, row.blocks[weakMetric])
           : samsungMetric && samsungMetric.state === "good"
-            ? `Samsung은 지금 ${samsungMetric.summary} 수준을 유지하세요.`
+            ? `Samsung은 이 항목(${samsungMetric.summary})이 이미 경쟁사 대비 양호한 수준이라 별도 조치 없이 유지하면 됩니다.`
             : samsungMetric && samsungMetric.state === "watch"
               ? `Samsung도 ${METRICS[weakMetric].label}이 완전하지 않으니, 함께 점검하세요: ${detailedAction(weakMetric, samsungRowForCompare?.blocks[weakMetric])}`
               : detailedAction(weakMetric, row.blocks[weakMetric]);
