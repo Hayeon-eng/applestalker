@@ -118,6 +118,10 @@ def _copy_row(pr):
     }
 
 
+SEV_EN = {"fail": "Error", "warn": "Check", "na": "N/A", "pass": "OK"}
+SEV_COLOR2 = {"fail": "D8362F", "warn": "E0A008", "na": "98A2B3", "pass": "1F9E5C"}
+
+
 def build_xlsx(page_results):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -143,49 +147,64 @@ def build_xlsx(page_results):
 
     wb = Workbook()
 
-    # Sheet 1 — Schema QA
-    ws = wb.active; ws.title = "Schema QA"
+    # ── Sheet 1 — QA Findings (한 행 = 오류/확인 하나, 국가별 정렬) ──
+    ws = wb.active; ws.title = "QA Findings"
+    ws.append(["#", "Country", "Region", "Site Code", "Product", "Page Type",
+               "Severity", "Area", "Item", "As-Is (issue)", "To-Be (fix)", "URL"])
+    _hdr(ws)
+    # 모든 오류/확인을 한 행씩으로 펼치고 국가→사이트 순 정렬
+    exploded = []
+    for pr in page_results:
+        meta = (pr.get("country", ""), pr.get("region", ""), pr.get("sitecode", ""),
+                pr.get("product", ""), pr.get("page_type") or _page_type(pr.get("url", "")), pr.get("url", ""))
+        for f in (pr.get("schema") or {}).get("findings", []):
+            if f.get("status") in ("fail", "warn"):
+                a, t = _en(f)
+                exploded.append((meta, "Schema", f.get("block", ""), f.get("status"), a, t))
+        for f in (pr.get("copy") or {}).get("findings", []):
+            if f.get("status") in ("fail", "warn"):
+                a, t = _en(f)
+                exploded.append((meta, "Spec", f.get("token", "") or f.get("category", ""), f.get("status"), a, t))
+    # 정렬: 국가 → 사이트 → 심각도(오류 먼저)
+    sev_rank = {"fail": 0, "warn": 1}
+    exploded.sort(key=lambda r: (r[0][0] or "zz", r[0][2] or "", sev_rank.get(r[3], 9)))
+    for n, (meta, area, item, sev, a, t) in enumerate(exploded, 1):
+        country, region, site, product, ptype, url = meta
+        ws.append([n, country, region, site, product, ptype, SEV_EN.get(sev, sev), area, str(item), a, t, url])
+        rn = ws.max_row
+        sc = ws.cell(row=rn, column=7)  # Severity
+        sc.font = Font(bold=True, color=SEV_COLOR2.get(sev, "000000"))
+        sc.alignment = Alignment(horizontal="center", vertical="center")
+    if not exploded:
+        ws.append(["—", "", "", "", "", "", SEV_EN["pass"], "", "", "No issues found", "", ""])
+    _finish(ws, [4, 13, 12, 9, 16, 9, 9, 8, 22, 52, 52, 40], "A2")
+
+    # ── Sheet 2 — Schema Matrix (페이지 1줄 = 타입별 O/△/X 요약) ──
+    ws2 = wb.create_sheet("Schema Matrix")
     seen = set()
     for pr in page_results:
         for f in (pr.get("schema") or {}).get("findings", []):
+            if f.get("block") == "JSON-LD":
+                continue
             seen.add(_primary_type(f))
     type_cols = [t for t in _TYPE_ORDER if t in seen] + sorted(seen - set(_TYPE_ORDER))
     ctx = ["#", "Region", "Country", "Site Code", "Product", "Page Type", "Target URL"]
-    ws.append(ctx + type_cols + ["Findings (as-is)", "TO-BE Guide", "Remarks"])
-    _hdr(ws)
-    for i, pr in enumerate(page_results, 1):
-        ts, as_is, to_be = _schema_row(pr)
-        row = [i, pr.get("region", ""), pr.get("country", ""), pr.get("sitecode", ""),
-               pr.get("product", ""), pr.get("page_type") or _page_type(pr.get("url", "")), pr.get("url", "")]
-        row += [MARK.get(ts.get(t, "-"), "-") for t in type_cols]
-        row += ["\n".join(as_is), "\n".join(to_be), ""]
-        ws.append(row); rn = ws.max_row
-        for k, t in enumerate(type_cols):
-            cell = ws.cell(row=rn, column=len(ctx) + 1 + k)
-            cell.font = Font(bold=True, color=MARK_COLOR.get(ts.get(t, "-"), "98A2B3"))
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-    _finish(ws, [4, 14, 12, 9, 12, 9, 46] + [8] * len(type_cols) + [46, 48, 16], "H2")
-
-    # Sheet 2 — Copy QA
-    ws2 = wb.create_sheet("Copy QA")
-    ws2.append(["#", "Region", "Country", "Site Code", "Product", "Target URL",
-                "Spec", "Missing Specs (as-is)", "Value Check", "Value Issues (as-is)",
-                "Proper Nouns", "Missing Nouns", "TO-BE Guide", "Remarks"])
+    ws2.append(ctx + type_cols + ["Errors", "Checks"])
     _hdr(ws2)
     for i, pr in enumerate(page_results, 1):
-        cv = _copy_row(pr)
-        ws2.append([i, pr.get("region", ""), pr.get("country", ""), pr.get("sitecode", ""),
-                    pr.get("product", ""), pr.get("url", ""),
-                    cv["spec_res"], ", ".join(map(str, cv["spec_miss"])),
-                    cv["val_res"], "\n".join(cv["val_issues"]),
-                    cv["noun_res"], ", ".join(map(str, cv["noun_miss"])), cv["guide"], ""])
-        rn = ws2.max_row
-        ws2.cell(row=rn, column=7).font = Font(bold=True, color=SEV_COLOR["fail"] if cv["spec_miss"] else SEV_COLOR["pass"])
-        ws2.cell(row=rn, column=9).font = Font(bold=True, color=SEV_COLOR["fail"] if cv["val_issues"] else SEV_COLOR["pass"])
-        ws2.cell(row=rn, column=11).font = Font(bold=True, color=SEV_COLOR["warn"] if cv["noun_miss"] else SEV_COLOR["pass"])
-        for col in (7, 9, 11):
-            ws2.cell(row=rn, column=col).alignment = Alignment(horizontal="center", vertical="center")
-    _finish(ws2, [4, 14, 12, 9, 12, 44, 8, 34, 9, 40, 10, 30, 46, 14], "G2")
+        ts, _a, _t = _schema_row(pr)
+        sf = (pr.get("schema") or {}).get("findings", [])
+        nfail = sum(1 for f in sf if f.get("status") == "fail")
+        nwarn = sum(1 for f in sf if f.get("status") == "warn")
+        row = [i, pr.get("region", ""), pr.get("country", ""), pr.get("sitecode", ""),
+               pr.get("product", ""), pr.get("page_type") or _page_type(pr.get("url", "")), pr.get("url", "")]
+        row += [MARK.get(ts.get(t, "-"), "-") for t in type_cols] + [nfail, nwarn]
+        ws2.append(row); rn = ws2.max_row
+        for k, t in enumerate(type_cols):
+            cell = ws2.cell(row=rn, column=len(ctx) + 1 + k)
+            cell.font = Font(bold=True, color=MARK_COLOR.get(ts.get(t, "-"), "98A2B3"))
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+    _finish(ws2, [4, 13, 12, 9, 16, 9, 44] + [9] * len(type_cols) + [8, 8], "H2")
 
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 

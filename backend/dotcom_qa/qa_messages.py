@@ -115,4 +115,11 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
             "to_be": (f"{cat} 기준값 '{exp}' 노출 여부 확인" if ko else f"Verify {cat} value '{exp}' appears on the page"),
         }
 
+    if code == "copy.na":
+        cat = f.get("category", "")
+        return {
+            "as_is": (f"{cat}: 이 페이지타입엔 해당 없음" if ko else f"{cat}: not applicable on this page type"),
+            "to_be": "",
+        }
+
     return {"as_is": f.get("as_is", ""), "to_be": f.get("to_be", "")}

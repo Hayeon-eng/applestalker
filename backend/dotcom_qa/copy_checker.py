@@ -51,6 +51,35 @@ def _values_with_unit(text: str, unit: str) -> List[str]:
     return [m.group(1) for m in rx.finditer(text)]
 
 
+def _norm_num(s: str) -> str:
+    """숫자 표기 정규화: 콤마·공백 제거, 전각→반각. '2,600'→'2600', '2 600'→'2600'."""
+    s = str(s)
+    trans = {ord(c): ord(c) - 0xFEE0 for c in "０１２３４５６７８９"}
+    s = s.translate(trans)
+    return re.sub(r"[,\s]", "", s)
+
+
+def _num_present(num: str, unit: str, text: str) -> bool:
+    """숫자+단위가 페이지에 있는지 — 콤마·공백 표기차 흡수(2,600 nits == 2600 nits)."""
+    u = _UNIT_RX.get((unit or "").lower())
+    digits = re.escape(num)
+    sep = r"[,\s]*"  # 천단위 콤마/공백 허용
+    numpat = sep.join(list(digits)) if len(digits) <= 8 else digits
+    if u:
+        rx = re.compile(numpat + r"\s?" + u, re.I)
+    else:
+        rx = re.compile(numpat, re.I)
+    return rx.search(text) is not None
+
+
+def _values_with_unit(text: str, unit: str) -> List[str]:
+    u = _UNIT_RX.get((unit or "").lower())
+    if not u:
+        return []
+    rx = re.compile(r"(\d[\d,\s]*(?:\.\d+)?)\s?" + u, re.I)
+    return [_norm_num(m.group(1)) for m in rx.finditer(text)]
+
+
 def _finalize(f: Dict[str, Any], code: str, lang: str = "ko") -> Dict[str, Any]:
     f["code"] = code
     msg = render(code, lang, f)
@@ -59,81 +88,77 @@ def _finalize(f: Dict[str, Any], code: str, lang: str = "ko") -> Dict[str, Any]:
 
 
 def check_copy(html: str, product_rules: Dict[str, Any],
-               key_specs: Optional[List[Dict[str, Any]]] = None, lang: str = "ko") -> Dict[str, Any]:
+               key_specs: Optional[List[Dict[str, Any]]] = None, lang: str = "ko",
+               page_type: str = "PDP") -> Dict[str, Any]:
     text = page_text(html)
     findings: List[Dict[str, Any]] = []
-    ok = warn = fail = 0
-
-    spec_toks = product_rules.get("spec_tokens", [])
+    ok = warn = fail = na = 0
+    key_specs = key_specs or []
     noun_toks = product_rules.get("proper_nouns", [])
 
-    # 0) 수집 품질 가드: 페이지가 지나치게 얇거나(스펙 텍스트 거의 없음) 토큰이 사실상 전무하면
-    #    개별 토큰 20건을 오류로 쏟지 않고 '수집 품질 의심' 1건으로 정리 (JS 미렌더/차단 등)
-    present_cnt = sum(1 for t in spec_toks if _present(t, text))
-    thin = len(text) < 1500
-    if spec_toks and (thin or present_cnt == 0):
+    # 0) 수집 품질 가드: 이 페이지타입에서 '기대되는' 스펙이 하나도 안 잡히고 본문도 얇으면
+    exp = [s for s in key_specs if page_type in (s.get("page_types") or ["PDP"])]
+    def _spec_present(s):
+        vals = [str(v) for v in (s.get("values") or [])]; unit = s.get("unit", "")
+        return any(_num_present(_norm_num(v), unit, text) if v[:1].isdigit() else _present(v, text) for v in vals)
+    present_cnt = sum(1 for s in exp if _spec_present(s))
+    if exp and (len(text) < 1500 or present_cnt == 0):
         ko = lang != "en"
-        findings.append({
-            "kind": "collection", "token": "(수집 품질)", "status": "fail", "code": "copy.collection",
-            "as_is": (f"페이지 텍스트가 비정상적으로 적음(본문 {len(text):,}자, 스펙 토큰 {present_cnt}/{len(spec_toks)} 검출)"
-                      if ko else f"Page text abnormally small ({len(text):,} chars, {present_cnt}/{len(spec_toks)} spec tokens found)"),
-            "to_be": ("수집 실패/차단 또는 JS 미렌더링 가능성 — 재수집(JS 렌더링) 후 재검수. 정상 수집 전까지 스펙 검사 결과는 신뢰하지 마세요."
-                      if ko else "Likely fetch failure/block or non-rendered JS — re-crawl (with JS) then re-check. Do not trust spec results until re-collected."),
-        })
-        return {"summary": {"spec_total": len(spec_toks), "noun_total": len(noun_toks),
-                            "keyspec_total": len(key_specs or []), "pass": 0, "warn": 0, "fail": 1,
+        findings.append({"kind": "collection", "token": "(수집 품질)", "status": "fail", "code": "copy.collection",
+            "as_is": (f"페이지 텍스트가 비정상적으로 적음(본문 {len(text):,}자, 기대 스펙 {present_cnt}/{len(exp)} 검출)"
+                      if ko else f"Page text abnormally small ({len(text):,} chars, {present_cnt}/{len(exp)} expected specs found)"),
+            "to_be": ("수집 실패/차단 또는 JS 미렌더링 가능성 — 재수집(JS 렌더링) 후 재검수." if ko
+                      else "Likely fetch failure/block or non-rendered JS — re-crawl (with JS) then re-check.")})
+        return {"summary": {"keyspec_total": len(key_specs), "pass": 0, "warn": 0, "fail": 1, "na": 0,
                             "value_mismatch": 0, "value_missing": 0, "text_len": len(text),
                             "collection_suspect": True}, "findings": findings}
 
-    # 1) 스펙 토큰 존재
-    for tok in spec_toks:
-        hit = _present(tok, text)
-        ok += hit; fail += (not hit)
-        f = {"kind": "spec", "token": tok, "status": "pass" if hit else "fail"}
-        findings.append(_finalize(f, "copy.spec_missing", lang) if not hit else {**f, "as_is": "", "to_be": "", "code": "copy.spec_ok"})
+    # 1) 핵심 스펙 값 대조 — any-of(여러 값 허용) + 숫자 정규화 + 페이지타입 회색(해당없음)
+    vmis = vmiss = 0
+    for s in key_specs:
+        cat = s.get("category", ""); unit = s.get("unit", "")
+        vals = [str(v) for v in (s.get("values") or []) if str(v).strip()]
+        pts = s.get("page_types") or ["PDP"]
+        if not vals:
+            continue
+        exp_label = " / ".join(f"{v}{(' ' + unit) if unit else ''}" for v in vals)
+        # (a) 이 페이지타입에서 기대하지 않는 스펙 → 회색 '해당없음'(오류 아님)
+        if page_type not in pts:
+            na += 1
+            findings.append({"kind": "spec_value", "token": cat, "category": cat, "expected": exp_label,
+                             "status": "na", "code": "copy.na",
+                             "as_is": (f"{cat}: 이 페이지타입({page_type})엔 해당 없음" if lang != "en" else f"{cat}: N/A on {page_type}"),
+                             "to_be": ""})
+            continue
+        # any-of: 허용 값 중 하나라도 있으면 통과
+        is_num = vals[0][:1].isdigit()
+        present = any(_num_present(_norm_num(v), unit, text) if is_num else _present(v, text) for v in vals)
+        if present:
+            ok += 1
+            findings.append({"kind": "spec_value", "token": cat, "category": cat, "expected": exp_label,
+                             "status": "pass", "as_is": "", "to_be": "", "code": "copy.value_ok"})
+            continue
+        # 같은 단위의 '다른 값'이 페이지에 있으면 값 불일치(오류)
+        others = sorted(set(_values_with_unit(text, unit)) - {_norm_num(v) for v in vals}) if (unit and is_num) else []
+        if others:
+            fail += 1; vmis += 1
+            findings.append(_finalize({"kind": "spec_value", "token": cat, "category": cat,
+                                       "expected": exp_label, "found": others, "status": "fail"}, "copy.value_mismatch", lang))
+        else:
+            warn += 1; vmiss += 1
+            findings.append(_finalize({"kind": "spec_value", "token": cat, "category": cat,
+                                       "expected": exp_label, "status": "warn"}, "copy.value_missing", lang))
 
-    # 2) 고유명사 존재
+    # 2) 고유명사 존재(WARN)
     for pn in noun_toks:
         hit = _present(pn, text)
         ok += hit; warn += (not hit)
         f = {"kind": "proper_noun", "token": pn, "status": "pass" if hit else "warn"}
         findings.append(_finalize(f, "copy.noun_missing", lang) if not hit else {**f, "as_is": "", "to_be": "", "code": "copy.noun_ok"})
 
-    # 3) 핵심 스펙 값 대조 (31 hours 인데 29 hours 로 들어간 오기 검출)
-    vmiss = vmis = 0
-    for spec in (key_specs or []):
-        cat = spec.get("category", ""); val = str(spec.get("value", "")).strip(); unit = spec.get("unit", "")
-        expected = (val + (" " + unit if unit else "")).strip()
-        if not val:
-            continue
-        vals = _values_with_unit(text, unit) if unit else []
-        present = (val in vals) or _present(expected, text) or (not unit and _present(val, text))
-        if present:
-            ok += 1
-            findings.append({"kind": "spec_value", "token": cat, "category": cat, "expected": expected,
-                             "status": "pass", "as_is": "", "to_be": "", "code": "copy.value_ok"})
-            continue
-        found = sorted(set(v for v in vals if v != val))
-        if found:
-            fail += 1; vmis += 1
-            f = {"kind": "spec_value", "token": cat, "category": cat, "expected": expected,
-                 "found": found, "status": "fail"}
-            findings.append(_finalize(f, "copy.value_mismatch", lang))
-        else:
-            warn += 1; vmiss += 1
-            f = {"kind": "spec_value", "token": cat, "category": cat, "expected": expected, "status": "warn"}
-            findings.append(_finalize(f, "copy.value_missing", lang))
-
-    return {
-        "summary": {
-            "spec_total": len(product_rules.get("spec_tokens", [])),
-            "noun_total": len(product_rules.get("proper_nouns", [])),
-            "keyspec_total": len(key_specs or []),
-            "pass": ok, "warn": warn, "fail": fail,
-            "value_mismatch": vmis, "value_missing": vmiss, "text_len": len(text),
-        },
-        "findings": findings,
-    }
+    return {"summary": {"keyspec_total": len(key_specs), "pass": ok, "warn": warn, "fail": fail, "na": na,
+                        "value_mismatch": vmis, "value_missing": vmiss, "text_len": len(text)},
+            "findings": findings}
 
 
 if __name__ == "__main__":

@@ -165,6 +165,17 @@ SPEC_CATALOG = [
     {"category": "storage", "label": "저장", "ex_value": "512", "ex_unit": "GB"},
     {"category": "processor", "label": "프로세서", "ex_value": "Snapdragon 8 Elite Gen 5", "ex_unit": ""},
     {"category": "display_type", "label": "디스플레이 종류", "ex_value": "Dynamic AMOLED 2X", "ex_unit": ""},
+    {"category": "camera_periscope", "label": "페리스코프 망원", "ex_value": "50", "ex_unit": "MP"},
+    {"category": "wireless_charging", "label": "무선충전", "ex_value": "25", "ex_unit": "W"},
+    # ── 버즈(Buds) 계열 ──
+    {"category": "battery_buds", "label": "이어버드 배터리", "ex_value": "61", "ex_unit": "mAh"},
+    {"category": "battery_case", "label": "케이스 배터리", "ex_value": "530", "ex_unit": "mAh"},
+    {"category": "playback_anc_on", "label": "재생(ANC 켬)", "ex_value": "6", "ex_unit": "hours"},
+    {"category": "playback_anc_off", "label": "재생(ANC 끔)", "ex_value": "7", "ex_unit": "hours"},
+    {"category": "playback_with_case", "label": "재생(케이스 포함)", "ex_value": "30", "ex_unit": "hours"},
+    {"category": "audio_bit", "label": "오디오 비트", "ex_value": "24", "ex_unit": "bit"},
+    {"category": "audio_khz", "label": "오디오 샘플레이트", "ex_value": "96", "ex_unit": "kHz"},
+    {"category": "ip_rating", "label": "방수방진 등급", "ex_value": "IP57", "ex_unit": ""},
 ]
 
 
@@ -176,7 +187,12 @@ def qb_spec_catalog():
 @qb_router.get("/products")
 def qb_products():
     data = _load_specs().get("products", {})
-    return {"products": sorted(data.keys())}
+    out = []
+    for code, entry in data.items():
+        label = entry.get("label", code) if isinstance(entry, dict) else code
+        out.append({"code": code, "label": label})
+    out.sort(key=lambda x: x["label"])
+    return {"products": out}
 
 
 @qb_router.post("/products/add")
@@ -184,10 +200,13 @@ def qb_products_add(payload: Dict[str, Any] = Body(...)):
     name = (payload.get("product") or "").strip()
     if not name:
         raise HTTPException(400, "product가 필요합니다.")
+    label = (payload.get("label") or name).strip()
     data = _load_specs()
-    data.setdefault("products", {}).setdefault(name, [])
+    prods = data.setdefault("products", {})
+    if name not in prods:
+        prods[name] = {"label": label, "specs": []}
     _save_specs(data)
-    return {"ok": True, "products": sorted(data["products"].keys())}
+    return {"ok": True, "products": [{"code": c, "label": (e.get("label", c) if isinstance(e, dict) else c)} for c, e in prods.items()]}
 
 
 @qb_router.post("/run")
@@ -322,22 +341,43 @@ def _save_specs(data: Dict[str, Any]):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _prod_entry(data, product):
+    e = data.setdefault("products", {}).setdefault(product, {"label": product, "specs": []})
+    if isinstance(e, list):  # 구버전 호환: 리스트면 감싸기
+        e = {"label": product, "specs": e}; data["products"][product] = e
+    e.setdefault("specs", [])
+    return e
+
+
 @qb_router.get("/specs")
 def qb_specs(product: str = Query("galaxy-s26-ultra")):
-    return {"product": product, "specs": _load_specs().get("products", {}).get(product, [])}
+    data = _load_specs().get("products", {})
+    e = data.get(product, {})
+    if isinstance(e, list):
+        return {"product": product, "label": product, "specs": e}
+    return {"product": product, "label": e.get("label", product), "specs": e.get("specs", [])}
 
 
 @qb_router.post("/specs/add")
 def qb_specs_add(payload: Dict[str, Any] = Body(...)):
     product = payload.get("product", "galaxy-s26-ultra")
-    row = {"category": payload.get("category", ""), "value": str(payload.get("value", "")),
-           "unit": payload.get("unit", "")}
-    if not row["category"] or not row["value"]:
-        raise HTTPException(400, "category와 value가 필요합니다.")
+    # values: 여러 값(국별 variation) 허용 — 콤마/리스트 모두 수용
+    raw = payload.get("values", payload.get("value", ""))
+    if isinstance(raw, list):
+        values = [str(v).strip() for v in raw if str(v).strip()]
+    else:
+        values = [v.strip() for v in str(raw).split(",") if v.strip()]
+    pts = payload.get("page_types") or ["PDP"]
+    if isinstance(pts, str):
+        pts = [p.strip() for p in pts.split(",") if p.strip()] or ["PDP"]
+    row = {"category": payload.get("category", ""), "values": values,
+           "unit": payload.get("unit", ""), "page_types": pts}
+    if not row["category"] or not values:
+        raise HTTPException(400, "category와 value(값)가 필요합니다.")
     data = _load_specs()
-    data.setdefault("products", {}).setdefault(product, []).append(row)
+    _prod_entry(data, product)["specs"].append(row)
     _save_specs(data)
-    return {"ok": True, "specs": data["products"][product]}
+    return {"ok": True, "specs": data["products"][product]["specs"]}
 
 
 @qb_router.post("/specs/remove")
@@ -345,7 +385,8 @@ def qb_specs_remove(payload: Dict[str, Any] = Body(...)):
     product = payload.get("product", "galaxy-s26-ultra")
     idx = payload.get("index")
     data = _load_specs()
-    arr = data.get("products", {}).get(product, [])
+    e = data.get("products", {}).get(product, {})
+    arr = e.get("specs", []) if isinstance(e, dict) else e
     if isinstance(idx, int) and 0 <= idx < len(arr):
         arr.pop(idx); _save_specs(data)
         return {"ok": True, "specs": arr}

@@ -67,19 +67,21 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
         specs_all = json.load(open(spec_path, encoding="utf-8")).get("products", {})
     except Exception:
         specs_all = {}
-    ks = specs_all.get(market_product) if market_product else None
-    if ks is None:
-        ks = specs_all.get("galaxy-s26-ultra", []) if product in ("M3",) else specs_all.get(product, [])
-    return {"schema": sr, "copy": cr, "key_specs": ks}
+    mp = market_product or ("galaxy-s26-ultra" if product == "M3" else product)
+    entry = specs_all.get(mp) or specs_all.get("galaxy-s26-ultra") or {}
+    ks = entry.get("specs", []) if isinstance(entry, dict) else (entry or [])
+    label = entry.get("label", mp) if isinstance(entry, dict) else mp
+    return {"schema": sr, "copy": cr, "key_specs": ks, "product_label": label, "page_type": page_type}
 
 
 def check_html(html: str, rules: Dict[str, Any],
                sitecode: str = None, site_lang: str = None) -> Dict[str, Any]:
     """단일 페이지 HTML 검수 → {schema, copy}."""
+    pt = rules.get("page_type", "PDP")
     return {
         "schema": schema_checker.check_page(html, rules["schema"],
                                             sitecode=sitecode, site_lang=site_lang),
-        "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs")),
+        "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt),
     }
 
 
