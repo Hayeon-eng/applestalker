@@ -4,19 +4,23 @@ import { NextRequest, NextResponse } from 'next/server';
 const SITE_PASSWORD = process.env.SITE_PASSWORD || 'ocg2022!';
 
 export async function POST(req: NextRequest) {
-  let password = '';
-  try {
-    const body = await req.json();
-    password = body?.password || '';
-  } catch {
-    // ignore
-  }
+  const form = await req.formData();
+  const password = String(form.get('password') || '');
+  const next = String(form.get('next') || '/');
+
+  const url = req.nextUrl.clone();
 
   if (password !== SITE_PASSWORD) {
-    return NextResponse.json({ ok: false, error: '비밀번호가 틀렸습니다.' }, { status: 401 });
+    url.pathname = '/gate';
+    url.search = '';
+    url.searchParams.set('next', next);
+    url.searchParams.set('error', '1');
+    return NextResponse.redirect(url, 303);
   }
 
-  const res = NextResponse.json({ ok: true });
+  url.pathname = next.startsWith('/') ? next : '/';
+  url.search = '';
+  const res = NextResponse.redirect(url, 303);
   res.cookies.set('as_auth', '1', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production', // 로컬(http)에서도 쿠키가 저장되도록
