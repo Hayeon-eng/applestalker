@@ -19,7 +19,10 @@ export function middleware(req: NextRequest) {
   const authed = req.cookies.get('as_auth')?.value === '1';
   if (authed) return NextResponse.next();
 
-  const gateUrl = new URL('/gate', req.url);
+  // Render 등 프록시 뒤에서 req.url이 내부 호스트로 잡히는 경우가 있어 forwarded 헤더 우선 사용
+  const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', '');
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || req.nextUrl.host;
+  const gateUrl = new URL('/gate', `${proto}://${host}`);
   gateUrl.searchParams.set('next', pathname);
   return NextResponse.redirect(gateUrl);
 }
