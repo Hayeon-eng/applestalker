@@ -1,39 +1,12 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 function GateForm() {
   const params = useSearchParams();
   const next = params.get("next") || "/";
-
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!password) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/gate-auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (res.ok) {
-        window.location.href = next;
-      } else {
-        const d = await res.json().catch(() => ({}));
-        setError(d?.error || "비밀번호가 틀렸습니다.");
-      }
-    } catch {
-      setError("접속 중 문제가 발생했습니다. 다시 시도해주세요.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const hasError = params.get("error") === "1";
 
   return (
     <div
@@ -45,8 +18,10 @@ function GateForm() {
         background: "#F5F6FA",
       }}
     >
+      {/* 자바스크립트 없이도(=캐시된 구버전 번들이어도) 동작하도록 순수 HTML 폼 POST 방식 사용 */}
       <form
-        onSubmit={submit}
+        method="POST"
+        action="/api/gate-auth"
         style={{
           width: 340,
           background: "#fff",
@@ -56,6 +31,7 @@ function GateForm() {
           textAlign: "center",
         }}
       >
+        <input type="hidden" name="next" value={next} />
         <div style={{ fontSize: 34, marginBottom: 6 }}>🔒</div>
         <h1 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 4px" }}>비밀번호를 입력하세요</h1>
         <p style={{ fontSize: 12.5, color: "#6B7280", margin: "0 0 20px" }}>
@@ -63,9 +39,9 @@ function GateForm() {
         </p>
         <input
           type="password"
+          name="password"
           autoFocus
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
           placeholder="비밀번호"
           style={{
             width: "100%",
@@ -78,12 +54,13 @@ function GateForm() {
             marginBottom: 12,
           }}
         />
-        {error && (
-          <p style={{ color: "#D93025", fontSize: 12.5, margin: "0 0 12px" }}>{error}</p>
+        {hasError && (
+          <p style={{ color: "#D93025", fontSize: 12.5, margin: "0 0 12px" }}>
+            비밀번호가 틀렸습니다.
+          </p>
         )}
         <button
           type="submit"
-          disabled={loading}
           style={{
             width: "100%",
             padding: "11px 0",
@@ -93,11 +70,10 @@ function GateForm() {
             background: "#1428A0",
             border: "none",
             borderRadius: 8,
-            cursor: loading ? "default" : "pointer",
-            opacity: loading ? 0.7 : 1,
+            cursor: "pointer",
           }}
         >
-          {loading ? "확인 중..." : "입장하기"}
+          입장하기
         </button>
       </form>
     </div>
