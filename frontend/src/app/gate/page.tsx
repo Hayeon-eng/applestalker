@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 function GateForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/";
 
@@ -24,8 +23,7 @@ function GateForm() {
         body: JSON.stringify({ password }),
       });
       if (res.ok) {
-        router.replace(next);
-        router.refresh();
+        window.location.href = next;
       } else {
         const d = await res.json().catch(() => ({}));
         setError(d?.error || "비밀번호가 틀렸습니다.");
