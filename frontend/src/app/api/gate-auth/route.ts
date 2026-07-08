@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true });
   res.cookies.set('as_auth', '1', {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production', // 로컬(http)에서도 쿠키가 저장되도록
     sameSite: 'lax',
     path: '/',
     // maxAge를 주지 않으면 세션 쿠키가 되어 브라우저를 완전히 닫으면 사라짐
