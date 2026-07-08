@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // 비번은 환경변수 SITE_PASSWORD로 덮어쓸 수 있음(권장). 없으면 기본값 사용.
-const SITE_PASSWORD = process.env.SITE_PASSWORD || 'ocg2022!';
+const SITE_PASSWORD = process.env.SITE_PASSWORD
 
 // Render 등 리버스 프록시 뒤에서는 req.url이 내부 호스트(localhost:포트)로 잡히는 경우가 있어
 // x-forwarded-host / x-forwarded-proto를 우선으로 실제 공개 도메인을 재구성한다.
@@ -31,8 +31,10 @@ export async function POST(req: NextRequest) {
     secure: process.env.NODE_ENV === 'production', // 로컬(http)에서도 쿠키가 저장되도록
     sameSite: 'lax',
     path: '/',
-    // maxAge를 주지 않으면 세션 쿠키가 되어 브라우저를 완전히 닫으면 사라짐
-    // → 다음에 다시 열 때는 비밀번호를 또 입력해야 함
+    // maxAge(초)를 명시하면 브라우저 종류·세션복원 설정과 무관하게 그 시간이 지나면 무조건 만료된다.
+    // Edge 등은 세션 쿠키를 브라우저 재시작 후에도 복원하는 경우가 있어, "닫으면 로그아웃"은 보장되지 않는다.
+    // 10분(600초) 후 만료 → 이후 접속 시 비밀번호 재입력 필요.
+    maxAge: 600,
   });
   return res;
 }
