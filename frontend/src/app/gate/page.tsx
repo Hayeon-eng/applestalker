@@ -22,6 +22,7 @@ function GateForm() {
       <form
         method="POST"
         action="/api/gate-auth"
+        target="_self"
         style={{
           width: 340,
           background: "#fff",
