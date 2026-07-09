@@ -12,6 +12,7 @@ qb_api.py — 큐비 — Dotcom QA 체커 [Phase H 백엔드]
   GET  /api/qb/sites                 91개 사이트(지역별)
   GET  /api/qb/rules?product=M3      스키마/카피 규칙 (화면 '?' 기준 패널용)
   POST /api/qb/check                 {html, product} 단일 HTML 검수(네트워크 불필요)
+  POST /api/qb/check-html-qa         {html, product} HTML QA(Level1 적용율 + Level2 3축) 종합 채점 [신규]
   POST /api/qb/run                   {sitecodes?, product} 크롤 후 검수(주입된 fetcher 필요)
   POST /api/qb/report.xlsx           {results} → Excel 다운로드
   POST /api/qb/email-draft           {results} → 메일 초안 HTML
@@ -31,6 +32,8 @@ from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 
 import runner
 import qa_report
+import schema_checker
+import html_qa_scoring
 from site_registry import SiteRegistry
 from database import SessionLocal
 from models import QbHistory
@@ -130,6 +133,23 @@ def qb_rules(product: str = Query("M3"), page_type: str = Query("PDP"),
                 "name 등 번역 대상 값은 오류가 아닌 '번역 확인' 경고",
             ],
         },
+        "rich_result": {
+            "설명": "문법 오류와 별개로, Google 리치결과 자격 여부는 필수/권장 속성 충족으로 판단합니다(가이드 필수 ∪ Google 공식 필수 중 더 엄격한 쪽 적용).",
+            "필수_속성_누락_오류": [
+                "리치결과 필수 속성이 없으면 오류 — 그 즉시 리치결과 자격 상실",
+                "필수 속성 값이 형식/기준과 안 맞으면 오류(URL 아님·ISO8601 아님 등)",
+            ],
+            "권장_속성_누락_경고": [
+                "권장 속성이 없으면 경고 — 자격은 유지되지만 품질 저하",
+            ],
+            "타입별_리치결과_상태": {
+                "Product": "정식 적용",
+                "VideoObject": "정식 적용",
+                "3DModel": "제한적(일반 리치결과 X, AR만 해당)",
+                "FAQPage": "폐지(2026-05-07 Google 공식 종료 — 스키마는 유효하나 SEO 감점/가점 대상 아님)",
+            },
+            "비고": "Google Rich Result Test 실시간 API 호출은 이 환경에서 불가 — Google 공식 문서의 필수/권장 목록을 정적 룰로 반영",
+        },
         "check_methods": {
             "설명": "카피덱 정답지 기준으로 값을 검사합니다. 검사 방식별로 오류/경고를 구분합니다.",
             "정확히_일치_오류": [
@@ -155,6 +175,28 @@ def qb_rules(product: str = Query("M3"), page_type: str = Query("PDP"),
             "proper_nouns": rules["copy"].get("proper_nouns", []),
         },
     }
+
+
+@qb_router.post("/check-html-qa")
+def qb_check_html_qa(payload: Dict[str, Any] = Body(...)):
+    """HTML QA 종합 채점 — Level1(적용율%) + Level2(축1 정보적합성/축2 파싱+리치결과/축3 id연결성).
+    /check와 별개 엔드포인트라 기존 화면·응답 형태에 영향 없음."""
+    html = payload.get("html")
+    product = payload.get("product", "M3")
+    page_type = payload.get("page_type", "PDP")
+    if not html:
+        raise HTTPException(400, "html 필드가 필요합니다.")
+    rules = runner.load_rules(product, page_type=page_type,
+                              market_product=payload.get("market_product") or "galaxy-s26-ultra")
+    schema_result = schema_checker.check_page(html, rules["schema"],
+                                              sitecode=payload.get("sitecode"),
+                                              site_lang=payload.get("lang"),
+                                              market_product=rules.get("market_product"))
+    out = html_qa_scoring.score_html_qa(html, rules["schema"], schema_result,
+                                        rendered_by=payload.get("rendered_by"))
+    out["page_type"] = page_type
+    out["schema_set"] = rules.get("schema_set")
+    return out
 
 
 @qb_router.post("/check")
@@ -194,7 +236,8 @@ def qb_check_url(payload: Dict[str, Any] = Body(...)):
     res = runner.check_html(html, rules, sitecode=sc, site_lang=(known or {}).get("lang"))
     row = {"sitecode": sc, "url": url, "page_type": page_type, "market_product": market,
            "region": (known or {}).get("region"), "country": (known or {}).get("country"),
-           "schema": res["schema"], "copy": res["copy"]}
+           "schema": res["schema"], "copy": res["copy"], "html_qa": res["html_qa"],
+           "html": html}  # html은 디버깅/재검수용으로 유지(선택적으로 프론트가 쓸 수 있음)
     global _LAST_RESULTS
     _LAST_RESULTS = [row]
     return row
@@ -301,15 +344,16 @@ async def _run_batch(product: str, sitecodes: Optional[List[str]], run_id: str):
             url = site.get("url", "")
             pt = site.get("page_type") or runner.page_type_from_url(url)
             mp = runner.product_from_url(url)
-            html, err = None, None
+            html, err, rendered_by = None, None, None
             try:
                 res = await crawler.crawl(url, requires_js=True)
                 html = (res or {}).get("html_content")
                 err = (res or {}).get("error")
+                rendered_by = (res or {}).get("rendered_by")
             except Exception as e:
                 err = str(e)
             if html:
-                row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt)
+                row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt, rendered_by=rendered_by)
                 ok = True
             else:
                 row = {"sitecode": site["sitecode"], "url": url, "region": site.get("region"),
@@ -318,7 +362,8 @@ async def _run_batch(product: str, sitecodes: Optional[List[str]], run_id: str):
                            {"block": "(수집 실패)", "status": "fail",
                             "as_is": f"HTML 수집 실패{(' — ' + err) if err else ''}",
                             "to_be": "차단/JS 미렌더링/타임아웃 여부 확인 후 재시도"}]},
-                       "copy": {"summary": {}, "findings": []}}
+                       "copy": {"summary": {}, "findings": []},
+                       "html_qa": None}  # 수집 실패 시 HTML QA 채점 자체가 불가능 — None으로 명시(거짓으로 값 채우지 않음)
                 ok = False
             results[i] = row
             _RUN_STATE["done"] += 1

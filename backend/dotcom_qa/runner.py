@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import schema_checker
 import copy_checker
+import html_qa_scoring
 from site_registry import SiteRegistry
 
 _HERE = os.path.dirname(__file__)
@@ -180,24 +181,27 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
 
 
 def check_html(html: str, rules: Dict[str, Any],
-               sitecode: str = None, site_lang: str = None) -> Dict[str, Any]:
-    """단일 페이지 HTML 검수 → {schema, copy}."""
+               sitecode: str = None, site_lang: str = None, rendered_by: str = None) -> Dict[str, Any]:
+    """단일 페이지 HTML 검수 → {schema, copy, html_qa}."""
     pt = rules.get("page_type", "PDP")
     mp = rules.get("market_product")
+    schema_result = schema_checker.check_page(html, rules["schema"],
+                                              sitecode=sitecode, site_lang=site_lang,
+                                              market_product=mp)
     return {
-        "schema": schema_checker.check_page(html, rules["schema"],
-                                            sitecode=sitecode, site_lang=site_lang,
-                                            market_product=mp),
+        "schema": schema_result,
         "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt),
+        "html_qa": html_qa_scoring.score_html_qa(html, rules["schema"], schema_result, rendered_by=rendered_by),
     }
 
 
-def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any], page_type: str = "PDP") -> Dict[str, Any]:
-    res = check_html(html, rules, sitecode=site.get("sitecode"), site_lang=site.get("lang"))
+def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any], page_type: str = "PDP",
+             rendered_by: str = None) -> Dict[str, Any]:
+    res = check_html(html, rules, sitecode=site.get("sitecode"), site_lang=site.get("lang"), rendered_by=rendered_by)
     return {"sitecode": site.get("sitecode"), "url": site.get("url"),
             "region": site.get("region"), "country": site.get("country"),
             "product": site.get("product", "galaxy-s26-ultra"), "lang": site.get("lang"),
-            "page_type": page_type, "schema": res["schema"], "copy": res["copy"]}
+            "page_type": page_type, "schema": res["schema"], "copy": res["copy"], "html_qa": res["html_qa"]}
 
 
 def run_all(fetch_html: Callable[[str], Optional[str]],
@@ -236,7 +240,7 @@ def run_all(fetch_html: Callable[[str], Optional[str]],
                             "schema": {"summary": {}, "findings": [
                                 {"block": "(수집 실패)", "status": "fail",
                                  "as_is": "HTML 수집 실패", "to_be": "URL 접근/렌더링 확인"}]},
-                            "copy": {"summary": {}, "findings": []}})
+                            "copy": {"summary": {}, "findings": []}, "html_qa": None})
             continue
         results.append(run_site(site, html, rules_for(pt, mp, url), page_type=pt))
     return results
