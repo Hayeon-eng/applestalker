@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
-import { SpecTable, RuleAddPanel, CriteriaPanel, QuickView } from "./QubiSections";
+import { SpecTable, RuleAddPanel, CriteriaPanel, QuickView, HtmlQaSummary } from "./QubiSections";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
@@ -16,8 +16,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [html, setHtml] = useState("");
   const [urlOne, setUrlOne] = useState("");
   const [results, setResults] = useState<PageResult[]>([]);
+  const [qaExpandedSite, setQaExpandedSite] = useState<string | null>(null); // HTML QA 일괄검수 드릴다운(사이트별 펼침)
   const [rules, setRules] = useState<any>(null);
-  const [showRules, setShowRules] = useState(true);
+  const [showRules, setShowRules] = useState(false); // 검수 기준은 기본 숨김 — "ⓘ 검수 기준" 클릭 시 뿅 등장
   const rulesRef = useRef<HTMLDivElement | null>(null);
   const [rulesFlash, setRulesFlash] = useState(false);
   const openCriteria = () => {
@@ -96,20 +97,20 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   // ── 검수 ──
   const doCheck = async () => {
-    setBusy(true); setErr("");
+    setBusy(true); setErr(""); setQaExpandedSite(null);
     try {
       if (inputMode === "url") {
         if (!urlOne.trim()) throw new Error("검수할 링크를 입력하세요.");
         const r = await fetch(api("/api/qb/check-url"), J({ url: urlOne.trim(), product: family(product), market_product: product, page_type: pageType }));
         if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일 검수를 이용하세요.");
         if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `검수 실패 (${r.status})`);
-        setResults([await r.json()]);
+        setResults([await r.json()]); // html_qa 포함돼서 옴
       } else {
         if (!html.trim()) throw new Error("검수할 HTML을 넣으세요.");
         const r = await fetch(api("/api/qb/check"), J({ html, product: family(product), market_product: product, page_type: pageType }));
         if (!r.ok) throw new Error(`검수 실패 (${r.status})`);
         const d = await r.json();
-        setResults([{ sitecode: "(입력)", url: "", page_type: pageType, schema: d.schema, copy: d.copy }]);
+        setResults([{ sitecode: "(입력)", url: "", page_type: pageType, schema: d.schema, copy: d.copy, html_qa: d.html_qa }]);
       }
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -242,7 +243,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   // QubiSections.tsx 로 분리한 렌더 블록에 상태·핸들러를 한 번에 주입
   const ctx = {
-    tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash,
+    tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash, qaExpandedSite, setQaExpandedSite,
     specProduct, setSpecProduct, products, newProd, setNewProd, addProduct,
     specs, removeSpec, catalog, specForm, pickCatalog, setSpecForm, addSpec,
     ruleForm, setRuleForm, schemaTypes, addRule,
@@ -298,12 +299,14 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         <header className="topbar">
           <div className="topbarRow1">
             <div className="tabGroup">
-              <button className={`tabBtn ${tab === "schema" ? "on" : ""}`} onClick={() => setTab("schema")}>스키마 QA</button>
+              <button className={`tabBtn ${tab === "schema" ? "on" : ""}`} onClick={() => setTab("schema")}>HTML QA</button>
               <button className={`tabBtn ${tab === "copy" ? "on" : ""}`} onClick={() => setTab("copy")}>스펙 QA</button>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               <button className="toolBtn" onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}>＋ 룰 추가</button>
-              <button className="toolBtn" onClick={openCriteria}>ⓘ 검수 기준</button>
+              <button className="toolBtn" onClick={() => (showRules ? setShowRules(false) : openCriteria())}>
+                {showRules ? "ⓘ 검수 기준 숨기기" : "ⓘ 검수 기준 보기"}
+              </button>
               <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
               <a className="toolBtn" href={api("/api/qb/report.xlsx")} onClick={(e) => { if (!results.length) { e.preventDefault(); setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); } }} download>📊 Excel</a>
             </div>
@@ -312,8 +315,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
         <div className="contentScroll" style={{ padding: "20px 28px 80px" }}>
           <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>
-            {tab === "schema" ? "스키마 QA" : "스펙 QA"} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>
-              {tab === "schema" ? "JSON-LD 속성·값을 스펙과 대조 (파싱 오류도 검출)" : "스펙 값·고유명사 정확성 (번역 대응)"}</span>
+            {tab === "schema" ? "HTML QA" : "스펙 QA"} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>
+              {tab === "schema" ? "스키마 · H태그 · Meta title/description — GEO 관점 종합 검수" : "스펙 값·고유명사 정확성 (번역 대응)"}</span>
           </h2>
 
           {/* 제품 · 페이지타입 */}
@@ -381,6 +384,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           <SpecTable ctx={ctx} />
           <RuleAddPanel ctx={ctx} />
           <CriteriaPanel ctx={ctx} />
+          <HtmlQaSummary ctx={ctx} />
 
           {/* 결과 — 오류 빨강 강조 */}
           {rows.length > 0 && (

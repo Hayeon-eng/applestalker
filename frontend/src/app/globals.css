@@ -163,6 +163,14 @@ input, select { font-family: inherit; }
 
 /* ── 카드 */
 .card { background: var(--surface); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow-sm); }
+
+@keyframes qbiPop {
+  0%   { transform: scale(0.85); opacity: 0; }
+  55%  { transform: scale(1.04); opacity: 1; }
+  75%  { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+.qbiPopIn { animation: qbiPop .32s cubic-bezier(.34,1.56,.64,1) both; transform-origin: top left; }
 .cardTitle { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
 .cardTitleHint { font-size: 11px; color: var(--sec); font-weight: 400; }
 

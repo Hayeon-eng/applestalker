@@ -1,6 +1,8 @@
 "use client";
 /* QubiSections.tsx — QubiApp에서 분리한 큰 렌더 블록들(파일 크기 축소용).
    상태/핸들러는 QubiApp에서 ctx 객체로 주입받는다. */
+import { useState } from "react";
+import type { ReactNode } from "react";
 import { SEV, HONEY, tierOf, inputStyle, sel } from "./qubiShared";
 
 export function SpecTable({ ctx: c }: { ctx: any }) {
@@ -103,7 +105,7 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
   const { rules } = c;
   if (!c.showRules || !rules) return null;
   return (
-    <div ref={c.rulesRef} className="card" style={{ marginTop: 16, padding: 14,
+    <div ref={c.rulesRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 14,
       outline: c.rulesFlash ? `3px solid ${HONEY}` : "3px solid transparent",
       boxShadow: c.rulesFlash ? `0 0 0 6px ${HONEY}22` : "none",
       transition: "outline .3s, box-shadow .3s" }}>
@@ -133,6 +135,27 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
               <ul style={{ margin: "2px 0 0 16px", color: "var(--sec)", lineHeight: 1.7 }}>
                 {(rules.check_methods["확인_경고"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
               </ul>
+            </div>
+          )}
+          {rules.rich_result && (
+            <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
+              <b>Google 리치결과 필수/권장 속성 기준</b>
+              <p style={{ color: "var(--sec)", margin: "2px 0 6px" }}>{rules.rich_result["설명"]}</p>
+              <div style={{ fontWeight: 700, color: "var(--high)" }}>🔴 필수 속성 누락/형식오류</div>
+              <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+                {(rules.rich_result["필수_속성_누락_오류"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+              </ul>
+              <div style={{ fontWeight: 700, color: HONEY }}>🟡 권장 속성 누락</div>
+              <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+                {(rules.rich_result["권장_속성_누락_경고"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+              </ul>
+              <div style={{ fontWeight: 700 }}>타입별 리치결과 상태</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                {Object.entries(rules.rich_result["타입별_리치결과_상태"] || {}).map(([t, s]: any) => (
+                  <span key={t} style={{ fontSize: 11, background: "#F2F4F7", borderRadius: 6, padding: "3px 8px" }}><b>{t}</b> — {s}</span>
+                ))}
+              </div>
+              {rules.rich_result["비고"] && <p style={{ color: "var(--sec)", fontSize: 11, marginTop: 6 }}>※ {rules.rich_result["비고"]}</p>}
             </div>
           )}
           {rules.seo_syntax && (
@@ -223,6 +246,183 @@ export function QuickView({ ctx: c }: { ctx: any }) {
                   {x.r.url && <div style={{ fontFamily: "monospace", fontSize: 10.5, color: "#98A2B3", marginTop: 4, wordBreak: "break-all" }}>{x.r.url}</div>}
                 </div>
               )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── HTML QA 종합 패널 [신규] ──────────────────────────────────────
+// 최상단 종합판단(전체 신호등 + 타입별 신호등) + 항목별 그룹핑(Meta/H태그 · 스키마 정보적합성 ·
+// 파싱+리치결과 · id연결성). Level1(적용율%)+Level2(3축) 백엔드(/api/qb/check-html-qa) 결과를 그대로 렌더링.
+const TL_COLOR: Record<string, string> = { green: "#1F9E5C", yellow: "#E0A008", red: "#D8362F" };
+const TL_EMOJI: Record<string, string> = { green: "🟢", yellow: "🟡", red: "🔴" };
+
+function Accordion({ title, defaultOpen, children }: { title: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  return (
+    <div style={{ border: "1px solid var(--line)", borderRadius: 10, marginTop: 10, overflow: "hidden" }}>
+      <div onClick={() => setOpen((v) => !v)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#F9FAFB", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+        <span>{title}</span><span style={{ fontSize: 11, color: "#0A66E0" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
+      </div>
+      {open && <div className="qbiPopIn" style={{ padding: "10px 12px" }}>{children}</div>}
+    </div>
+  );
+}
+
+export function HtmlQaDetail({ hq }: { hq: any }) {
+  const l1 = hq.level1_apply_rate || {};
+  const axis2 = hq.level2?.axis2_parsing_rich_result || {};
+  const axis3 = hq.level2?.axis3_id_linkage || {};
+  const perType: Record<string, any> = hq.level2?.per_type || {};
+  const sig = l1.signals || {};
+
+  return (
+    <div>
+      {/* Meta / H태그 — 실제 태깅 값 리스트 */}
+      <Accordion title="① Meta / H태그 현황" defaultOpen>
+        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 8, fontSize: 12.5 }}>
+          <span style={{ color: "var(--sec)" }}>Meta Title</span>
+          <span>{sig.title ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5 }}>{sig.title}</code> : <i style={{ color: "#B42318" }}>누락</i>}</span>
+          <span style={{ color: "var(--sec)" }}>Meta Description</span>
+          <span>{sig.meta_description ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word" }}>{sig.meta_description}</code> : <i style={{ color: "#B42318" }}>누락</i>}</span>
+          <span style={{ color: "var(--sec)" }}>H1 ({(sig.h1_list || []).length}개)</span>
+          <span>{(sig.h1_list || []).length ? (sig.h1_list || []).map((t: string, i: number) => <div key={i}><code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5 }}>{t}</code></div>) : <i style={{ color: "#B42318" }}>누락</i>}</span>
+          <span style={{ color: "var(--sec)" }}>H2 ({(sig.h2_list || []).length}개)</span>
+          <span>{(sig.h2_list || []).length ? (sig.h2_list || []).map((t: string, i: number) => <span key={i} style={{ display: "inline-block", background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, margin: "2px 4px 0 0" }}>{t}</span>) : <i style={{ color: "#B42318" }}>누락</i>}</span>
+        </div>
+        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {(l1.items || []).filter((it: any) => it.item.includes("스키마 타입")).map((it: any, i: number) => (
+            <span key={i} style={{ fontSize: 11, borderRadius: 6, padding: "3px 8px", background: it.pass ? "#ECFDF3" : "#FEF3F2", color: it.pass ? "#1F9E5C" : "#D8362F" }}>
+              {it.pass ? "✓" : "✕"} {it.item.replace("스키마 타입 존재: ", "")}
+            </span>
+          ))}
+        </div>
+      </Accordion>
+
+      {/* 스키마 정보적합성(축1) — 타입별 */}
+      <Accordion title="② 스키마 정보적합성(축1) — 타입별">
+        {Object.keys(perType).length === 0 && <p style={{ color: "var(--sec)", fontSize: 12.5 }}>검출된 스키마 타입이 없어요.</p>}
+        {Object.entries(perType).map(([t, v]: [string, any]) => (
+          <div key={t} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: "1px solid var(--line)", fontSize: 12.5 }}>
+            <span><b>{t}</b>{v.axis1_gate_triggered && <span style={{ color: "#D8362F", marginLeft: 6, fontSize: 11 }}>⚠ 필수게이트 발동(자격소멸)</span>}</span>
+            <span>정보적합성 {v.axis1_info_adequacy_pct}% → 최종 {v.final_pct}%</span>
+          </div>
+        ))}
+      </Accordion>
+
+      {/* 파싱 + Google 리치결과(축2) */}
+      <Accordion title={`③ 파싱 에러 + Google 리치결과(축2) — Critical ${axis2.critical_count ?? 0} · Warning ${axis2.warning_count ?? 0}`}>
+        <div style={{ fontSize: 12, marginBottom: 6, color: axis2.gate === 0 ? "#D8362F" : "#1F9E5C", fontWeight: 700 }}>
+          {axis2.gate === 0 ? "🔴 파싱게이트 무효 — 이 게이트가 0이면 관련 스키마 최종점수는 0" : "🟢 파싱게이트 통과"}
+        </div>
+        {(axis2.detail || []).map((d: any, i: number) => (
+          <div key={i} style={{ fontSize: 12, padding: "4px 0", borderTop: "1px solid var(--line)" }}>
+            <span style={{ fontWeight: 700, color: d.severity === "Critical" ? "#D8362F" : "#E0A008" }}>{d.severity}</span>
+            <span style={{ color: "var(--sec)", marginLeft: 6 }}>[{d.group}]</span> {d.message}
+          </div>
+        ))}
+        {(axis2.detail || []).length === 0 && <p style={{ color: "#1F9E5C", fontSize: 12.5 }}>파싱/리치결과 오류 없음 🐝</p>}
+        <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {Object.entries(axis2.rich_result_scope || {}).map(([t, s]: any) => (
+            <span key={t} style={{ fontSize: 11, background: "#F2F4F7", borderRadius: 6, padding: "3px 8px" }}><b>{t}</b> 리치결과: {s}</span>
+          ))}
+        </div>
+      </Accordion>
+
+      {/* @id 연결성(축3) */}
+      <Accordion title={`④ @id 연결성(축3) — ${axis3.id_pct ?? "—"}%`}>
+        <div style={{ fontSize: 12, marginBottom: 6, color: axis3.gate === 0 ? "#D8362F" : "#1F9E5C", fontWeight: 700 }}>
+          {axis3.gate === 0 ? "🔴 @id 게이트 무효(참조 무결성 깨짐)" : "🟢 @id 게이트 통과"}
+        </div>
+        {(axis3.checks || []).map((ck: any, i: number) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderTop: "1px solid var(--line)" }}>
+            <span>{ck.item}</span>
+            <span style={{ color: "var(--sec)" }}>{ck.score === null ? "해당없음" : `${Math.round(ck.score * 100)}%`} · {ck.detail}</span>
+          </div>
+        ))}
+      </Accordion>
+    </div>
+  );
+}
+
+function OverallBanner({ hq }: { hq: any }) {
+  const l1 = hq.level1_apply_rate || {};
+  const perType: Record<string, any> = hq.level2?.per_type || {};
+  const overall = hq.overall || {};
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <span style={{ fontSize: 22 }}>{TL_EMOJI[overall.traffic_light] || "⚪"}</span>
+      <b style={{ fontSize: 15 }}>종합 판단</b>
+      <span style={{ fontSize: 13, color: "var(--sec)" }}>
+        적용율 {l1.apply_rate_pct ?? "—"}% · AEO 퀄리티 {overall.final_pct ?? "—"}%
+      </span>
+      <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {Object.entries(perType).map(([t, v]: [string, any]) => (
+          <span key={t} style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "3px 9px",
+            background: (TL_COLOR[v.traffic_light] || "#98A2B3") + "1A", color: TL_COLOR[v.traffic_light] || "#98A2B3" }}>
+            {TL_EMOJI[v.traffic_light]} {t} {v.final_pct ?? "—"}%
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
+// ctx.results 안의 각 행에 html_qa가 들어있으면(일괄검수/이력 포함 전부 공통) 그걸 그대로 씀.
+// 단일검수(1건)면 상세 4개 아코디언을 바로 펼치고, 다건(일괄검수)이면 전체 집계 배너 +
+// 사이트별 신호등 리스트(최악 사이트 먼저) → 클릭하면 그 사이트의 4개 아코디언이 펼쳐짐.
+export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
+  if (c.tab !== "schema") return null;
+  const rowsWithQa: any[] = (c.results || []).filter((r: any) => r.html_qa);
+  if (rowsWithQa.length === 0) return null;
+
+  if (rowsWithQa.length === 1) {
+    const hq = rowsWithQa[0].html_qa;
+    return (
+      <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
+        <OverallBanner hq={hq} />
+        <HtmlQaDetail hq={hq} />
+      </div>
+    );
+  }
+
+  // 일괄검수 — 집계 + 사이트별 드릴다운
+  const finals = rowsWithQa.map((r) => r.html_qa.overall?.final_pct).filter((v: any) => v != null) as number[];
+  const avg = finals.length ? Math.round((finals.reduce((a, b) => a + b, 0) / finals.length) * 10) / 10 : null;
+  const dist = { green: 0, yellow: 0, red: 0 } as Record<string, number>;
+  for (const r of rowsWithQa) dist[r.html_qa.overall?.traffic_light || "red"]++;
+  const sorted = [...rowsWithQa].sort((a, b) => (a.html_qa.overall?.final_pct ?? -1) - (b.html_qa.overall?.final_pct ?? -1));
+  const expanded = c.qaExpandedSite;
+
+  return (
+    <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <b style={{ fontSize: 15 }}>HTML QA 종합 — {rowsWithQa.length}개 사이트</b>
+        <span style={{ fontSize: 13, color: "var(--sec)" }}>평균 AEO 퀄리티 {avg ?? "—"}%</span>
+        <span style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+          <span style={{ fontSize: 12 }}>🟢 {dist.green}</span>
+          <span style={{ fontSize: 12 }}>🟡 {dist.yellow}</span>
+          <span style={{ fontSize: 12 }}>🔴 {dist.red}</span>
+        </span>
+      </div>
+      <div style={{ marginTop: 10 }}>
+        {sorted.map((r, i) => {
+          const hq = r.html_qa; const tl = hq.overall?.traffic_light;
+          const key = r.sitecode + i;
+          return (
+            <div key={key} style={{ borderTop: "1px solid var(--line)" }}>
+              <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px", cursor: "pointer", fontSize: 12.5 }}>
+                <span>{TL_EMOJI[tl] || "⚪"}</span>
+                <b>{r.sitecode}</b>
+                <span style={{ color: "var(--sec)" }}>{r.region} · {r.country}</span>
+                <span style={{ marginLeft: "auto" }}>AEO {hq.overall?.final_pct ?? "—"}% · 적용율 {hq.level1_apply_rate?.apply_rate_pct ?? "—"}%</span>
+                <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
+              </div>
+              {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px" }}><HtmlQaDetail hq={hq} /></div>}
             </div>
           );
         })}
