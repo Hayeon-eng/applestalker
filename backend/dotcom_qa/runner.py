@@ -94,7 +94,8 @@ def _schema_values():
     return _SCHEMA_VALUES_CACHE
 
 
-def _apply_product_values(schema_rules: Dict[str, Any], market_product: str) -> Dict[str, Any]:
+def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
+                          page_type: str = "PDP") -> Dict[str, Any]:
     """Word 세트(구조) 위에 제품별 정답값(카피덱)을 덮어씌운다.
     - 카피덱에 값이 있는 블록: expected_values/haspart_ids 를 제품 값으로 교체
     - 카피덱에 없는 블록(예: 버즈의 Product/WebPage): 폰 값이 잘못 남지 않도록 비움(구조만 검사)
@@ -106,6 +107,14 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str) -> 
     name_tokens = sv.get("name_tokens", {})
     slug = market_product  # 예: galaxy-s26 / galaxy-buds4-pro
     is_phone = slug.startswith("galaxy-s")
+    is_compare = (page_type == "Compare")
+
+    _PAGE_SELF_PROPS = {"about", "url", "mainEntity", "mainEntityOfPage", "isPartOf"}
+
+    def _to_compare(url: str) -> str:
+        if not isinstance(url, str) or "/compare" in url:
+            return url
+        return url.rstrip("/") + "/compare/"
 
     for b in schema_rules.get("blocks", []):
         types = b.get("types", [])
@@ -115,7 +124,13 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str) -> 
             if t in by_type and by_type[t]:
                 deck = by_type[t][0]; break
         if deck:
-            b["expected_values"] = deck.get("expected_values", {})
+            import copy as _c
+            ev = _c.deepcopy(deck.get("expected_values", {}))
+            if is_compare:
+                for prop, spec in ev.items():
+                    if prop in _PAGE_SELF_PROPS and isinstance(spec, dict) and spec.get("kind") == "url":
+                        spec["value"] = _to_compare(spec.get("value", ""))
+            b["expected_values"] = ev
             if deck.get("haspart_ids"):
                 b["haspart_ids"] = deck["haspart_ids"]
         elif ("WebPage" in types or "ItemPage" in types) and is_phone:
@@ -125,6 +140,8 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str) -> 
                 v = spec.get("value", "")
                 if isinstance(v, str):
                     spec["value"] = v.replace("galaxy-s26-ultra", slug)
+                    if is_compare and prop in _PAGE_SELF_PROPS and spec.get("kind") == "url":
+                        spec["value"] = _to_compare(spec["value"])
         else:
             # 카피덱에 값 없음(예: 버즈 Product/WebPage) → 폰 값 잔재 제거, 구조만 검사
             b["expected_values"] = {}
@@ -161,7 +178,7 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
             sr = json.load(open(legacy, encoding="utf-8")) if os.path.exists(legacy) else {"page_type": page_type, "blocks": []}
         # 제품별 정답값(카피덱) 오버레이 — 세트=구조, 값=제품별
         if market_product and not sr.get("skip"):
-            sr = _apply_product_values(sr, market_product)
+            sr = _apply_product_values(sr, market_product, page_type=page_type)
 
     # 카피(스펙) 규칙: 마케팅 제품별 토큰 우선, 없으면 패밀리 폴백
     cdata = json.load(open(copy_path, encoding="utf-8"))["products"]

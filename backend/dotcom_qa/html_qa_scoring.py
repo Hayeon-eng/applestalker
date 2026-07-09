@@ -48,7 +48,7 @@ AXIS1_WEIGHTS: Dict[str, Dict[str, Any]] = {
     "FAQPage": {  # A안 재환산 — 자기완결성/인용적합성은 축1에서 제외됨(참고: AI판단_보류검토 탭)
         "structure_valid": 0.5, "screen_match": 0.5,
     },
-    "WebPage,ItemPage": {
+    "WebPage, ItemPage": {
         "type_combo": 4, "name": 3, "url": 3, "description": 1, "primaryImage": 1,
     },
     "ItemList": {
@@ -63,7 +63,7 @@ REQUIRED_GATE_PROPS: Dict[str, List[str]] = {
     "3DModel": ["encoding_contentUrl", "encoding_encodingFormat"],
     "VideoObject": ["name", "thumbnailUrl", "uploadDate", "contentUrlOrEmbedUrl"],
     "FAQPage": ["structure_valid"],
-    "WebPage,ItemPage": ["type_combo", "name", "url"],
+    "WebPage, ItemPage": ["type_combo", "name", "url"],
     "ItemList": ["numberOfItems", "itemListElement", "mainEntityOfPage"],
 }
 
@@ -82,7 +82,7 @@ GOOGLE_RICH_RESULT_RECOMMENDED = {
 RICH_RESULT_STATUS = {
     "Product": "정식", "VideoObject": "정식",
     "3DModel": "제한적(AR만)", "FAQPage": "폐지(2026-05-07)",
-    "WebPage,ItemPage": "해당없음", "ItemList": "해당없음",
+    "WebPage, ItemPage": "해당없음", "ItemList": "해당없음",
 }
 
 
@@ -170,57 +170,75 @@ def axis2_parsing_and_rich_result(html: str, schema_result: Dict[str, Any],
                                    schema_type_list: List[str],
                                    rendered_by: Optional[str] = None) -> Dict[str, Any]:
     """schema_checker.check_page()의 findings를 재활용해 세분화된 오류 목록을 만든다.
-    분류 3그룹: JSON-LD 문법 / Google 리치결과 SEO / 기타(구현보류 포함)."""
-    detail: List[Dict[str, Any]] = []
-    critical = warning = 0
+    분류 3그룹: JSON-LD 문법 / Google 리치결과 SEO / 기타(구현보류 포함).
+
+    ⚠ 게이트는 타입(블록)별로 따로 채점한다(엑셀 원본: 각 스키마 타입 시트마다 독립된 '축2' 섹션).
+    JSON-LD 문법 오류는 어떤 스크립트 태그가 깨졌는지는 알아도 그 안에 어떤 타입이 있었는지는
+    파싱이 안 돼서 알 수 없으므로, 그 자체로는 '어떤 타입'의 게이트도 무효화하지 않는다 —
+    대신 findings에 이미 없는(=schema.missing) 타입은 axis1의 필수게이트(0%)로 이미 반영되고,
+    실제로 정상 파싱된 타입(자기 블록을 찾은 타입)은 다른 스크립트 태그의 문법 오류로
+    억울하게 0점 처리되지 않는다. 문법 오류 리스트 자체는 여전히 화면에 그대로 노출한다."""
+    syntax_errors: List[Dict[str, Any]] = []
+    by_type: Dict[str, Dict[str, Any]] = {t: {"critical": 0, "warning": 0, "detail": []} for t in schema_type_list}
 
     for f in schema_result.get("findings", []):
         if f.get("block") != "JSON-LD":
             continue
         cat = f.get("syntax_category", "syntax")
         sev = "Critical" if cat in _SYNTAX_CRITICAL else "Warning"
-        (critical := critical + 1) if sev == "Critical" else (warning := warning + 1)
-        detail.append({"group": "JSON-LD 문법 오류", "category": cat, "severity": sev,
-                       "message": f.get("as_is", f.get("parse_msg", ""))})
+        syntax_errors.append({"group": "JSON-LD 문법 오류", "category": cat, "severity": sev,
+                              "message": f.get("as_is", f.get("parse_msg", ""))})
 
     for f in schema_result.get("findings", []):
-        if f.get("block") == "JSON-LD":
-            continue
         block = f.get("block")
-        # Google 등급과 무관하게, 우리 가이드가 필수로 본 항목이 없으면 그 자체로 Critical(가이드∪Google, 더 엄격 쪽 채택)
-        if f.get("missing_props"):
-            critical += 1
-            detail.append({"group": "Google 리치결과 SEO 기준", "category": "required_missing",
-                           "severity": "Critical", "block": block,
-                           "message": f"필수 속성 누락: {', '.join(f['missing_props'])}"})
+        if block == "JSON-LD" or block not in by_type:
+            continue
+        bucket = by_type[block]
+        # 리치결과 필수 속성 '완전 누락' → Critical(게이트 무효). Google 문서: 필수속성 없으면 자격 상실.
+        google_required = GOOGLE_RICH_RESULT_REQUIRED.get(block, [])
+        hard_missing = [p for p in f.get("missing_props", []) if (not google_required) or (p in google_required)]
+        # 리치결과 대상 타입(Product/VideoObject)은 Google 필수목록 기준, 그 외 타입은 가이드 필수(missing_props) 기준
+        gate_missing = [p for p in f.get("missing_props", [])] if block not in GOOGLE_RICH_RESULT_REQUIRED else hard_missing
+        if gate_missing:
+            bucket["critical"] += 1
+            bucket["detail"].append({"group": "Google 리치결과 SEO 기준", "category": "required_missing",
+                                     "severity": "Critical", "block": block,
+                                     "message": f"필수 속성 누락: {', '.join(gate_missing)}"})
+        # 값 형식/불일치 → 품질 경고(Warning). 게이트를 죽이지 않음(값이 화면과 다르다는 감점 신호).
         if f.get("val_mismatch"):
-            critical += 1
-            detail.append({"group": "Google 리치결과 SEO 기준", "category": "value_format_error",
-                           "severity": "Critical", "block": block,
-                           "message": f"필수 속성 값 형식/불일치: {f['val_mismatch']}"})
+            bucket["warning"] += 1
+            props = ", ".join(str(vm.get("prop")) for vm in f["val_mismatch"])
+            bucket["detail"].append({"group": "Google 리치결과 SEO 기준", "category": "value_mismatch",
+                                     "severity": "Warning", "block": block,
+                                     "message": f"값 불일치/형식 확인 필요: {props}"})
         if f.get("optional_missing"):
-            warning += 1
-            detail.append({"group": "Google 리치결과 SEO 기준", "category": "recommended_missing",
-                           "severity": "Warning", "block": block,
-                           "message": f"권장 속성 누락: {', '.join(f['optional_missing'])}"})
+            bucket["warning"] += 1
+            bucket["detail"].append({"group": "Google 리치결과 SEO 기준", "category": "recommended_missing",
+                                     "severity": "Warning", "block": block,
+                                     "message": f"권장 속성 누락: {', '.join(f['optional_missing'])}"})
+        # hasPart 참조 누락 → 경고(연결 설계 이슈, 무결성은 축3에서 별도 게이트)
         if f.get("haspart_missing"):
-            critical += 1
-            detail.append({"group": "JSON-LD 문법 오류", "category": "unrecognized_reference",
-                           "severity": "Critical", "block": block,
-                           "message": f"hasPart 참조 누락: {f['haspart_missing']}"})
+            bucket["warning"] += 1
+            bucket["detail"].append({"group": "@id 연결", "category": "haspart_missing",
+                                     "severity": "Warning", "block": block,
+                                     "message": f"hasPart 참조 미검출: {f['haspart_missing']}"})
+
+    for t, bucket in by_type.items():
+        bucket["gate"] = 0 if bucket["critical"] > 0 else 1
 
     rich_result_scope = {t: RICH_RESULT_STATUS.get(t, "해당없음") for t in schema_type_list}
 
-    # 구현 안 된 항목(무효속성/이미지해상도)은 결과에 넣지 않음 — 없는 걸 있는 것처럼 보여주지 않음.
-    # rendered_by 정보가 실제로 있을 때만 렌더링 파싱 결과를 포함.
     other = []
     if rendered_by:
         other.append({"category": "rendered_parse_ok",
                       "status": "OK" if "playwright" in rendered_by else "미확인(playwright 미사용)"})
 
-    gate = 0 if critical > 0 else 1
-    return {"critical_count": critical, "warning_count": warning, "gate": gate,
-            "detail": detail, "rich_result_scope": rich_result_scope, "other": other}
+    page_has_critical_syntax = any(e["severity"] == "Critical" for e in syntax_errors)
+    return {"syntax_errors": syntax_errors, "by_type": by_type,
+            "page_has_critical_syntax": page_has_critical_syntax,  # 참고용 — 특정 타입 게이트를 강제로 0으로 만들진 않음
+            "critical_count": sum(b["critical"] for b in by_type.values()) + sum(1 for e in syntax_errors if e["severity"] == "Critical"),
+            "warning_count": sum(b["warning"] for b in by_type.values()) + sum(1 for e in syntax_errors if e["severity"] == "Warning"),
+            "rich_result_scope": rich_result_scope, "other": other}
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -328,9 +346,9 @@ def _prop_score(f: Dict[str, Any], prop_hint: str) -> float:
     if any(prop_hint in p for p in f.get("missing_props", [])):
         return 0.0
     if any(prop_hint in str(vm.get("prop", "")) for vm in f.get("val_mismatch", [])):
-        return 0.0
+        return 0.5  # 값 불일치는 '감점'(자격박탈 아님) — 리치결과 게이트는 필수속성 '누락'에만 발동
     if any(prop_hint in str(n.get("prop", "")) for n in f.get("name_issue", [])):
-        return 0.0
+        return 0.0  # 제품명 식별토큰 위반은 정보 자체가 틀린 것이라 0점
     if any(prop_hint in str(tc.get("prop", "")) for tc in f.get("translate_confirm", [])):
         return 0.5
     if any(prop_hint in p for p in f.get("optional_missing", [])):
@@ -346,12 +364,15 @@ def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str) -> Optio
         return None
     f = next((x for x in schema_result.get("findings", []) if x.get("block") == block_name), None)
     if f is None or f.get("code") == "schema.missing":
-        # 블록 자체가 페이지에 없음(schema_checker가 node=None으로 판정) → 속성 채점 자체가 무의미, 즉시 0%
-        return {"pct": 0.0, "gate_triggered": True, "reason": "블록 자체가 페이지에 없음", "props": {}}
+        # 블록 자체가 페이지에 없음 → '해당없음'. per_type/overall 평균에서 제외해야 하므로 None 반환.
+        # (없는 스키마를 0점으로 넣으면 전체 점수가 부당하게 깎임)
+        return None
 
     props_score = {prop: _prop_score(f, prop) for prop in weights}
     required = REQUIRED_GATE_PROPS.get(block_name, [])
-    gate_triggered = any(props_score.get(p, 0.0) == 0.0 for p in required)
+    # 필수 게이트는 '필수 속성이 아예 없을 때(=missing_props에 있음)'만 발동. 값 불일치(0.5)로는 발동 안 함.
+    hard_missing = set(f.get("missing_props", []))
+    gate_triggered = any(p in hard_missing for p in required)
 
     total_w = sum(weights.values())
     weighted = sum(weights[p] * props_score[p] for p in weights)
@@ -393,16 +414,20 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         if name not in schema_types_in_rules:
             continue
         a1 = axis1_info_adequacy(schema_result, name)
-        if a1 is None or a1["pct"] is None:
-            continue
-        final_pct = None
-        if a1["pct"] is not None:
-            final_pct = round(axis2["gate"] * axis3["gate"] * a1["pct"], 1)
+        if a1 is None:
+            continue  # 페이지에 없는 타입 → 해당없음, 평균에서 제외
+        rich_status = RICH_RESULT_STATUS.get(name, "해당없음")
+        raw_axis2_gate = axis2.get("by_type", {}).get(name, {}).get("gate", 1)
+        apply_axis2 = rich_status in ("정식", "제한적(AR만)")
+        eff_axis2_gate = raw_axis2_gate if apply_axis2 else 1
+        final_pct = round(eff_axis2_gate * axis3["gate"] * a1["pct"], 1)
         per_type[name] = {
             "axis1_info_adequacy_pct": a1["pct"],
             "axis1_gate_triggered": a1["gate_triggered"],
+            "axis2_gate": eff_axis2_gate,
+            "rich_result_status": rich_status,
             "final_pct": final_pct,
-            "traffic_light": traffic_light(final_pct, axis2["gate"] == 0 or axis3["gate"] == 0 or a1["gate_triggered"]),
+            "traffic_light": traffic_light(final_pct, eff_axis2_gate == 0 or axis3["gate"] == 0 or a1["gate_triggered"]),
         }
 
     overall_final = None
@@ -410,6 +435,7 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         vals = [v["final_pct"] for v in per_type.values() if v["final_pct"] is not None]
         overall_final = round(sum(vals) / len(vals), 1) if vals else None
 
+    any_type_gate_zero = any(v.get("axis2_gate") == 0 for v in per_type.values())
     return {
         "level1_apply_rate": level1,
         "level2": {
@@ -419,7 +445,7 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         },
         "overall": {
             "final_pct": overall_final,
-            "traffic_light": traffic_light(overall_final, axis2["gate"] == 0 or axis3["gate"] == 0),
+            "traffic_light": traffic_light(overall_final, any_type_gate_zero or axis3["gate"] == 0),
         },
     }
 

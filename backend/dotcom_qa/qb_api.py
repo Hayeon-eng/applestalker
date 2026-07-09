@@ -461,6 +461,63 @@ def qb_history():
     return {"history": _history_index()}
 
 
+@qb_router.get("/overview")
+def qb_overview():
+    """전사이트 현황(A안) — 이력을 최신순으로 훑어 '각 권역의 가장 최근 검수'를 하나씩 뽑고,
+    그 권역들의 AEO 퀄리티 점수를 평균낸 전사이트 점수판을 만든다.
+    권역별로 나눠 검수하더라도 각 권역의 최신값을 모아 전체 현황을 보여준다."""
+    db = SessionLocal()
+    try:
+        rows = db.query(QbHistory).order_by(QbHistory.id.desc()).limit(100).all()
+    finally:
+        db.close()
+
+    # region -> {최신 검수에서 집계한 값}. 이력은 최신순이라, 어떤 region을 이미 봤으면 그게 최신.
+    region_latest: Dict[str, Dict[str, Any]] = {}
+    seen_regions: set = set()
+    for r in rows:
+        try:
+            results = json.loads(r.results)
+        except Exception:
+            continue
+        # 이 run에 포함된 region별로, 아직 확정 안 된 region만 이 run 값으로 채운다.
+        by_region_here: Dict[str, List[float]] = {}
+        run_at = r.at
+        for row in results:
+            region = row.get("region") or "기타"
+            hq = row.get("html_qa")
+            if not hq:
+                continue
+            fp = (hq.get("overall") or {}).get("final_pct")
+            if fp is None:
+                continue
+            by_region_here.setdefault(region, []).append(fp)
+        for region, scores in by_region_here.items():
+            if region in seen_regions:
+                continue  # 더 최신 run에서 이미 확정됨
+            seen_regions.add(region)
+            avg = round(sum(scores) / len(scores), 1) if scores else None
+            region_latest[region] = {"region": region, "avg_aeo": avg,
+                                       "sites": len(scores), "at": run_at}
+
+    regions = sorted(region_latest.values(), key=lambda x: (x["avg_aeo"] if x["avg_aeo"] is not None else -1))
+    vals = [x["avg_aeo"] for x in regions if x["avg_aeo"] is not None]
+    total_avg = round(sum(vals) / len(vals), 1) if vals else None
+    dist = {"green": 0, "yellow": 0, "red": 0}
+    for x in regions:
+        a = x["avg_aeo"]
+        if a is None:
+            dist["red"] += 1
+        elif a >= 80:
+            dist["green"] += 1
+        elif a >= 50:
+            dist["yellow"] += 1
+        else:
+            dist["red"] += 1
+    return {"total_avg_aeo": total_avg, "region_count": len(regions),
+            "regions": regions, "distribution": dist}
+
+
 @qb_router.get("/history/{run_id}")
 def qb_history_one(run_id: str):
     db = SessionLocal()
