@@ -311,16 +311,34 @@ export function HtmlQaDetail({ hq }: { hq: any }) {
 
       {/* 파싱 + Google 리치결과(축2) */}
       <Accordion title={`③ 파싱 에러 + Google 리치결과(축2) — Critical ${axis2.critical_count ?? 0} · Warning ${axis2.warning_count ?? 0}`}>
-        <div style={{ fontSize: 12, marginBottom: 6, color: axis2.gate === 0 ? "#D8362F" : "#1F9E5C", fontWeight: 700 }}>
-          {axis2.gate === 0 ? "🔴 파싱게이트 무효 — 이 게이트가 0이면 관련 스키마 최종점수는 0" : "🟢 파싱게이트 통과"}
-        </div>
-        {(axis2.detail || []).map((d: any, i: number) => (
-          <div key={i} style={{ fontSize: 12, padding: "4px 0", borderTop: "1px solid var(--line)" }}>
-            <span style={{ fontWeight: 700, color: d.severity === "Critical" ? "#D8362F" : "#E0A008" }}>{d.severity}</span>
-            <span style={{ color: "var(--sec)", marginLeft: 6 }}>[{d.group}]</span> {d.message}
+        {/* JSON-LD 문법 오류(페이지 전역) */}
+        {(axis2.syntax_errors || []).length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>JSON-LD 문법 오류</div>
+            {(axis2.syntax_errors || []).map((d: any, i: number) => (
+              <div key={i} style={{ fontSize: 12, padding: "3px 0", borderTop: "1px solid var(--line)" }}>
+                <span style={{ fontWeight: 700, color: d.severity === "Critical" ? "#D8362F" : "#E0A008" }}>{d.severity}</span>
+                <span style={{ marginLeft: 6 }}>{d.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* 타입별 게이트 + 리치결과 오류 */}
+        {Object.entries(axis2.by_type || {}).map(([t, b]: [string, any]) => (
+          <div key={t} style={{ borderTop: "1px solid var(--line)", padding: "6px 0" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: b.gate === 0 ? "#D8362F" : "#1F9E5C" }}>
+              {b.gate === 0 ? "🔴" : "🟢"} {t} — Critical {b.critical} · Warning {b.warning}
+            </div>
+            {(b.detail || []).map((d: any, i: number) => (
+              <div key={i} style={{ fontSize: 12, padding: "2px 0 2px 14px" }}>
+                <span style={{ fontWeight: 700, color: d.severity === "Critical" ? "#D8362F" : "#E0A008" }}>{d.severity}</span>
+                <span style={{ color: "var(--sec)", marginLeft: 6 }}>[{d.group}]</span> {d.message}
+              </div>
+            ))}
           </div>
         ))}
-        {(axis2.detail || []).length === 0 && <p style={{ color: "#1F9E5C", fontSize: 12.5 }}>파싱/리치결과 오류 없음 🐝</p>}
+        {(axis2.syntax_errors || []).length === 0 && (axis2.critical_count ?? 0) === 0 && (axis2.warning_count ?? 0) === 0 &&
+          <p style={{ color: "#1F9E5C", fontSize: 12.5 }}>파싱/리치결과 오류 없음 🐝</p>}
         <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
           {Object.entries(axis2.rich_result_scope || {}).map(([t, s]: any) => (
             <span key={t} style={{ fontSize: 11, background: "#F2F4F7", borderRadius: 6, padding: "3px 8px" }}><b>{t}</b> 리치결과: {s}</span>
@@ -396,7 +414,7 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
   return (
     <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <b style={{ fontSize: 15 }}>HTML QA 종합 — {rowsWithQa.length}개 사이트</b>
+        <b style={{ fontSize: 15 }}>AEO QA 종합 — {rowsWithQa.length}개 사이트</b>
         <span style={{ fontSize: 13, color: "var(--sec)" }}>평균 AEO 퀄리티 {avg ?? "—"}%</span>
         <span style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <span style={{ fontSize: 12 }}>🟢 {dist.green}</span>
@@ -422,6 +440,43 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ── 전사이트 현황판 [신규] ────────────────────────────────────────
+// 최상단 고정. 이력에서 '각 권역의 가장 최근 검수'를 모아 AEO 점수를 평균낸 전사이트 스냅샷.
+// (권역별로 나눠 검수해도 각 권역 최신값을 취합해서 전체 현황을 보여줌)
+export function SiteOverview({ ctx: c }: { ctx: any }) {
+  if (c.tab !== "schema") return null;
+  const ov = c.overview;
+  if (!ov || !ov.regions || ov.regions.length === 0) return null;
+  const tl = (a: number | null) => (a == null ? "red" : a >= 80 ? "green" : a >= 50 ? "yellow" : "red");
+  const dist = ov.distribution || { green: 0, yellow: 0, red: 0 };
+  return (
+    <div className="card" style={{ marginTop: 10, padding: 14, background: "#0F172A", color: "#fff", borderRadius: 14 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+        <b style={{ fontSize: 14 }}>🌐 전사이트 현황</b>
+        <span style={{ fontSize: 11, color: "#94A3B8" }}>각 권역 최신 검수 기준 · {ov.region_count}개 권역</span>
+        <span style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span style={{ fontSize: 28, fontWeight: 800, color: TL_COLOR[tl(ov.total_avg_aeo)] }}>{ov.total_avg_aeo ?? "—"}</span>
+          <span style={{ fontSize: 12, color: "#94A3B8" }}>점 (평균 AEO 퀄리티)</span>
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 12, color: "#CBD5E1" }}>
+        <span>🟢 {dist.green}권역</span><span>🟡 {dist.yellow}권역</span><span>🔴 {dist.red}권역</span>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+        {ov.regions.map((r: any) => (
+          <div key={r.region} title={`${r.sites}개 페이지 · ${r.at}`}
+            style={{ background: "#1E293B", borderRadius: 10, padding: "8px 12px", minWidth: 120 }}>
+            <div style={{ fontSize: 11.5, color: "#94A3B8" }}>{r.region}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: TL_COLOR[tl(r.avg_aeo)] }}>
+              {TL_EMOJI[tl(r.avg_aeo)]} {r.avg_aeo ?? "—"}<span style={{ fontSize: 11, fontWeight: 400, color: "#64748B" }}> / {r.sites}p</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

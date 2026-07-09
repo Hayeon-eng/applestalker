@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
-import { SpecTable, RuleAddPanel, CriteriaPanel, QuickView, HtmlQaSummary } from "./QubiSections";
+import { SpecTable, RuleAddPanel, CriteriaPanel, QuickView, HtmlQaSummary, SiteOverview } from "./QubiSections";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
@@ -65,6 +65,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   // 검수 이력
   const [history, setHistory] = useState<any[]>([]);
+  const [overview, setOverview] = useState<any>(null); // 전사이트 현황(각 권역 최신 검수 AEO 평균)
 
   const api = (p: string) => `${apiBase}${p}`;
   const flash = (m: string) => { setOk(m); setTimeout(() => setOk(""), 2500); };
@@ -72,7 +73,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   useEffect(() => {
     fetch(api("/api/health")).then((r) => setOnline(r.ok)).catch(() => setOnline(false));
-    loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra"); loadHistory();
+    loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra"); loadHistory(); loadOverview();
   }, []);
   useEffect(() => { loadRules(); setSpecProduct(product); }, [product, pageType]);
   useEffect(() => { if (!pageTypesFor(product).includes(pageType)) setPageType("PDP"); }, [product]);
@@ -86,6 +87,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     try { const d = await (await fetch(api(`/api/qb/rules?product=${family(product)}&page_type=${pageType}&market_product=${encodeURIComponent(product)}`))).json(); setRules(d); if (d.schema_types) setSchemaTypes(d.schema_types); } catch (e: any) { setErr(String(e)); }
   }
   async function loadHistory() { try { setHistory((await (await fetch(api("/api/qb/history"))).json()).history || []); } catch { /* */ } }
+  async function loadOverview() { try { setOverview(await (await fetch(api("/api/qb/overview"))).json()); } catch { /* */ } }
   const openHistory = async (id: string) => {
     try { const d = await (await fetch(api(`/api/qb/history/${id}`))).json(); setResults(d.results || []); flash(`이력 ${id} 불러옴`); }
     catch { setErr("이력 불러오기 실패"); }
@@ -149,7 +151,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         };
         es.onerror = () => { clearTimeout(timeout); es.close(); reject(new Error("진행 상황 연결이 끊겼어요 — 완료 후 검수 이력에서 확인하세요.")); };
       });
-    } catch (e: any) { setErr(e.message); } finally { setBusy(false); setProgress((p) => ({ ...p, active: false })); loadHistory(); }
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); setProgress((p) => ({ ...p, active: false })); loadHistory(); loadOverview(); }
   };
 
   const downloadBlob = async (url: string, body: any, filename: string) => {
@@ -243,7 +245,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   // QubiSections.tsx 로 분리한 렌더 블록에 상태·핸들러를 한 번에 주입
   const ctx = {
-    tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash, qaExpandedSite, setQaExpandedSite,
+    tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash, qaExpandedSite, setQaExpandedSite, overview,
     specProduct, setSpecProduct, products, newProd, setNewProd, addProduct,
     specs, removeSpec, catalog, specForm, pickCatalog, setSpecForm, addSpec,
     ruleForm, setRuleForm, schemaTypes, addRule,
@@ -285,7 +287,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <div key={h.run_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 10px", fontSize: 11.5, cursor: "pointer" }} onClick={() => openHistory(h.run_id)}>
               <span>
                 <span style={{ fontWeight: 600 }}>{h.at?.slice(5, 16) || h.run_id}</span>
-                <span style={{ color: "var(--sec)" }}> · {h.product} · {h.pages}p</span>
+                <span style={{ color: "var(--sec)" }}> · {h.pages}p</span>
                 {h.fail > 0 && <span style={{ color: "var(--high)" }}> · 오류 {h.fail}</span>}
               </span>
               <span role="button" onClick={(e) => { e.stopPropagation(); removeHistory(h.run_id); }} style={{ color: "var(--high)", fontSize: 11 }}>삭제</span>
@@ -299,7 +301,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         <header className="topbar">
           <div className="topbarRow1">
             <div className="tabGroup">
-              <button className={`tabBtn ${tab === "schema" ? "on" : ""}`} onClick={() => setTab("schema")}>HTML QA</button>
+              <button className={`tabBtn ${tab === "schema" ? "on" : ""}`} onClick={() => setTab("schema")}>AEO QA</button>
               <button className={`tabBtn ${tab === "copy" ? "on" : ""}`} onClick={() => setTab("copy")}>스펙 QA</button>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
@@ -315,9 +317,11 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
         <div className="contentScroll" style={{ padding: "20px 28px 80px" }}>
           <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>
-            {tab === "schema" ? "HTML QA" : "스펙 QA"} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>
+            {tab === "schema" ? "AEO QA" : "스펙 QA"} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>
               {tab === "schema" ? "스키마 · H태그 · Meta title/description — GEO 관점 종합 검수" : "스펙 값·고유명사 정확성 (번역 대응)"}</span>
           </h2>
+
+          <SiteOverview ctx={ctx} />
 
           {/* 제품 · 페이지타입 */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 4px", flexWrap: "wrap" }}>
