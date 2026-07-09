@@ -94,7 +94,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   };
   const removeHistory = async (id: string) => { await fetch(api("/api/qb/history/remove"), J({ run_id: id })); loadHistory(); };
 
-  const allSites = useMemo(() => Object.values(regionsMap).flat(), [regionsMap]);
+  const allSites = useMemo(() => Object.entries(regionsMap).flatMap(([rg, arr]) => arr.map((s) => ({ ...s, region: rg }))), [regionsMap]);
   const regionNames = useMemo(() => Object.keys(regionsMap), [regionsMap]);
 
   // ── 검수 ──
@@ -275,7 +275,11 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           <div className="sideLabel" style={{ cursor: "pointer" }} onClick={() => setSitesOpen((o) => !o)}>{sitesOpen ? "▾" : "▸"} 모니터링 URL 목록 <span style={{ color: "var(--sec)" }}>{allSites.length}개</span></div>
           {sitesOpen && allSites.map((s) => (
             <div key={s.sitecode} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 10px", fontSize: 11.5 }}>
-              <span title={s.url}>{s.sitecode} <span style={{ color: "var(--sec)" }}>{s.country}</span></span>
+              <span title={s.url}>
+                <span style={{ fontWeight: 600 }}>{s.sitecode}</span>
+                {s.region && <span style={{ fontSize: 10, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 5px", marginLeft: 5 }}>{s.region}</span>}
+                {s.country && <span style={{ color: "var(--sec)", marginLeft: 5 }}>{s.country}</span>}
+              </span>
               <span role="button" onClick={() => removeUrl(s.sitecode)} style={{ cursor: "pointer", color: "var(--high)", fontSize: 11 }}>삭제</span>
             </div>
           ))}

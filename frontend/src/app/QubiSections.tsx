@@ -446,38 +446,43 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
 }
 
 // ── 전사이트 현황판 [신규] ────────────────────────────────────────
-// 최상단 고정. 이력에서 '각 권역의 가장 최근 검수'를 모아 AEO 점수를 평균낸 전사이트 스냅샷.
-// (권역별로 나눠 검수해도 각 권역 최신값을 취합해서 전체 현황을 보여줌)
+// 최상단. 이력에서 '각 권역의 가장 최근 검수'를 모아 AEO 점수를 평균낸 전사이트 스냅샷.
+// 기본은 전체 점수만 한 줄로. '권역별 점수 ▸' 누르면 권역 칩이 펼쳐짐.
 export function SiteOverview({ ctx: c }: { ctx: any }) {
+  const [open, setOpen] = useState(false);
   if (c.tab !== "schema") return null;
   const ov = c.overview;
   if (!ov || !ov.regions || ov.regions.length === 0) return null;
   const tl = (a: number | null) => (a == null ? "red" : a >= 80 ? "green" : a >= 50 ? "yellow" : "red");
+  const total = ov.total_avg_aeo;
   const dist = ov.distribution || { green: 0, yellow: 0, red: 0 };
+
   return (
-    <div className="card" style={{ marginTop: 10, padding: 14, background: "#0F172A", color: "#fff", borderRadius: 14 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <b style={{ fontSize: 14 }}>🌐 전사이트 현황</b>
-        <span style={{ fontSize: 11, color: "#94A3B8" }}>각 권역 최신 검수 기준 · {ov.region_count}개 권역</span>
-        <span style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontSize: 28, fontWeight: 800, color: TL_COLOR[tl(ov.total_avg_aeo)] }}>{ov.total_avg_aeo ?? "—"}</span>
-          <span style={{ fontSize: 12, color: "#94A3B8" }}>점 (평균 AEO 퀄리티)</span>
+    <div className="summaryCard" style={{ marginTop: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: "var(--sec)", fontWeight: 700 }}>전사이트 현황</span>
+        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 5 }}>
+          <b style={{ fontSize: 26, color: TL_COLOR[tl(total)] }}>{total ?? "—"}</b>
+          <span style={{ fontSize: 12, color: "var(--sec)" }}>점 · 평균 AEO 퀄리티</span>
         </span>
+        <span style={{ fontSize: 12, color: "var(--sec)" }}>🟢 {dist.green} · 🟡 {dist.yellow} · 🔴 {dist.red}</span>
+        <button onClick={() => setOpen((v) => !v)}
+          style={{ marginLeft: "auto", background: "none", border: "1px solid var(--line)", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: "pointer", color: "var(--label)" }}>
+          권역별 점수 {open ? "▾" : "▸"}
+        </button>
       </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 12, color: "#CBD5E1" }}>
-        <span>🟢 {dist.green}권역</span><span>🟡 {dist.yellow}권역</span><span>🔴 {dist.red}권역</span>
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-        {ov.regions.map((r: any) => (
-          <div key={r.region} title={`${r.sites}개 페이지 · ${r.at}`}
-            style={{ background: "#1E293B", borderRadius: 10, padding: "8px 12px", minWidth: 120 }}>
-            <div style={{ fontSize: 11.5, color: "#94A3B8" }}>{r.region}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: TL_COLOR[tl(r.avg_aeo)] }}>
-              {TL_EMOJI[tl(r.avg_aeo)]} {r.avg_aeo ?? "—"}<span style={{ fontSize: 11, fontWeight: 400, color: "#64748B" }}> / {r.sites}p</span>
-            </div>
-          </div>
-        ))}
-      </div>
+      {open && (
+        <div className="qbiPopIn" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+          {ov.regions.map((r: any) => (
+            <span key={r.region} title={r.at}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12,
+                border: "1px solid var(--line)", borderRadius: 999, padding: "4px 11px" }}>
+              <span style={{ color: "var(--sec)" }}>{r.region}</span>
+              <b style={{ color: TL_COLOR[tl(r.avg_aeo)] }}>{r.avg_aeo ?? "—"}</b>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

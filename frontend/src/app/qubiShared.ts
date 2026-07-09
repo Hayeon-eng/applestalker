@@ -6,7 +6,7 @@ export type Finding = { status: "pass" | "warn" | "fail" | "na"; as_is?: string;
   name_issue?: { prop: string; actual: string; missing: string[]; forbidden: string[] }[]; };
 export type PageResult = { sitecode: string; url: string; region?: string; country?: string; page_type?: string;
   schema: { findings: Finding[] }; copy: { findings: Finding[] }; html_qa?: any };
-export type SiteRow = { sitecode: string; country?: string; lang?: string; url: string };
+export type SiteRow = { sitecode: string; country?: string; lang?: string; url: string; region?: string };
 export type CatalogItem = { category: string; label: string; ex_value: string; ex_unit: string };
 export type Product = { code: string; label: string; spec_only?: boolean };
 
