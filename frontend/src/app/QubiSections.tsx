@@ -137,44 +137,40 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
               </ul>
             </div>
           )}
-          {rules.rich_result && (
+          {rules.google_criteria && (
             <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
-              <b>Google 리치결과 필수/권장 속성 기준</b>
-              <p style={{ color: "var(--sec)", margin: "2px 0 6px" }}>{rules.rich_result["설명"]}</p>
-              <div style={{ fontWeight: 700, color: "var(--high)" }}>🔴 필수 속성 누락/형식오류</div>
-              <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
-                {(rules.rich_result["필수_속성_누락_오류"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
-              </ul>
-              <div style={{ fontWeight: 700, color: HONEY }}>🟡 권장 속성 누락</div>
-              <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
-                {(rules.rich_result["권장_속성_누락_경고"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
-              </ul>
-              <div style={{ fontWeight: 700 }}>타입별 리치결과 상태</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                {Object.entries(rules.rich_result["타입별_리치결과_상태"] || {}).map(([t, s]: any) => (
-                  <span key={t} style={{ fontSize: 11, background: "#F2F4F7", borderRadius: 6, padding: "3px 8px" }}><b>{t}</b> — {s}</span>
-                ))}
-              </div>
-              {rules.rich_result["비고"] && <p style={{ color: "var(--sec)", fontSize: 11, marginTop: 6 }}>※ {rules.rich_result["비고"]}</p>}
-            </div>
-          )}
-          {rules.seo_syntax && (
-            <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
-              <b>JSON-LD 문법 오류 기준</b>
-              <p style={{ color: "var(--sec)", margin: "2px 0 6px" }}>{rules.seo_syntax["설명"]}</p>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <b>Google 기준</b>
+              <p style={{ color: "var(--sec)", margin: "2px 0 8px" }}>{rules.google_criteria["설명"]}</p>
+
+              <div style={{ fontWeight: 700, fontSize: 12.5 }}>· 문법 오류</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
                 <div style={{ flex: 1, minWidth: 220 }}>
                   <div style={{ fontWeight: 700, color: "#0A66E0" }}>Google Rich Result 기준</div>
                   <ul style={{ margin: "4px 0 0 16px", color: "var(--sec)" }}>
-                    {(rules.seo_syntax["구글_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+                    {(rules.google_criteria["문법_오류"]?.["구글_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
                   </ul>
                 </div>
                 <div style={{ flex: 1, minWidth: 220 }}>
                   <div style={{ fontWeight: 700, color: HONEY }}>우리 기준</div>
                   <ul style={{ margin: "4px 0 0 16px", color: "var(--sec)" }}>
-                    {(rules.seo_syntax["우리_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+                    {(rules.google_criteria["문법_오류"]?.["우리_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
                   </ul>
                 </div>
+              </div>
+
+              <div style={{ fontWeight: 700, fontSize: 12.5, marginTop: 10 }}>· 리치결과 필수/권장 속성</div>
+              <div style={{ fontWeight: 700, color: "var(--high)", marginTop: 4 }}>🔴 필수 속성 누락/형식오류</div>
+              <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+                {(rules.google_criteria["리치결과_필수_권장"]?.["필수_속성_누락_오류"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+              </ul>
+              <div style={{ fontWeight: 700, color: HONEY }}>🟡 권장 속성 누락</div>
+              <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+                {(rules.google_criteria["리치결과_필수_권장"]?.["권장_속성_누락_경고"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
+              </ul>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                {Object.entries(rules.google_criteria["리치결과_필수_권장"]?.["타입별_상태"] || {}).map(([t, s]: any) => (
+                  <span key={t} style={{ fontSize: 11, background: "#F2F4F7", borderRadius: 6, padding: "3px 8px" }}><b>{t}</b> — {s}</span>
+                ))}
               </div>
             </div>
           )}
