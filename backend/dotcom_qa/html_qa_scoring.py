@@ -303,15 +303,44 @@ def axis3_id_linkage(html: str) -> Dict[str, Any]:
     checks.append({"item": "Product ↔ FAQPage", "weight": 2, "score": f_linked,
                   "detail": "연결됨" if (referenced & faq_ids) else ("미연결" if faq_ids else "FAQPage 없음(해당없음)")})
 
-    # 참조 무결성(dangling) — subjectOf/mainEntity/mainEntityOfPage/hasPart 참조 대상이 실제 존재하는지
+    # 참조 무결성(dangling) — subjectOf/mainEntity/hasPart 참조 대상이 그래프 내 실제 존재하는지.
+    # 단, 현실 보정:
+    #  · about/mainEntityOfPage 는 '다른 페이지'(buy·compare 등)를 가리키는 게 정상이라 무결성 대상에서 제외.
+    #  · 같은 페이지를 가리키는 fragment(#...) 참조만 무결성 검사 대상으로 본다
+    #    (절대 URL로 외부 리소스를 참조하는 건 페이지 그래프 무결성과 무관).
+    INTEGRITY_KEYS = ("subjectOf", "mainEntity", "hasPart")
+
+    def _same_page_fragment(ref: str) -> bool:
+        # 이 페이지 노드들과 같은 베이스 + #fragment 형태만 '그래프 내부 참조'로 간주
+        if "#" not in ref:
+            return False
+        base = ref.split("#", 1)[0].rstrip("/")
+        return any(str(nid).split("#", 1)[0].rstrip("/") == base for nid in node_ids)
+
+    ref_total = 0
     dangling = []
     for n in nodes:
-        for key in ("subjectOf", "mainEntity", "mainEntityOfPage", "hasPart"):
+        for key in INTEGRITY_KEYS:
             for ref in _all_ids(n.get(key)):
-                if ref and ref not in node_ids and _ABS_URL_RE.match(ref):
+                if not ref or not _ABS_URL_RE.match(ref):
+                    continue
+                if not _same_page_fragment(ref):
+                    continue  # 외부/타페이지 참조는 무결성 대상 아님
+                ref_total += 1
+                if ref not in node_ids:
                     dangling.append({"from": n.get("@id"), "key": key, "ref": ref})
+
+    # 게이트: 내부 참조가 하나라도 있고, 그 중 '과반 이상'이 깨졌을 때만 kill-switch.
+    # (소수 dangling은 감점(score)으로만 반영 — 삼성 페이지처럼 참조가 많은 경우 소수 누락으로
+    #  페이지 전체를 0점 처리하던 과잉 판정을 방지)
+    dangling_ratio = (len(dangling) / ref_total) if ref_total else 0.0
+    integrity_score = 1.0 if not dangling else (0.5 if dangling_ratio < 0.5 else 0.0)
+    integrity_gate_broken = ref_total > 0 and dangling_ratio >= 0.5
     checks.append({"item": "참조 무결성(dangling 없음) ★게이트", "weight": 4,
-                  "score": 0.0 if dangling else 1.0, "detail": f"끊어진 참조 {len(dangling)}건" if dangling else "전부 유효"})
+                  "score": integrity_score,
+                  "detail": (f"끊어진 내부 참조 {len(dangling)}/{ref_total}건"
+                             + ("" if not integrity_gate_broken else " — 과반 이상 깨짐(게이트)"))
+                            if dangling else "전부 유효"})
 
     dup = [i for i in node_ids if list(node_ids).count(i) > 1]  # node_ids는 set이라 항상 0 — 원본 리스트로 재계산
     raw_ids = [str(n.get("@id")) for n in nodes if n.get("@id")]
@@ -333,25 +362,45 @@ def axis3_id_linkage(html: str) -> Dict[str, Any]:
     scored = [c for c in checks if c["score"] is not None]
     total_w = sum(c["weight"] for c in scored)
     pct = round(100 * sum(c["weight"] * c["score"] for c in scored) / total_w, 1) if total_w else None
-    gate = 0 if dangling else 1
+    gate = 0 if integrity_gate_broken else 1
 
-    return {"checks": checks, "id_pct": pct, "gate": gate, "dangling": dangling}
+    return {"checks": checks, "id_pct": pct, "gate": gate, "dangling": dangling,
+            "dangling_ratio": round(dangling_ratio, 2), "ref_total": ref_total}
 
 
 # ──────────────────────────────────────────────────────────────────
 # 4) Level2 · 축1 — 정보 적합성(%) — schema_checker 결과를 채점표 가중치로 환산
 # ──────────────────────────────────────────────────────────────────
 def _prop_score(f: Dict[str, Any], prop_hint: str) -> float:
-    """schema_checker의 finding(블록 단위)에서 특정 항목의 근사 점수(0/0.5/1)를 추정."""
-    if any(prop_hint in p for p in f.get("missing_props", [])):
+    """schema_checker의 finding(블록 단위)에서 특정 항목의 근사 점수(0/0.5/1)를 추정.
+    채점표 키(encoding_contentUrl 등)를 schema_checker가 다루는 실제 속성명으로 정규화해서 대조."""
+    # 채점표 세부 키 → schema_checker가 리포트하는 실제 스키마 속성명
+    ALIAS = {
+        "encoding_contentUrl": "encoding", "encoding_encodingFormat": "encoding",
+        "gltf": "encoding", "usdz": "encoding",
+        "contentUrlOrEmbedUrl": "contentUrl", "contentUrlAndEmbedUrl": "contentUrl",
+        "hasPartOrSeek": "hasPart", "type_combo": "@type",
+        "structure_valid": "mainEntity", "screen_match": "mainEntity",
+        "itemName_url": "itemListElement", "primaryImage": "primaryImageOfPage",
+    }
+    targets = [prop_hint, ALIAS.get(prop_hint, prop_hint)]
+
+    def _hit(coll_key: str, field: str = "prop") -> bool:
+        for x in f.get(coll_key, []):
+            val = x if isinstance(x, str) else str(x.get(field, ""))
+            if any(t == val or t in val for t in targets):
+                return True
+        return False
+
+    if _hit("missing_props") or any(t in p for t in targets for p in f.get("missing_props", [])):
         return 0.0
-    if any(prop_hint in str(vm.get("prop", "")) for vm in f.get("val_mismatch", [])):
-        return 0.5  # 값 불일치는 '감점'(자격박탈 아님) — 리치결과 게이트는 필수속성 '누락'에만 발동
-    if any(prop_hint in str(n.get("prop", "")) for n in f.get("name_issue", [])):
-        return 0.0  # 제품명 식별토큰 위반은 정보 자체가 틀린 것이라 0점
-    if any(prop_hint in str(tc.get("prop", "")) for tc in f.get("translate_confirm", [])):
+    if _hit("val_mismatch"):
         return 0.5
-    if any(prop_hint in p for p in f.get("optional_missing", [])):
+    if _hit("name_issue"):
+        return 0.0
+    if _hit("translate_confirm"):
+        return 0.5
+    if _hit("optional_missing") or any(t in p for t in targets for p in f.get("optional_missing", [])):
         return 0.5
     return 1.0
 
