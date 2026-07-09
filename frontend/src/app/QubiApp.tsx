@@ -394,8 +394,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           <CriteriaPanel ctx={ctx} />
           <HtmlQaSummary ctx={ctx} />
 
-          {/* 결과 — 오류 빨강 강조 */}
-          {rows.length > 0 && (
+          {/* 결과 — 오류 빨강 강조. AEO(schema) 탭은 위 HtmlQaSummary 그룹으로 대체하므로 스펙(copy) 탭에서만 flat 테이블 노출 */}
+          {tab === "copy" && rows.length > 0 && (
             <>
               <div style={{ margin: "18px 0 8px", fontSize: 13, fontWeight: 700, color: failCount ? "#B42318" : "var(--label)" }}>
                 {failCount ? `🔴 오류 ${failCount}건` : "🟡 검토"}
@@ -427,31 +427,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                                 <div style={{ fontSize: 12.5, fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)", marginTop: 2 }}>→ {x.f.to_be}</div>
                               </>}
                             </div>
-                            {/* 스키마: 속성별 수정 상세 */}
-                            {tab === "schema" && (x.f.id_mismatch || (x.f.val_mismatch?.length) || (x.f.missing_props?.length) || (x.f.haspart_missing?.length) || (x.f.name_issue?.length)) && (
-                              <div style={{ marginBottom: 10, fontSize: 12, background: "#fff", border: "1px solid var(--line)", borderRadius: 8, padding: "8px 10px" }}>
-                                <div style={{ fontWeight: 700, color: "var(--sec)", marginBottom: 4 }}>고쳐야 할 속성</div>
-                                {x.f.id_mismatch && <div style={{ marginBottom: 3 }}><b>@id</b> — 실제 <code style={{ color: "#B42318", wordBreak: "break-all" }}>{x.f.id_mismatch}</code> (이 블록의 @id 규칙과 불일치)</div>}
-                                {(x.f.val_mismatch || []).map((v, k) => (
-                                  <div key={k} style={{ marginBottom: 3 }}><b>{v.prop}</b> — 기대 <code style={{ color: "#067647", wordBreak: "break-all" }}>{v.expected}</code> → 실제 <code style={{ color: "#B42318", wordBreak: "break-all" }}>{v.actual}</code></div>
-                                ))}
-                                {(x.f.name_issue || []).map((n, k) => (
-                                  <div key={`n${k}`} style={{ marginBottom: 3 }}><b>{n.prop}(제품명)</b> — 현재 <code style={{ color: "#B42318" }}>{n.actual}</code>{n.missing?.length ? ` · '${n.missing.join(", ")}' 포함 필요` : ""}{n.forbidden?.length ? ` · '${n.forbidden.join(", ")}' 제거` : ""}</div>
-                                ))}
-                                {(x.f.missing_props?.length ?? 0) > 0 && <div style={{ marginBottom: 3 }}><b>누락 속성</b> — {x.f.missing_props!.join(", ")} 추가 필요</div>}
-                                {(x.f.haspart_missing?.length ?? 0) > 0 && <div><b>hasPart 누락</b> — {x.f.haspart_missing!.join(", ")} 추가 필요</div>}
-                              </div>
-                            )}
                             {/* 발생 위치·근거 */}
                             <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: "4px 10px", fontSize: 12 }}>
                               <span style={{ color: "var(--sec)" }}>사이트코드</span><b>{x.r.sitecode}</b>
                               {x.r.country && <><span style={{ color: "var(--sec)" }}>국가</span><span>{x.r.country}</span></>}
                               {x.r.region && <><span style={{ color: "var(--sec)" }}>권역</span><span>{x.r.region}</span></>}
                               {x.r.page_type && <><span style={{ color: "var(--sec)" }}>페이지타입</span><span>{x.r.page_type}</span></>}
-                              {tab === "schema" && x.f.block && <><span style={{ color: "var(--sec)" }}>블록</span><span>{x.f.block}{x.f.types?.length ? ` (${x.f.types.join(", ")})` : ""}</span></>}
-                              {tab === "copy" && x.f.region && <><span style={{ color: "var(--sec)" }}>발견 위치</span><span>{x.f.region === "disclaimer" ? "각주(Disclaimer)" : "본문"}</span></>}
-                              {tab === "copy" && x.f.expected && <><span style={{ color: "var(--sec)" }}>기준값</span><span>{x.f.expected}</span></>}
-                              {tab === "copy" && x.f.found && x.f.found.length > 0 && <><span style={{ color: "var(--sec)" }}>페이지 값</span><span style={{ color: "#B42318" }}>{x.f.found.join(", ")}</span></>}
+                              {x.f.region && <><span style={{ color: "var(--sec)" }}>발견 위치</span><span>{x.f.region === "disclaimer" ? "각주(Disclaimer)" : "본문"}</span></>}
+                              {x.f.expected && <><span style={{ color: "var(--sec)" }}>기준값</span><span>{x.f.expected}</span></>}
+                              {x.f.found && x.f.found.length > 0 && <><span style={{ color: "var(--sec)" }}>페이지 값</span><span style={{ color: "#B42318" }}>{x.f.found.join(", ")}</span></>}
                               {x.r.url && <><span style={{ color: "var(--sec)" }}>URL</span><a href={x.r.url} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: 11, color: "#0A66E0", wordBreak: "break-all" }}>{x.r.url}</a></>}
                             </div>
                           </td>
@@ -463,7 +447,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               </table>
             </>
           )}
-          {results.length > 0 && rows.length === 0 && <p style={{ color: "#1F9E5C", marginTop: 16 }}>이 탭({tab === "schema" ? "스키마" : "스펙"})에서 발견된 오류가 없어요 🐝</p>}
+          {tab === "copy" && results.length > 0 && rows.length === 0 && <p style={{ color: "#1F9E5C", marginTop: 16 }}>이 탭(스펙)에서 발견된 오류가 없어요 🐝</p>}
         </div>
       </div>
 

@@ -268,7 +268,7 @@ function Accordion({ title, defaultOpen, children }: { title: ReactNode; default
   );
 }
 
-export function HtmlQaDetail({ hq }: { hq: any }) {
+export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] }) {
   const l1 = hq.level1_apply_rate || {};
   const axis2 = hq.level2?.axis2_parsing_rich_result || {};
   const axis3 = hq.level2?.axis3_id_linkage || {};
@@ -358,6 +358,34 @@ export function HtmlQaDetail({ hq }: { hq: any }) {
           </div>
         ))}
       </Accordion>
+
+      {/* ⑤ 오류/확인 상세 — 스키마 블록별로 그룹핑한 as-is → to-be */}
+      {(() => {
+        const issues = (findings || []).filter((f: any) => f.status === "fail" || f.status === "warn");
+        if (issues.length === 0) return null;
+        const byBlock: Record<string, any[]> = {};
+        for (const f of issues) (byBlock[f.block || "기타"] = byBlock[f.block || "기타"] || []).push(f);
+        const nfail = issues.filter((f: any) => f.status === "fail").length;
+        const nwarn = issues.filter((f: any) => f.status === "warn").length;
+        return (
+          <Accordion title={`⑤ 오류/확인 상세 — 🔴 오류 ${nfail} · 🟡 확인 ${nwarn}`}>
+            {Object.entries(byBlock).map(([block, fs]) => (
+              <div key={block} style={{ borderTop: "1px solid var(--line)", padding: "6px 0" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{block}</div>
+                {fs.map((f: any, i: number) => (
+                  <div key={i} style={{ fontSize: 12, padding: "3px 0 3px 8px" }}>
+                    <span style={{ fontWeight: 700, color: f.status === "fail" ? "#D8362F" : "#E0A008" }}>
+                      {f.status === "fail" ? "오류" : "확인"}
+                    </span>
+                    <span style={{ color: "var(--sec)", marginLeft: 6 }}>{f.as_is}</span>
+                    {f.to_be && <div style={{ color: "#B42318", marginLeft: 30 }}>→ {f.to_be}</div>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </Accordion>
+        );
+      })()}
     </div>
   );
 }
@@ -395,10 +423,11 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
 
   if (rowsWithQa.length === 1) {
     const hq = rowsWithQa[0].html_qa;
+    const findings = rowsWithQa[0].schema?.findings || [];
     return (
       <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
         <OverallBanner hq={hq} />
-        <HtmlQaDetail hq={hq} />
+        <HtmlQaDetail hq={hq} findings={findings} />
       </div>
     );
   }
@@ -436,7 +465,7 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
                 <span style={{ marginLeft: "auto" }}>AEO {hq.overall?.final_pct ?? "—"}% · 적용율 {hq.level1_apply_rate?.apply_rate_pct ?? "—"}%</span>
                 <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
               </div>
-              {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px" }}><HtmlQaDetail hq={hq} /></div>}
+              {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px" }}><HtmlQaDetail hq={hq} findings={r.schema?.findings || []} /></div>}
             </div>
           );
         })}
