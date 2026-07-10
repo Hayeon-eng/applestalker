@@ -36,6 +36,11 @@ def page_type_from_url(url: str) -> str:
 def product_from_url(url: str) -> Optional[str]:
     """URL 경로에서 마케팅 제품 판별."""
     u = (url or "").lower()
+    # 폴더블 — 더 구체적인 슬러그를 먼저(fold7/flip7). 다음 세대(fold8 등)는 여기 한 줄씩 추가.
+    if "galaxy-z-fold7" in u:
+        return "galaxy-z-fold7"
+    if "galaxy-z-flip7" in u:
+        return "galaxy-z-flip7"
     if "galaxy-s26-ultra" in u:
         return "galaxy-s26-ultra"
     if "galaxy-s26-plus" in u or "galaxy-s26+" in u:
