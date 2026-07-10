@@ -288,7 +288,16 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     const out: { r: PageResult; f: Finding; item: string }[] = [];
     for (const r of results) {
       if (tab === "schema") {
-        for (const f of r.schema?.findings || []) if (f.status !== "pass") out.push({ r, f, item: f.block || f.token || f.category || "" });
+        // [정합] 화면(HtmlQaDetail)은 '번역 확인 필요'처럼 실제 오류(값불일치·속성누락·@id/hasPart·name이슈)가
+        // 없는 안내성 finding은 판정근거에서 제외한다. Quick View도 같은 기준을 써야 100점인데 오류로 뜨는 불일치가 사라진다.
+        for (const f of r.schema?.findings || []) {
+          if (f.status !== "fail" && f.status !== "warn") continue;
+          const hasReal = (f.val_mismatch || []).length || (f.missing_props || []).length ||
+                          (f.name_issue || []).length || f.id_mismatch || (f.haspart_missing || []).length;
+          const onlyTranslate = (f.translate_confirm || []).length && !hasReal;
+          if (onlyTranslate) continue;
+          out.push({ r, f, item: f.block || f.token || f.category || "" });
+        }
       } else if (r.spec_v2) {
         for (const it of r.spec_v2.items || []) {
           if (it.status !== "fail") continue;
@@ -327,7 +336,11 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
       const rg = r.region || "기타"; m[rg] = m[rg] || { fail: 0, warn: 0 };
       if (tab === "schema") {
         for (const f of r.schema?.findings || []) {
-          if (f.status === "fail") m[rg].fail++; else if (f.status === "warn") m[rg].warn++;
+          if (f.status !== "fail" && f.status !== "warn") continue;
+          const hasReal = (f.val_mismatch || []).length || (f.missing_props || []).length ||
+                          (f.name_issue || []).length || f.id_mismatch || (f.haspart_missing || []).length;
+          if ((f.translate_confirm || []).length && !hasReal) continue;  // 안내성 제외
+          if (f.status === "fail") m[rg].fail++; else m[rg].warn++;
         }
       } else if (r.spec_v2) {
         m[rg].fail += r.spec_v2.summary?.critical || 0;

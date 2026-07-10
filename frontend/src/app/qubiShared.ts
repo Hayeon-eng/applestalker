@@ -3,7 +3,8 @@
 export type Finding = { status: "pass" | "warn" | "fail" | "na"; as_is?: string; to_be?: string; block?: string; token?: string; category?: string; kind?: string; region?: string; found?: string[]; expected?: string;
   types?: string[]; missing_props?: string[]; haspart_missing?: string[]; id_mismatch?: string;
   val_mismatch?: { prop: string; expected: string; actual: string }[];
-  name_issue?: { prop: string; actual: string; missing: string[]; forbidden: string[] }[]; };
+  name_issue?: { prop: string; actual: string; missing: string[]; forbidden: string[] }[];
+  translate_confirm?: { prop: string; actual: string; note?: string }[]; };
 export type PageResult = { sitecode: string; url: string; region?: string; country?: string; page_type?: string;
   schema: { findings: Finding[] }; copy: { findings: Finding[] }; html_qa?: any; spec_v2?: any };
 export type SiteRow = { sitecode: string; country?: string; lang?: string; url: string; region?: string };
