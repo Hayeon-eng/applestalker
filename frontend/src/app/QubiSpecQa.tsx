@@ -165,6 +165,20 @@ function CandidateCard({ cand, attributes, product, api, flash, onDone }:
   { cand: any; attributes: string[]; product: string; api: (p: string) => string; flash: (m: string) => void; onDone: () => void }) {
   const [rep, setRep] = useState(cand.representative || "");
   const [busy, setBusy] = useState(false);
+  const [ai, setAi] = useState<any>(null);  // AI 제안 결과 {available, attribute, confidence, reason}
+  useEffect(() => {  // 후보가 뜨면 AI 제안 자동 조회 (키 없으면 available:false로 폴백)
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch(api("/api/qb/spec-rules/dictionary/suggest"), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ product, alias: cand.alias }),
+        });
+        if (alive && r.ok) setAi(await r.json());
+      } catch { /* 조용히 무시 */ }
+    })();
+    return () => { alive = false; };
+  }, [cand.alias, product]);
   const add = async () => {
     if (!rep) { flash("어느 항목의 표현인지 선택하세요"); return; }
     setBusy(true);
@@ -177,7 +191,19 @@ function CandidateCard({ cand, attributes, product, api, flash, onDone }:
   return (
     <div style={{ background: "#FFFAEB", border: "1px solid #FEDF89", borderRadius: 10, padding: "9px 12px", marginTop: 8 }}>
       <div style={{ fontSize: 12.5 }}>🟡 <b>새로운 표현 발견</b> — <span style={{ fontFamily: "monospace", background: "#fff", padding: "1px 6px", borderRadius: 5 }}>{cand.alias}</span>
-        <span style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 6 }}>딕셔너리 미등록 · 번역/표기 재확인 필요{cand.confidence != null ? ` · 신뢰도 ${cand.confidence}%` : ""}</span>
+        <span style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 6 }}>딕셔너리 미등록 · 번역/표기 재확인 필요</span>
+      </div>
+      {/* AI 제안 줄 — 판정이 아니라 참고용 제안. 최종 승인은 사람이 아래 버튼으로. */}
+      <div style={{ marginTop: 6, fontSize: 11.5, background: "#fff", border: "1px dashed #D6BB6A", borderRadius: 7, padding: "5px 9px" }}>
+        {ai == null && <span style={{ color: "var(--sec)" }}>✨ AI 제안 확인 중…</span>}
+        {ai && ai.available && ai.attribute && (
+          <span>✨ <b>AI 제안</b>: 이 표현은 <b style={{ color: "#0A66E0" }}>{ai.attribute}</b>{ai.confidence != null ? ` (신뢰도 ${ai.confidence}%)` : ""}
+            <button onClick={() => setRep(ai.attribute)} style={{ marginLeft: 8, fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid #0A66E0", background: "#fff", color: "#0A66E0", cursor: "pointer" }}>제안 적용</button>
+            {ai.reason && <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginTop: 2 }}>{ai.reason}</span>}
+          </span>
+        )}
+        {ai && ai.available && !ai.attribute && <span style={{ color: "var(--sec)" }}>✨ AI가 마땅한 항목을 못 찾았어요 — 직접 선택해주세요.</span>}
+        {ai && !ai.available && <span style={{ color: "#98A2B3", fontStyle: "italic" }}>✨ AI 번역 제안 — 준비 중 (API 키 연결 시 활성화)</span>}
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 7 }}>
         <span style={{ fontSize: 11.5, color: "var(--sec)" }}>예상 Canonical</span>
@@ -239,36 +265,80 @@ export function SpecV2Panel({ row, product, api, flash }:
 
 /* ── Canonical Dictionary 관리 (기본 접힘) ── */
 export function DictionaryPanel({ product, api }: { product: string; api: (p: string) => string }) {
-  const [open, setOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState(false);   // 패널 자체 열림
   const [data, setData] = useState<any>(null);
-  const toggle = async () => {
-    const next = !open; setOpen(next);
-    if (next && !data) {
-      try { setData(await (await fetch(api(`/api/qb/spec-rules?product=${encodeURIComponent(product)}`))).json()); }
-      catch { setData({ dictionary: {}, rules: [] }); }
-    }
-  };
+  const [q, setQ] = useState("");                       // 검색어
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set()); // 항목별 펼침
+
+  useEffect(() => {  // 제품 바뀌면 다시 로드(패널 닫혀 있어도 미리 준비)
+    let alive = true;
+    (async () => {
+      try { const d = await (await fetch(api(`/api/qb/spec-rules?product=${encodeURIComponent(product)}`))).json(); if (alive) setData(d); }
+      catch { if (alive) setData({ dictionary: {}, rules: [] }); }
+    })();
+    return () => { alive = false; };
+  }, [product]);
+
+  const dict: Record<string, string[]> = data?.dictionary || {};
+  const entries = Object.entries(dict);
+  const ql = q.trim().toLowerCase();
+  const filtered = ql
+    ? entries.filter(([rep, al]) => rep.toLowerCase().includes(ql) || (al as string[]).some((a) => a.toLowerCase().includes(ql)))
+    : entries;
+  const totalAlias = entries.reduce((n, [, al]) => n + (al as string[]).length, 0);
+
+  const toggleRow = (rep: string) => setOpenRows((s) => { const n = new Set(s); n.has(rep) ? n.delete(rep) : n.add(rep); return n; });
+
+  if (!openPanel) {
+    return (
+      <button onClick={() => setOpenPanel(true)}
+        style={{ position: "fixed", left: 20, bottom: 20, zIndex: 40, background: "#fff", color: "#101318",
+          border: "1px solid var(--line)", borderRadius: 999, padding: "10px 16px", fontWeight: 700, fontSize: 12.5,
+          cursor: "pointer", boxShadow: "0 6px 20px rgba(0,0,0,.14)" }}>
+        📖 Dictionary{entries.length ? ` · ${entries.length}` : ""}
+      </button>
+    );
+  }
   return (
-    <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", marginTop: 14 }}>
-      <div onClick={toggle} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", background: "#F9FAFB", cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>
-        <span>📖 Canonical Dictionary <span style={{ fontWeight: 400, color: "var(--sec)" }}>— Rule에 연결된 다국어 표현</span></span>
-        <span style={{ fontSize: 11, color: "#0A66E0" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
+    <div style={{ position: "fixed", left: 20, bottom: 20, zIndex: 40, width: 380, maxHeight: "72vh", display: "flex", flexDirection: "column",
+      background: "#fff", border: "1px solid var(--line)", borderRadius: 14, boxShadow: "0 10px 30px rgba(0,0,0,.22)" }}>
+      <div style={{ background: "#101318", color: "#fff", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderRadius: "14px 14px 0 0" }}>
+        <b style={{ fontSize: 13 }}>📖 Canonical Dictionary <span style={{ fontWeight: 400, opacity: .75 }}>— {product}</span></b>
+        <span role="button" onClick={() => setOpenPanel(false)} style={{ cursor: "pointer" }}>✕</span>
       </div>
-      {open && (
-        <div style={{ padding: "8px 14px 12px" }}>
-          {!data && <p style={{ fontSize: 12, color: "var(--sec)" }}>불러오는 중…</p>}
-          {data && Object.keys(data.dictionary || {}).length === 0 && <p style={{ fontSize: 12, color: "var(--sec)" }}>등록된 Alias가 없어요 — 검수 중 발견되는 "새로운 표현"을 승인하면 여기에 쌓입니다.</p>}
-          {data && Object.entries(data.dictionary || {}).map(([rep, aliases]: [string, any]) => (
-            <div key={rep} style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 10, fontSize: 12, padding: "5px 0", borderTop: "1px solid var(--line)" }}>
-              <b>{rep}</b>
-              <span>{(aliases as string[]).map((a) => (
-                <span key={a} style={{ display: "inline-block", background: "#F2F4F7", borderRadius: 5, padding: "1px 7px", margin: "1px 4px 1px 0", fontSize: 11.5 }}>{a}</span>
-              ))}</span>
+      <div style={{ padding: "10px 14px 4px" }}>
+        <div style={{ fontSize: 11, color: "var(--sec)", marginBottom: 6 }}>항목 {entries.length}개 · 표현 {totalAlias}개 — 검수기가 이 표현들을 만나면 해당 항목으로 인식합니다. 값 수정은 Rule DB 엑셀로.</div>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="항목·표현 검색 (예: Battery, 무게, 배터리)"
+          style={{ width: "100%", fontSize: 12.5, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, boxSizing: "border-box" }} />
+      </div>
+      <div style={{ overflow: "auto", padding: "6px 14px 12px" }}>
+        {!data && <p style={{ fontSize: 12, color: "var(--sec)" }}>불러오는 중…</p>}
+        {data && entries.length === 0 && <p style={{ fontSize: 12, color: "var(--sec)" }}>등록된 표현이 없어요.</p>}
+        {filtered.map(([rep, aliases]) => {
+          const al = aliases as string[];
+          const on = openRows.has(rep) || !!ql;  // 검색 중이면 자동 펼침
+          return (
+            <div key={rep} style={{ borderTop: "1px solid var(--line)", padding: "6px 0" }}>
+              <div onClick={() => toggleRow(rep)} style={{ display: "flex", justifyContent: "space-between", cursor: "pointer", alignItems: "center" }}>
+                <b style={{ fontSize: 12.5 }}>{rep}</b>
+                <span style={{ fontSize: 11, color: "var(--sec)" }}>{al.length}개 {on ? "▲" : "▼"}</span>
+              </div>
+              {on && (
+                <div style={{ marginTop: 5 }}>
+                  {al.map((a) => (
+                    <span key={a} style={{ display: "inline-block", background: "#F2F4F7", borderRadius: 5, padding: "1px 7px", margin: "1px 4px 1px 0", fontSize: 11.5 }}>{a}</span>
+                  ))}
+                  {/* AI 제안 자리 — 키 연결 후 활성화. 지금은 안내만. */}
+                  <div style={{ marginTop: 6, fontSize: 10.5, color: "#98A2B3", fontStyle: "italic" }}>
+                    ✨ AI 번역 제안 — 준비 중 (연결 시 이 항목의 새 언어 표현을 자동 추천)
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
-          {data && <div style={{ marginTop: 8, fontSize: 11, color: "var(--sec)" }}>룰 {data.rules?.length ?? 0}개 · 버전 {data.version || "—"} — 기준값 수정은 Rule DB 엑셀 재업로드로 반영됩니다.</div>}
-        </div>
-      )}
+          );
+        })}
+        {data && filtered.length === 0 && ql && <p style={{ fontSize: 12, color: "var(--sec)", marginTop: 8 }}>"{q}" 검색 결과 없음</p>}
+      </div>
     </div>
   );
 }
@@ -434,27 +504,27 @@ export function SpecV2Score({ show, panelRef }: { show: boolean; panelRef?: any 
   const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
   return (
     <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 16 }}>
-      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수는 이렇게 나와요 — 스펙</div>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수 산출 방식 — 스펙</div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 점수 = 통과 ÷ 실제로 본 항목</div>
-        <div style={li}>정답과 <b>맞은 항목 ÷ (맞은 것 + 틀린 것)</b> × 100이에요. <b>"해당없음(⚪)"은 계산에서 빼요</b> — 이 페이지에 원래 없는 항목 때문에 점수가 억울하게 깎이지 않도록요.</div>
-        <div style={{ ...li, marginTop: 4 }}>예) 31개 중 해당없음 6개 · 맞음 23개 · 틀림 2개 → 23 ÷ 25 = <b>92%</b></div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 점수 = 통과 ÷ 판정 대상</div>
+        <div style={li}><b>정답 일치 항목 ÷ (일치 + 불일치)</b> × 100. <b>"해당없음(⚪)"은 분모에서 제외</b>합니다 — 해당 페이지에 존재하지 않는 항목이 점수를 왜곡하지 않도록 하기 위함입니다.</div>
+        <div style={{ ...li, marginTop: 4 }}>예) 31개 중 해당없음 6 · 일치 23 · 불일치 2 → 23 ÷ 25 = <b>92%</b></div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리(배터리·화면…)별로도 같은 방식</div>
-        <div style={li}>각 묶음 카드의 "Rule Pass 8/8"이 그 묶음의 맞음/전체예요. 틀린 게 있는 묶음은 자동으로 펼쳐집니다.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리별 동일 산식</div>
+        <div style={li}>배터리·디스플레이 등 카테고리 단위로도 같은 방식으로 계산합니다. 카드의 "Rule Pass 8/8"이 해당 카테고리의 일치/판정 대상 수이며, 불일치가 있는 카테고리는 자동 전개됩니다.</div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ "확인(🟡)"은 점수에 안 넣어요</div>
-        <div style={li}>🟡은 "페이지가 틀렸다"가 아니라 <b>"검수기가 이 표현을 아직 모른다"</b>는 뜻이라 점수와 따로 셉니다. 맞는 표현이면 승인해서 사전에 넣어주세요 — 다음부터 정식으로 채점됩니다.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ "확인(🟡)"은 점수에 미반영</div>
+        <div style={li}>🟡은 페이지 오류가 아니라 <b>검수기의 사전 미등록 표현</b>을 의미하므로 점수와 분리해 집계합니다. 유효한 표현은 승인 시 사전에 반영되어 다음 검수부터 정식 판정됩니다.</div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ 점수가 높아도 ⚠️ 경고가 있으면 의심하세요</div>
-        <div style={li}>봐야 할 항목의 <b>절반 이상을 못 찾으면</b> 위에 경고가 떠요. 이 언어 표현을 사전이 모르거나 페이지 구조가 달라 놓친 것일 수 있어요 — 이땐 높은 점수가 "다 통과"가 아니라 "거의 못 봤다"일 수 있으니, 새 표현 승인부터 해주세요.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ 커버리지 경고 시 점수 해석 주의</div>
+        <div style={li}>판정 대상의 <b>절반 이상이 미검출</b>이면 상단에 경고가 표시됩니다. 사전 미등록 또는 페이지 구조 차이로 수집되지 않았을 수 있으며, 이 경우 높은 점수는 "전부 통과"가 아니라 "검출 자체가 적음"을 의미할 수 있으므로 미등록 표현 승인이 선행되어야 합니다.</div>
       </div>
       <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8, background: "#FFF5F4", border: "1px solid #FECDCA", borderRadius: 8, padding: "8px 10px" }}>
-        <b>신호등 (스펙은 더 엄격해요)</b> — 🔴 <b>오류가 1건이라도 있으면 빨강</b> · 🟡 오류 0, 확인만 있음 · 🟢 오류·확인 모두 0.
-        <span style={{ display: "block", marginTop: 3, fontSize: 11 }}>색·모양은 Data QA와 똑같이 맞췄어요. 다만 스펙값은 틀리면 치명적이라, Data QA(점수 %기준)와 달리 "오류 1건 = 즉시 빨강"으로 봅니다.</span>
+        <b>신호등 (스펙은 더 엄격한 기준)</b> — 🔴 <b>오류 1건 이상이면 빨강</b> · 🟡 오류 0, 확인만 존재 · 🟢 오류·확인 모두 0.
+        <span style={{ display: "block", marginTop: 3, fontSize: 11 }}>색·형태는 Data QA와 동일하나, 스펙 값 오류는 소비자 오인·법적 리스크로 이어지므로 Data QA(점수 %기준)와 달리 "오류 1건 = 즉시 빨강"으로 판정합니다.</span>
       </div>
     </div>
   );

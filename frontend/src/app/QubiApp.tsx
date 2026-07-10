@@ -531,13 +531,14 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {/* ═══ Spec QA [V2] — Rule 기반 Validation (spec_v2 있는 결과만) ═══ */}
           {tab === "copy" && results.some((r: any) => r.spec_v2) && (
             <>
-              <DictionaryPanel product={(results.find((r: any) => r.spec_v2) as any)?.market_product || product} api={api} />
               {results.filter((r: any) => r.spec_v2).map((r: any, i: number) => (
                 <SpecV2Panel key={(r.sitecode || "") + i} row={r}
                   product={r.market_product || product} api={api} flash={flash} />
               ))}
             </>
           )}
+          {/* Dictionary는 검수 결과와 무관하게 상시(좌측 하단 플로팅) — 스펙 탭 & V2 제품일 때 */}
+          {tab === "copy" && isV2 && <DictionaryPanel product={product} api={api} />}
 
           {/* 결과 — 오류 빨강 강조. AEO(schema) 탭은 위 HtmlQaSummary 그룹으로 대체하므로 스펙(copy) 탭에서만 flat 테이블 노출
               [V2] spec_v2가 있으면 위 새 화면으로 교체되고, 룰셋 없는 제품만 기존 테이블로 폴백 */}
