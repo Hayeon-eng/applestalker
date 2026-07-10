@@ -100,3 +100,18 @@ def _v2_managed(product: str) -> bool:
 
 _V2_EDIT_BLOCKED = ("이 제품의 기준값은 Rule DB(V2)로 관리됩니다 — 화면 편집 불가. "
                     "값 수정은 스펙 탭의 'Rule DB 엑셀 업로드', 표현 추가는 'Dictionary 추가' 승인을 사용하세요.")
+
+
+# ── 공유 상수 (여러 라우트 모듈이 함께 사용) ──────────────────────────
+# [분할 버그 수정] qb_api.py를 라우트 모듈로 쪼갤 때 PAGE_TYPES/SCHEMA_TYPES가
+# qb_routes_manage.py에만 들어가 /rules(check 모듈)가 NameError로 500이 났음.
+# 두 상수를 여기(core)로 올려 모든 라우트 모듈이 공유한다.
+PAGE_TYPES = ["PDP", "Compare", "Buying"]
+SCHEMA_TYPES = [
+    "WebPage", "ItemPage", "WebSite", "BreadcrumbList", "ItemList", "ListItem", "CollectionPage",
+    "Product", "ProductGroup", "Offer", "AggregateOffer", "Brand", "Organization",
+    "Review", "CriticReview", "AggregateRating", "BuyAction",
+    "ImageObject", "VideoObject", "3DModel", "MediaObject",
+    "FAQPage", "Question", "Answer", "HowTo", "Article",
+    "Person", "Rating", "PropertyValue", "WebPageElement",
+]

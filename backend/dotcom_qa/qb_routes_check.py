@@ -22,7 +22,7 @@ from database import SessionLocal
 from models import QbHistory
 
 import qb_core
-from qb_core import qb_router, _registry
+from qb_core import qb_router, _registry, PAGE_TYPES, SCHEMA_TYPES
 
 @qb_router.get("/rules")
 def qb_rules(product: str = Query("M3"), page_type: str = Query("PDP"),

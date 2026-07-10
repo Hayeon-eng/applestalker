@@ -23,7 +23,7 @@ from database import SessionLocal
 from models import QbHistory
 
 import qb_core
-from qb_core import qb_router, _registry
+from qb_core import qb_router, _registry, PAGE_TYPES, SCHEMA_TYPES
 
 @qb_router.get("/sites")
 def qb_sites():
@@ -36,17 +36,7 @@ def qb_sites():
             "missing_lang": _registry.missing_lang()}
 
 
-PAGE_TYPES = ["PDP", "Compare", "Buying"]
-# 스키마 타입 사전(룰 추가 드롭다운). 나중에 직접 입력으로도 추가 가능.
-SCHEMA_TYPES = [
-    "WebPage", "ItemPage", "WebSite", "BreadcrumbList", "ItemList", "ListItem", "CollectionPage",
-    "Product", "ProductGroup", "Offer", "AggregateOffer", "Brand", "Organization",
-    "Review", "CriticReview", "AggregateRating", "BuyAction",
-    "ImageObject", "VideoObject", "3DModel", "MediaObject",
-    "FAQPage", "Question", "Answer", "HowTo", "Article",
-    "Person", "Rating", "PropertyValue", "WebPageElement",
-]
-
+# PAGE_TYPES / SCHEMA_TYPES 는 qb_core에서 import (이 모듈의 SPEC_CATALOG 등과 함께 사용)
 
 
 # ── 표준 스펙 항목 사전(드롭다운 + 예시) ──
