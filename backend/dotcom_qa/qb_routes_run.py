@@ -53,6 +53,14 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
     _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=__import__("time").time(),
                       events=[{"type": "start", "total": len(targets)}], result_run_id=None, summary=None)
 
+    # 필터 결과가 0개면 조용히 끝나지 않고 명확히 알린다(제품/사이트/타입 필터가 서로 안 맞는 흔한 케이스)
+    if not targets:
+        _RUN_STATE["events"].append({"type": "error",
+            "message": "선택한 사이트·제품·페이지타입 조합에 해당하는 크롤 대상이 없습니다. "
+                       "제품 필터를 비우면(전체) 해당 사이트의 모든 제품을 검수합니다."})
+        _RUN_STATE.update(running=False)
+        return
+
     crawler = None
     try:
         crawler = HybridCrawler()
