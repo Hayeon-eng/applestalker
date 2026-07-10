@@ -1,7 +1,7 @@
 "use client";
 /* QubiSections.tsx — QubiApp에서 분리한 큰 렌더 블록들(파일 크기 축소용).
    상태/핸들러는 QubiApp에서 ctx 객체로 주입받는다. */
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import type { ReactNode } from "react";
 import { SEV, HONEY, tierOf, inputStyle, sel } from "./qubiShared";
 
@@ -268,6 +268,43 @@ function Accordion({ title, defaultOpen, children }: { title: ReactNode; default
   );
 }
 
+// 속성별 '수정 위치 + 영향' 표시용 정적 사전(로직/점수와 무관, 표현 전용)
+const PROP_HELP: Record<string, { where: string; why: string }> = {
+  name: { where: "JSON-LD → Product → name", why: "제품명 누락 시 Product Rich Result 생성 불가" },
+  image: { where: "JSON-LD → Product → image", why: "이미지 없으면 리치결과 미표기 가능" },
+  brand: { where: "JSON-LD → Product → brand", why: "브랜드 정보로 신뢰도·매칭 향상" },
+  manufacturer: { where: "JSON-LD → Product → manufacturer", why: "제조사 정보 보강" },
+  potentialAction: { where: "JSON-LD → Product → potentialAction", why: "구매 액션 연결" },
+  subjectOf: { where: "JSON-LD → Product → subjectOf(@id)", why: "영상·3D·FAQ 연결 선언" },
+  offers: { where: "JSON-LD → Product → offers", why: "가격·재고 정보(단독형 PDP 필수)" },
+  sku: { where: "JSON-LD → Product → sku", why: "제품 식별자" },
+};
+const propHelp = (p: string) => PROP_HELP[p] || { where: `JSON-LD → ${p}`, why: "" };
+
+// PASS/부족 배지
+function StatusChip({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span style={{ fontSize: 11, borderRadius: 6, padding: "3px 8px", whiteSpace: "nowrap",
+      background: ok ? "#ECFDF3" : "#FEF3F2", color: ok ? "#067647" : "#D8362F" }}>
+      {ok ? "✅" : "❌"} {label}
+    </span>
+  );
+}
+
+// 충족률 게이지(작은 막대) — KPI 유지용
+function Meter({ pct, danger }: { pct: number | null; danger?: boolean }) {
+  const v = pct == null ? 0 : pct;
+  const color = danger || v < 50 ? "#D8362F" : v < 80 ? "#E0A008" : "#1F9E5C";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 130 }}>
+      <div style={{ flex: 1, height: 6, background: "#EEF1F6", borderRadius: 999 }}>
+        <div style={{ width: `${v}%`, height: "100%", background: color, borderRadius: 999 }} />
+      </div>
+      <b style={{ fontSize: 12.5, color }}>{pct == null ? "—" : `${pct}%`}</b>
+    </div>
+  );
+}
+
 export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] }) {
   const l1 = hq.level1_apply_rate || {};
   const axis2 = hq.level2?.axis2_parsing_rich_result || {};
@@ -275,117 +312,131 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
   const perType: Record<string, any> = hq.level2?.per_type || {};
   const sig = l1.signals || {};
 
+  // findings를 블록별로 묶어 '수정 위치' 표시에 활용
+  const findingsByBlock: Record<string, any[]> = {};
+  for (const f of findings || []) (findingsByBlock[f.block || "기타"] ||= []).push(f);
+
+  // HTML QA 항목(Meta/H태그) — PASS/FAIL 한눈에
+  const titleLen = (sig.title || "").length;
+  const descLen = (sig.meta_description || "").length;
+  const h1n = (sig.h1_list || []).length;
+  const htmlItems = [
+    { key: "Meta Title", ok: !!sig.title && titleLen <= 60, val: sig.title, note: sig.title ? `${titleLen}자` : "누락", where: "<head> → <title>" },
+    { key: "Meta Description", ok: !!sig.meta_description && descLen <= 160, val: sig.meta_description, note: sig.meta_description ? `${descLen}자` : "누락", where: "<head> → meta[name=description]" },
+    { key: "H1", ok: h1n === 1, val: (sig.h1_list || []).join(" / "), note: `${h1n}개`, where: "본문 <h1>" },
+    { key: "H2", ok: (sig.h2_list || []).length > 0, val: `${(sig.h2_list || []).length}개`, note: `${(sig.h2_list || []).length}개`, where: "본문 <h2>" },
+  ];
+
   return (
-    <div>
-      {/* Meta / H태그 — 실제 태깅 값 리스트 */}
-      <Accordion title="① Meta / H태그 현황" defaultOpen>
-        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 8, fontSize: 12.5 }}>
-          <span style={{ color: "var(--sec)" }}>Meta Title</span>
-          <span>{sig.title ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5 }}>{sig.title}</code> : <i style={{ color: "#B42318" }}>누락</i>}</span>
-          <span style={{ color: "var(--sec)" }}>Meta Description</span>
-          <span>{sig.meta_description ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word" }}>{sig.meta_description}</code> : <i style={{ color: "#B42318" }}>누락</i>}</span>
-          <span style={{ color: "var(--sec)" }}>H1 ({(sig.h1_list || []).length}개)</span>
-          <span>{(sig.h1_list || []).length ? (sig.h1_list || []).map((t: string, i: number) => <div key={i}><code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5 }}>{t}</code></div>) : <i style={{ color: "#B42318" }}>누락</i>}</span>
-          <span style={{ color: "var(--sec)" }}>H2 ({(sig.h2_list || []).length}개)</span>
-          <span>{(sig.h2_list || []).length ? (sig.h2_list || []).map((t: string, i: number) => <span key={i} style={{ display: "inline-block", background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, margin: "2px 4px 0 0" }}>{t}</span>) : <i style={{ color: "#B42318" }}>누락</i>}</span>
-        </div>
-        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {(l1.items || []).filter((it: any) => it.item.includes("스키마 타입")).map((it: any, i: number) => (
-            <span key={i} style={{ fontSize: 11, borderRadius: 6, padding: "3px 8px", background: it.pass ? "#ECFDF3" : "#FEF3F2", color: it.pass ? "#1F9E5C" : "#D8362F" }}>
-              {it.pass ? "✓" : "✕"} {it.item.replace("스키마 타입 존재: ", "")}
-            </span>
-          ))}
-        </div>
-      </Accordion>
-
-      {/* 스키마 정보적합성(축1) — 타입별 */}
-      <Accordion title="② 스키마 정보적합성(축1) — 타입별">
-        {Object.keys(perType).length === 0 && <p style={{ color: "var(--sec)", fontSize: 12.5 }}>검출된 스키마 타입이 없어요.</p>}
-        {Object.entries(perType).map(([t, v]: [string, any]) => (
-          <div key={t} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: "1px solid var(--line)", fontSize: 12.5 }}>
-            <span><b>{t}</b>{v.axis1_gate_triggered && <span style={{ color: "#D8362F", marginLeft: 6, fontSize: 11 }}>⚠ 필수게이트 발동(자격소멸)</span>}</span>
-            <span>정보적합성 {v.axis1_info_adequacy_pct}% → 최종 {v.final_pct}%</span>
-          </div>
-        ))}
-      </Accordion>
-
-      {/* 파싱 + Google 리치결과(축2) */}
-      <Accordion title={`③ 파싱 에러 + Google 리치결과(축2) — Critical ${axis2.critical_count ?? 0} · Warning ${axis2.warning_count ?? 0}`}>
-        {/* JSON-LD 문법 오류(페이지 전역) */}
-        {(axis2.syntax_errors || []).length > 0 && (
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>JSON-LD 문법 오류</div>
-            {(axis2.syntax_errors || []).map((d: any, i: number) => (
-              <div key={i} style={{ fontSize: 12, padding: "3px 0", borderTop: "1px solid var(--line)" }}>
-                <span style={{ fontWeight: 700, color: d.severity === "Critical" ? "#D8362F" : "#E0A008" }}>{d.severity}</span>
-                <span style={{ marginLeft: 6 }}>{d.message}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* ═══ HTML QA 카드 ═══ */}
+      <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>HTML 검수 <span style={{ fontWeight: 400, color: "var(--sec)", fontSize: 11.5 }}>Meta · 제목 태그</span></div>
+        {/* 문제 먼저 */}
+        {htmlItems.filter((i) => !i.ok).length > 0 && (
+          <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
+            {htmlItems.filter((i) => !i.ok).map((i) => (
+              <div key={i.key} style={{ fontSize: 12.5, padding: "2px 0" }}>
+                <b style={{ color: "#B42318" }}>❌ {i.key}</b> <span style={{ color: "var(--sec)" }}>{i.note}</span>
+                <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 11.5 }}>· 수정 위치: {i.where}</span>
               </div>
             ))}
           </div>
         )}
-        {/* 타입별 게이트 + 리치결과 오류 */}
-        {Object.entries(axis2.by_type || {}).map(([t, b]: [string, any]) => (
-          <div key={t} style={{ borderTop: "1px solid var(--line)", padding: "6px 0" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: b.gate === 0 ? "#D8362F" : "#1F9E5C" }}>
-              {b.gate === 0 ? "🔴" : "🟢"} {t} — Critical {b.critical} · Warning {b.warning}
-            </div>
-            {(b.detail || []).map((d: any, i: number) => (
-              <div key={i} style={{ fontSize: 12, padding: "2px 0 2px 14px" }}>
-                <span style={{ fontWeight: 700, color: d.severity === "Critical" ? "#D8362F" : "#E0A008" }}>{d.severity}</span>
-                <span style={{ color: "var(--sec)", marginLeft: 6 }}>[{d.group}]</span> {d.message}
-              </div>
-            ))}
-          </div>
-        ))}
-        {(axis2.syntax_errors || []).length === 0 && (axis2.critical_count ?? 0) === 0 && (axis2.warning_count ?? 0) === 0 &&
-          <p style={{ color: "#1F9E5C", fontSize: 12.5 }}>파싱/리치결과 오류 없음 🐝</p>}
-        <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {Object.entries(axis2.rich_result_scope || {}).map(([t, s]: any) => (
-            <span key={t} style={{ fontSize: 11, background: "#F2F4F7", borderRadius: 6, padding: "3px 8px" }}><b>{t}</b> 리치결과: {s}</span>
+        {/* 실제 태깅 값 + PASS */}
+        <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 7, fontSize: 12.5, alignItems: "start" }}>
+          {htmlItems.map((i) => (
+            <Fragment key={i.key}>
+              <span style={{ color: "var(--sec)" }}>{i.ok ? "✅" : "❌"} {i.key}</span>
+              <span>
+                {i.key === "H2"
+                  ? ((sig.h2_list || []).length ? (sig.h2_list || []).map((t: string, k: number) => <span key={k} style={{ display: "inline-block", background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, margin: "1px 4px 1px 0", fontSize: 11.5 }}>{t}</span>) : <i style={{ color: "#B42318" }}>누락</i>)
+                  : (i.val ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word" }}>{i.val}</code> : <i style={{ color: "#B42318" }}>누락</i>)}
+              </span>
+            </Fragment>
           ))}
         </div>
-      </Accordion>
+      </div>
 
-      {/* @id 연결성(축3) */}
-      <Accordion title={`④ @id 연결성(축3) — ${axis3.id_pct ?? "—"}%`}>
-        <div style={{ fontSize: 12, marginBottom: 6, color: axis3.gate === 0 ? "#D8362F" : "#1F9E5C", fontWeight: 700 }}>
-          {axis3.gate === 0 ? "🔴 @id 게이트 무효(참조 무결성 깨짐)" : "🟢 @id 게이트 통과"}
-        </div>
-        {(axis3.checks || []).map((ck: any, i: number) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderTop: "1px solid var(--line)" }}>
-            <span>{ck.item}</span>
-            <span style={{ color: "var(--sec)" }}>{ck.score === null ? "해당없음" : `${Math.round(ck.score * 100)}%`} · {ck.detail}</span>
-          </div>
-        ))}
-      </Accordion>
+      {/* ═══ Schema QA 카드들 — 타입별 ═══ */}
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 800, margin: "0 0 8px" }}>Schema 검수 <span style={{ fontWeight: 400, color: "var(--sec)", fontSize: 11.5 }}>구조화 데이터(JSON-LD)</span></div>
+        {Object.keys(perType).length === 0 && <p style={{ color: "var(--sec)", fontSize: 12.5 }}>감지된 Schema가 없어요.</p>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {Object.entries(perType).map(([t, v]: [string, any]) => {
+            const missReq: string[] = v.missing_required || [];
+            const weakRec: string[] = v.weak_recommended || [];
+            const blockFindings = (findingsByBlock[t] || []).filter((f) => f.status === "fail" || f.status === "warn");
+            const parseIssues = (axis2.by_type?.[t]?.detail || []);
+            return (
+              <div key={t} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px" }}>
+                {/* 헤더: 타입 + 신호등 + 최종% */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span>{TL_EMOJI[v.traffic_light] || "⚪"}</span>
+                  <b style={{ fontSize: 13 }}>{t}</b>
+                  {v.rich_result_status && v.rich_result_status !== "정식" &&
+                    <span style={{ fontSize: 10.5, color: "var(--sec)", background: "#F2F4F7", borderRadius: 5, padding: "1px 6px" }}>리치결과 {v.rich_result_status}</span>}
+                  <span style={{ marginLeft: "auto" }}><Meter pct={v.final_pct} danger={v.axis1_gate_triggered || v.axis2_gate === 0} /></span>
+                </div>
 
-      {/* ⑤ 오류/확인 상세 — 스키마 블록별로 그룹핑한 as-is → to-be */}
-      {(() => {
-        const issues = (findings || []).filter((f: any) => f.status === "fail" || f.status === "warn");
-        if (issues.length === 0) return null;
-        const byBlock: Record<string, any[]> = {};
-        for (const f of issues) (byBlock[f.block || "기타"] = byBlock[f.block || "기타"] || []).push(f);
-        const nfail = issues.filter((f: any) => f.status === "fail").length;
-        const nwarn = issues.filter((f: any) => f.status === "warn").length;
-        return (
-          <Accordion title={`⑤ 오류/확인 상세 — 🔴 오류 ${nfail} · 🟡 확인 ${nwarn}`}>
-            {Object.entries(byBlock).map(([block, fs]) => (
-              <div key={block} style={{ borderTop: "1px solid var(--line)", padding: "6px 0" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{block}</div>
-                {fs.map((f: any, i: number) => (
-                  <div key={i} style={{ fontSize: 12, padding: "3px 0 3px 8px" }}>
-                    <span style={{ fontWeight: 700, color: f.status === "fail" ? "#D8362F" : "#E0A008" }}>
-                      {f.status === "fail" ? "오류" : "확인"}
-                    </span>
-                    <span style={{ color: "var(--sec)", marginLeft: 6 }}>{f.as_is}</span>
-                    {f.to_be && <div style={{ color: "#B42318", marginLeft: 30 }}>→ {f.to_be}</div>}
+                {/* 1) 문제 먼저 */}
+                {(missReq.length > 0 || v.axis1_gate_triggered) && (
+                  <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                    {missReq.map((p) => {
+                      const h = propHelp(p);
+                      return (
+                        <div key={p} style={{ fontSize: 12.5, padding: "2px 0" }}>
+                          <b style={{ color: "#B42318" }}>❌ {t}.{p} 누락/미흡</b>
+                          {h.why && <div style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 18 }}>영향: {h.why}</div>}
+                          <div style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 18 }}>수정 위치: {h.where}</div>
+                        </div>
+                      );
+                    })}
+                    {v.axis1_gate_triggered && missReq.length === 0 && <div style={{ fontSize: 12.5, color: "#B42318" }}>❌ 필수 항목 미충족 — 리치결과 자격 상실 가능</div>}
                   </div>
-                ))}
+                )}
+                {parseIssues.filter((d: any) => d.severity === "Critical").length > 0 && (
+                  <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                    {parseIssues.filter((d: any) => d.severity === "Critical").map((d: any, i: number) => (
+                      <div key={i} style={{ fontSize: 12.5, color: "#B42318" }}>❌ {d.message}</div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 2) 충족 현황(개수) */}
+                <div style={{ display: "flex", gap: 16, fontSize: 12.5, flexWrap: "wrap" }}>
+                  <span style={{ color: "var(--sec)" }}>정보 충족률 <b style={{ color: "var(--label)" }}>{v.axis1_info_adequacy_pct}%</b></span>
+                  <span style={{ color: "var(--sec)" }}>필수 속성 <b style={{ color: v.required_ok < v.required_total ? "#B42318" : "#067647" }}>{v.required_ok} / {v.required_total}</b></span>
+                  <span style={{ color: "var(--sec)" }}>권장 속성 <b style={{ color: v.recommended_ok < v.recommended_total ? "#E0A008" : "#067647" }}>{v.recommended_ok} / {v.recommended_total}</b></span>
+                </div>
+
+                {/* 3) 권장 미흡(경고) — 접힘성 간단 표기 */}
+                {weakRec.length > 0 && (
+                  <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--sec)" }}>
+                    🟡 권장 보강: {weakRec.join(", ")}
+                  </div>
+                )}
+                {/* 4) 통과 시 */}
+                {missReq.length === 0 && !v.axis1_gate_triggered && weakRec.length === 0 && parseIssues.length === 0 && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#067647" }}>✅ 모든 필수·권장 항목 충족</div>
+                )}
               </div>
-            ))}
-          </Accordion>
-        );
-      })()}
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ═══ 연결성(@id) — 있을 때만, 간단히 ═══ */}
+      {(axis3.checks || []).length > 0 && (
+        <Accordion title={`Schema 연결성(@id) — ${axis3.id_pct ?? "—"}%${axis3.gate === 0 ? " · 🔴 연결 끊김" : ""}`}>
+          {(axis3.checks || []).map((ck: any, i: number) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderTop: "1px solid var(--line)" }}>
+              <span>{ck.item.replace(" ★게이트", "")}</span>
+              <span style={{ color: "var(--sec)" }}>{ck.score === null ? "해당없음" : `${Math.round(ck.score * 100)}%`} · {ck.detail}</span>
+            </div>
+          ))}
+        </Accordion>
+      )}
     </div>
   );
 }
@@ -443,7 +494,7 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
   return (
     <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <b style={{ fontSize: 15 }}>AEO QA 종합 — {rowsWithQa.length}개 사이트</b>
+        <b style={{ fontSize: 15 }}>DATA QA 종합 — {rowsWithQa.length}개 사이트</b>
         <span style={{ fontSize: 13, color: "var(--sec)" }}>평균 AEO 퀄리티 {avg ?? "—"}%</span>
         <span style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <span style={{ fontSize: 12 }}>🟢 {dist.green}</span>

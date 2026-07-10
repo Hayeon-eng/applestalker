@@ -305,7 +305,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         <header className="topbar">
           <div className="topbarRow1">
             <div className="tabGroup">
-              <button className={`tabBtn ${tab === "schema" ? "on" : ""}`} onClick={() => setTab("schema")}>AEO QA</button>
+              <button className={`tabBtn ${tab === "schema" ? "on" : ""}`} onClick={() => setTab("schema")}>DATA QA</button>
               <button className={`tabBtn ${tab === "copy" ? "on" : ""}`} onClick={() => setTab("copy")}>스펙 QA</button>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
@@ -321,7 +321,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
         <div className="contentScroll" style={{ padding: "20px 28px 80px" }}>
           <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>
-            {tab === "schema" ? "AEO QA" : "스펙 QA"} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>
+            {tab === "schema" ? "DATA QA" : "스펙 QA"} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>
               {tab === "schema" ? "스키마 · H태그 · Meta title/description — GEO 관점 종합 검수" : "스펙 값·고유명사 정확성 (번역 대응)"}</span>
           </h2>
 
