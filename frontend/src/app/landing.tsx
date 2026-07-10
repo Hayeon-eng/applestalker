@@ -3,7 +3,7 @@
 /* ════════════════════════════════════════════════════
    홈 랜딩 — 진입점 2개: 🍎 Apple Stalker / 🐝 큐비(QA Bee)
 ════════════════════════════════════════════════════ */
-export function Landing({ onEnterApple, onEnterQubi }: { onEnterApple: () => void; onEnterQubi: () => void }) {
+export function Landing({ onEnterApple, onEnterQubi, onEnterCombi }: { onEnterApple: () => void; onEnterQubi: () => void; onEnterCombi?: () => void }) {
   return (
     <div className="landingShell">
       <div className="landingInner">
@@ -37,6 +37,20 @@ export function Landing({ onEnterApple, onEnterQubi }: { onEnterApple: () => voi
               <li><b>스펙 QA</b> — 스펙 값·고유명사 정확성(번역 대응)</li>
             </ul>
             <button className="landingCTA" style={{ marginTop: 12, background: "#E0A008" }} onClick={onEnterQubi}>🐝 큐비 부르기</button>
+          </div>
+
+          <div className="landingCard" style={{ display: "flex", flexDirection: "column" }}>
+            <span className="landingLogo" style={{ fontSize: 40 }}>🍯</span>
+            <p className="landingCardTitle" style={{ marginTop: 6, lineHeight: 1.25 }}>
+              <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--sec)" }}>Shopping의 사촌</span>
+              <span style={{ fontSize: 22, fontWeight: 800 }}>Combi</span>
+            </p>
+            <ul className="landingFactList" style={{ flex: 1 }}>
+              <li>구글쇼핑 Organic Shelf <b>위치 추적</b> — Row·Column·Above Fold</li>
+              <li>Merchant Feed <b>Coverage 분석</b> — Present/Missing/Unknown</li>
+              <li>경쟁사 대비 부족한 Feed로 <b>Opportunity 자동 계산</b></li>
+            </ul>
+            <button className="landingCTA" style={{ marginTop: 12, background: "#B8860B" }} onClick={onEnterCombi}>🍯 Combi 깨우기</button>
           </div>
         </div>
       </div>
