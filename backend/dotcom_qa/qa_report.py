@@ -63,11 +63,30 @@ def _flatten(page_results):
                 continue
             rows.append({**base, "area": "Schema", "item": f.get("block", ""),
                          "status": f.get("status"), "f": f})
-        for f in (pr.get("copy") or {}).get("findings", []):
-            if f.get("status") == "pass":
-                continue
-            rows.append({**base, "area": "Copy·" + (f.get("kind", "") or ""), "item": f.get("token", ""),
-                         "status": f.get("status"), "f": f})
+        sv = pr.get("spec_v2")
+        if sv:
+            # [V2 정합] 스펙은 Rule DB 판정을 화면·엑셀과 동일하게: Critical=fail, Warning=미등록 표현.
+            for it in sv.get("items", []):
+                if it.get("status") != "fail":
+                    continue
+                exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
+                rows.append({**base, "area": "Spec", "item": it.get("attribute", ""),
+                             "status": "fail",
+                             "f": {"status": "fail",
+                                   "as_is": f'현재 {it.get("found") or "(페이지에 없음)"}',
+                                   "to_be": f'기준 {exp}' + (f' — {it["fix_guide"]}' if it.get("fix_guide") else "")}})
+            for c in sv.get("candidates", []):
+                rows.append({**base, "area": "Spec·Dictionary", "item": c.get("alias", ""),
+                             "status": "warn",
+                             "f": {"status": "warn",
+                                   "as_is": f'미등록 표현: {c.get("alias","")}',
+                                   "to_be": "번역/표기 확인 후 Dictionary 추가로 승인"}})
+        else:
+            for f in (pr.get("copy") or {}).get("findings", []):
+                if f.get("status") == "pass":
+                    continue
+                rows.append({**base, "area": "Copy·" + (f.get("kind", "") or ""), "item": f.get("token", ""),
+                             "status": f.get("status"), "f": f})
     return rows
 
 
@@ -538,16 +557,35 @@ def build_xlsx(page_results):
     spec_rows = []
     for pr in page_results:
         meta = _meta(pr)
-        for f in (pr.get("copy") or {}).get("findings", []):
-            if f.get("status") not in ("fail", "warn"):
-                continue
-            kind = KIND_EN.get(f.get("kind", ""), f.get("kind", "") or "Spec")
-            item = f.get("token", "") or f.get("category", "")
-            expected = str(f.get("expected", "") or f.get("token", "") or "")
-            found = f.get("found") or []
-            found_s = ", ".join(map(str, found[:6])) if found else "(not found on page)"
-            loc = "Disclaimer" if f.get("region") == "disclaimer" else "Body"
-            spec_rows.append((meta, kind, item, f.get("status"), expected, found_s, loc))
+        sv = pr.get("spec_v2")
+        if sv:
+            # [V2 정합] Rule DB 판정을 화면(SpecV2Panel)과 동일하게 리포트:
+            #   Critical = 룰 fail(현재값↔기준값), Warning = 미등록 표현(candidates).
+            #   N/A(못 찾음·페이지타입 미적용)는 오류가 아니라 리포트에서 제외.
+            for it in sv.get("items", []):
+                if it.get("status") != "fail":
+                    continue
+                item = it.get("attribute", "")
+                exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
+                found_s = str(it.get("found") or "(not found on page)")
+                loc = f'{it.get("page", "")}' + (f' > {it["section"]}' if it.get("section") else "")
+                if it.get("fix_guide"):
+                    exp = f'{exp}  ·  Fix: {it["fix_guide"]}'
+                spec_rows.append((meta, f"Rule · {it.get('rule_id','')}", item, "fail", exp, found_s, loc or "PDP"))
+            for c in sv.get("candidates", []):
+                spec_rows.append((meta, "Dictionary", c.get("alias", ""), "warn",
+                                  "번역/표기 확인 후 Dictionary 추가로 승인", "(unmapped label)", "Spec"))
+        else:
+            for f in (pr.get("copy") or {}).get("findings", []):
+                if f.get("status") not in ("fail", "warn"):
+                    continue
+                kind = KIND_EN.get(f.get("kind", ""), f.get("kind", "") or "Spec")
+                item = f.get("token", "") or f.get("category", "")
+                expected = str(f.get("expected", "") or f.get("token", "") or "")
+                found = f.get("found") or []
+                found_s = ", ".join(map(str, found[:6])) if found else "(not found on page)"
+                loc = "Disclaimer" if f.get("region") == "disclaimer" else "Body"
+                spec_rows.append((meta, kind, item, f.get("status"), expected, found_s, loc))
     spec_rows.sort(key=lambda r: (r[0][1] or "zz", r[0][2] or "", sev_rank.get(r[3], 9)))
     for n, (meta, kind, item, sev, exp, found, loc) in enumerate(spec_rows, 1):
         region, country, site, ptype, url = meta
