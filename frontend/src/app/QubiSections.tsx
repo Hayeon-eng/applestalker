@@ -216,10 +216,10 @@ export function ScorePanel({ ctx: c }: { ctx: any }) {
       </div>
 
       <div style={box}>
-        <div style={h}>③ 이럴 땐 그 타입이 0점이 돼요 (치명적 문제)</div>
-        <div style={li}>· <b>꼭 있어야 하는 필수 속성이 아예 없을 때</b> — 그 스키마는 검색결과 자격을 잃어서 0점 처리돼요.</div>
-        <div style={li}>· <b>코드(JSON-LD) 문법이 깨져서 읽을 수 없을 때</b> — 검색엔진이 인식 못 하므로 0점.</div>
-        <div style={{ ...li, marginTop: 4 }}>반대로 값이 조금 안 맞거나 ‘있으면 좋은’ 권장 속성이 빠진 정도는 <b>0점이 아니라 감점</b>만 됩니다.</div>
+        <div style={h}>③ 크리티컬(필수 누락 등)은 크게 감점돼요</div>
+        <div style={li}>· <b>꼭 있어야 하는 필수 속성이 없으면</b> — 그 속성 배점이 크기 때문에 점수가 많이 깎여요. (0점으로 떨어뜨리진 않고, 있는 부분은 그대로 인정)</div>
+        <div style={li}>· <b>코드(JSON-LD) 문법이 깨졌거나 리치결과 필수가 빠진 경우</b>도 해당 항목 감점으로 반영돼요.</div>
+        <div style={{ ...li, marginTop: 4 }}>필수 속성은 배점이 커서 빠지면 점수가 눈에 띄게 낮아지지만, 잘 채운 부분은 점수에 반영됩니다.</div>
       </div>
 
       <div style={box}>
