@@ -266,16 +266,46 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
                       })}
                     </div>
                   )}
-                  {codeSnippet && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 4 }}>현재 JSON-LD (수정 대상)</div>
-                      <pre style={{ margin: 0, background: "#0F172A", color: "#E2E8F0", fontSize: 11, borderRadius: 8, padding: "8px 10px", overflowX: "auto", lineHeight: 1.5 }}>
-{codeSnippet.split("\n").map((ln: string, i: number) => (
-  <div key={i}><span style={{ color: "#475569", userSelect: "none", display: "inline-block", width: 26, textAlign: "right", marginRight: 10 }}>{i + 1}</span>{ln}</div>
-))}
-                      </pre>
-                    </div>
-                  )}
+                  {codeSnippet && (() => {
+                    // 코드 라인별 diff 주석: 속성명 → {expected, actual, kind}
+                    const ann: Record<string, { expected?: string; actual?: string; kind: "mismatch" | "missing" }> = {};
+                    for (const f of allBlockFindings) {
+                      for (const vm of (f.val_mismatch || [])) if (vm.prop) ann[vm.prop] = { expected: String(vm.expected ?? ""), actual: String(vm.actual ?? ""), kind: "mismatch" };
+                      for (const mp of (f.missing_props || [])) ann[mp] = { kind: "missing" };
+                    }
+                    const lines = codeSnippet.split("\n");
+                    return (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 4 }}>
+                          현재 JSON-LD (수정 대상) <span style={{ fontWeight: 400 }}>— <span style={{ textDecoration: "line-through", color: "#F98080" }}>현재</span> / <span style={{ textDecoration: "underline", color: "#84E1BC" }}>기대</span></span>
+                        </div>
+                        <pre style={{ margin: 0, background: "#0F172A", color: "#E2E8F0", fontSize: 11, borderRadius: 8, padding: "8px 10px", overflowX: "auto", lineHeight: 1.6 }}>
+                          {lines.map((ln: string, i: number) => {
+                            // 이 라인이 어떤 속성인지("prop": ...) 추출
+                            const m = ln.match(/"([A-Za-z0-9_]+)"\s*:/);
+                            const a = m ? ann[m[1]] : undefined;
+                            return (
+                              <div key={i} style={{ background: a ? (a.kind === "missing" ? "#3B1D1D" : "#3A2E12") : "transparent", borderRadius: 3 }}>
+                                <span style={{ color: "#475569", userSelect: "none", display: "inline-block", width: 26, textAlign: "right", marginRight: 10 }}>{i + 1}</span>
+                                <span>{ln}</span>
+                                {a && a.kind === "mismatch" && (
+                                  <span>{"  "}<span style={{ color: "#F98080", textDecoration: "line-through" }}>{a.actual || "(없음)"}</span>{" → "}<span style={{ color: "#84E1BC", textDecoration: "underline", fontWeight: 700 }}>{a.expected}</span></span>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {/* 누락 속성은 코드에 라인 자체가 없으므로 하단에 '추가 필요'로 표기 */}
+                          {Object.entries(ann).filter(([, v]) => v.kind === "missing").map(([p], k) => (
+                            <div key={`miss${k}`} style={{ background: "#1E3A2A", borderRadius: 3, marginTop: 2 }}>
+                              <span style={{ color: "#475569", userSelect: "none", display: "inline-block", width: 26, textAlign: "right", marginRight: 10 }}>+</span>
+                              <span style={{ color: "#84E1BC", textDecoration: "underline", fontWeight: 700 }}>"{p}": …</span>
+                              <span style={{ color: "#84E1BC" }}>  ← 추가 필요</span>
+                            </div>
+                          ))}
+                        </pre>
+                      </div>
+                    );
+                  })()}
                 </div>
               </details>
             );
