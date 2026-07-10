@@ -1,1234 +1,1648 @@
 {
-  "product_key": "multi",
-  "part": 2,
-  "of": 4,
-  "count_in_part": 136,
-  "count_total": 542,
-  "note": "s26-ultra/s26 PDP+Compare + Buds4/Buds4 Pro PDP. s26/s26+는 galaxy-s26 단일페이지. Buds는 compare 없음.",
-  "sites": [
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/smartphones/galaxy-s26-ultra/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/smartphones/galaxy-s26-ultra/compare/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/smartphones/galaxy-s26/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/smartphones/galaxy-s26/compare/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaaro/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaaro/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/smartphones/galaxy-s26-ultra/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/smartphones/galaxy-s26-ultra/compare/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/smartphones/galaxy-s26/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/smartphones/galaxy-s26/compare/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdalta/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwalta/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/smartphones/galaxy-s26-ultra/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/smartphones/galaxy-s26-ultra/compare/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/smartphones/galaxy-s26/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/smartphones/galaxy-s26/compare/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdalta/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwalta/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/smartphones/galaxy-s26-ultra/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/smartphones/galaxy-s26-ultra/compare/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/smartphones/galaxy-s26/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/smartphones/galaxy-s26/compare/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdacho/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwacho/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/smartphones/galaxy-s26-ultra/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/smartphones/galaxy-s26-ultra/compare/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/smartphones/galaxy-s26/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/smartphones/galaxy-s26/compare/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdalta/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwalta/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-online-exclusive-sm-r640nzdaeub/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-online-exclusive-sm-r640nzdaeub/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaitv/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaitv/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdadbt/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwadbt/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaxef/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaxef/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Portugal",
-      "lang": "pt-PT",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Portugal",
-      "lang": "pt-PT",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Portugal",
-      "lang": "pt-PT",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Portugal",
-      "lang": "pt-PT",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
-      "region": "EHQ",
-      "country": "Portugal",
-      "lang": "pt-PT",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
-      "region": "EHQ",
-      "country": "Portugal",
-      "lang": "pt-PT",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
-      "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
-      "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeuc/",
-      "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeuc/",
-      "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
-      "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
-      "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
-      "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
-      "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
-      "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-buds4-pro",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
-      "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-buds4",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "bg",
-      "url": "https://www.samsung.com/bg/smartphones/galaxy-s26-ultra/",
-      "region": "EHQ",
-      "country": "Bulgaria",
-      "lang": "bg-BG",
-      "product": "galaxy-s26-ultra",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "bg",
-      "url": "https://www.samsung.com/bg/smartphones/galaxy-s26-ultra/compare/",
-      "region": "EHQ",
-      "country": "Bulgaria",
-      "lang": "bg-BG",
-      "product": "galaxy-s26-ultra",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "bg",
-      "url": "https://www.samsung.com/bg/smartphones/galaxy-s26/",
-      "region": "EHQ",
-      "country": "Bulgaria",
-      "lang": "bg-BG",
-      "product": "galaxy-s26",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "bg",
-      "url": "https://www.samsung.com/bg/smartphones/galaxy-s26/compare/",
-      "region": "EHQ",
-      "country": "Bulgaria",
-      "lang": "bg-BG",
-      "product": "galaxy-s26",
-      "page_type": "Compare"
-    }
-  ]
+ "product_key": "multi",
+ "note": "s26-ultra/s26 PDP+Compare + Buds4/Buds4 Pro PDP. s26/s26+는 galaxy-s26 단일페이지. Buds는 compare 없음.",
+ "part": 2,
+ "of": 5,
+ "count_in_part": 182,
+ "count_total": 906,
+ "sites": [
+  {
+   "sitecode": "sec",
+   "url": "https://www.samsung.com/sec/smartphones/galaxy-z-flip7/",
+   "region": "SEC KOREA",
+   "country": "Korea",
+   "lang": "ko-KR",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sec",
+   "url": "https://www.samsung.com/sec/smartphones/galaxy-z-flip7/compare/",
+   "region": "SEC KOREA",
+   "country": "Korea",
+   "lang": "ko-KR",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "jp",
+   "url": "https://www.samsung.com/jp/smartphones/galaxy-z-flip7/",
+   "region": "JAPAN",
+   "country": "Japan",
+   "lang": "ja-JP",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "jp",
+   "url": "https://www.samsung.com/jp/smartphones/galaxy-z-flip7/compare/",
+   "region": "JAPAN",
+   "country": "Japan",
+   "lang": "ja-JP",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "cn",
+   "url": "https://www.samsung.com.cn/smartphones/galaxy-z-flip7/",
+   "region": "G.CN",
+   "country": "China",
+   "lang": "zh-CN",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cn",
+   "url": "https://www.samsung.com.cn/smartphones/galaxy-z-flip7/compare/",
+   "region": "G.CN",
+   "country": "China",
+   "lang": "zh-CN",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "hk",
+   "url": "https://www.samsung.com/hk/smartphones/galaxy-z-flip7/",
+   "region": "G.CN",
+   "country": "China",
+   "lang": "zh-HK",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "hk",
+   "url": "https://www.samsung.com/hk/smartphones/galaxy-z-flip7/compare/",
+   "region": "G.CN",
+   "country": "China",
+   "lang": "zh-HK",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "hk_en",
+   "url": "https://www.samsung.com/hk_en/smartphones/galaxy-z-flip7/",
+   "region": "G.CN",
+   "country": "China",
+   "lang": "en-HK",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "hk_en",
+   "url": "https://www.samsung.com/hk_en/smartphones/galaxy-z-flip7/compare/",
+   "region": "G.CN",
+   "country": "China",
+   "lang": "en-HK",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "tw",
+   "url": "https://www.samsung.com/tw/smartphones/galaxy-z-flip7/",
+   "region": "G.CN",
+   "country": "Taiwan",
+   "lang": "zh-TW",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "tw",
+   "url": "https://www.samsung.com/tw/smartphones/galaxy-z-flip7/compare/",
+   "region": "G.CN",
+   "country": "Taiwan",
+   "lang": "zh-TW",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "sg",
+   "url": "https://www.samsung.com/sg/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "Singapore",
+   "lang": "en-SG",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sg",
+   "url": "https://www.samsung.com/sg/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "Singapore",
+   "lang": "en-SG",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "au",
+   "url": "https://www.samsung.com/au/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "Australia",
+   "lang": "en-AU",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "au",
+   "url": "https://www.samsung.com/au/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "Australia",
+   "lang": "en-AU",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "nz",
+   "url": "https://www.samsung.com/nz/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "New Zealand",
+   "lang": "en-NZ",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "nz",
+   "url": "https://www.samsung.com/nz/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "New Zealand",
+   "lang": "en-NZ",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "id",
+   "url": "https://www.samsung.com/id/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "Indonesia",
+   "lang": "id-ID",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "id",
+   "url": "https://www.samsung.com/id/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "Indonesia",
+   "lang": "id-ID",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "th",
+   "url": "https://www.samsung.com/th/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "Thailand",
+   "lang": "th-TH",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "th",
+   "url": "https://www.samsung.com/th/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "Thailand",
+   "lang": "th-TH",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "vn",
+   "url": "https://www.samsung.com/vn/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "Vietnam",
+   "lang": "vi-VN",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "vn",
+   "url": "https://www.samsung.com/vn/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "Vietnam",
+   "lang": "vi-VN",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "my",
+   "url": "https://www.samsung.com/my/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "Malaysia",
+   "lang": "en-MY",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "my",
+   "url": "https://www.samsung.com/my/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "Malaysia",
+   "lang": "en-MY",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ph",
+   "url": "https://www.samsung.com/ph/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "Philippines",
+   "lang": "en-PH",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ph",
+   "url": "https://www.samsung.com/ph/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "Philippines",
+   "lang": "en-PH",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "mm",
+   "url": "https://www.samsung.com/mm/smartphones/galaxy-z-flip7/",
+   "region": "APAC",
+   "country": "Myanmar",
+   "lang": "my-MM",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "mm",
+   "url": "https://www.samsung.com/mm/smartphones/galaxy-z-flip7/compare/",
+   "region": "APAC",
+   "country": "Myanmar",
+   "lang": "my-MM",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "us",
+   "url": "https://www.samsung.com/us/smartphones/galaxy-z-flip7/",
+   "region": "NALA",
+   "country": "USA",
+   "lang": "en-US",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "us",
+   "url": "https://www.samsung.com/us/smartphones/galaxy-z-flip7/compare/",
+   "region": "NALA",
+   "country": "USA",
+   "lang": "en-US",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ca_fr",
+   "url": "https://www.samsung.com/ca_fr/smartphones/galaxy-z-flip7/",
+   "region": "NALA",
+   "country": "Canada",
+   "lang": "fr-CA",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ca_fr",
+   "url": "https://www.samsung.com/ca_fr/smartphones/galaxy-z-flip7/compare/",
+   "region": "NALA",
+   "country": "Canada",
+   "lang": "fr-CA",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ca",
+   "url": "https://www.samsung.com/ca/smartphones/galaxy-z-flip7/",
+   "region": "NALA",
+   "country": "Canada",
+   "lang": "en-CA",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ca",
+   "url": "https://www.samsung.com/ca/smartphones/galaxy-z-flip7/compare/",
+   "region": "NALA",
+   "country": "Canada",
+   "lang": "en-CA",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "mx",
+   "url": "https://www.samsung.com/mx/smartphones/galaxy-z-flip7/",
+   "region": "NALA",
+   "country": "Mexico",
+   "lang": "es-MX",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "mx",
+   "url": "https://www.samsung.com/mx/smartphones/galaxy-z-flip7/compare/",
+   "region": "NALA",
+   "country": "Mexico",
+   "lang": "es-MX",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "br",
+   "url": "https://www.samsung.com/br/smartphones/galaxy-z-flip7/",
+   "region": "NALA",
+   "country": "Brazil",
+   "lang": "pt-BR",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "br",
+   "url": "https://www.samsung.com/br/smartphones/galaxy-z-flip7/compare/",
+   "region": "NALA",
+   "country": "Brazil",
+   "lang": "pt-BR",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "latin",
+   "url": "https://www.samsung.com/latin/smartphones/galaxy-z-flip7/",
+   "region": "NALA",
+   "country": "Panama",
+   "lang": "es-PA",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "latin",
+   "url": "https://www.samsung.com/latin/smartphones/galaxy-z-flip7/compare/",
+   "region": "NALA",
+   "country": "Panama",
+   "lang": "es-PA",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "latin_en",
+   "url": "https://www.samsung.com/latin_en/smartphones/galaxy-z-flip7/",
+   "region": "NALA",
+   "country": "Panama",
+   "lang": "en-TT",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "latin_en",
+   "url": "https://www.samsung.com/latin_en/smartphones/galaxy-z-flip7/compare/",
+   "region": "NALA",
+   "country": "Panama",
+   "lang": "en-TT",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "co",
+   "url": "https://www.samsung.com/co/smartphones/galaxy-z-flip7/",
+   "region": "NALA",
+   "country": "Colombia",
+   "lang": "es-CO",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "co",
+   "url": "https://www.samsung.com/co/smartphones/galaxy-z-flip7/compare/",
+   "region": "NALA",
+   "country": "Colombia",
+   "lang": "es-CO",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ar",
+   "url": "https://www.samsung.com/ar/smartphones/galaxy-s26-ultra/",
+   "region": "NALA",
+   "country": "Argentina",
+   "lang": "es-AR",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ar",
+   "url": "https://www.samsung.com/ar/smartphones/galaxy-s26-ultra/compare/",
+   "region": "NALA",
+   "country": "Argentina",
+   "lang": "es-AR",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ar",
+   "url": "https://www.samsung.com/ar/smartphones/galaxy-s26/",
+   "region": "NALA",
+   "country": "Argentina",
+   "lang": "es-AR",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ar",
+   "url": "https://www.samsung.com/ar/smartphones/galaxy-s26/compare/",
+   "region": "NALA",
+   "country": "Argentina",
+   "lang": "es-AR",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ar",
+   "url": "https://www.samsung.com/ar/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaaro/",
+   "region": "NALA",
+   "country": "Argentina",
+   "lang": "es-AR",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ar",
+   "url": "https://www.samsung.com/ar/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaaro/",
+   "region": "NALA",
+   "country": "Argentina",
+   "lang": "es-AR",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "py",
+   "url": "https://www.samsung.com/py/smartphones/galaxy-s26-ultra/",
+   "region": "NALA",
+   "country": "Paraguay",
+   "lang": "es-PY",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "py",
+   "url": "https://www.samsung.com/py/smartphones/galaxy-s26-ultra/compare/",
+   "region": "NALA",
+   "country": "Paraguay",
+   "lang": "es-PY",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "py",
+   "url": "https://www.samsung.com/py/smartphones/galaxy-s26/",
+   "region": "NALA",
+   "country": "Paraguay",
+   "lang": "es-PY",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "py",
+   "url": "https://www.samsung.com/py/smartphones/galaxy-s26/compare/",
+   "region": "NALA",
+   "country": "Paraguay",
+   "lang": "es-PY",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "py",
+   "url": "https://www.samsung.com/py/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdalta/",
+   "region": "NALA",
+   "country": "Paraguay",
+   "lang": "es-PY",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "py",
+   "url": "https://www.samsung.com/py/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwalta/",
+   "region": "NALA",
+   "country": "Paraguay",
+   "lang": "es-PY",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uy",
+   "url": "https://www.samsung.com/uy/smartphones/galaxy-s26-ultra/",
+   "region": "NALA",
+   "country": "Uruguay",
+   "lang": "es-UY",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uy",
+   "url": "https://www.samsung.com/uy/smartphones/galaxy-s26-ultra/compare/",
+   "region": "NALA",
+   "country": "Uruguay",
+   "lang": "es-UY",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uy",
+   "url": "https://www.samsung.com/uy/smartphones/galaxy-s26/",
+   "region": "NALA",
+   "country": "Uruguay",
+   "lang": "es-UY",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uy",
+   "url": "https://www.samsung.com/uy/smartphones/galaxy-s26/compare/",
+   "region": "NALA",
+   "country": "Uruguay",
+   "lang": "es-UY",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uy",
+   "url": "https://www.samsung.com/uy/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdalta/",
+   "region": "NALA",
+   "country": "Uruguay",
+   "lang": "es-UY",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uy",
+   "url": "https://www.samsung.com/uy/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwalta/",
+   "region": "NALA",
+   "country": "Uruguay",
+   "lang": "es-UY",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cl",
+   "url": "https://www.samsung.com/cl/smartphones/galaxy-s26-ultra/",
+   "region": "NALA",
+   "country": "Chile",
+   "lang": "es-CL",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cl",
+   "url": "https://www.samsung.com/cl/smartphones/galaxy-s26-ultra/compare/",
+   "region": "NALA",
+   "country": "Chile",
+   "lang": "es-CL",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "cl",
+   "url": "https://www.samsung.com/cl/smartphones/galaxy-s26/",
+   "region": "NALA",
+   "country": "Chile",
+   "lang": "es-CL",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cl",
+   "url": "https://www.samsung.com/cl/smartphones/galaxy-s26/compare/",
+   "region": "NALA",
+   "country": "Chile",
+   "lang": "es-CL",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "cl",
+   "url": "https://www.samsung.com/cl/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdacho/",
+   "region": "NALA",
+   "country": "Chile",
+   "lang": "es-CL",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cl",
+   "url": "https://www.samsung.com/cl/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwacho/",
+   "region": "NALA",
+   "country": "Chile",
+   "lang": "es-CL",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pe",
+   "url": "https://www.samsung.com/pe/smartphones/galaxy-s26-ultra/",
+   "region": "NALA",
+   "country": "Peru",
+   "lang": "es-PE",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pe",
+   "url": "https://www.samsung.com/pe/smartphones/galaxy-s26-ultra/compare/",
+   "region": "NALA",
+   "country": "Peru",
+   "lang": "es-PE",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pe",
+   "url": "https://www.samsung.com/pe/smartphones/galaxy-s26/",
+   "region": "NALA",
+   "country": "Peru",
+   "lang": "es-PE",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pe",
+   "url": "https://www.samsung.com/pe/smartphones/galaxy-s26/compare/",
+   "region": "NALA",
+   "country": "Peru",
+   "lang": "es-PE",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pe",
+   "url": "https://www.samsung.com/pe/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdalta/",
+   "region": "NALA",
+   "country": "Peru",
+   "lang": "es-PE",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pe",
+   "url": "https://www.samsung.com/pe/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwalta/",
+   "region": "NALA",
+   "country": "Peru",
+   "lang": "es-PE",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uk",
+   "url": "https://www.samsung.com/uk/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "U.K",
+   "lang": "en-GB",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uk",
+   "url": "https://www.samsung.com/uk/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "U.K",
+   "lang": "en-GB",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uk",
+   "url": "https://www.samsung.com/uk/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "U.K",
+   "lang": "en-GB",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uk",
+   "url": "https://www.samsung.com/uk/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "U.K",
+   "lang": "en-GB",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uk",
+   "url": "https://www.samsung.com/uk/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-online-exclusive-sm-r640nzdaeub/",
+   "region": "EHQ",
+   "country": "U.K",
+   "lang": "en-GB",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uk",
+   "url": "https://www.samsung.com/uk/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
+   "region": "EHQ",
+   "country": "U.K",
+   "lang": "en-GB",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ie",
+   "url": "https://www.samsung.com/ie/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Ireland",
+   "lang": "en-IE",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ie",
+   "url": "https://www.samsung.com/ie/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Ireland",
+   "lang": "en-IE",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ie",
+   "url": "https://www.samsung.com/ie/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Ireland",
+   "lang": "en-IE",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ie",
+   "url": "https://www.samsung.com/ie/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Ireland",
+   "lang": "en-IE",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ie",
+   "url": "https://www.samsung.com/ie/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-online-exclusive-sm-r640nzdaeub/",
+   "region": "EHQ",
+   "country": "Ireland",
+   "lang": "en-IE",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ie",
+   "url": "https://www.samsung.com/ie/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
+   "region": "EHQ",
+   "country": "Ireland",
+   "lang": "en-IE",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "it",
+   "url": "https://www.samsung.com/it/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Italy",
+   "lang": "it-IT",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "it",
+   "url": "https://www.samsung.com/it/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Italy",
+   "lang": "it-IT",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "it",
+   "url": "https://www.samsung.com/it/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Italy",
+   "lang": "it-IT",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "it",
+   "url": "https://www.samsung.com/it/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Italy",
+   "lang": "it-IT",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "it",
+   "url": "https://www.samsung.com/it/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaitv/",
+   "region": "EHQ",
+   "country": "Italy",
+   "lang": "it-IT",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "it",
+   "url": "https://www.samsung.com/it/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaitv/",
+   "region": "EHQ",
+   "country": "Italy",
+   "lang": "it-IT",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "es",
+   "url": "https://www.samsung.com/es/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Spain",
+   "lang": "es-ES",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "es",
+   "url": "https://www.samsung.com/es/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Spain",
+   "lang": "es-ES",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "es",
+   "url": "https://www.samsung.com/es/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Spain",
+   "lang": "es-ES",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "es",
+   "url": "https://www.samsung.com/es/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Spain",
+   "lang": "es-ES",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "es",
+   "url": "https://www.samsung.com/es/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
+   "region": "EHQ",
+   "country": "Spain",
+   "lang": "es-ES",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "es",
+   "url": "https://www.samsung.com/es/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
+   "region": "EHQ",
+   "country": "Spain",
+   "lang": "es-ES",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "hu",
+   "url": "https://www.samsung.com/hu/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Hungary",
+   "lang": "hu-HU",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "hu",
+   "url": "https://www.samsung.com/hu/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Hungary",
+   "lang": "hu-HU",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "hu",
+   "url": "https://www.samsung.com/hu/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Hungary",
+   "lang": "hu-HU",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "hu",
+   "url": "https://www.samsung.com/hu/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Hungary",
+   "lang": "hu-HU",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "hu",
+   "url": "https://www.samsung.com/hu/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
+   "region": "EHQ",
+   "country": "Hungary",
+   "lang": "hu-HU",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "hu",
+   "url": "https://www.samsung.com/hu/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
+   "region": "EHQ",
+   "country": "Hungary",
+   "lang": "hu-HU",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "de",
+   "url": "https://www.samsung.com/de/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Germany",
+   "lang": "de-DE",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "de",
+   "url": "https://www.samsung.com/de/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Germany",
+   "lang": "de-DE",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "de",
+   "url": "https://www.samsung.com/de/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Germany",
+   "lang": "de-DE",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "de",
+   "url": "https://www.samsung.com/de/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Germany",
+   "lang": "de-DE",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "de",
+   "url": "https://www.samsung.com/de/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdadbt/",
+   "region": "EHQ",
+   "country": "Germany",
+   "lang": "de-DE",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "de",
+   "url": "https://www.samsung.com/de/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwadbt/",
+   "region": "EHQ",
+   "country": "Germany",
+   "lang": "de-DE",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "se",
+   "url": "https://www.samsung.com/se/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Sweden",
+   "lang": "sv-SE",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "se",
+   "url": "https://www.samsung.com/se/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Sweden",
+   "lang": "sv-SE",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "se",
+   "url": "https://www.samsung.com/se/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Sweden",
+   "lang": "sv-SE",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "se",
+   "url": "https://www.samsung.com/se/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Sweden",
+   "lang": "sv-SE",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "se",
+   "url": "https://www.samsung.com/se/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
+   "region": "EHQ",
+   "country": "Sweden",
+   "lang": "sv-SE",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "se",
+   "url": "https://www.samsung.com/se/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
+   "region": "EHQ",
+   "country": "Sweden",
+   "lang": "sv-SE",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "dk",
+   "url": "https://www.samsung.com/dk/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Denmark",
+   "lang": "da-DK",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "dk",
+   "url": "https://www.samsung.com/dk/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Denmark",
+   "lang": "da-DK",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "dk",
+   "url": "https://www.samsung.com/dk/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Denmark",
+   "lang": "da-DK",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "dk",
+   "url": "https://www.samsung.com/dk/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Denmark",
+   "lang": "da-DK",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "dk",
+   "url": "https://www.samsung.com/dk/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
+   "region": "EHQ",
+   "country": "Denmark",
+   "lang": "da-DK",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "dk",
+   "url": "https://www.samsung.com/dk/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
+   "region": "EHQ",
+   "country": "Denmark",
+   "lang": "da-DK",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "fi",
+   "url": "https://www.samsung.com/fi/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Finland",
+   "lang": "fi-FI",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "fi",
+   "url": "https://www.samsung.com/fi/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Finland",
+   "lang": "fi-FI",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "fi",
+   "url": "https://www.samsung.com/fi/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Finland",
+   "lang": "fi-FI",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "fi",
+   "url": "https://www.samsung.com/fi/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Finland",
+   "lang": "fi-FI",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "fi",
+   "url": "https://www.samsung.com/fi/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
+   "region": "EHQ",
+   "country": "Finland",
+   "lang": "fi-FI",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "fi",
+   "url": "https://www.samsung.com/fi/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
+   "region": "EHQ",
+   "country": "Finland",
+   "lang": "fi-FI",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "no",
+   "url": "https://www.samsung.com/no/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Norway",
+   "lang": "no-NO",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "no",
+   "url": "https://www.samsung.com/no/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Norway",
+   "lang": "no-NO",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "no",
+   "url": "https://www.samsung.com/no/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Norway",
+   "lang": "no-NO",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "no",
+   "url": "https://www.samsung.com/no/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Norway",
+   "lang": "no-NO",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "no",
+   "url": "https://www.samsung.com/no/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
+   "region": "EHQ",
+   "country": "Norway",
+   "lang": "no-NO",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "no",
+   "url": "https://www.samsung.com/no/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
+   "region": "EHQ",
+   "country": "Norway",
+   "lang": "no-NO",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "fr",
+   "url": "https://www.samsung.com/fr/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "France",
+   "lang": "fr-FR",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "fr",
+   "url": "https://www.samsung.com/fr/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "France",
+   "lang": "fr-FR",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "fr",
+   "url": "https://www.samsung.com/fr/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "France",
+   "lang": "fr-FR",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "fr",
+   "url": "https://www.samsung.com/fr/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "France",
+   "lang": "fr-FR",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "fr",
+   "url": "https://www.samsung.com/fr/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaxef/",
+   "region": "EHQ",
+   "country": "France",
+   "lang": "fr-FR",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "fr",
+   "url": "https://www.samsung.com/fr/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaxef/",
+   "region": "EHQ",
+   "country": "France",
+   "lang": "fr-FR",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pt",
+   "url": "https://www.samsung.com/pt/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Portugal",
+   "lang": "pt-PT",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pt",
+   "url": "https://www.samsung.com/pt/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Portugal",
+   "lang": "pt-PT",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pt",
+   "url": "https://www.samsung.com/pt/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Portugal",
+   "lang": "pt-PT",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pt",
+   "url": "https://www.samsung.com/pt/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Portugal",
+   "lang": "pt-PT",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pt",
+   "url": "https://www.samsung.com/pt/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeub/",
+   "region": "EHQ",
+   "country": "Portugal",
+   "lang": "pt-PT",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pt",
+   "url": "https://www.samsung.com/pt/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeub/",
+   "region": "EHQ",
+   "country": "Portugal",
+   "lang": "pt-PT",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pl",
+   "url": "https://www.samsung.com/pl/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Poland",
+   "lang": "pl-PL",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pl",
+   "url": "https://www.samsung.com/pl/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Poland",
+   "lang": "pl-PL",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pl",
+   "url": "https://www.samsung.com/pl/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Poland",
+   "lang": "pl-PL",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pl",
+   "url": "https://www.samsung.com/pl/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Poland",
+   "lang": "pl-PL",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pl",
+   "url": "https://www.samsung.com/pl/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
+   "region": "EHQ",
+   "country": "Poland",
+   "lang": "pl-PL",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pl",
+   "url": "https://www.samsung.com/pl/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
+   "region": "EHQ",
+   "country": "Poland",
+   "lang": "pl-PL",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "gr",
+   "url": "https://www.samsung.com/gr/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Greece",
+   "lang": "el-GR",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "gr",
+   "url": "https://www.samsung.com/gr/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Greece",
+   "lang": "el-GR",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "gr",
+   "url": "https://www.samsung.com/gr/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Greece",
+   "lang": "el-GR",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "gr",
+   "url": "https://www.samsung.com/gr/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Greece",
+   "lang": "el-GR",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "gr",
+   "url": "https://www.samsung.com/gr/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeuc/",
+   "region": "EHQ",
+   "country": "Greece",
+   "lang": "el-GR",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "gr",
+   "url": "https://www.samsung.com/gr/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeuc/",
+   "region": "EHQ",
+   "country": "Greece",
+   "lang": "el-GR",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cz",
+   "url": "https://www.samsung.com/cz/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Czech",
+   "lang": "cs-CZ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cz",
+   "url": "https://www.samsung.com/cz/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Czech",
+   "lang": "cs-CZ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "cz",
+   "url": "https://www.samsung.com/cz/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Czech",
+   "lang": "cs-CZ",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cz",
+   "url": "https://www.samsung.com/cz/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Czech",
+   "lang": "cs-CZ",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "cz",
+   "url": "https://www.samsung.com/cz/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
+   "region": "EHQ",
+   "country": "Czech",
+   "lang": "cs-CZ",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "cz",
+   "url": "https://www.samsung.com/cz/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
+   "region": "EHQ",
+   "country": "Czech",
+   "lang": "cs-CZ",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sk",
+   "url": "https://www.samsung.com/sk/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Slovakia",
+   "lang": "sk-SK",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sk",
+   "url": "https://www.samsung.com/sk/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Slovakia",
+   "lang": "sk-SK",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "sk",
+   "url": "https://www.samsung.com/sk/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Slovakia",
+   "lang": "sk-SK",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sk",
+   "url": "https://www.samsung.com/sk/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Slovakia",
+   "lang": "sk-SK",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "sk",
+   "url": "https://www.samsung.com/sk/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
+   "region": "EHQ",
+   "country": "Slovakia",
+   "lang": "sk-SK",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sk",
+   "url": "https://www.samsung.com/sk/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
+   "region": "EHQ",
+   "country": "Slovakia",
+   "lang": "sk-SK",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ro",
+   "url": "https://www.samsung.com/ro/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Romania",
+   "lang": "ro-RO",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ro",
+   "url": "https://www.samsung.com/ro/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Romania",
+   "lang": "ro-RO",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ro",
+   "url": "https://www.samsung.com/ro/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Romania",
+   "lang": "ro-RO",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ro",
+   "url": "https://www.samsung.com/ro/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Romania",
+   "lang": "ro-RO",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ro",
+   "url": "https://www.samsung.com/ro/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaeue/",
+   "region": "EHQ",
+   "country": "Romania",
+   "lang": "ro-RO",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ro",
+   "url": "https://www.samsung.com/ro/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaeue/",
+   "region": "EHQ",
+   "country": "Romania",
+   "lang": "ro-RO",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "bg",
+   "url": "https://www.samsung.com/bg/smartphones/galaxy-s26-ultra/",
+   "region": "EHQ",
+   "country": "Bulgaria",
+   "lang": "bg-BG",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "bg",
+   "url": "https://www.samsung.com/bg/smartphones/galaxy-s26-ultra/compare/",
+   "region": "EHQ",
+   "country": "Bulgaria",
+   "lang": "bg-BG",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "bg",
+   "url": "https://www.samsung.com/bg/smartphones/galaxy-s26/",
+   "region": "EHQ",
+   "country": "Bulgaria",
+   "lang": "bg-BG",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "bg",
+   "url": "https://www.samsung.com/bg/smartphones/galaxy-s26/compare/",
+   "region": "EHQ",
+   "country": "Bulgaria",
+   "lang": "bg-BG",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  }
+ ]
 }

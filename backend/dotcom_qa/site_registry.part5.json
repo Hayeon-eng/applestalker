@@ -1,0 +1,1612 @@
+{
+ "product_key": "multi",
+ "note": "s26-ultra/s26 PDP+Compare + Buds4/Buds4 Pro PDP. s26/s26+는 galaxy-s26 단일페이지. Buds는 compare 없음.",
+ "part": 5,
+ "of": 5,
+ "count_in_part": 178,
+ "count_total": 906,
+ "sites": [
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdamea/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/audio-sound/galaxy-buds/galaxy-buds4-pro-white-sm-r640nzwamea/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/audio-sound/galaxy-buds/galaxy-buds4-pro-white-sm-r640nzwamea/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdamwd/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamwd/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/audio-sound/galaxy-buds/galaxy-buds4-pro-white-sm-r640nzwamea/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/audio-sound/galaxy-buds/galaxy-buds4-pro-white-sm-r640nzwamea/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/audio-sound/galaxy-buds/galaxy-buds4-pro-white-sm-r640nzwamea/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdaxfa/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwaxfa/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-s26-ultra/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-s26-ultra/compare/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-s26/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-s26/compare/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/audio-sound/galaxy-buds/galaxy-buds4-pro-black-sm-r640nzkacis/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/audio-sound/galaxy-buds/galaxy-buds4-black-sm-r540nzkacis/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-s26-ultra/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-s26-ultra/compare/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-s26/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-s26/compare/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/audio-sound/galaxy-buds/galaxy-buds4-pro-black-sm-r640nzkacis/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/audio-sound/galaxy-buds/galaxy-buds4-black-sm-r540nzkacis/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/audio-sound/galaxy-buds/galaxy-buds4-pro-white-sm-r640nzwailo/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwailo/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdamea/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/audio-sound/galaxy-buds/galaxy-buds4-pro-pink-gold-sm-r640nzdamea/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/smartphones/galaxy-s26-ultra/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/smartphones/galaxy-s26-ultra/compare/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/smartphones/galaxy-s26/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/smartphones/galaxy-s26/compare/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/audio-sound/galaxy-buds/galaxy-buds4-pro-white-sm-r640nzwamea/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwamea/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/smartphones/galaxy-s26-ultra/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-s26-ultra",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/smartphones/galaxy-s26-ultra/compare/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-s26-ultra",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/smartphones/galaxy-s26/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-s26",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/smartphones/galaxy-s26/compare/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-s26",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/audio-sound/galaxy-buds/galaxy-buds4-pro-white-sm-r640nzwacis/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-buds4-pro",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/audio-sound/galaxy-buds/galaxy-buds4-white-sm-r540nzwacis/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-buds4",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ae_ar",
+   "url": "https://www.samsung.com/ae_ar/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "UAE",
+   "lang": "ar-AE",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ae_ar",
+   "url": "https://www.samsung.com/ae_ar/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "UAE",
+   "lang": "ar-AE",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "il",
+   "url": "https://www.samsung.com/il/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Israel",
+   "lang": "he-IL",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "il",
+   "url": "https://www.samsung.com/il/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Israel",
+   "lang": "he-IL",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "sa",
+   "url": "https://www.samsung.com/sa/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Saudi Arabia",
+   "lang": "ar-SA",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sa",
+   "url": "https://www.samsung.com/sa/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Saudi Arabia",
+   "lang": "ar-SA",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "sa_en",
+   "url": "https://www.samsung.com/sa_en/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Saudi Arabia",
+   "lang": "en-SA",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sa_en",
+   "url": "https://www.samsung.com/sa_en/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Saudi Arabia",
+   "lang": "en-SA",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "tr",
+   "url": "https://www.samsung.com/tr/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Turkiye",
+   "lang": "tr-TR",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "tr",
+   "url": "https://www.samsung.com/tr/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Turkiye",
+   "lang": "tr-TR",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iran",
+   "url": "https://www.samsung.com/iran/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Iran",
+   "lang": "fa-IR",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iran",
+   "url": "https://www.samsung.com/iran/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Iran",
+   "lang": "fa-IR",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "levant",
+   "url": "https://www.samsung.com/levant/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "en-JO",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "levant",
+   "url": "https://www.samsung.com/levant/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "en-JO",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-z-fold7/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-z-fold7/compare/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-z-fold7/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-z-fold7/compare/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/smartphones/galaxy-z-fold7/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/smartphones/galaxy-z-fold7/compare/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/smartphones/galaxy-z-fold7/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-z-fold7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/smartphones/galaxy-z-fold7/compare/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-z-fold7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ae_ar",
+   "url": "https://www.samsung.com/ae_ar/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "UAE",
+   "lang": "ar-AE",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ae_ar",
+   "url": "https://www.samsung.com/ae_ar/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "UAE",
+   "lang": "ar-AE",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "il",
+   "url": "https://www.samsung.com/il/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Israel",
+   "lang": "he-IL",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "il",
+   "url": "https://www.samsung.com/il/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Israel",
+   "lang": "he-IL",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "sa",
+   "url": "https://www.samsung.com/sa/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Saudi Arabia",
+   "lang": "ar-SA",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sa",
+   "url": "https://www.samsung.com/sa/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Saudi Arabia",
+   "lang": "ar-SA",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "sa_en",
+   "url": "https://www.samsung.com/sa_en/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Saudi Arabia",
+   "lang": "en-SA",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "sa_en",
+   "url": "https://www.samsung.com/sa_en/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Saudi Arabia",
+   "lang": "en-SA",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "tr",
+   "url": "https://www.samsung.com/tr/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Turkiye",
+   "lang": "tr-TR",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "tr",
+   "url": "https://www.samsung.com/tr/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Turkiye",
+   "lang": "tr-TR",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iran",
+   "url": "https://www.samsung.com/iran/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Iran",
+   "lang": "fa-IR",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iran",
+   "url": "https://www.samsung.com/iran/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Iran",
+   "lang": "fa-IR",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "levant",
+   "url": "https://www.samsung.com/levant/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "en-JO",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "levant",
+   "url": "https://www.samsung.com/levant/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "en-JO",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "levant_ar",
+   "url": "https://www.samsung.com/levant_ar/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Levant",
+   "lang": "ar-JO",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "pk",
+   "url": "https://www.samsung.com/pk/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Pakistan",
+   "lang": "en-PK",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "eg",
+   "url": "https://www.samsung.com/eg/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Egypt",
+   "lang": "ar-EG",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "n_africa",
+   "url": "https://www.samsung.com/n_africa/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Moroco",
+   "lang": "fr-MA",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_en",
+   "url": "https://www.samsung.com/africa_en/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "en-BW",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_fr",
+   "url": "https://www.samsung.com/africa_fr/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "fr-BF",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "africa_pt",
+   "url": "https://www.samsung.com/africa_pt/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Africa Pan",
+   "lang": "pt-AO",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "za",
+   "url": "https://www.samsung.com/za/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "South Africa",
+   "lang": "en-ZA",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-z-flip7/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_uz",
+   "url": "https://www.samsung.com/uz_uz/smartphones/galaxy-z-flip7/compare/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "uz-UZ",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-z-flip7/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "uz_ru",
+   "url": "https://www.samsung.com/uz_ru/smartphones/galaxy-z-flip7/compare/",
+   "region": "CIS",
+   "country": "Uzbekistan",
+   "lang": "ru-UZ",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "ps",
+   "url": "https://www.samsung.com/ps/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Palestine",
+   "lang": "",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ar",
+   "url": "https://www.samsung.com/iq_ar/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ar-IQ",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "iq_ku",
+   "url": "https://www.samsung.com/iq_ku/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Iraq",
+   "lang": "ku-IQ",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/smartphones/galaxy-z-flip7/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "lb",
+   "url": "https://www.samsung.com/lb/smartphones/galaxy-z-flip7/compare/",
+   "region": "MENA",
+   "country": "Lebanon",
+   "lang": "en-LB",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/smartphones/galaxy-z-flip7/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-z-flip7",
+   "page_type": "PDP"
+  },
+  {
+   "sitecode": "mn",
+   "url": "https://www.samsung.com/mn/smartphones/galaxy-z-flip7/compare/",
+   "region": "CIS",
+   "country": "Mongolia",
+   "lang": "mn-MN",
+   "product": "galaxy-z-flip7",
+   "page_type": "Compare"
+  }
+ ]
+}
