@@ -104,9 +104,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   useEffect(() => { loadRules(); setSpecProduct(product); }, [product, pageType]);
   useEffect(() => { if (!pageTypesFor(product).includes(pageType)) setPageType("PDP"); }, [product]);
   useEffect(() => { loadSpecs(specProduct); }, [specProduct]);
-  useEffect(() => { // [V2] 구 스펙표는 V2 제품을 편집하지 않음 — 선택돼 있으면 기본 제품으로 리셋
-    if (v2Products.includes(specProduct)) setSpecProduct("galaxy-s26-ultra");
-  }, [v2Products, specProduct]);
 
   async function loadSites() { try { const d = await (await fetch(api("/api/qb/sites"))).json(); setRegionsMap(d.regions || {}); setPageCount(d.page_count || 0); } catch { /* */ } }
   async function loadCatalog() { try { setCatalog((await (await fetch(api("/api/qb/spec-catalog"))).json()).catalog || []); } catch { /* */ } }
