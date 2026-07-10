@@ -82,3 +82,20 @@ def qb_spec_rules_dict_add(payload: Dict[str, Any] = Body(...)):
         return {"ok": True, **_spec_rule_db.add_alias(product, rep, alias)}
     except ValueError as e:
         raise HTTPException(404, str(e))
+
+
+@qb_router.post("/spec-rules/dictionary/suggest")
+def qb_spec_rules_dict_suggest(payload: Dict[str, Any] = Body(...)):
+    """미등록 표현(alias)이 어느 canonical 항목인지 AI가 '제안'한다(판정 아님, 참고용).
+    실제 반영은 사람이 dictionary/add 로 승인해야만 이뤄진다.
+    GEMINI_API_KEY 미설정이면 available=False 로 폴백(프론트는 '준비 중' 표시).
+    body: {product, alias, lang?}"""
+    import dict_ai_suggest
+    product = (payload.get("product") or "").strip()
+    alias = (payload.get("alias") or "").strip()
+    lang = (payload.get("lang") or "").strip()
+    if not (product and alias):
+        raise HTTPException(400, "product/alias가 필요합니다.")
+    rs = _spec_rule_db.load(product) or {}
+    attributes = sorted({r.get("attribute", "") for r in rs.get("rules", []) if r.get("attribute")})
+    return dict_ai_suggest.suggest(alias, attributes, lang_hint=lang)
