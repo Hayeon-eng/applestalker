@@ -152,7 +152,7 @@ def check_copy(html: str, product_rules: Dict[str, Any],
     present_cnt = sum(1 for s in exp if _spec_present(s))
     if exp and (len(body) < 1500 or present_cnt == 0):
         ko = lang != "en"
-        findings.append({"kind": "collection", "token": "(수집 품질)", "status": "fail", "code": "copy.collection",
+        findings.append({"kind": "collection", "token": "(collection quality)", "status": "fail", "code": "copy.collection",
             "as_is": (f"페이지 텍스트가 비정상적으로 적음(본문 {len(body):,}자, 기대 스펙 {present_cnt}/{len(exp)} 검출)"
                       if ko else f"Page text abnormally small ({len(body):,} chars, {present_cnt}/{len(exp)} expected specs found)"),
             "to_be": ("수집 실패/차단 또는 JS 미렌더링 가능성 — 재수집(JS 렌더링) 후 재검수." if ko

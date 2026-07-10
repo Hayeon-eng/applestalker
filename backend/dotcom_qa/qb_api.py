@@ -318,10 +318,19 @@ _RUN_CONCURRENCY = int(os.getenv("QB_RUN_CONCURRENCY", "6"))
 async def _run_batch(product: str, sitecodes: Optional[List[str]], run_id: str):
     from crawler import HybridCrawler
 
+async def _run_batch(product, sitecodes, run_id, page_types=None, products=None):
     targets = _registry.all()
     if sitecodes:
         want = {s.lower() for s in sitecodes}
         targets = [t for t in targets if t["sitecode"] in want]
+    # 페이지타입 필터(PDP/Compare 등 — 선택된 것만)
+    if page_types:
+        pset = {p for p in page_types}
+        targets = [t for t in targets if (t.get("page_type") or runner.page_type_from_url(t.get("url", ""))) in pset]
+    # 제품 필터(galaxy-s26-ultra 등 — 선택된 것만). URL 슬러그로 판별
+    if products:
+        prset = {p for p in products}
+        targets = [t for t in targets if runner.product_from_url(t.get("url", "")) in prset]
 
     _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets),
                       events=[{"type": "start", "total": len(targets)}], result_run_id=None, summary=None)
@@ -358,11 +367,11 @@ async def _run_batch(product: str, sitecodes: Optional[List[str]], run_id: str):
                 row = {"sitecode": site["sitecode"], "url": url, "region": site.get("region"),
                        "country": site.get("country"), "page_type": pt,
                        "schema": {"summary": {}, "findings": [
-                           {"block": "(수집 실패)", "status": "fail",
-                            "as_is": f"HTML 수집 실패{(' — ' + err) if err else ''}",
-                            "to_be": "차단/JS 미렌더링/타임아웃 여부 확인 후 재시도"}]},
+                           {"block": "(collection failed)", "status": "fail",
+                            "as_is": f"HTML collection failed{(' — ' + err) if err else ''}",
+                            "to_be": "Check blocking / unrendered JS / timeout, then retry"}]},
                        "copy": {"summary": {}, "findings": []},
-                       "html_qa": None}  # 수집 실패 시 HTML QA 채점 자체가 불가능 — None으로 명시(거짓으로 값 채우지 않음)
+                       "html_qa": None}  # 수집 실패 시 HTML QA 채점 불가 — None
                 ok = False
             results[i] = row
             _RUN_STATE["done"] += 1
@@ -390,9 +399,22 @@ async def qb_run(payload: Dict[str, Any] = Body(default={})):
         raise HTTPException(409, "이미 검수가 진행 중입니다. 완료 후 다시 시도하세요.")
     product = payload.get("product", "M3")
     sitecodes = payload.get("sitecodes")
+    page_types = payload.get("page_types")   # ["PDP","Compare"] 등 (없으면 전체)
+    products = payload.get("products")        # ["galaxy-s26-ultra", ...] (없으면 전체)
     run_id = f"qb_{datetime.now():%Y%m%d_%H%M%S}"
-    total = len(sitecodes) if sitecodes else len(_registry.all())
-    asyncio.create_task(_run_batch(product, sitecodes, run_id))
+    # total은 실제 필터 적용 후 개수로
+    tgt = _registry.all()
+    if sitecodes:
+        want = {s.lower() for s in sitecodes}
+        tgt = [t for t in tgt if t["sitecode"] in want]
+    if page_types:
+        pset = set(page_types)
+        tgt = [t for t in tgt if (t.get("page_type") or runner.page_type_from_url(t.get("url", ""))) in pset]
+    if products:
+        prset = set(products)
+        tgt = [t for t in tgt if runner.product_from_url(t.get("url", "")) in prset]
+    total = len(tgt)
+    asyncio.create_task(_run_batch(product, sitecodes, run_id, page_types=page_types, products=products))
     return {"status": "started", "run_id": run_id, "total": total}
 
 

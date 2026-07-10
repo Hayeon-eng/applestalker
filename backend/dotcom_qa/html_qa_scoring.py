@@ -380,7 +380,13 @@ def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str,
     if f is None or f.get("code") == "schema.missing":
         return None
 
-    props_score = {prop: _prop_score(f, prop) for prop in weights}
+    props_score = {}
+    for prop in weights:
+        if block_name == "FAQPage" and prop == "screen_match":
+            # 마크업↔화면 일치는 렌더 없이 자동 검증 불가 → '수동 확인 필요'로 0.5 고정(자동 만점 금지)
+            props_score[prop] = 0.5
+        else:
+            props_score[prop] = _prop_score(f, prop)
     required = [p for p in REQUIRED_GATE_PROPS.get(block_name, []) if p in weights]
     hard_missing = set(f.get("missing_props", []))
     gate_triggered = any(p in hard_missing for p in required)

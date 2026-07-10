@@ -152,4 +152,10 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
             "to_be": "",
         }
 
+    if code == "copy.collection":
+        return {
+            "as_is": (f.get("as_is", "") if ko else "Page text abnormally short — likely collection failure or unrendered JS"),
+            "to_be": (f.get("to_be", "") if ko else "Recrawl with JS rendering, then re-run QA"),
+        }
+
     return {"as_is": f.get("as_is", ""), "to_be": f.get("to_be", "")}
