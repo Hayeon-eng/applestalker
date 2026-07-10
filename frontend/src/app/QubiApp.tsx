@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
-import { SpecTable, RuleAddPanel, CriteriaPanel, QuickView, HtmlQaSummary, SiteOverview } from "./QubiSections";
+import { SpecTable, CriteriaPanel, QuickView, HtmlQaSummary, SiteOverview } from "./QubiSections";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
@@ -319,7 +319,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <button className={`tabBtn ${tab === "copy" ? "on" : ""}`} onClick={() => setTab("copy")}>스펙 QA</button>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-              <button className="toolBtn" onClick={() => { setShowRuleAdd((v) => !v); setShowRules(false); }}>＋ 룰 추가</button>
               <button className="toolBtn" onClick={() => (showRules ? setShowRules(false) : openCriteria())}>
                 {showRules ? "ⓘ 검수 기준 숨기기" : "ⓘ 검수 기준 보기"}
               </button>
@@ -327,13 +326,29 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                 onMouseEnter={() => setShowScoreTip(true)} onMouseLeave={() => setShowScoreTip(false)}>
                 <button className="toolBtn" style={{ padding: "0 8px" }}>ⓘ 점수 계산</button>
                 {showScoreTip && (
-                  <div style={{ position: "absolute", top: "110%", right: 0, zIndex: 50, width: 340, background: "#0F172A", color: "#E2E8F0", borderRadius: 10, padding: "12px 14px", fontSize: 11.5, lineHeight: 1.7, boxShadow: "0 8px 24px rgba(0,0,0,.25)" }}>
-                    <b style={{ color: "#fff" }}>DATA QA 점수 계산</b>
-                    <div style={{ marginTop: 6 }}>· <b>데이터 유무</b> = 충족 속성 / 전체 속성 (개수 기반)</div>
-                    <div>· <b>퀄리티(AEO)</b> = 파싱게이트 × @id게이트 × 정보적합성%</div>
-                    <div>· <b>정보적합성</b> = Σ(속성 가중치 × 충족도) / Σ가중치</div>
-                    <div style={{ marginTop: 6, color: "#94A3B8" }}>필수 속성 누락 시 해당 타입 0% (자격 소멸). 페이지에 없는 스키마 타입은 채점 제외(해당없음). @id는 존재·형식만 채점.</div>
-                    <div style={{ marginTop: 4, color: "#94A3B8" }}>신호등: 🟢 80%+ · 🟡 50–79% · 🔴 &lt;50%</div>
+                  <div style={{ position: "absolute", top: "110%", right: 0, zIndex: 50, width: 420, maxHeight: "70vh", overflowY: "auto", background: "#0F172A", color: "#E2E8F0", borderRadius: 10, padding: "14px 16px", fontSize: 11.5, lineHeight: 1.65, boxShadow: "0 8px 24px rgba(0,0,0,.3)" }}>
+                    <b style={{ color: "#fff", fontSize: 12.5 }}>DATA QA 점수 계산 로직</b>
+
+                    <div style={{ marginTop: 8, color: "#93C5FD", fontWeight: 700 }}>① 데이터 유무 (Level 1)</div>
+                    <div>가이드가 요구하는 항목(H태그·Meta·스키마 타입·속성)이 페이지에 실제 존재하는지. <b>충족 수 / 전체 수</b>로 계산. 값의 품질이 아니라 '있고 없고'만 봄.</div>
+
+                    <div style={{ marginTop: 8, color: "#FCD34D", fontWeight: 700 }}>② AEO 퀄리티 (Level 2) — 타입별 계산 후 평균</div>
+                    <div style={{ marginTop: 2 }}>타입(Product/FAQ/…)마다:</div>
+                    <div style={{ marginLeft: 8 }}>최종% = <b>파싱게이트</b> × <b>@id게이트</b> × <b>정보적합성%</b></div>
+                    <div style={{ marginLeft: 8, marginTop: 4 }}>· <b>정보적합성%</b> = Σ(속성 가중치 × 충족도) / Σ가중치</div>
+                    <div style={{ marginLeft: 16, color: "#94A3B8" }}>충족도: 충족 1.0 · 부분/값불일치 0.5 · 누락 0</div>
+                    <div style={{ marginLeft: 16, color: "#94A3B8" }}>가중치 예) Product name 4·image 3·brand 2 … / FAQ는 구조·화면일치 50:50 재환산(AI판단 항목 제외)</div>
+                    <div style={{ marginLeft: 8, marginTop: 4 }}>· <b>파싱게이트</b>: 리치결과 필수속성 누락 or JSON 파싱 실패 → 0 (그 타입 0%). 값 불일치·권장 누락은 감점만(게이트 아님)</div>
+                    <div style={{ marginLeft: 8 }}>· <b>@id게이트</b>: 현재는 항상 1 (존재·형식만 참고, 전체 점수 안 깎음)</div>
+                    <div style={{ marginLeft: 8, marginTop: 4 }}>· <b>필수 게이트</b>: 필수 속성 누락 시 그 타입 정보적합성 0% (리치결과 자격 소멸)</div>
+
+                    <div style={{ marginTop: 8, color: "#86EFAC", fontWeight: 700 }}>③ 제외·완화 규칙</div>
+                    <div>· 페이지에 없는 스키마 타입 → '해당없음', 평균에서 제외(0점 아님)</div>
+                    <div>· 리치결과 폐지(FAQ)·비대상(WebPage/ItemList) → 파싱게이트 미적용</div>
+                    <div>· Simple PDP(웨어러블)만 offers·sku 채점 / Flagship엔 미적용</div>
+                    <div>· @id 연결성: 부여율·형식만, 가이드 필수 타입 노드 기준</div>
+
+                    <div style={{ marginTop: 8, color: "#94A3B8" }}>전체 = 타입별 최종%의 평균 · 신호등 🟢 80%+ / 🟡 50–79% / 🔴 &lt;50%</div>
                   </div>
                 )}
               </span>
@@ -442,7 +457,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
           {/* 스펙표 · 룰추가 · 검수기준 패널 (QubiSections.tsx로 분리) */}
           <SpecTable ctx={ctx} />
-          <RuleAddPanel ctx={ctx} />
           <CriteriaPanel ctx={ctx} />
           <HtmlQaSummary ctx={ctx} />
 
