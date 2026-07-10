@@ -338,10 +338,10 @@ def _prop_score(f: Dict[str, Any], prop_hint: str) -> float:
         return 0.5
     if _hit("name_issue"):
         return 0.0
-    if _hit("translate_confirm"):
-        return 0.5
     if _hit("optional_missing") or any(t in p for t in targets for p in f.get("optional_missing", [])):
         return 0.5
+    # translate_confirm은 '값이 존재하나 현지어 번역을 사람이 확인 권장'하는 안내일 뿐 —
+    # 값 자체는 있으므로 감점하지 않는다(과거 0.5로 깎아 present 속성이 '누락'으로 표시되던 버그 수정).
     return 1.0
 
 
