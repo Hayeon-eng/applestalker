@@ -345,21 +345,43 @@ def _prop_score(f: Dict[str, Any], prop_hint: str) -> float:
     return 1.0
 
 
-def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str) -> Optional[Dict[str, Any]]:
+def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str,
+                        rule_props: Optional[set] = None) -> Optional[Dict[str, Any]]:
     """block_name은 AXIS1_WEIGHTS의 키(예: 'Product'). 해당 블록 finding을 찾아 가중합(%) 계산.
+    rule_props가 주어지면, 그 페이지 룰에 실제로 존재하는 속성만 채점 대상으로 한다
+    (예: flagship PDP엔 offers/sku가 없으므로 Simple 전용 속성을 채점에서 제외 — 오인식 방지).
     필수 게이트: REQUIRED_GATE_PROPS 중 하나라도 0점이면 이 블록 정보적합성=0(자격 소멸)."""
-    weights = AXIS1_WEIGHTS.get(block_name)
-    if not weights:
+    all_weights = AXIS1_WEIGHTS.get(block_name)
+    if not all_weights:
         return None
+    # 채점표 키 → 실제 스키마 속성명(alias)로 되돌려, 룰에 있는 속성만 남긴다
+    ALIAS_TO_SCHEMA = {
+        "encoding_contentUrl": "encoding", "encoding_encodingFormat": "encoding",
+        "gltf": "encoding", "usdz": "encoding",
+        "contentUrlOrEmbedUrl": "contentUrl", "contentUrlAndEmbedUrl": "contentUrl",
+        "hasPartOrSeek": "hasPart", "type_combo": "@type",
+        "structure_valid": "mainEntity", "screen_match": "mainEntity",
+        "itemName_url": "itemListElement", "primaryImage": "primaryImageOfPage",
+    }
+    if rule_props is not None:
+        def _in_rule(k):
+            base = ALIAS_TO_SCHEMA.get(k, k)
+            # FAQPage 재환산 키(structure_valid/screen_match)와 항상 유지 대상은 통과
+            if k in ("structure_valid", "screen_match"):
+                return True
+            return base in rule_props or k in rule_props
+        weights = {k: w for k, w in all_weights.items() if _in_rule(k)}
+        if not weights:  # 룰과 교집합이 없으면 원본 가중치로 폴백(안전)
+            weights = all_weights
+    else:
+        weights = all_weights
+
     f = next((x for x in schema_result.get("findings", []) if x.get("block") == block_name), None)
     if f is None or f.get("code") == "schema.missing":
-        # 블록 자체가 페이지에 없음 → '해당없음'. per_type/overall 평균에서 제외해야 하므로 None 반환.
-        # (없는 스키마를 0점으로 넣으면 전체 점수가 부당하게 깎임)
         return None
 
     props_score = {prop: _prop_score(f, prop) for prop in weights}
-    required = REQUIRED_GATE_PROPS.get(block_name, [])
-    # 필수 게이트는 '필수 속성이 아예 없을 때(=missing_props에 있음)'만 발동. 값 불일치(0.5)로는 발동 안 함.
+    required = [p for p in REQUIRED_GATE_PROPS.get(block_name, []) if p in weights]
     hard_missing = set(f.get("missing_props", []))
     gate_triggered = any(p in hard_missing for p in required)
 
@@ -402,11 +424,16 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         rule_types += b.get("types", [])
     axis3 = axis3_id_linkage(html, required_types=rule_types or None)
 
+    # 블록명 → 그 룰의 실제 속성 집합(required ∪ optional) 매핑
+    rule_props_by_block = {}
+    for b in (schema_rules.get("blocks") or []):
+        rule_props_by_block[b.get("name")] = set(b.get("required_properties", [])) | set(b.get("optional_properties", []))
+
     per_type = {}
     for name in AXIS1_WEIGHTS:
         if name not in schema_types_in_rules:
             continue
-        a1 = axis1_info_adequacy(schema_result, name)
+        a1 = axis1_info_adequacy(schema_result, name, rule_props=rule_props_by_block.get(name))
         if a1 is None:
             continue  # 페이지에 없는 타입 → 해당없음, 평균에서 제외
         rich_status = RICH_RESULT_STATUS.get(name, "해당없음")
@@ -449,6 +476,9 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         overall_final = round(sum(vals) / len(vals), 1) if vals else None
 
     any_type_gate_zero = any(v.get("axis2_gate") == 0 for v in per_type.values())
+    # 상단 '데이터 유무 (충족/전체)' — 모든 타입의 속성을 합산(충족=score>=1)
+    prop_total = sum(v["required_total"] + v["recommended_total"] for v in per_type.values())
+    prop_ok = sum(v["required_ok"] + v["recommended_ok"] for v in per_type.values())
     return {
         "level1_apply_rate": level1,
         "level2": {
@@ -459,6 +489,8 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         "overall": {
             "final_pct": overall_final,
             "traffic_light": traffic_light(overall_final, any_type_gate_zero or axis3["gate"] == 0),
+            "prop_ok": prop_ok,
+            "prop_total": prop_total,
         },
     }
 
