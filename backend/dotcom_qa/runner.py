@@ -50,11 +50,11 @@ def product_from_url(url: str) -> Optional[str]:
 
 
 def is_smartphone(market_product: Optional[str], url: str = "") -> bool:
-    """스마트폰(=Flagship PD 세트) 여부. galaxy-s26* 계열이면 True.
+    """스마트폰(=Flagship PD 세트) 여부. galaxy-s26*/galaxy-z*(폴더블) 계열이면 True.
     판별 불가한 신규/공통 페이지는 안전하게 False(→ Simple 세트)로 폴백."""
     mp = (market_product or "").lower()
     u = (url or "").lower()
-    if mp.startswith("galaxy-s") and "buds" not in mp:
+    if mp.startswith(("galaxy-s", "galaxy-z")) and "buds" not in mp:
         return True
     if "/smartphones/" in u and "buds" not in u:
         return True
@@ -105,8 +105,8 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
         return schema_rules
     by_type = sv.get("blocks", {})
     name_tokens = sv.get("name_tokens", {})
-    slug = market_product  # 예: galaxy-s26 / galaxy-buds4-pro
-    is_phone = slug.startswith("galaxy-s")
+    slug = market_product  # 예: galaxy-s26 / galaxy-z-fold7 / galaxy-buds4-pro
+    is_phone = slug.startswith(("galaxy-s", "galaxy-z"))
     is_compare = (page_type == "Compare")
 
     _PAGE_SELF_PROPS = {"about", "url", "mainEntity", "mainEntityOfPage", "isPartOf"}
@@ -118,6 +118,16 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
 
     for b in schema_rules.get("blocks", []):
         types = b.get("types", [])
+        # 폰 계열: 세트에 하드코딩된 S26 슬러그(@id 패턴·hasPart)를 제품 슬러그로 치환.
+        # 기존엔 id_pattern이 어느 경로에서도 치환되지 않아 fold7 등에서 @id 오탐 발생.
+        if is_phone:
+            if b.get("id_pattern"):
+                b["id_pattern"] = b["id_pattern"].replace("galaxy-s26-ultra", slug)
+            if b.get("id_slug"):
+                b["id_slug"] = b["id_slug"].replace("galaxy-s26-ultra", slug)
+            if b.get("haspart_ids"):
+                b["haspart_ids"] = [h.replace("galaxy-s26-ultra", slug) if isinstance(h, str) else h
+                                    for h in b["haspart_ids"]]
         # 카피덱의 대표(첫) 블록 찾기
         deck = None
         for t in types:
@@ -132,7 +142,7 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
                     if prop in _PAGE_SELF_PROPS and isinstance(spec, dict) and spec.get("kind") == "url" and spec.get("nested") == "@id":
                         spec["value"] = _to_compare(spec.get("value", ""))
             b["expected_values"] = ev
-            if deck.get("haspart_ids"):
+            if "haspart_ids" in deck:  # 빈 배열 명시 포함 — 페이지 구성 미확정 제품은 []로 구조검사만
                 b["haspart_ids"] = deck["haspart_ids"]
         elif ("WebPage" in types or "ItemPage" in types) and is_phone:
             # 카피덱엔 WebPage가 없음 → 기존 세트값의 슬러그를 제품에 맞게 치환(폰만)
@@ -143,6 +153,10 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
                     spec["value"] = v.replace("galaxy-s26-ultra", slug)
                     if is_compare and prop in _PAGE_SELF_PROPS and spec.get("kind") == "url":
                         spec["value"] = _to_compare(spec["value"])
+                # name 기대값("Samsung Galaxy S26 Ultra")은 슬러그 문자열이 없어 치환 불가 →
+                # 제품 식별토큰(name_token) 검사로 교체 (S26 잔존 방지)
+                if prop == "name" and name_tokens:
+                    ev[prop] = {"value": "", "kind": "name_token", "check": "제품명_올바른지", "nested": None}
         else:
             # 카피덱에 값 없음(예: 버즈 Product/WebPage) → 폰 값 잔재 제거, 구조만 검사
             b["expected_values"] = {}

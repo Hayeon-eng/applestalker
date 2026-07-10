@@ -1,0 +1,166 @@
+{
+ "galaxy-z-fold7": {
+  "blocks": {
+   "Product": [
+    {
+     "expected_values": {
+      "name": {
+       "value": "Samsung Galaxy Z Fold7",
+       "kind": "name_token",
+       "check": "제품명_올바른지",
+       "nested": null
+      },
+      "brand": {
+       "value": "https://www.samsung.com/{SITECODE}/#brand-galaxy",
+       "kind": "url",
+       "check": "정확히_일치",
+       "nested": "@id"
+      },
+      "manufacturer": {
+       "value": "https://www.samsung.com/{SITECODE}/#org",
+       "kind": "url",
+       "check": "정확히_일치",
+       "nested": "@id"
+      },
+      "image": {
+       "value": "https://images.samsung.com/[SITECODE]/smartphones/galaxy-z-fold7/images/",
+       "kind": "image_path",
+       "check": "경로_구조",
+       "nested": null
+      },
+      "potentialAction": {
+       "value": "BuyAction",
+       "kind": "enum",
+       "check": "정확히_일치",
+       "nested": "@type"
+      },
+      "mainEntityOfPage": {
+       "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-z-fold7/#webpage",
+       "kind": "url",
+       "check": "정확히_일치",
+       "nested": "@id"
+      }
+     },
+     "haspart_ids": []
+    }
+   ],
+   "FAQPage": [
+    {
+     "expected_values": {
+      "about": {
+       "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-z-fold7/",
+       "kind": "url",
+       "check": "정확히_일치",
+       "nested": "@id"
+      },
+      "inLanguage": {
+       "value": "{BCP47-LANG}",
+       "kind": "inlanguage",
+       "check": "언어코드",
+       "nested": null
+      },
+      "mainEntity": {
+       "value": "Question",
+       "kind": "enum",
+       "check": "정확히_일치",
+       "nested": "@type"
+      }
+     }
+    }
+   ]
+  },
+  "name_tokens": {
+   "model_any": [
+    "Fold7",
+    "Fold 7"
+   ],
+   "tier_any": [],
+   "forbid_any": [],
+   "model_label": "Z Fold7",
+   "tier_label": ""
+  },
+  "_note": "Quotation/Comment/VideoObject/3DModel은 캠페인 고유 콘텐츠 미확정으로 구조검사만 — 실페이지 확인 후 확장"
+ },
+ "galaxy-z-flip7": {
+  "blocks": {
+   "Product": [
+    {
+     "expected_values": {
+      "name": {
+       "value": "Samsung Galaxy Z Flip7",
+       "kind": "name_token",
+       "check": "제품명_올바른지",
+       "nested": null
+      },
+      "brand": {
+       "value": "https://www.samsung.com/{SITECODE}/#brand-galaxy",
+       "kind": "url",
+       "check": "정확히_일치",
+       "nested": "@id"
+      },
+      "manufacturer": {
+       "value": "https://www.samsung.com/{SITECODE}/#org",
+       "kind": "url",
+       "check": "정확히_일치",
+       "nested": "@id"
+      },
+      "image": {
+       "value": "https://images.samsung.com/[SITECODE]/smartphones/galaxy-z-flip7/images/",
+       "kind": "image_path",
+       "check": "경로_구조",
+       "nested": null
+      },
+      "potentialAction": {
+       "value": "BuyAction",
+       "kind": "enum",
+       "check": "정확히_일치",
+       "nested": "@type"
+      },
+      "mainEntityOfPage": {
+       "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-z-flip7/#webpage",
+       "kind": "url",
+       "check": "정확히_일치",
+       "nested": "@id"
+      }
+     },
+     "haspart_ids": []
+    }
+   ],
+   "FAQPage": [
+    {
+     "expected_values": {
+      "about": {
+       "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-z-flip7/",
+       "kind": "url",
+       "check": "정확히_일치",
+       "nested": "@id"
+      },
+      "inLanguage": {
+       "value": "{BCP47-LANG}",
+       "kind": "inlanguage",
+       "check": "언어코드",
+       "nested": null
+      },
+      "mainEntity": {
+       "value": "Question",
+       "kind": "enum",
+       "check": "정확히_일치",
+       "nested": "@type"
+      }
+     }
+    }
+   ]
+  },
+  "name_tokens": {
+   "model_any": [
+    "Flip7",
+    "Flip 7"
+   ],
+   "tier_any": [],
+   "forbid_any": [],
+   "model_label": "Z Flip7",
+   "tier_label": ""
+  },
+  "_note": "Quotation/Comment/VideoObject/3DModel은 캠페인 고유 콘텐츠 미확정으로 구조검사만 — 실페이지 확인 후 확장"
+ }
+}
