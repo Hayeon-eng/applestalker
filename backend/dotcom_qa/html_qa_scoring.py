@@ -46,10 +46,7 @@ AXIS1_WEIGHTS: Dict[str, Dict[str, Any]] = {
         "hasPartOrSeek": 1, "expiresNoError": 1,
     },
     "FAQPage": {  # A안 재환산 — 자기완결성/인용적합성은 축1에서 제외됨(참고: AI판단_보류검토 탭)
-        # 2026-07 수정: screen_match(마크업↔화면 실제 비교)는 Playwright 기반 자동 검증
-        # 미구현 상태 → 채점(분모/분자) 대상에서 제외. structure_valid 단독 100% 배점.
-        # screen_match는 axis1_info_adequacy()에서 참고용(Manual Check) 값으로만 별도 계산됨.
-        "structure_valid": 1.0,
+        "structure_valid": 0.5, "screen_match": 0.5,
     },
     "WebPage, ItemPage": {
         "type_combo": 4, "name": 3, "url": 3, "description": 1, "primaryImage": 1,
@@ -107,31 +104,12 @@ def extract_html_signals(html: str) -> Dict[str, Any]:
     }
 
 
-# 전각(CJK) 언어권 — Google SERP는 픽셀너비 기준 절단이라, 폭이 넓은 CJK 문자는
-# 라틴 문자 대비 실제 노출 가능 글자 수가 훨씬 적다(2026-07 결정: 여유 포함 35자/90자).
-_FULLWIDTH_LANG_PREFIXES = ("ja", "ko", "zh")
-
-
-def _is_fullwidth_lang(site_lang: Optional[str]) -> bool:
-    if not site_lang:
-        return False
-    return site_lang.strip().lower().split("-")[0] in _FULLWIDTH_LANG_PREFIXES
-
-
 def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
                        guide_h1_keywords: Optional[List[str]] = None,
                        guide_h2_min_count: Optional[int] = None,
-                       title_max_len: Optional[int] = None, desc_max_len: Optional[int] = None,
-                       site_lang: Optional[str] = None) -> Dict[str, Any]:
+                       title_max_len: int = 60, desc_max_len: int = 160) -> Dict[str, Any]:
     """가이드 적용율(%) = 실제 적용 항목 수 / 전체 항목 수.
-    guide_h1_keywords/guide_h2_min_count는 마케팅 가이드 데이터가 있을 때만 채점(없으면 항목 자체를 건너뜀 — 거짓으로 O/X 매기지 않음).
-    title_max_len/desc_max_len을 명시적으로 넘기지 않으면 site_lang(ja-JP/ko-KR/zh-CN 등)에 따라
-    CJK 전각 기준(35자/90자)과 일반 기준(60자/160자)을 자동 선택한다."""
-    if title_max_len is None:
-        title_max_len = 35 if _is_fullwidth_lang(site_lang) else 60
-    if desc_max_len is None:
-        desc_max_len = 90 if _is_fullwidth_lang(site_lang) else 160
-
+    guide_h1_keywords/guide_h2_min_count는 마케팅 가이드 데이터가 있을 때만 채점(없으면 항목 자체를 건너뜀 — 거짓으로 O/X 매기지 않음)."""
     sig = extract_html_signals(html)
     items: List[Dict[str, Any]] = []
 
@@ -388,8 +366,8 @@ def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str,
     if rule_props is not None:
         def _in_rule(k):
             base = ALIAS_TO_SCHEMA.get(k, k)
-            # FAQPage 재환산 키(structure_valid)는 항상 유지 대상으로 통과
-            if k == "structure_valid":
+            # FAQPage 재환산 키(structure_valid/screen_match)와 항상 유지 대상은 통과
+            if k in ("structure_valid", "screen_match"):
                 return True
             return base in rule_props or k in rule_props
         weights = {k: w for k, w in all_weights.items() if _in_rule(k)}
@@ -402,27 +380,24 @@ def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str,
     if f is None or f.get("code") == "schema.missing":
         return None
 
-    props_score = {p: _prop_score(f, p) for p in weights}
+    props_score = {}
+    for prop in weights:
+        if block_name == "FAQPage" and prop == "screen_match":
+            # 마크업↔화면 일치는 렌더 없이 자동 검증 불가 → '수동 확인 필요'로 0.5 고정(자동 만점 금지)
+            props_score[prop] = 0.5
+        else:
+            props_score[prop] = _prop_score(f, prop)
     required = [p for p in REQUIRED_GATE_PROPS.get(block_name, []) if p in weights]
     hard_missing = set(f.get("missing_props", []))
-    gate_triggered = any(p in hard_missing for p in required)
+    gate_triggered = any(p in hard_missing for p in required)  # 표시용 플래그(점수엔 미반영)
 
     total_w = sum(weights.values())
     weighted = sum(weights[p] * props_score[p] for p in weights)
-    pct = 0.0 if gate_triggered else round(100 * weighted / total_w, 1) if total_w else None
+    # 게이트 제거(v1.0): 필수 누락도 그 속성 0점(가중치 감점)으로만 반영 — pct를 강제 0으로 만들지 않음.
+    pct = round(100 * weighted / total_w, 1) if total_w else None
 
-    result = {"pct": pct, "gate_triggered": gate_triggered, "props": props_score,
-              "weights": weights, "required": required}
-
-    if block_name == "FAQPage":
-        # screen_match(마크업↔화면 실제 비교): Playwright 기반 자동 검증 미구현 →
-        # 채점(분모/분자)에서 완전히 제외하고, 참고용(Manual Check) 값만 별도로 실어 보낸다.
-        # UI에서 노출하지 않아도 무방(점수 계산에는 영향 없음).
-        result["manual_check"] = {
-            "screen_match": {"status": "not_implemented", "note": "수동 확인 필요(채점 미반영)"}
-        }
-
-    return result
+    return {"pct": pct, "gate_triggered": gate_triggered, "props": props_score,
+            "weights": weights, "required": required}
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -441,17 +416,14 @@ def traffic_light(final_pct: Optional[float], any_gate_zero: bool) -> str:
 def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[str, Any],
                    rendered_by: Optional[str] = None,
                    guide_h1_keywords: Optional[List[str]] = None,
-                   guide_h2_min_count: Optional[int] = None,
-                   site_lang: Optional[str] = None) -> Dict[str, Any]:
+                   guide_h2_min_count: Optional[int] = None) -> Dict[str, Any]:
     """1단계(적용율%) + 2단계(AEO 퀄리티 점수, 타입별) 를 합쳐 리턴.
-    schema_result는 schema_checker.check_page(html, schema_rules, ...) 결과를 그대로 받는다(재계산 안 함).
-    site_lang(ja-JP/ko-KR/zh-CN 등)을 넘기면 Meta Title/Description 길이 기준이 CJK 전각 문자에 맞게 자동 조정된다."""
+    schema_result는 schema_checker.check_page(html, schema_rules, ...) 결과를 그대로 받는다(재계산 안 함)."""
     schema_types_in_rules = [b.get("name") for b in (schema_rules.get("blocks") or [])]
 
     level1 = level1_apply_rate(html, schema_rules,
                                guide_h1_keywords=guide_h1_keywords,
-                               guide_h2_min_count=guide_h2_min_count,
-                               site_lang=site_lang)
+                               guide_h2_min_count=guide_h2_min_count)
     axis2 = axis2_parsing_and_rich_result(html, schema_result, schema_types_in_rules, rendered_by=rendered_by)
     # 가이드 룰의 실제 타입(@type)만 핵심으로 → @id 부여율/형식을 그 노드들만 대상으로
     rule_types = []
@@ -475,7 +447,9 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         raw_axis2_gate = axis2.get("by_type", {}).get(name, {}).get("gate", 1)
         apply_axis2 = rich_status in ("정식", "제한적(AR만)")
         eff_axis2_gate = raw_axis2_gate if apply_axis2 else 1
-        final_pct = round(eff_axis2_gate * axis3["gate"] * a1["pct"], 1)
+        # 게이트 곱셈 제거(v1.0): 크리티컬(필수 누락·파싱 실패)도 속성 가중치 감점으로만 반영.
+        # 최종 = 정보적합성(%) 그대로. 게이트 값은 '표시용 경고'로만 payload에 남긴다.
+        final_pct = a1["pct"]
 
         # 표현용 집계(이미 계산된 a1.props를 세기만 함 — 점수 로직/값은 그대로).
         props = a1.get("props", {})
@@ -494,7 +468,7 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
             "axis2_gate": eff_axis2_gate,
             "rich_result_status": rich_status,
             "final_pct": final_pct,
-            "traffic_light": traffic_light(final_pct, eff_axis2_gate == 0 or axis3["gate"] == 0 or a1["gate_triggered"]),
+            "traffic_light": traffic_light(final_pct, False),
             # ── 표현용(요구사항: 개수/부족항목/수정위치) ──
             "required_total": len(req_props),
             "required_ok": req_ok,
@@ -504,9 +478,6 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
             "weak_recommended": weak_recommended,
             "prop_detail": [{"prop": p, "score": props[p]} for p in props],
         }
-        if "manual_check" in a1:
-            # 점수 계산과 무관한 참고용 필드. UI에서 노출/숨김 자유(예: screen_match 수동 확인 배지).
-            per_type[name]["manual_check"] = a1["manual_check"]
 
     overall_final = None
     if per_type:
@@ -526,7 +497,7 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         },
         "overall": {
             "final_pct": overall_final,
-            "traffic_light": traffic_light(overall_final, any_type_gate_zero or axis3["gate"] == 0),
+            "traffic_light": traffic_light(overall_final, False),
             "prop_ok": prop_ok,
             "prop_total": prop_total,
         },
@@ -541,4 +512,3 @@ if __name__ == "__main__":
     sres = schema_checker.check_page(html, rules["schema"])
     out = score_html_qa(html, rules["schema"], sres)
     print(json.dumps(out, ensure_ascii=False, indent=2)[:4000])
-
