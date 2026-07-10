@@ -55,6 +55,11 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set()); // 권역 다중선택(비었으면 전체)
   const [showScore, setShowScore] = useState(false); // 점수 계산 로직 패널
   const scoreRef = useRef<HTMLDivElement>(null);
+  const regionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollToRegion = (region: string) => {
+    const el = regionRefs.current[region];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   const [selectedSites, setSelectedSites] = useState<Set<string>>(new Set()); // 사이트 개별 다중선택(우선)
   const [progress, setProgress] = useState({ active: false, done: 0, total: 0, label: "" });
 
@@ -283,7 +288,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   // QubiSections.tsx 로 분리한 렌더 블록에 상태·핸들러를 한 번에 주입
   const ctx = {
     tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash, qaExpandedSite, setQaExpandedSite, overview,
-    showScore, scoreRef,
+    showScore, scoreRef, regionRefs, scrollToRegion,
     specProduct, setSpecProduct, products, newProd, setNewProd, addProduct,
     specs, removeSpec, catalog, specForm, pickCatalog, setSpecForm, addSpec,
     ruleForm, setRuleForm, schemaTypes, addRule,

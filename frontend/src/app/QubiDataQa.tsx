@@ -385,6 +385,16 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
   const avgApply = propTotal ? Math.round((propOk / propTotal) * 1000) / 10 : null;
   const expanded = c.qaExpandedSite;
 
+  // 권역 > 페이지(제품·타입) 계층으로 그룹핑
+  const byRegion: Record<string, any[]> = {};
+  for (const r of sorted) (byRegion[r.region || "기타"] ||= []).push(r);
+  // 권역 정렬: 평균 낮은(문제 많은) 권역 먼저
+  const regionAvg = (rows: any[]) => {
+    const v = rows.map((x) => x.html_qa.overall?.final_pct).filter((n: any) => n != null) as number[];
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : -1;
+  };
+  const regionOrder = Object.keys(byRegion).sort((a, b) => regionAvg(byRegion[a]) - regionAvg(byRegion[b]));
+
   return (
     <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -396,23 +406,38 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
           <span style={{ fontSize: 12 }}>🔴 {dist.red}</span>
         </span>
       </div>
-      <div style={{ marginTop: 10 }}>
-        {sorted.map((r, i) => {
-          const hq = r.html_qa; const tl = hq.overall?.traffic_light;
-          const key = r.sitecode + i;
+      <div style={{ marginTop: 6 }}>
+        {regionOrder.map((region) => {
+          const pages = byRegion[region];
+          const rAvg = regionAvg(pages);
+          const rtl = rAvg < 0 ? "red" : rAvg >= 80 ? "green" : rAvg >= 50 ? "yellow" : "red";
           return (
-            <div key={key} style={{ borderTop: "1px solid var(--line)" }}>
-              <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px", cursor: "pointer", fontSize: 12.5 }}>
-                <span>{TL_EMOJI[tl] || "⚪"}</span>
-                <b>{r.sitecode}</b>
-                <span style={{ color: "var(--sec)" }}>{r.region} · {r.country}</span>
-                {(r.product || r.market_product) && <span style={{ fontSize: 10.5, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 6px" }}>{r.product || r.market_product}</span>}
-                {r.page_type && <span style={{ fontSize: 10.5, background: "#E8F0FE", color: "#1B57C4", borderRadius: 4, padding: "1px 6px" }}>{r.page_type}</span>}
-                <span style={{ marginLeft: "auto" }}>AEO {hq.overall?.final_pct ?? "—"}% · 적용율 {hq.level1_apply_rate?.apply_rate_pct ?? "—"}%</span>
-                <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
+            <div key={region} ref={(el) => { if (c.regionRefs) c.regionRefs.current[region] = el; }} style={{ marginTop: 12 }}>
+              {/* 권역 헤더 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", borderBottom: "2px solid var(--line)" }}>
+                <span>{TL_EMOJI[rtl] || "⚪"}</span>
+                <b style={{ fontSize: 13 }}>{region}</b>
+                <span style={{ fontSize: 11, color: "var(--sec)" }}>{pages.length}개 페이지 · 평균 {rAvg < 0 ? "—" : Math.round(rAvg * 10) / 10}%</span>
               </div>
-              {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px" }}><HtmlQaDetail hq={hq} findings={r.schema?.findings || []} /></div>}
+              {/* 그 권역의 페이지들 */}
+              {pages.map((r, i) => {
+                const hq = r.html_qa; const tl = hq.overall?.traffic_light;
+                const key = region + "|" + r.sitecode + "|" + (r.product || r.market_product || "") + "|" + (r.page_type || "") + i;
+                const prod = r.product || r.market_product || "";
+                return (
+                  <div key={key} style={{ borderBottom: "1px solid var(--line)" }}>
+                    <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px 8px 16px", cursor: "pointer", fontSize: 12.5 }}>
+                      <span>{TL_EMOJI[tl] || "⚪"}</span>
+                      <b style={{ minWidth: 130 }}>{prod || r.sitecode}{r.page_type ? ` · ${r.page_type}` : ""}</b>
+                      <span style={{ fontSize: 10.5, color: "var(--sec)" }}>{r.sitecode}</span>
+                      <span style={{ marginLeft: "auto" }}>데이터 {hq.overall?.prop_total ? Math.round((hq.overall.prop_ok / hq.overall.prop_total) * 100) : "—"}% · AEO {hq.overall?.final_pct ?? "—"}%</span>
+                      <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
+                    </div>
+                    {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px 16px" }}><HtmlQaDetail hq={hq} findings={r.schema?.findings || []} /></div>}
+                  </div>
+                );
+              })}
             </div>
           );
         })}
@@ -435,11 +460,17 @@ export function SiteOverview({ ctx: c }: { ctx: any }) {
 
   return (
     <div className="summaryCard" style={{ marginTop: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: "var(--sec)", fontWeight: 700 }}>전사이트 현황</span>
-        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 5 }}>
-          <b style={{ fontSize: 26, color: TL_COLOR[tl(total)] }}>{total ?? "—"}</b>
-          <span style={{ fontSize: 12, color: "var(--sec)" }}>점 · 평균 AEO 퀄리티</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 16 }}>{TL_EMOJI[tl(ov.total_apply_pct)] || "⚪"}</span>
+          <span style={{ fontSize: 11.5, color: "var(--sec)" }}>데이터 유무</span>
+          <b style={{ fontSize: 20, color: TL_COLOR[tl(ov.total_apply_pct)] }}>{ov.total_apply_pct ?? "—"}%</b>
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 16 }}>{TL_EMOJI[tl(total)] || "⚪"}</span>
+          <span style={{ fontSize: 11.5, color: "var(--sec)" }}>AEO 퀄리티</span>
+          <b style={{ fontSize: 20, color: TL_COLOR[tl(total)] }}>{total ?? "—"}%</b>
         </span>
         <span style={{ fontSize: 12, color: "var(--sec)" }}>🟢 {dist.green} · 🟡 {dist.yellow} · 🔴 {dist.red}</span>
         <button onClick={() => setOpen((v) => !v)}
@@ -450,12 +481,14 @@ export function SiteOverview({ ctx: c }: { ctx: any }) {
       {open && (
         <div className="qbiPopIn" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
           {ov.regions.map((r: any) => (
-            <span key={r.region} title={r.at}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12,
-                border: "1px solid var(--line)", borderRadius: 999, padding: "4px 11px" }}>
+            <button key={r.region} title={`${r.at} · 클릭하면 결과로 이동`}
+              onClick={() => c.scrollToRegion && c.scrollToRegion(r.region)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer",
+                border: "1px solid var(--line)", borderRadius: 999, padding: "4px 11px", background: "#fff" }}>
               <span style={{ color: "var(--sec)" }}>{r.region}</span>
               <b style={{ color: TL_COLOR[tl(r.avg_aeo)] }}>{r.avg_aeo ?? "—"}</b>
-            </span>
+              <span style={{ fontSize: 10.5, color: "#0A66E0" }}>이동 ›</span>
+            </button>
           ))}
         </div>
       )}
