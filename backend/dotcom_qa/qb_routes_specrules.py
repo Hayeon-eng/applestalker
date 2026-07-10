@@ -82,19 +82,3 @@ def qb_spec_rules_dict_add(payload: Dict[str, Any] = Body(...)):
         return {"ok": True, **_spec_rule_db.add_alias(product, rep, alias)}
     except ValueError as e:
         raise HTTPException(404, str(e))
-
-
-@qb_router.post("/spec-check")
-def qb_spec_check(payload: Dict[str, Any] = Body(...)):
-    """Spec QA V2 단독 실행 (HTML 붙여넣기 검증/디버그용).
-    body: {html, product, page_type?, sitecode?} → spec_v2 결과"""
-    html = payload.get("html")
-    product = (payload.get("product") or "").strip()
-    if not html or not product:
-        raise HTTPException(400, "html과 product가 필요합니다.")
-    rs = _spec_rule_db.load(product)
-    if not rs:
-        raise HTTPException(404, f"룰셋 없음: {product}")
-    import spec_engine as _spec_engine
-    return _spec_engine.run(html, rs, page_type=payload.get("page_type", "PDP"),
-                            sitecode=payload.get("sitecode", ""))
