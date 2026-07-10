@@ -3,6 +3,35 @@
    QA 담당자가 30초 안에 ①어떤 Rule이 실패했는지 ②왜 ③어떻게 고치는지 이해하는 것이 목표.
    Data QA(QubiDataQa) 카드 스타일과 얼라인: 색 헤더 스트립 + 테두리 카드. */
 import { useEffect, useRef, useState } from "react";
+import { TL_COLOR, TL_EMOJI, tlSpec } from "./qubiShared";
+
+// 단어 단위 diff (Data QA MiniDiff와 동일 스타일) — 현재값(빨간 취소선) → 기준값(초록 밑줄)
+function _tok(s: string): string[] { return (s || "").match(/\s+|[^\s]+/g) || []; }
+function MiniDiff({ expected, actual }: { expected: string; actual: string }) {
+  const a = _tok(actual), b = _tok(expected);
+  const n = a.length, m = b.length;
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const out: { t: string; s: string }[] = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { out.push({ t: "same", s: a[i] }); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ t: "del", s: a[i] }); i++; }
+    else { out.push({ t: "ins", s: b[j] }); j++; }
+  }
+  while (i < n) { out.push({ t: "del", s: a[i] }); i++; }
+  while (j < m) { out.push({ t: "ins", s: b[j] }); j++; }
+  return (
+    <span style={{ lineHeight: 1.7, wordBreak: "break-all" }}>
+      {out.map((t, k) => t.t === "same"
+        ? <span key={k}>{t.s}</span>
+        : t.t === "del"
+          ? <span key={k} style={{ textDecoration: "line-through", color: "#B42318", background: "#FDECEA", borderRadius: 3 }}>{t.s}</span>
+          : <span key={k} style={{ textDecoration: "underline", color: "#067647", background: "#EAF7EE", fontWeight: 700, borderRadius: 3 }}>{t.s}</span>)}
+    </span>
+  );
+}
 
 const C = { crit: "#D8362F", warn: "#E0A008", pass: "#1F9E5C", na: "#98A2B3", blue: "#1B57C4" };
 const scoreColor = (s: number | null) => (s == null ? C.na : s < 50 ? C.crit : s < 80 ? C.warn : C.pass);
@@ -45,21 +74,26 @@ function RuleTrace({ trace }: { trace: any[] }) {
 
 /* ── Error Card: 문제/현재/기준/Rule/수정 위치/권장 수정 ── */
 function ErrorCard({ it }: { it: any }) {
+  const foundStr = it.found ? `${it.found}` : "";
+  const expStr = `${it.expected}${it.unit ? ` ${it.unit}` : ""}`;
+  // 페이지에 있던 라벨(matched_alias)을 맥락으로: "Typical Capacity: 4,900 mAh"
+  const label = it.matched_alias || it.attribute;
   return (
-    <div style={{ background: "#FEF3F2", border: "1px solid #FECDCA", borderRadius: 10, padding: "10px 12px", marginTop: 8 }}>
-      <div style={{ fontSize: 13, fontWeight: 800, color: "#B42318" }}>❌ {it.attribute}
+    <div style={{ background: "#FEF3F2", border: "1px solid #FECDCA", borderRadius: 10, padding: "11px 13px", marginTop: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: "#B42318" }}>🔴 {it.attribute}
         <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, background: "#fff", border: "1px solid #FECDCA", borderRadius: 5, padding: "1px 6px", color: "#B42318" }}>{it.priority}</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "84px 1fr", gap: "3px 10px", fontSize: 12.5, marginTop: 6 }}>
-        <span style={{ color: "var(--sec)" }}>현재</span>
-        <b style={{ color: "#B42318", textDecoration: "line-through" }}>{it.found || "—"}</b>
-        <span style={{ color: "var(--sec)" }}>기준</span>
-        <b style={{ color: "#067647" }}>{it.expected}{it.unit ? ` ${it.unit}` : ""}</b>
-        <span style={{ color: "var(--sec)" }}>Rule</span>
-        <span style={{ fontFamily: "monospace", fontSize: 11.5 }}>{it.rule_id} · {it.validation}</span>
-        <span style={{ color: "var(--sec)" }}>수정 위치</span>
-        <span>{it.section ? `${it.page} > ${it.section}` : it.page}{it.matched_alias ? ` — "${it.matched_alias}"` : ""}</span>
-        {it.fix_guide && <><span style={{ color: "var(--sec)" }}>권장 수정</span><b>{it.fix_guide}</b></>}
+      {/* 주변 카피 맥락 + 단어 단위 diff (빨간 취소선 → 초록 밑줄) */}
+      <div style={{ marginTop: 8, fontSize: 13, background: "#fff", border: "1px solid #FEE4E2", borderRadius: 8, padding: "8px 10px" }}>
+        <span style={{ color: "var(--sec)", fontSize: 11.5 }}>{label}: </span>
+        {foundStr
+          ? <MiniDiff expected={expStr} actual={foundStr} />
+          : <span><span style={{ textDecoration: "line-through", color: "#B42318", background: "#FDECEA", borderRadius: 3 }}>(페이지에 없음)</span> → <span style={{ textDecoration: "underline", color: "#067647", background: "#EAF7EE", fontWeight: 700, borderRadius: 3 }}>{expStr}</span></span>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr", gap: "3px 10px", fontSize: 11.5, marginTop: 8, color: "var(--sec)" }}>
+        {it.fix_guide && <><span>권장 수정</span><b style={{ color: "#067647" }}>{it.fix_guide}</b></>}
+        <span>수정 위치</span>
+        <span>{it.section ? `${it.page} › ${it.section}` : it.page}</span>
       </div>
       <RuleTrace trace={it.trace} />
     </div>
@@ -152,15 +186,16 @@ export function SpecV2Panel({ row, product, api, flash }:
   for (const it of sv.items || []) (byCat[it.category] ||= []).push(it);
   return (
     <div style={{ border: "1px solid #D7E3F8", borderRadius: 12, overflow: "hidden", marginTop: 14 }}>
-      {/* 종합 배너 */}
+      {/* 종합 배너 — 신호등은 Data QA와 동일 이모지, 판정은 스펙 규칙(오류 1건이라도 🔴) */}
       <div style={{ background: "#EEF4FE", padding: "9px 14px", borderLeft: `3px solid ${C.blue}`, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 17 }}>{TL_EMOJI[tlSpec(s.critical ?? 0, s.warning ?? 0)]}</span>
         <b style={{ fontSize: 12.5, color: C.blue }}>Spec Validation {row.sitecode ? `— ${row.sitecode}` : ""}</b>
         <Meter pct={s.score} />
         <span style={{ fontSize: 12 }}>
-          <b style={{ color: C.crit }}>🔴 Critical {s.critical ?? 0}</b>
-          <span style={{ margin: "0 6px", color: C.warn, fontWeight: 700 }}>🟡 Warning {s.warning ?? 0}</span>
-          <span style={{ color: C.pass, fontWeight: 700 }}>✅ PASS {s.pass ?? 0}</span>
-          <span style={{ marginLeft: 6, color: C.na }}>⚪ N/A {s.na ?? 0}</span>
+          <b style={{ color: C.crit }}>🔴 오류 {s.critical ?? 0}</b>
+          <span style={{ margin: "0 6px", color: C.warn, fontWeight: 700 }}>🟡 확인 {s.warning ?? 0}</span>
+          <span style={{ color: C.pass, fontWeight: 700 }}>✅ 정상 {s.pass ?? 0}</span>
+          <span style={{ marginLeft: 6, color: C.na }}>⚪ 해당없음 {s.na ?? 0}</span>
         </span>
       </div>
       {s.coverage_low && (
@@ -255,6 +290,22 @@ export function SpecV2RuleTable({ product, api, flash }:
     } catch (e: any) { flash(`업로드 실패 — ${e.message || e}`); } finally { setBusy(false); }
   };
   const rules = data?.rules || [];
+  // 등급 → 색점 + 사람 설명 (개발자용 'Critical/High' 대신)
+  const PRI_DOT: Record<string, { c: string; ko: string; why: string }> = {
+    Critical: { c: "#D8362F", ko: "필수", why: "틀리면 바로 오류 — 반드시 정확해야 하는 핵심 스펙" },
+    High: { c: "#B54708", ko: "중요", why: "제품 대표 스펙 — 노출 위치에서 꼭 맞아야 함" },
+    Medium: { c: "#0A66E0", ko: "권장", why: "있으면 좋은 상세 스펙" },
+    Low: { c: "#667085", ko: "참고", why: "부가 정보 — 없어도 큰 문제 아님" },
+  };
+  // 기준값을 자연어 '이래야 정상'으로
+  const normalText = (r: any) => {
+    const v = `${r.expected}${r.unit ? ` ${r.unit}` : ""}`;
+    if (r.validation === "option_match") return `${v} — 나열된 옵션이 모두 있어야 해요`;
+    if (r.validation === "exists") return `"${v}" 언급이 페이지에 있어야 해요`;
+    if (r.validation === "numeric_exact") return `${v} (표기 달라도 숫자만 맞으면 통과)`;
+    if (r.validation === "dictionary") return `${v} (표기 변형·현지화 허용)`;
+    return `정확히 "${v}"`;
+  };
   return (
     <div className="card" style={{ marginTop: 18, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -268,28 +319,40 @@ export function SpecV2RuleTable({ product, api, flash }:
           <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.currentTarget.value = ""; }} />
         </span>
       </div>
-      <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "6px 0 8px" }}>
-        기준값은 이 Rule DB(엑셀)가 원본입니다 — 값 수정은 엑셀 편집 → 업로드로 반영하세요. 화면에서 직접 편집하지 않습니다(변경 이력·검토를 엑셀로 일원화).
+      <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "6px 0 4px" }}>
+        이 표가 "정답지"예요. 각 항목이 페이지에 <b>이래야 정상</b>이라는 기준입니다. 값 수정은 엑셀을 고쳐 업로드하세요(화면 직접 편집 안 함 — 이력 관리를 엑셀로 일원화).
       </p>
+      <div style={{ fontSize: 10.5, color: "var(--sec)", marginBottom: 8 }}>
+        등급: <span style={{ color: "#D8362F" }}>●</span> 필수 · <span style={{ color: "#B54708" }}>●</span> 중요 · <span style={{ color: "#0A66E0" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고 · 각 행 ⓘ 에 마우스를 올리면 검사 방식이 나와요
+      </div>
       <div style={{ maxHeight: 340, overflow: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
           <thead><tr style={{ color: "var(--sec)", fontSize: 11, textAlign: "left", position: "sticky", top: 0, background: "#F9FAFB" }}>
-            <th style={{ padding: "6px 8px" }}>분류</th><th style={{ padding: "6px 8px" }}>항목</th>
-            <th style={{ padding: "6px 8px" }}>기준값</th><th style={{ padding: "6px 8px" }}>검사</th>
-            <th style={{ padding: "6px 8px" }}>등급</th><th style={{ padding: "6px 8px" }}>위치</th></tr></thead>
+            <th style={{ padding: "7px 10px", width: "28%" }}>항목</th>
+            <th style={{ padding: "7px 10px", width: "44%" }}>이래야 정상</th>
+            <th style={{ padding: "7px 10px" }}>왜 중요 · 어디에</th></tr></thead>
           <tbody>
-            {rules.map((r: any) => (
-              <tr key={r.rule_id}>
-                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)", color: "var(--sec)" }}>{r.category}</td>
-                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)" }}>{r.attribute}</td>
-                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)", fontWeight: 700 }}>{r.expected}{r.unit ? ` ${r.unit}` : ""}</td>
-                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)" }} title={VAL_KO[r.validation]?.desc || r.validation}>
-                  <span style={{ background: "#F2F4F7", borderRadius: 5, padding: "1px 6px", fontSize: 11 }}>{VAL_KO[r.validation]?.label || r.validation}</span></td>
-                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)" }}>
-                  <b style={{ color: PRI_COLOR[r.priority] || "var(--sec)", fontSize: 11 }}>{r.priority}</b></td>
-                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11 }}>{r.page}{r.exception ? " ⓘ" : ""}</td>
-              </tr>
-            ))}
+            {rules.map((r: any) => {
+              const pri = PRI_DOT[r.priority] || PRI_DOT.Low;
+              const valDesc = VAL_KO[r.validation]?.desc || r.validation;
+              return (
+                <tr key={r.rule_id}>
+                  <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
+                    <span style={{ color: pri.c, marginRight: 5 }} title={`${pri.ko} — ${pri.why}`}>●</span>
+                    <b>{r.attribute}</b>
+                    <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginLeft: 13 }}>{r.category}</span>
+                  </td>
+                  <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
+                    <b style={{ color: "#067647" }}>{normalText(r)}</b>
+                    <span title={valDesc} style={{ marginLeft: 6, cursor: "help", color: "var(--sec)", fontSize: 11 }}>ⓘ</span>
+                  </td>
+                  <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11.5 }}>
+                    <span title={pri.why}>{pri.ko}</span> · {r.page}
+                    {r.exception && <span title="이 항목은 특정 국가/조건에서 예외 규칙이 있어요" style={{ cursor: "help", marginLeft: 4 }}>ⓘ</span>}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -301,40 +364,35 @@ export function SpecV2RuleTable({ product, api, flash }:
 export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: any }) {
   if (!show) return null;
   const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
+  const h = { fontWeight: 800, fontSize: 12.5, marginBottom: 4 } as const;
+  const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.75 } as const;
   return (
     <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
-      <b style={{ fontSize: 14 }}>검수 기준 — 스펙 (Rule 기반 V2)</b>
+      <b style={{ fontSize: 14 }}>이렇게 검수해요 — 스펙</b>
       <p style={{ fontSize: 12.5, color: "var(--sec)", margin: "6px 0 0" }}>
-        AI 추론이 아니라 <b>Rule DB 기준값과의 결정적(deterministic) 대조</b>입니다. 같은 페이지는 항상 같은 결과가 나오고, 모든 판정에 "판정 과정 보기"가 남습니다.
+        정답지(Rule DB)에 적힌 값이 페이지에 제대로 있는지 하나씩 대조합니다. <b>AI 추측이 아니라 정해진 규칙대로만</b> 판정해서, 같은 페이지는 언제 돌려도 같은 결과가 나와요. 각 항목마다 "왜 이렇게 판정했나"를 펼쳐볼 수 있습니다.
       </p>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>판정 순서 (항상 이 순서)</div>
-        <div style={{ fontSize: 12, color: "var(--sec)", lineHeight: 1.7 }}>
-          페이지 수집 → 스펙 영역 추출 → <b>섹션 판정</b>(본문/각주/구매박스/구성품…) → <b>항목 판정</b>(라벨이 어느 속성인지) → <b>사전 매핑</b>(23개 대표항목 × 637개 다국어 표현) → <b>정규화</b>(4,400=4.400=4 400) → <b>검사</b> → <b>예외 적용</b> → 결과
+        <div style={h}>① 무엇을 보나</div>
+        <div style={li}>
+          페이지에서 스펙이 적힌 부분(스펙표·각주·구성품 등)을 찾아, <b>정답지의 각 항목이 있는지 · 값이 맞는지</b>를 확인해요.
+          "4,400"과 "4 400"처럼 나라마다 표기가 달라도 <b>같은 값으로 인정</b>하고, 칩셋명 현지 표기 같은 것도 사전을 통해 맞춰줍니다.
         </div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>검사 방식 6종 — 항목마다 "틀리는 방식"에 맞춰 배정</div>
-        {Object.entries(VAL_KO).map(([k, v]) => (
-          <div key={k} style={{ fontSize: 12, color: "var(--sec)", lineHeight: 1.7 }}>
-            · <b style={{ color: "var(--label)" }}>{v.label}</b> — {v.desc}
-          </div>
-        ))}
-      </div>
-      <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>판정 등급</div>
-        <div style={{ fontSize: 12, color: "var(--sec)", lineHeight: 1.8 }}>
-          <div>🔴 <b style={{ color: C.crit }}>Critical</b> — 값이 기준과 <b>다름</b> (예: 무게 216g ↔ 기준 215g)</div>
-          <div>🟡 <b style={{ color: C.warn }}>Warning</b> — 페이지에서 <b>사전에 없는 새 표현</b> 발견 → 번역/표기 재확인 후 [Dictionary 추가]로 승인</div>
-          <div>⚪ <b style={{ color: C.na }}>N/A</b> — 항목을 페이지에서 못 찾았거나 이 페이지타입에 해당 없음 (N/A가 절반 넘으면 커버리지 경고가 뜹니다)</div>
+        <div style={h}>② 결과는 세 가지</div>
+        <div style={li}>
+          <div>🔴 <b style={{ color: C.crit }}>오류</b> — 값이 정답과 다름 (예: 무게가 216g인데 정답은 215g). 하나라도 있으면 그 페이지는 빨간불이에요.</div>
+          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 사전에 없던 <b>새로운 표현</b>을 만남. "틀렸다"가 아니라 "이 표현을 아직 모른다"는 뜻 → 맞는 표현이면 [Dictionary 추가]로 승인하면 다음부터 정식 판정돼요.</div>
+          <div>⚪ <b style={{ color: C.na }}>해당없음</b> — 이 페이지엔 원래 없는 항목이거나 못 찾음. (못 찾은 게 너무 많으면 위에 커버리지 경고가 떠요.)</div>
         </div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>오탐(False Positive) 방지 장치</div>
-        <div style={{ fontSize: 12, color: "var(--sec)", lineHeight: 1.7 }}>
-          · <b>Typical ↔ Rated 상호 비교 금지</b> — 일반 4400과 각주의 정격 4272는 서로 다른 항목으로 취급<br />
-          · <b>프로모션 영역 제외</b> — 배너의 마케팅 숫자는 검사하지 않음<br />
-          · <b>적응형 주사율(1–120Hz)</b> — 최대값만 검증 · <b>국가 예외</b> — CountryException 시트로 국가별 스킵/허용
+        <div style={h}>③ 헷갈리기 쉬운 걸 일부러 안 틀리게</div>
+        <div style={li}>
+          · 일반 용량(4400)과 각주의 정격 용량(4272)은 <b>서로 다른 항목</b>으로 봐서 섞지 않아요<br />
+          · 광고 배너의 마케팅 숫자는 검사 대상에서 <b>빼요</b> (진짜 스펙만 봄)<br />
+          · 나라마다 다른 규칙(어떤 항목은 특정 국가에서 생략 허용)도 <b>미리 반영</b>돼 있어요
         </div>
       </div>
     </div>
@@ -348,26 +406,27 @@ export function SpecV2Score({ show, panelRef }: { show: boolean; panelRef?: any 
   const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
   return (
     <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 16 }}>
-      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 스펙 점수는 이렇게 계산돼요 (V2)</div>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수는 이렇게 나와요 — 스펙</div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① Validation Score</div>
-        <div style={li}><b>통과한 룰 ÷ 판정한 룰</b> × 100. "판정한 룰" = PASS + Critical만이에요 — <b>N/A는 분모에서 제외</b>합니다(페이지에 원래 없는 항목 때문에 점수가 깎이지 않게).</div>
-        <div style={{ ...li, marginTop: 4 }}>예) 룰 31개 중 N/A 6개 · PASS 23개 · Critical 2개 → 23 ÷ 25 = <b>92%</b></div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 점수 = 통과 ÷ 실제로 본 항목</div>
+        <div style={li}>정답과 <b>맞은 항목 ÷ (맞은 것 + 틀린 것)</b> × 100이에요. <b>"해당없음(⚪)"은 계산에서 빼요</b> — 이 페이지에 원래 없는 항목 때문에 점수가 억울하게 깎이지 않도록요.</div>
+        <div style={{ ...li, marginTop: 4 }}>예) 31개 중 해당없음 6개 · 맞음 23개 · 틀림 2개 → 23 ÷ 25 = <b>92%</b></div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리 점수</div>
-        <div style={li}>같은 방식을 카테고리(Battery·Display…) 단위로 계산합니다. 카드에 보이는 "Rule Pass 8/8"이 그 분자/분모예요. 오류가 있는 카테고리는 자동으로 펼쳐집니다.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리(배터리·화면…)별로도 같은 방식</div>
+        <div style={li}>각 묶음 카드의 "Rule Pass 8/8"이 그 묶음의 맞음/전체예요. 틀린 게 있는 묶음은 자동으로 펼쳐집니다.</div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ Warning은 점수에 안 들어가요</div>
-        <div style={li}>🟡 Warning(사전 미등록 표현)은 "페이지가 틀렸다"가 아니라 <b>"검수 시스템이 이 표현을 아직 모른다"</b>는 뜻이라 점수와 분리해서 셉니다. 승인해서 사전에 추가하면 다음 검수부터 그 항목이 정식 판정됩니다.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ "확인(🟡)"은 점수에 안 넣어요</div>
+        <div style={li}>🟡은 "페이지가 틀렸다"가 아니라 <b>"검수기가 이 표현을 아직 모른다"</b>는 뜻이라 점수와 따로 셉니다. 맞는 표현이면 승인해서 사전에 넣어주세요 — 다음부터 정식으로 채점됩니다.</div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ 커버리지 경고 — 점수가 좋아 보여도 믿지 마세요</div>
-        <div style={li}>적용 대상 룰의 <b>절반 이상이 N/A</b>면 상단에 ⚠️ 경고가 뜹니다. 이 언어 표현이 사전에 없거나 페이지 구조가 달라 수집이 안 된 것일 수 있어요 — 이때의 높은 점수는 "다 통과"가 아니라 "거의 못 봤다"일 수 있으니, 새 표현 승인부터 해주세요.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ 점수가 높아도 ⚠️ 경고가 있으면 의심하세요</div>
+        <div style={li}>봐야 할 항목의 <b>절반 이상을 못 찾으면</b> 위에 경고가 떠요. 이 언어 표현을 사전이 모르거나 페이지 구조가 달라 놓친 것일 수 있어요 — 이땐 높은 점수가 "다 통과"가 아니라 "거의 못 봤다"일 수 있으니, 새 표현 승인부터 해주세요.</div>
       </div>
-      <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8 }}>
-        신호등: 🟢 80%↑ · 🟡 50–79% · 🔴 50% 미만 — Data QA와 동일 기준
+      <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8, background: "#FFF5F4", border: "1px solid #FECDCA", borderRadius: 8, padding: "8px 10px" }}>
+        <b>신호등 (스펙은 더 엄격해요)</b> — 🔴 <b>오류가 1건이라도 있으면 빨강</b> · 🟡 오류 0, 확인만 있음 · 🟢 오류·확인 모두 0.
+        <span style={{ display: "block", marginTop: 3, fontSize: 11 }}>색·모양은 Data QA와 똑같이 맞췄어요. 다만 스펙값은 틀리면 치명적이라, Data QA(점수 %기준)와 달리 "오류 1건 = 즉시 빨강"으로 봅니다.</span>
       </div>
     </div>
   );

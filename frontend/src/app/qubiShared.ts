@@ -43,3 +43,19 @@ export function humanizeTerm(s: string): string {
 // DATA QA 신호등 색/이모지 (공유)
 export const TL_COLOR: Record<string, string> = { green: "#1F9E5C", yellow: "#E0A008", red: "#D8362F" };
 export const TL_EMOJI: Record<string, string> = { green: "🟢", yellow: "🟡", red: "🔴" };
+
+// ── 신호등 판정 (QA Bee 전체 공유) ──────────────────────────────
+// Data QA(스키마): 점수 기준 — 80%↑ green / 50–79% yellow / 그 미만 red.
+// Spec QA(스펙): 엄격 기준 — Critical(오류) 1건이라도 있으면 무조건 red,
+//   오류 0 + Warning(확인) 있으면 yellow, 둘 다 0이면 green.
+// 색·이모지는 위 TL_COLOR/TL_EMOJI를 공유하므로 두 QA의 신호등이 시각적으로 완전히 동일하다.
+export function tlByScore(pct: number | null | undefined, danger = false): "green" | "yellow" | "red" {
+  if (danger) return "red";
+  const v = pct ?? 0;
+  return v < 50 ? "red" : v < 80 ? "yellow" : "green";
+}
+export function tlSpec(critical: number, warning: number): "green" | "yellow" | "red" {
+  if (critical > 0) return "red";      // 스펙 오류 1건이라도 → 빨강
+  if (warning > 0) return "yellow";    // 오류 0, 확인만 있음 → 노랑
+  return "green";
+}

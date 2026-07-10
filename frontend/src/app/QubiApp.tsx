@@ -18,9 +18,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [pageType, setPageType] = useState("PDP");
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set(["galaxy-s26-ultra"])); // 배치 크롤용 제품 멀티선택
   const [selectedPageTypes, setSelectedPageTypes] = useState<Set<string>>(new Set(["PDP"])); // 배치 크롤용 타입 멀티선택
-  const [inputMode, setInputMode] = useState<"paste" | "file" | "url">("paste");
-  const [html, setHtml] = useState("");
-  const [urlOne, setUrlOne] = useState("");
   const [results, setResults] = useState<PageResult[]>([]);
   const [qaExpandedSite, setQaExpandedSite] = useState<string | null>(null); // HTML QA 일괄검수 드릴다운(사이트별 펼침)
   const [rules, setRules] = useState<any>(null);
@@ -68,7 +65,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   const [sitesOpen, setSitesOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
-  const htmlFileRef = useRef<HTMLInputElement>(null);
   const xlsxFileRef = useRef<HTMLInputElement>(null);
 
   // 스펙 관리
@@ -139,26 +135,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const regionNames = useMemo(() => Object.keys(regionsMap), [regionsMap]);
 
   // ── 검수 ──
-  const doCheck = async () => {
-    setBusy(true); setErr(""); setQaExpandedSite(null);
-    try {
-      if (inputMode === "url") {
-        if (!urlOne.trim()) throw new Error("검수할 링크를 입력하세요.");
-        const r = await fetch(api("/api/qb/check-url"), J({ url: urlOne.trim(), product: family(product), market_product: product, page_type: pageType }));
-        if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일 검수를 이용하세요.");
-        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `검수 실패 (${r.status})`);
-        setResults([await r.json()]); setRunId(null); // html_qa 포함돼서 옴 — run_id 없음(서버가 마지막 결과 보관)
-      } else {
-        if (!html.trim()) throw new Error("검수할 HTML을 넣으세요.");
-        const r = await fetch(api("/api/qb/check"), J({ html, product: family(product), market_product: product, page_type: pageType }));
-        if (!r.ok) throw new Error(`검수 실패 (${r.status})`);
-        const d = await r.json();
-        setResults([{ sitecode: "(입력)", url: "", page_type: pageType, schema: d.schema, copy: d.copy, html_qa: d.html_qa }]); setRunId(null);
-      }
-    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
-  };
-  const onHtmlFile = async (file: File) => { setHtml(await file.text()); setInputMode("paste"); flash(`${file.name} 불러옴 — 검수를 누르세요`); };
-
   // Apple Stalker의 trigger-crawl/all + crawl-progress 패턴과 동일:
   // /run 은 즉시 반환(started)되고, 실제 크롤은 서버 백그라운드에서 동시성 제한으로
   // '나눠서' 진행된다. 프론트는 SSE로 진행률만 구독하다가 done 이벤트에서 결과를 받아온다.
@@ -514,35 +490,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                 <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🐝 {progress.label} · {progress.done}/{progress.total} 페이지</div>
               </div>
             )}
-          </div>
-
-          {/* ② 단일 페이지 검수 — 붙여넣기 / 파일 / 링크 */}
-          <div className="card" style={{ marginTop: 14, padding: 14 }}>
-            <b style={{ fontSize: 14 }}>② 단일 페이지 검수</b>
-            <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 8 }}>한 페이지만 빠르게 — HTML 붙여넣기 · 파일 업로드 · 링크 1개</span>
-            <div style={{ display: "flex", gap: 6, margin: "10px 0 8px" }}>
-              {([["paste", "붙여넣기"], ["file", "HTML 파일"], ["url", "링크 1개"]] as const).map(([m, l]) => (
-                <button key={m} onClick={() => setInputMode(m)} style={sel(l, inputMode === m)}>{l}</button>
-              ))}
-            </div>
-            {inputMode === "paste" && (
-              <textarea value={html} onChange={(e) => setHtml(e.target.value)} placeholder="<html>… 페이지 소스 …</html>"
-                style={{ width: "100%", height: 100, fontFamily: "monospace", fontSize: 12, padding: 8, border: "1px solid var(--line)", borderRadius: 8 }} />
-            )}
-            {inputMode === "file" && (
-              <div style={{ padding: "18px", border: "1.5px dashed var(--line)", borderRadius: 8, textAlign: "center" }}>
-                <button onClick={() => htmlFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 13, padding: "8px 14px" }}>📄 HTML 파일 선택</button>
-                <input ref={htmlFileRef} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onHtmlFile(f); e.currentTarget.value = ""; }} />
-                {html && <span style={{ marginLeft: 10, fontSize: 12, color: "var(--sec)" }}>불러옴 ({html.length.toLocaleString()}자)</span>}
-              </div>
-            )}
-            {inputMode === "url" && (
-              <input value={urlOne} onChange={(e) => setUrlOne(e.target.value)} placeholder="https://www.samsung.com/uk/smartphones/galaxy-s26-ultra/compare/"
-                style={{ ...inputStyle, width: "100%", fontSize: 13, padding: "10px 12px" }} />
-            )}
-            <button onClick={doCheck} disabled={busy} style={{ marginTop: 8, padding: "8px 16px", borderRadius: 8, border: "none", background: "#0A66E0", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-              {busy ? "검수 중…" : "검수하기"}
-            </button>
           </div>
 
           {/* 스펙표 · 검수기준 패널 — [확정] 구 검수기준표(SpecTable)는 스펙 탭에서 완전 제거.
