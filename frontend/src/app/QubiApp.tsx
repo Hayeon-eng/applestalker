@@ -6,12 +6,14 @@
  */
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
-import { SpecTable, CriteriaPanel, QuickView, HtmlQaSummary, SiteOverview } from "./QubiSections";
+import { SpecTable, CriteriaPanel, ScorePanel, QuickView, HtmlQaSummary, SiteOverview } from "./QubiSections";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
   const [product, setProduct] = useState("galaxy-s26-ultra");
   const [pageType, setPageType] = useState("PDP");
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set(["galaxy-s26-ultra"])); // 배치 크롤용 제품 멀티선택
+  const [selectedPageTypes, setSelectedPageTypes] = useState<Set<string>>(new Set(["PDP"])); // 배치 크롤용 타입 멀티선택
   const [inputMode, setInputMode] = useState<"paste" | "file" | "url">("paste");
   const [html, setHtml] = useState("");
   const [urlOne, setUrlOne] = useState("");
@@ -23,6 +25,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [rulesFlash, setRulesFlash] = useState(false);
   const openCriteria = () => {
     setShowRuleAdd(false);
+    setShowScore(false);   // 점수 패널은 닫고
     setShowRules(true);
     // 패널로 스크롤 + 잠깐 하이라이트(뿅!)
     setTimeout(() => {
@@ -31,6 +34,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
       setTimeout(() => setRulesFlash(false), 1200);
     }, 60);
   };
+  const openScore = () => {
+    setShowRuleAdd(false);
+    setShowRules(false);   // 검수 기준은 닫고
+    setShowScore(true);
+    setTimeout(() => {
+      scoreRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
+  };
+  const hideAll = () => { setShowRules(false); setShowScore(false); };
   const [showRuleAdd, setShowRuleAdd] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -40,7 +52,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [regionsMap, setRegionsMap] = useState<Record<string, SiteRow[]>>({});
   const [pageCount, setPageCount] = useState(0);
   const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set()); // 권역 다중선택(비었으면 전체)
-  const [showScoreTip, setShowScoreTip] = useState(false); // 점수 계산 로직 툴팁
+  const [showScore, setShowScore] = useState(false); // 점수 계산 로직 패널
+  const scoreRef = useRef<HTMLDivElement>(null);
   const [selectedSites, setSelectedSites] = useState<Set<string>>(new Set()); // 사이트 개별 다중선택(우선)
   const [progress, setProgress] = useState({ active: false, done: 0, total: 0, label: "" });
 
@@ -138,7 +151,11 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     const label = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
     setProgress({ active: true, done: 0, total: codes.length, label });
     try {
-      const r = await fetch(api("/api/qb/run"), J({ product: family(product), market_product: product, sitecodes: codes }));
+      const r = await fetch(api("/api/qb/run"), J({
+        product: family(product), market_product: product, sitecodes: codes,
+        products: Array.from(selectedProducts),
+        page_types: Array.from(selectedPageTypes),
+      }));
       if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일/링크 검수를 이용하세요.");
       if (r.status === 409) throw new Error("이미 검수가 진행 중이에요. 완료 후 다시 시도하세요.");
       if (!r.ok) throw new Error(`실행 실패 (${r.status})`);
@@ -256,6 +273,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   // QubiSections.tsx 로 분리한 렌더 블록에 상태·핸들러를 한 번에 주입
   const ctx = {
     tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash, qaExpandedSite, setQaExpandedSite, overview,
+    showScore, scoreRef,
     specProduct, setSpecProduct, products, newProd, setNewProd, addProduct,
     specs, removeSpec, catalog, specForm, pickCatalog, setSpecForm, addSpec,
     ruleForm, setRuleForm, schemaTypes, addRule,
@@ -322,36 +340,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <button className="toolBtn" onClick={() => (showRules ? setShowRules(false) : openCriteria())}>
                 {showRules ? "ⓘ 검수 기준 숨기기" : "ⓘ 검수 기준 보기"}
               </button>
-              <span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
-                onMouseEnter={() => setShowScoreTip(true)} onMouseLeave={() => setShowScoreTip(false)}>
-                <button className="toolBtn" style={{ padding: "0 8px" }}>ⓘ 점수 계산</button>
-                {showScoreTip && (
-                  <div style={{ position: "absolute", top: "110%", right: 0, zIndex: 50, width: 420, maxHeight: "70vh", overflowY: "auto", background: "#0F172A", color: "#E2E8F0", borderRadius: 10, padding: "14px 16px", fontSize: 11.5, lineHeight: 1.65, boxShadow: "0 8px 24px rgba(0,0,0,.3)" }}>
-                    <b style={{ color: "#fff", fontSize: 12.5 }}>DATA QA 점수 계산 로직</b>
-
-                    <div style={{ marginTop: 8, color: "#93C5FD", fontWeight: 700 }}>① 데이터 유무 (Level 1)</div>
-                    <div>가이드가 요구하는 항목(H태그·Meta·스키마 타입·속성)이 페이지에 실제 존재하는지. <b>충족 수 / 전체 수</b>로 계산. 값의 품질이 아니라 '있고 없고'만 봄.</div>
-
-                    <div style={{ marginTop: 8, color: "#FCD34D", fontWeight: 700 }}>② AEO 퀄리티 (Level 2) — 타입별 계산 후 평균</div>
-                    <div style={{ marginTop: 2 }}>타입(Product/FAQ/…)마다:</div>
-                    <div style={{ marginLeft: 8 }}>최종% = <b>파싱게이트</b> × <b>@id게이트</b> × <b>정보적합성%</b></div>
-                    <div style={{ marginLeft: 8, marginTop: 4 }}>· <b>정보적합성%</b> = Σ(속성 가중치 × 충족도) / Σ가중치</div>
-                    <div style={{ marginLeft: 16, color: "#94A3B8" }}>충족도: 충족 1.0 · 부분/값불일치 0.5 · 누락 0</div>
-                    <div style={{ marginLeft: 16, color: "#94A3B8" }}>가중치 예) Product name 4·image 3·brand 2 … / FAQ는 구조·화면일치 50:50 재환산(AI판단 항목 제외)</div>
-                    <div style={{ marginLeft: 8, marginTop: 4 }}>· <b>파싱게이트</b>: 리치결과 필수속성 누락 or JSON 파싱 실패 → 0 (그 타입 0%). 값 불일치·권장 누락은 감점만(게이트 아님)</div>
-                    <div style={{ marginLeft: 8 }}>· <b>@id게이트</b>: 현재는 항상 1 (존재·형식만 참고, 전체 점수 안 깎음)</div>
-                    <div style={{ marginLeft: 8, marginTop: 4 }}>· <b>필수 게이트</b>: 필수 속성 누락 시 그 타입 정보적합성 0% (리치결과 자격 소멸)</div>
-
-                    <div style={{ marginTop: 8, color: "#86EFAC", fontWeight: 700 }}>③ 제외·완화 규칙</div>
-                    <div>· 페이지에 없는 스키마 타입 → '해당없음', 평균에서 제외(0점 아님)</div>
-                    <div>· 리치결과 폐지(FAQ)·비대상(WebPage/ItemList) → 파싱게이트 미적용</div>
-                    <div>· Simple PDP(웨어러블)만 offers·sku 채점 / Flagship엔 미적용</div>
-                    <div>· @id 연결성: 부여율·형식만, 가이드 필수 타입 노드 기준</div>
-
-                    <div style={{ marginTop: 8, color: "#94A3B8" }}>전체 = 타입별 최종%의 평균 · 신호등 🟢 80%+ / 🟡 50–79% / 🔴 &lt;50%</div>
-                  </div>
-                )}
-              </span>
+              <button className="toolBtn" onClick={() => (showScore ? setShowScore(false) : openScore())}>
+                {showScore ? "ⓘ 점수 계산 숨기기" : "ⓘ 점수 계산 보기"}
+              </button>
               <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
               <a className="toolBtn" href={api("/api/qb/report.xlsx")} onClick={(e) => { if (!results.length) { e.preventDefault(); setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); } }} download>📊 Excel</a>
             </div>
@@ -366,12 +357,24 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
           <SiteOverview ctx={ctx} />
 
-          {/* 제품 · 페이지타입 */}
+          {/* 제품 · 페이지타입 (여러 개 선택 가능 — 배치 크롤 대상) */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 4px", flexWrap: "wrap" }}>
             <span style={{ fontSize: 12.5, color: "var(--sec)" }}>제품:</span>
-            {products.filter((p) => !p.spec_only).map((p) => <button key={p.code} onClick={() => setProduct(p.code)} style={sel(p.code, product === p.code)}>{p.label}</button>)}
+            {products.filter((p) => !p.spec_only).map((p) => {
+              const on = selectedProducts.has(p.code);
+              return <button key={p.code} onClick={() => {
+                setProduct(p.code);
+                setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? (n.size > 1 && n.delete(p.code)) : n.add(p.code); return n; });
+              }} style={sel(p.code, on)}>{on ? "✓ " : ""}{p.label}</button>;
+            })}
             <span style={{ fontSize: 12.5, color: "var(--sec)", marginLeft: 10 }}>페이지타입:</span>
-            {pageTypesFor(product).map((p) => <button key={p} onClick={() => setPageType(p)} style={sel(p, pageType === p)}>{p}</button>)}
+            {PAGE_TYPES.map((p) => {
+              const on = selectedPageTypes.has(p);
+              return <button key={p} onClick={() => {
+                setPageType(p);
+                setSelectedPageTypes((prev) => { const n = new Set(prev); n.has(p) ? (n.size > 1 && n.delete(p)) : n.add(p); return n; });
+              }} style={sel(p, on)}>{on ? "✓ " : ""}{p}</button>;
+            })}
           </div>
 
           {ok && <div style={{ background: "#ECFDF3", color: "#067647", padding: "8px 12px", borderRadius: 8, fontSize: 13, margin: "8px 0" }}>{ok}</div>}
@@ -458,6 +461,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {/* 스펙표 · 룰추가 · 검수기준 패널 (QubiSections.tsx로 분리) */}
           <SpecTable ctx={ctx} />
           <CriteriaPanel ctx={ctx} />
+          <ScorePanel ctx={ctx} />
           <HtmlQaSummary ctx={ctx} />
 
           {/* 결과 — 오류 빨강 강조. AEO(schema) 탭은 위 HtmlQaSummary 그룹으로 대체하므로 스펙(copy) 탭에서만 flat 테이블 노출 */}
