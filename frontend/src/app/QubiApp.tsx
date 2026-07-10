@@ -158,8 +158,17 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         page_types: Array.from(selectedPageTypes),
       }));
       if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일/링크 검수를 이용하세요.");
-      if (r.status === 409) throw new Error("이미 검수가 진행 중이에요. 완료 후 다시 시도하세요.");
-      if (!r.ok) throw new Error(`실행 실패 (${r.status})`);
+      if (r.status === 409) {
+        // 이전 검수가 서버에 갇힌 상태일 수 있음 — 강제 해제 후 1회 재시도
+        await fetch(api("/api/qb/run-reset"), { method: "POST" }).catch(() => {});
+        const retry = await fetch(api("/api/qb/run"), J({
+          product: family(product), market_product: product, sitecodes: codes,
+          products: Array.from(selectedProducts), page_types: Array.from(selectedPageTypes),
+        }));
+        if (!retry.ok) throw new Error(retry.status === 409 ? "이미 검수가 진행 중이에요. 잠시 후 다시 시도하세요." : `실행 실패 (${retry.status})`);
+      } else if (!r.ok) {
+        throw new Error(`실행 실패 (${r.status})`);
+      }
       await new Promise<void>((resolve, reject) => {
         const es = new EventSource(api("/api/qb/run-progress"));
         const timeout = setTimeout(() => { es.close(); reject(new Error("진행이 오래 걸려요 — 검수 이력에서 완료 여부를 확인해보세요.")); }, 20 * 60 * 1000);
