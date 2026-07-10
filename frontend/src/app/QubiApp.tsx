@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
-import { SpecTable, CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
+import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
 import { SpecV2Panel, DictionaryPanel, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 
@@ -100,7 +100,10 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     fetch(api("/api/health")).then((r) => setOnline(r.ok)).catch(() => setOnline(false));
     loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra"); loadHistory(); loadOverview();
     fetch(api("/api/qb/spec-rules/products")).then((r) => r.json())
-      .then((d) => setV2Products((d.products || []).map((p: any) => p.product))).catch(() => {});
+      .then((d) => {
+        const codes = (d.products || []).map((p: any) => p.product);
+        if (codes.length) setV2Products((prev) => Array.from(new Set([...prev, ...codes])));
+      }).catch(() => {});
   }, []);
   useEffect(() => { loadRules(); setSpecProduct(product); }, [product, pageType]);
   useEffect(() => { if (!pageTypesFor(product).includes(pageType)) setPageType("PDP"); }, [product]);
@@ -111,7 +114,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   async function loadSites() { try { const d = await (await fetch(api("/api/qb/sites"))).json(); setRegionsMap(d.regions || {}); setPageCount(d.page_count || 0); } catch { /* */ } }
   async function loadCatalog() { try { setCatalog((await (await fetch(api("/api/qb/spec-catalog"))).json()).catalog || []); } catch { /* */ } }
-  async function loadProducts() { try { setProducts((await (await fetch(api("/api/qb/products"))).json()).products || []); } catch { /* */ } }
+  async function loadProducts() {
+    try {
+      const ps = (await (await fetch(api("/api/qb/products"))).json()).products || [];
+      setProducts(ps);
+      // [견고성] /spec-rules/products 호출이 실패해도(배포 불일치 등) 제품 목록의 v2 플래그로 게이트가 열리게 병합
+      const flagged = ps.filter((p: any) => p.v2).map((p: any) => p.code);
+      if (flagged.length) setV2Products((prev) => Array.from(new Set([...prev, ...flagged])));
+    } catch { /* */ }
+  }
   async function loadSpecs(p: string) { try { setSpecs((await (await fetch(api(`/api/qb/specs?product=${encodeURIComponent(p)}`))).json()).specs || []); } catch { /* */ } }
   async function loadRules() {
     try { const d = await (await fetch(api(`/api/qb/rules?product=${family(product)}&page_type=${pageType}&market_product=${encodeURIComponent(product)}`))).json(); setRules(d); if (d.schema_types) setSchemaTypes(d.schema_types); } catch (e: any) { setErr(String(e)); }
@@ -268,12 +279,39 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     setRuleForm({ ...ruleForm, property: "", value: "", token: "" }); loadRules(); flash("룰 추가됨");
   };
 
-  // 현재 탭 오류 행
+  // 현재 탭 오류 행 — Quick View·flat 테이블 공용.
+  // [V2 정합] 스펙 탭에서 결과가 spec_v2(Rule DB 판정)를 가지면 화면(SpecV2Panel)과 동일한
+  // 소스에서 행을 만든다: Critical=룰 fail, Warning=미등록 표현(candidates).
+  // N/A(못 찾음·페이지타입 미적용)는 오류가 아니므로 Quick View에 싣지 않는다.
+  // spec_v2가 없는 제품(S26 등)만 기존 copy findings 폴백 — 메인 화면과 같은 분기 원칙.
   const rows = useMemo(() => {
     const out: { r: PageResult; f: Finding; item: string }[] = [];
     for (const r of results) {
-      const fs = tab === "schema" ? (r.schema?.findings || []) : (r.copy?.findings || []);
-      for (const f of fs) if (f.status !== "pass") out.push({ r, f, item: f.block || f.token || f.category || "" });
+      if (tab === "schema") {
+        for (const f of r.schema?.findings || []) if (f.status !== "pass") out.push({ r, f, item: f.block || f.token || f.category || "" });
+      } else if (r.spec_v2) {
+        for (const it of r.spec_v2.items || []) {
+          if (it.status !== "fail") continue;
+          out.push({
+            r, item: it.attribute,
+            f: { status: "fail", category: it.category, region: it.section,
+                 as_is: it.found ? `현재 '${it.found}'` : (it.message || "값 불일치"),
+                 to_be: `기준 ${it.expected}${it.unit ? ` ${it.unit}` : ""}${it.fix_guide ? ` — ${it.fix_guide}` : ""}`,
+                 expected: `${it.expected}${it.unit ? ` ${it.unit}` : ""}`,
+                 found: it.found ? [String(it.found)] : [] },
+          });
+        }
+        for (const c of r.spec_v2.candidates || []) {
+          out.push({
+            r, item: c.alias,
+            f: { status: "warn", category: "Dictionary",
+                 as_is: `미등록 표현 발견: '${c.alias}'`,
+                 to_be: "번역/표기 확인 후 [Dictionary 추가]로 승인하면 다음 검수부터 정식 판정" },
+          });
+        }
+      } else {
+        for (const f of r.copy?.findings || []) if (f.status !== "pass") out.push({ r, f, item: f.block || f.token || f.category || "" });
+      }
     }
     const rank: Record<string, number> = { fail: 0, warn: 1, na: 2 };
     return out.sort((a, b) => (rank[a.f.status] ?? 3) - (rank[b.f.status] ?? 3));
@@ -281,16 +319,27 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const failCount = rows.filter((x) => x.f.status === "fail").length;
 
   // 권역 신호등
+  // 권역 신호등 — [V2 정합] 현재 탭 기준으로만 집계(기존엔 schema+copy 합산이라 탭 화면과 불일치).
+  // 스펙 탭: spec_v2 있으면 summary(critical/warning) 그대로 — SpecV2Panel 종합 배너와 같은 숫자.
   const regionTier = useMemo(() => {
     const m: Record<string, { fail: number; warn: number }> = {};
     for (const r of results) {
       const rg = r.region || "기타"; m[rg] = m[rg] || { fail: 0, warn: 0 };
-      for (const f of [...(r.schema?.findings || []), ...(r.copy?.findings || [])]) {
-        if (f.status === "fail") m[rg].fail++; else if (f.status === "warn") m[rg].warn++;
+      if (tab === "schema") {
+        for (const f of r.schema?.findings || []) {
+          if (f.status === "fail") m[rg].fail++; else if (f.status === "warn") m[rg].warn++;
+        }
+      } else if (r.spec_v2) {
+        m[rg].fail += r.spec_v2.summary?.critical || 0;
+        m[rg].warn += r.spec_v2.summary?.warning || 0;
+      } else {
+        for (const f of r.copy?.findings || []) {
+          if (f.status === "fail") m[rg].fail++; else if (f.status === "warn") m[rg].warn++;
+        }
       }
     }
     return m;
-  }, [results]);
+  }, [results, tab]);
 
   const countries = useMemo(() => Array.from(new Set(results.map((r) => r.country).filter(Boolean))) as string[], [results]);
   const quickRows = useMemo(() => rows.filter((x) => qCountry === "전체" || x.r.country === qCountry), [rows, qCountry]);
@@ -483,15 +532,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             </button>
           </div>
 
-          {/* 스펙표 · 룰추가 · 검수기준 패널 — V2 룰셋 있는 제품(fold7/flip7)은 V2판, 없으면 기존판 */}
-          {tab === "copy" && isV2
-            ? <SpecV2RuleTable product={product} api={api} flash={flash} />
-            : <SpecTable ctx={ctx} />}
+          {/* 스펙표 · 검수기준 패널 — [확정] 구 검수기준표(SpecTable)는 스펙 탭에서 완전 제거.
+              V2 제품(fold7/flip7)이면 Rule DB 뷰어 노출, 그 외 제품은 기준표 없음(기준은 검수 기준 보기로).
+              점수 계산 패널은 제품과 무관하게 스펙 탭에서 항상 동작. */}
+          {tab === "copy" && isV2 && <SpecV2RuleTable product={product} api={api} flash={flash} />}
           {tab === "copy" && isV2
             ? <SpecV2Criteria show={showRules} panelRef={rulesRef} />
             : <CriteriaPanel ctx={ctx} />}
           <ScorePanel ctx={ctx} />
-          {tab === "copy" && isV2 && <SpecV2Score show={showScore} panelRef={scoreRef} />}
+          {tab === "copy" && <SpecV2Score show={showScore} panelRef={scoreRef} />}
           <HtmlQaSummary ctx={ctx} />
 
           {/* ═══ Spec QA [V2] — Rule 기반 Validation (spec_v2 있는 결과만) ═══ */}

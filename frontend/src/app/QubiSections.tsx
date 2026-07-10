@@ -210,12 +210,40 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
 
 // 점수 계산 설명 패널 — 검수 기준처럼 아래에 '뿅' 펼쳐짐. 개발자 용어 대신 쉬운 말로.
 export function ScorePanel({ ctx: c }: { ctx: any }) {
-  if (c.tab !== "schema" || !c.showScore) return null;
+  // [수정] 기존엔 c.tab !== "schema"면 무조건 null이라 스펙 탭에서 점수 버튼이 먹통이었음.
+  // 스펙 탭에서 V2 제품은 SpecV2Score가 담당하므로, 여기(구 ScorePanel)는
+  // '스키마 탭' 또는 '스펙 탭의 비(非)V2 제품'일 때만 뜬다.
+  if (!c.showScore) return null;
+  if (c.tab === "copy" && c.isV2) return null;   // 스펙 탭 V2 제품 → SpecV2Score가 처리
+  const isSpec = c.tab === "copy";
   const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
   const h = { fontWeight: 800, fontSize: 12.5, marginBottom: 4 } as const;
   const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
   return (
     <div ref={c.scoreRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 16 }}>
+      {isSpec ? (
+        <>
+          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 스펙 점수는 이렇게 계산돼요</div>
+          <div style={box}>
+            <div style={h}>① 무엇을 보나</div>
+            <div style={li}>가이드가 정한 <b>스펙 토큰</b>(200 MP·5000 mAh·2600 nits 등 숫자+단위)이 페이지에 정확히 있는지, 같은 단위인데 <b>다른 값</b>이 없는지 검사합니다.</div>
+          </div>
+          <div style={box}>
+            <div style={h}>② 등급</div>
+            <div style={li}>· 🔴 <b>오류</b> — 같은 단위인데 기대와 다른 값(예: 2600 nits 자리에 600).</div>
+            <div style={li}>· 🟡 <b>확인</b> — 기대 스펙 값이 아예 없음(나라별 미표기 가능 → 오류 아님). 고유명사(Snapdragon·Vapor Chamber 등)는 현지어 대체 가능성이 있어 존재만 확인.</div>
+            <div style={li}>· ⚪ <b>해당없음</b> — 그 페이지타입에 원래 없는 스펙은 검사 제외.</div>
+          </div>
+          <div style={box}>
+            <div style={h}>③ 서술형 문장</div>
+            <div style={li}>마케팅 서술 문장은 값 일치를 검사하지 않습니다(번역·표현 차이 때문).</div>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8 }}>
+            신호등 🟢 오류 0 · 🟡 확인만 있음 · 🔴 오류 있음
+          </div>
+        </>
+      ) : (
+      <>
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수는 이렇게 계산돼요</div>
 
       <div style={box}>
@@ -247,6 +275,8 @@ export function ScorePanel({ ctx: c }: { ctx: any }) {
       <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8 }}>
         전체 점수 = 페이지에 있는 스키마 타입들의 점수 <b>평균</b> · 신호등 🟢 80점↑ · 🟡 50–79점 · 🔴 50점 미만
       </div>
+      </>
+      )}
     </div>
   );
 }
