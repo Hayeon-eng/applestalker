@@ -16,7 +16,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [v2Products, setV2Products] = useState<string[]>([]); // Rule DB(V2)가 있는 제품 — 기준/점수 패널을 V2판으로 게이트
   const isV2 = v2Products.includes(product);
   const [pageType, setPageType] = useState("PDP");
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set(["galaxy-s26-ultra"])); // 배치 크롤용 제품 멀티선택
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set()); // 배치 크롤용 제품 멀티선택 (비면 전체)
   const [selectedPageTypes, setSelectedPageTypes] = useState<Set<string>>(new Set(["PDP"])); // 배치 크롤용 타입 멀티선택
   const [results, setResults] = useState<PageResult[]>([]);
   const [qaExpandedSite, setQaExpandedSite] = useState<string | null>(null); // HTML QA 일괄검수 드릴다운(사이트별 펼침)
@@ -182,6 +182,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                 .then((dd) => { if (dd?.results) { setResults(dd.results); setRunId(d.run_id); } resolve(); })
                 .catch(() => resolve());
             } else if (d.type === "status" && d.crawling === false) { clearTimeout(timeout); es.close(); resolve(); }
+            else if (d.type === "error") { clearTimeout(timeout); es.close(); reject(new Error(d.message || "크롤 중 오류가 발생했어요.")); }
           } catch { /* heartbeat 무시 */ }
         };
         es.onerror = () => { clearTimeout(timeout); es.close(); reject(new Error("진행 상황 연결이 끊겼어요 — 완료 후 검수 이력에서 확인하세요.")); };
@@ -444,7 +445,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               const on = selectedProducts.has(p.code);
               return <button key={p.code} onClick={() => {
                 setProduct(p.code);
-                setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? (n.size > 1 && n.delete(p.code)) : n.add(p.code); return n; });
+                setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? n.delete(p.code) : n.add(p.code); return n; });
               }} style={sel(p.code, on)}>{on ? "✓ " : ""}{p.label}</button>;
             })}
             <span style={{ fontSize: 12.5, color: "var(--sec)", marginLeft: 10 }}>페이지타입:</span>
