@@ -5,13 +5,16 @@ import { SEV, HONEY, tierOf, inputStyle, sel, humanizeTerm } from "./qubiShared"
 
 export function SpecTable({ ctx: c }: { ctx: any }) {
   if (c.tab !== "copy") return null;
+  // [V2] Rule DB 관리 제품(fold7/flip7 등)은 이 표의 편집 대상이 아님 — 드롭다운에서 제외.
+  // 기준값 원본을 Rule DB 하나로 유지하기 위함(백엔드 API도 동일하게 차단함).
+  const editable = (c.products || []).filter((p: any) => !p.v2 && !(c.v2Products || []).includes(p.code));
   return (
     <div className="card" style={{ marginTop: 18, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <b style={{ fontSize: 14 }}>검수 기준 스펙</b>
         <span style={{ fontSize: 12, color: "var(--sec)" }}>제품:</span>
         <select value={c.specProduct} onChange={(e) => c.setSpecProduct(e.target.value)} style={{ ...inputStyle }}>
-          {c.products.map((p: any) => <option key={p.code} value={p.code}>{p.label}</option>)}
+          {editable.map((p: any) => <option key={p.code} value={p.code}>{p.label}</option>)}
         </select>
         <input value={c.newProd} onChange={(e) => c.setNewProd(e.target.value)} placeholder="새 제품 추가(galaxy-buds4-pro)" style={{ ...inputStyle, width: 220 }} />
         <button onClick={c.addProduct} className="btnSecondary" style={{ fontSize: 12, padding: "5px 10px" }}>＋ 제품</button>
@@ -44,6 +47,11 @@ export function SpecTable({ ctx: c }: { ctx: any }) {
         </tbody>
       </table>
       <p style={{ fontSize: 11, color: "var(--sec)", marginTop: 6 }}>값에 콤마를 넣으면 국별 표기 차이를 모두 인정합니다(예: 재생시간 7,8 → 7h·8h 둘 다 통과). 숫자 콤마·공백(2,600=2600)도 자동 인식.</p>
+      {(c.v2Products || []).length > 0 && (
+        <p style={{ fontSize: 11, color: "#93540A", background: "#FFFAEB", border: "1px solid #FEDF89", borderRadius: 8, padding: "6px 10px", marginTop: 6 }}>
+          ⓘ Rule DB(V2) 제품({(c.v2Products || []).join(", ")})은 이 표에 없습니다 — 기준값은 해당 제품 선택 시 나타나는 <b>Rule DB 뷰어에서 엑셀 업로드</b>로만 관리합니다(원본 이원화 방지, 화면·API 모두 차단).
+        </p>
+      )}
     </div>
   );
 }
@@ -85,6 +93,12 @@ export function RuleAddPanel({ ctx: c }: { ctx: any }) {
             · <b>존재만</b>: 있는지만 확인 · <b>URL/@id</b>: <code>{"{SITECODE}"}</code>·<code>{"{LANG-CODE}"}</code> 자동 치환 후 정확 일치(불일치=오류)
             · <b>enum/타입</b>: 정확 일치 · <b>번역 텍스트</b>: 번역 여부 확인(warn, 오류 아님)
           </div>
+        </div>
+      ) : c.isV2 ? (
+        <div style={{ marginTop: 10, fontSize: 12.5, background: "#FFFAEB", border: "1px solid #FEDF89", borderRadius: 10, padding: "10px 12px", color: "#93540A" }}>
+          <b>{c.product}</b>는 Rule DB(V2) 제품이라 여기서 룰을 추가하지 않습니다 — 기준값 원본을 하나로 유지하기 위해 화면·API 모두 막혀 있어요.<br />
+          · <b>기준값·룰 추가/수정</b> → 스펙 탭의 Rule DB 뷰어에서 <b>엑셀 업로드</b><br />
+          · <b>다국어 표현 추가</b> → 검수 결과의 🟡 새로운 표현 카드에서 <b>[Dictionary 추가]</b> 승인
         </div>
       ) : (
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
