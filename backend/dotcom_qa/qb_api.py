@@ -315,10 +315,8 @@ _RUN_STATE: Dict[str, Any] = {"running": False, "run_id": None, "done": 0, "tota
 _RUN_CONCURRENCY = int(os.getenv("QB_RUN_CONCURRENCY", "6"))
 
 
-async def _run_batch(product: str, sitecodes: Optional[List[str]], run_id: str):
-    from crawler import HybridCrawler
-
 async def _run_batch(product, sitecodes, run_id, page_types=None, products=None):
+    from crawler import HybridCrawler
     targets = _registry.all()
     if sitecodes:
         want = {s.lower() for s in sitecodes}
@@ -332,71 +330,98 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
         prset = {p for p in products}
         targets = [t for t in targets if runner.product_from_url(t.get("url", "")) in prset]
 
-    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets),
+    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=__import__("time").time(),
                       events=[{"type": "start", "total": len(targets)}], result_run_id=None, summary=None)
 
-    crawler = HybridCrawler()
-    await crawler.start()
-    sem = asyncio.Semaphore(_RUN_CONCURRENCY)  # 동시 진행 개수를 제한해 '나눠서' 처리
-    rules_cache: Dict[str, Any] = {}
-    results: List[Optional[Dict[str, Any]]] = [None] * len(targets)
-
-    def rules_for(pt, mp):
-        key = f"{pt}|{mp}"
-        if key not in rules_cache:
-            rules_cache[key] = runner.load_rules(product, page_type=pt, market_product=mp)
-        return rules_cache[key]
-
-    async def one(i: int, site: Dict[str, Any]):
-        async with sem:
-            url = site.get("url", "")
-            pt = site.get("page_type") or runner.page_type_from_url(url)
-            mp = runner.product_from_url(url)
-            html, err, rendered_by = None, None, None
-            try:
-                res = await crawler.crawl(url, requires_js=True)
-                html = (res or {}).get("html_content")
-                err = (res or {}).get("error")
-                rendered_by = (res or {}).get("rendered_by")
-            except Exception as e:
-                err = str(e)
-            if html:
-                row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt, rendered_by=rendered_by)
-                ok = True
-            else:
-                row = {"sitecode": site["sitecode"], "url": url, "region": site.get("region"),
-                       "country": site.get("country"), "page_type": pt,
-                       "schema": {"summary": {}, "findings": [
-                           {"block": "(collection failed)", "status": "fail",
-                            "as_is": f"HTML collection failed{(' — ' + err) if err else ''}",
-                            "to_be": "Check blocking / unrendered JS / timeout, then retry"}]},
-                       "copy": {"summary": {}, "findings": []},
-                       "html_qa": None}  # 수집 실패 시 HTML QA 채점 불가 — None
-                ok = False
-            results[i] = row
-            _RUN_STATE["done"] += 1
-            _RUN_STATE["events"].append({"type": "page_done", "sitecode": site.get("sitecode"), "ok": ok,
-                                         "done": _RUN_STATE["done"], "total": _RUN_STATE["total"]})
-
+    crawler = None
     try:
-        await asyncio.gather(*(one(i, s) for i, s in enumerate(targets)))
-    finally:
-        await crawler.close()
+        crawler = HybridCrawler()
+        await crawler.start()
+        sem = asyncio.Semaphore(_RUN_CONCURRENCY)  # 동시 진행 개수를 제한해 '나눠서' 처리
+        rules_cache: Dict[str, Any] = {}
+        results: List[Optional[Dict[str, Any]]] = [None] * len(targets)
 
-    final = [r for r in results if r]
-    global _LAST_RESULTS
-    _LAST_RESULTS = final
-    summary = qa_report.summary_counts(final)
-    entry = _history_save(final, summary, product=product,
-                          scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"))
-    _RUN_STATE["events"].append({"type": "done", "run_id": entry["run_id"], "summary": summary})
-    _RUN_STATE.update(running=False, result_run_id=entry["run_id"], summary=summary)
+        def rules_for(pt, mp):
+            key = f"{pt}|{mp}"
+            if key not in rules_cache:
+                rules_cache[key] = runner.load_rules(product, page_type=pt, market_product=mp)
+            return rules_cache[key]
+
+        async def one(i: int, site: Dict[str, Any]):
+            async with sem:
+                url = site.get("url", "")
+                pt = site.get("page_type") or runner.page_type_from_url(url)
+                mp = runner.product_from_url(url)
+                html, err, rendered_by = None, None, None
+                try:
+                    res = await crawler.crawl(url, requires_js=True)
+                    html = (res or {}).get("html_content")
+                    err = (res or {}).get("error")
+                    rendered_by = (res or {}).get("rendered_by")
+                except Exception as e:
+                    err = str(e)
+                try:
+                    if html:
+                        row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt, rendered_by=rendered_by)
+                        ok = True
+                    else:
+                        raise RuntimeError(err or "no html")
+                except Exception as e:
+                    row = {"sitecode": site.get("sitecode"), "url": url, "region": site.get("region"),
+                           "country": site.get("country"), "page_type": pt,
+                           "schema": {"summary": {}, "findings": [
+                               {"block": "(collection failed)", "status": "fail",
+                                "as_is": f"HTML collection failed{(' — ' + str(e)) if str(e) else ''}",
+                                "to_be": "Check blocking / unrendered JS / timeout, then retry"}]},
+                           "copy": {"summary": {}, "findings": []},
+                           "html_qa": None}
+                    ok = False
+                results[i] = row
+                _RUN_STATE["done"] += 1
+                _RUN_STATE["ts"] = __import__("time").time()
+                _RUN_STATE["events"].append({"type": "page_done", "sitecode": site.get("sitecode"), "ok": ok,
+                                             "done": _RUN_STATE["done"], "total": _RUN_STATE["total"]})
+
+        # 개별 사이트 실패가 전체를 죽이지 않도록 return_exceptions=True
+        await asyncio.gather(*(one(i, s) for i, s in enumerate(targets)), return_exceptions=True)
+
+        final = [r for r in results if r]
+        global _LAST_RESULTS
+        _LAST_RESULTS = final
+        summary = qa_report.summary_counts(final)
+        entry = _history_save(final, summary, product=product,
+                              scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"))
+        _RUN_STATE["events"].append({"type": "done", "run_id": entry["run_id"], "summary": summary})
+        _RUN_STATE.update(result_run_id=entry["run_id"], summary=summary)
+    except Exception as e:
+        # 배치 전체가 실패해도 상태는 반드시 풀어준다(안 그러면 이후 /run이 계속 409)
+        _RUN_STATE["events"].append({"type": "error", "message": str(e)})
+    finally:
+        if crawler is not None:
+            try:
+                await crawler.close()
+            except Exception:
+                pass
+        _RUN_STATE.update(running=False)  # 성공/실패 무관 — 항상 해제
+
+
+@qb_router.post("/run-reset")
+def qb_run_reset():
+    """검수 상태를 강제로 해제(멈춘 상태에서 409가 계속 날 때 수동 복구용)."""
+    _RUN_STATE.update(running=False)
+    return {"ok": True, "running": False}
 
 
 @qb_router.post("/run")
 async def qb_run(payload: Dict[str, Any] = Body(default={})):
+    # stale 가드: '진행 중'인데 마지막 진행이 오래됐으면(크래시로 갇힘) 자동 해제
+    import time as _t
     if _RUN_STATE.get("running"):
-        raise HTTPException(409, "이미 검수가 진행 중입니다. 완료 후 다시 시도하세요.")
+        last = _RUN_STATE.get("ts", 0)
+        if last and (_t.time() - last) > 300:   # 5분 무진행 → 죽은 것으로 간주
+            _RUN_STATE.update(running=False)
+        else:
+            raise HTTPException(409, "이미 검수가 진행 중입니다. 완료 후 다시 시도하세요.")
     product = payload.get("product", "M3")
     sitecodes = payload.get("sitecodes")
     page_types = payload.get("page_types")   # ["PDP","Compare"] 등 (없으면 전체)
