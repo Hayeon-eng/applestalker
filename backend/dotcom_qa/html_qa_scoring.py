@@ -46,7 +46,10 @@ AXIS1_WEIGHTS: Dict[str, Dict[str, Any]] = {
         "hasPartOrSeek": 1, "expiresNoError": 1,
     },
     "FAQPage": {  # A안 재환산 — 자기완결성/인용적합성은 축1에서 제외됨(참고: AI판단_보류검토 탭)
-        "structure_valid": 0.5, "screen_match": 0.5,
+        # 2026-07 수정: screen_match(마크업↔화면 실제 비교)는 Playwright 기반 자동 검증
+        # 미구현 상태 → 채점(분모/분자) 대상에서 제외. structure_valid 단독 100% 배점.
+        # screen_match는 axis1_info_adequacy()에서 참고용(Manual Check) 값으로만 별도 계산됨.
+        "structure_valid": 1.0,
     },
     "WebPage, ItemPage": {
         "type_combo": 4, "name": 3, "url": 3, "description": 1, "primaryImage": 1,
@@ -366,8 +369,8 @@ def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str,
     if rule_props is not None:
         def _in_rule(k):
             base = ALIAS_TO_SCHEMA.get(k, k)
-            # FAQPage 재환산 키(structure_valid/screen_match)와 항상 유지 대상은 통과
-            if k in ("structure_valid", "screen_match"):
+            # FAQPage 재환산 키(structure_valid)는 항상 유지 대상으로 통과
+            if k == "structure_valid":
                 return True
             return base in rule_props or k in rule_props
         weights = {k: w for k, w in all_weights.items() if _in_rule(k)}
@@ -380,13 +383,7 @@ def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str,
     if f is None or f.get("code") == "schema.missing":
         return None
 
-    props_score = {}
-    for prop in weights:
-        if block_name == "FAQPage" and prop == "screen_match":
-            # 마크업↔화면 일치는 렌더 없이 자동 검증 불가 → '수동 확인 필요'로 0.5 고정(자동 만점 금지)
-            props_score[prop] = 0.5
-        else:
-            props_score[prop] = _prop_score(f, prop)
+    props_score = {p: _prop_score(f, p) for p in weights}
     required = [p for p in REQUIRED_GATE_PROPS.get(block_name, []) if p in weights]
     hard_missing = set(f.get("missing_props", []))
     gate_triggered = any(p in hard_missing for p in required)
@@ -395,8 +392,18 @@ def axis1_info_adequacy(schema_result: Dict[str, Any], block_name: str,
     weighted = sum(weights[p] * props_score[p] for p in weights)
     pct = 0.0 if gate_triggered else round(100 * weighted / total_w, 1) if total_w else None
 
-    return {"pct": pct, "gate_triggered": gate_triggered, "props": props_score,
-            "weights": weights, "required": required}
+    result = {"pct": pct, "gate_triggered": gate_triggered, "props": props_score,
+              "weights": weights, "required": required}
+
+    if block_name == "FAQPage":
+        # screen_match(마크업↔화면 실제 비교): Playwright 기반 자동 검증 미구현 →
+        # 채점(분모/분자)에서 완전히 제외하고, 참고용(Manual Check) 값만 별도로 실어 보낸다.
+        # UI에서 노출하지 않아도 무방(점수 계산에는 영향 없음).
+        result["manual_check"] = {
+            "screen_match": {"status": "not_implemented", "note": "수동 확인 필요(채점 미반영)"}
+        }
+
+    return result
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -475,6 +482,9 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
             "weak_recommended": weak_recommended,
             "prop_detail": [{"prop": p, "score": props[p]} for p in props],
         }
+        if "manual_check" in a1:
+            # 점수 계산과 무관한 참고용 필드. UI에서 노출/숨김 자유(예: screen_match 수동 확인 배지).
+            per_type[name]["manual_check"] = a1["manual_check"]
 
     overall_final = None
     if per_type:
