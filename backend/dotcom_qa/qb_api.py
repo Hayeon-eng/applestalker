@@ -205,13 +205,27 @@ def qb_check(payload: Dict[str, Any] = Body(...)):
     page_type = payload.get("page_type", "PDP")
     if not html:
         raise HTTPException(400, "html 필드가 필요합니다.")
-    rules = runner.load_rules(product, page_type=page_type,
-                              market_product=payload.get("market_product") or "galaxy-s26-ultra")
+    # 제품: ①명시값 ②붙여넣은 HTML의 JSON-LD @id/url에서 슬러그 자동판별 ③최후 폴백
+    mp = payload.get("market_product")
+    if not mp:
+        import re as _re
+        m = _re.search(r"samsung\.com/[^/\"']+/smartphones/(galaxy-[a-z0-9-]+?)/", html)
+        # -ultra/-plus 등 정확 매칭 우선(긴 슬러그가 먼저 잡히도록 non-greedy + compare/ 접미 제거)
+        mp = m.group(1) if m else None
+        if mp:
+            mp = mp.replace("/compare", "").rstrip("/")
+    if not mp:
+        mp = "galaxy-s26-ultra"
+    # 붙여넣기는 URL이 없으니 page_type도 HTML에 compare 흔적 있으면 보정
+    if "/compare" in (html or "") and page_type == "PDP" and payload.get("page_type") is None:
+        page_type = "Compare"
+    rules = runner.load_rules(product, page_type=page_type, market_product=mp)
     out = runner.check_html(html, rules, sitecode=payload.get("sitecode"), site_lang=payload.get("lang"))
     out["page_type"] = page_type
+    out["market_product"] = mp
     global _LAST_RESULTS
     _LAST_RESULTS = [{"sitecode": payload.get("sitecode") or "(입력)", "url": "", "page_type": page_type,
-                      "schema": out["schema"], "copy": out["copy"]}]
+                      "market_product": mp, "schema": out["schema"], "copy": out["copy"]}]
     return out
 
 

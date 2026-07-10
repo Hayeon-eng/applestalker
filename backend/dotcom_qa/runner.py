@@ -128,7 +128,8 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
             ev = _c.deepcopy(deck.get("expected_values", {}))
             if is_compare:
                 for prop, spec in ev.items():
-                    if prop in _PAGE_SELF_PROPS and isinstance(spec, dict) and spec.get("kind") == "url":
+                    # @id(페이지 자기참조 URL)일 때만 compare 경로로. @type 값(예: mainEntity=Question)엔 적용 금지
+                    if prop in _PAGE_SELF_PROPS and isinstance(spec, dict) and spec.get("kind") == "url" and spec.get("nested") == "@id":
                         spec["value"] = _to_compare(spec.get("value", ""))
             b["expected_values"] = ev
             if deck.get("haspart_ids"):
