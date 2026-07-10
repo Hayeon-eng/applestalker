@@ -39,7 +39,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   const [regionsMap, setRegionsMap] = useState<Record<string, SiteRow[]>>({});
   const [pageCount, setPageCount] = useState(0);
-  const [region, setRegion] = useState<string>("전체");
+  const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set()); // 권역 다중선택(비었으면 전체)
+  const [showScoreTip, setShowScoreTip] = useState(false); // 점수 계산 로직 툴팁
+  const [selectedSites, setSelectedSites] = useState<Set<string>>(new Set()); // 사이트 개별 다중선택(우선)
   const [progress, setProgress] = useState({ active: false, done: 0, total: 0, label: "" });
 
   const [sitesOpen, setSitesOpen] = useState(false);
@@ -122,11 +124,19 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   // /run 은 즉시 반환(started)되고, 실제 크롤은 서버 백그라운드에서 동시성 제한으로
   // '나눠서' 진행된다. 프론트는 SSE로 진행률만 구독하다가 done 이벤트에서 결과를 받아온다.
   // → 91개를 한 요청에 다 물지 않으므로 'Failed to fetch'(게이트웨이 타임아웃)가 사라진다.
+  const targetCodes = useMemo(() => {
+    if (selectedSites.size > 0) return Array.from(selectedSites);
+    if (selectedRegions.size > 0) return allSites.filter((s) => selectedRegions.has(s.region || "")).map((s) => s.sitecode);
+    return allSites.map((s) => s.sitecode); // 아무것도 안 고르면 전체
+  }, [selectedSites, selectedRegions, allSites]);
+
   const runByRegion = async () => {
     if (busy) return;
     setBusy(true); setErr(""); setResults([]);
-    const codes = region === "전체" ? allSites.map((s) => s.sitecode) : (regionsMap[region] || []).map((s) => s.sitecode);
-    setProgress({ active: true, done: 0, total: codes.length, label: region });
+    const codes = targetCodes;
+    if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); setBusy(false); return; }
+    const label = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
+    setProgress({ active: true, done: 0, total: codes.length, label });
     try {
       const r = await fetch(api("/api/qb/run"), J({ product: family(product), market_product: product, sitecodes: codes }));
       if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일/링크 검수를 이용하세요.");
@@ -313,6 +323,20 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <button className="toolBtn" onClick={() => (showRules ? setShowRules(false) : openCriteria())}>
                 {showRules ? "ⓘ 검수 기준 숨기기" : "ⓘ 검수 기준 보기"}
               </button>
+              <span style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+                onMouseEnter={() => setShowScoreTip(true)} onMouseLeave={() => setShowScoreTip(false)}>
+                <button className="toolBtn" style={{ padding: "0 8px" }}>ⓘ 점수 계산</button>
+                {showScoreTip && (
+                  <div style={{ position: "absolute", top: "110%", right: 0, zIndex: 50, width: 340, background: "#0F172A", color: "#E2E8F0", borderRadius: 10, padding: "12px 14px", fontSize: 11.5, lineHeight: 1.7, boxShadow: "0 8px 24px rgba(0,0,0,.25)" }}>
+                    <b style={{ color: "#fff" }}>DATA QA 점수 계산</b>
+                    <div style={{ marginTop: 6 }}>· <b>데이터 유무</b> = 충족 속성 / 전체 속성 (개수 기반)</div>
+                    <div>· <b>퀄리티(AEO)</b> = 파싱게이트 × @id게이트 × 정보적합성%</div>
+                    <div>· <b>정보적합성</b> = Σ(속성 가중치 × 충족도) / Σ가중치</div>
+                    <div style={{ marginTop: 6, color: "#94A3B8" }}>필수 속성 누락 시 해당 타입 0% (자격 소멸). 페이지에 없는 스키마 타입은 채점 제외(해당없음). @id는 존재·형식만 채점.</div>
+                    <div style={{ marginTop: 4, color: "#94A3B8" }}>신호등: 🟢 80%+ · 🟡 50–79% · 🔴 &lt;50%</div>
+                  </div>
+                )}
+              </span>
               <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
               <a className="toolBtn" href={api("/api/qb/report.xlsx")} onClick={(e) => { if (!results.length) { e.preventDefault(); setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); } }} download>📊 Excel</a>
             </div>
@@ -341,14 +365,42 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {/* ① 리전별 검수 크롤 (91사이트) — 먼저 노출 */}
           <div className="card" style={{ marginTop: 12, padding: 14 }}>
             <b style={{ fontSize: 14 }}>① 리전별 검수 크롤</b>
-            <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 8 }}>등록된 사이트를 권역별로 크롤해 한 번에 검수 (결과는 이력에 저장)</span>
-            <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 8px", flexWrap: "wrap" }}>
-              {["전체", ...regionNames].map((rg) => <button key={rg} onClick={() => setRegion(rg)} style={sel(rg, region === rg)}>{rg}{rg !== "전체" && regionsMap[rg] ? ` ${regionsMap[rg].length}` : ""}</button>)}
+            <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 8 }}>권역/사이트를 선택해 크롤 (아무것도 안 고르면 전체)</span>
+
+            {/* 권역 다중선택 */}
+            <div style={{ fontSize: 11.5, color: "var(--sec)", margin: "10px 0 4px" }}>권역 (여러 개 선택 가능)</div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+              {regionNames.map((rg) => {
+                const on = selectedRegions.has(rg);
+                return (
+                  <button key={rg} onClick={() => { setSelectedSites(new Set()); setSelectedRegions((prev) => { const n = new Set(prev); n.has(rg) ? n.delete(rg) : n.add(rg); return n; }); }}
+                    style={sel(rg, on)}>{on ? "✓ " : ""}{rg} {regionsMap[rg]?.length || 0}</button>
+                );
+              })}
+              {(selectedRegions.size > 0 || selectedSites.size > 0) &&
+                <button onClick={() => { setSelectedRegions(new Set()); setSelectedSites(new Set()); }} style={{ fontSize: 11.5, color: "var(--sec)", background: "none", border: "none", cursor: "pointer" }}>선택 해제</button>}
             </div>
+
+            {/* 사이트 개별 체크박스(접이식) */}
+            <details style={{ marginBottom: 8 }}>
+              <summary style={{ fontSize: 11.5, color: "#0A66E0", cursor: "pointer" }}>사이트 개별 선택 {selectedSites.size > 0 ? `(${selectedSites.size}개 선택됨)` : ""}</summary>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
+                {allSites.map((s, i) => {
+                  const on = selectedSites.has(s.sitecode);
+                  return (
+                    <label key={s.sitecode + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px solid var(--line)", borderRadius: 6, padding: "3px 8px", cursor: "pointer", background: on ? "#E8F0FE" : "#fff" }}>
+                      <input type="checkbox" checked={on} onChange={() => { setSelectedRegions(new Set()); setSelectedSites((prev) => { const n = new Set(prev); n.has(s.sitecode) ? n.delete(s.sitecode) : n.add(s.sitecode); return n; }); }} />
+                      {s.sitecode}<span style={{ color: "var(--sec)" }}>{s.region}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </details>
+
             <button onClick={runByRegion} disabled={busy} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-              {busy ? "붕붕 검수 중…" : `${region === "전체" ? allSites.length : (regionsMap[region]?.length || 0)}개 사이트 검수`}
+              {busy ? "붕붕 검수 중…" : `${targetCodes.length}개 사이트 검수${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`}
             </button>
-            {region === "전체" && pageCount > 0 && !busy && (
+            {selectedSites.size === 0 && selectedRegions.size === 0 && pageCount > 0 && !busy && (
               <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>사이트당 여러 페이지(PDP·Compare·Buds 등) — 총 {pageCount}개 페이지 검수</span>
             )}
             {progress.active && (

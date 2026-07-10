@@ -360,39 +360,46 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* ═══ HTML QA 카드 ═══ */}
-      <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px" }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>HTML 검수 <span style={{ fontWeight: 400, color: "var(--sec)", fontSize: 11.5 }}>Meta · 제목 태그</span></div>
+      {/* ═══ HTML 검수 카드 (파랑 계열) ═══ */}
+      <div style={{ border: "1px solid #DCE7FA", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ background: "#EEF4FE", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#1B57C4", borderLeft: "3px solid #1B57C4" }}>
+          HTML 검수 <span style={{ fontWeight: 400, color: "#5B7BB4", fontSize: 10.5 }}>Meta · 제목 태그</span>
+        </div>
+        <div style={{ padding: "10px 14px" }}>
         {/* 문제 먼저 */}
         {htmlItems.filter((i) => !i.ok).length > 0 && (
-          <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
+          <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "7px 10px", marginBottom: 8 }}>
             {htmlItems.filter((i) => !i.ok).map((i) => (
-              <div key={i.key} style={{ fontSize: 12.5, padding: "2px 0" }}>
+              <div key={i.key} style={{ fontSize: 11.5, padding: "2px 0" }}>
                 <b style={{ color: "#B42318" }}>❌ {i.key}</b> <span style={{ color: "var(--sec)" }}>{i.note}</span>
-                <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 11.5 }}>· 수정 위치: {i.where}</span>
+                <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 11 }}>· 수정 위치: {i.where}</span>
               </div>
             ))}
           </div>
         )}
-        {/* 실제 태깅 값 + PASS */}
-        <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 7, fontSize: 12.5, alignItems: "start" }}>
+        {/* 실제 태깅 값 + PASS (글씨 작게) */}
+        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 6, fontSize: 11.5, alignItems: "start" }}>
           {htmlItems.map((i) => (
             <Fragment key={i.key}>
               <span style={{ color: "var(--sec)" }}>{i.ok ? "✅" : "❌"} {i.key}</span>
               <span>
                 {i.key === "H2"
-                  ? ((sig.h2_list || []).length ? (sig.h2_list || []).map((t: string, k: number) => <span key={k} style={{ display: "inline-block", background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, margin: "1px 4px 1px 0", fontSize: 11.5 }}>{t}</span>) : <i style={{ color: "#B42318" }}>누락</i>)
-                  : (i.val ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word" }}>{i.val}</code> : <i style={{ color: "#B42318" }}>누락</i>)}
+                  ? ((sig.h2_list || []).length ? (sig.h2_list || []).map((t: string, k: number) => <span key={k} style={{ display: "inline-block", background: "#F2F4F7", padding: "1px 6px", borderRadius: 5, margin: "1px 4px 1px 0", fontSize: 10.5 }}>{t}</span>) : <i style={{ color: "#B42318" }}>누락</i>)
+                  : (i.val ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word", fontSize: 11 }}>{i.val}</code> : <i style={{ color: "#B42318" }}>누락</i>)}
               </span>
             </Fragment>
           ))}
         </div>
+        </div>
       </div>
 
-      {/* ═══ Schema QA 카드들 — 타입별 ═══ */}
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 800, margin: "0 0 8px" }}>Schema 검수 <span style={{ fontWeight: 400, color: "var(--sec)", fontSize: 11.5 }}>구조화 데이터(JSON-LD)</span></div>
-        {Object.keys(perType).length === 0 && <p style={{ color: "var(--sec)", fontSize: 12.5 }}>감지된 Schema가 없어요.</p>}
+      {/* ═══ Schema 검수 (앰버 계열) ═══ */}
+      <div style={{ border: "1px solid #F5E6C8", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ background: "#FDF6E9", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#96690B", borderLeft: "3px solid #E0A008" }}>
+          Schema 검수 <span style={{ fontWeight: 400, color: "#A98A4B", fontSize: 10.5 }}>구조화 데이터(JSON-LD)</span>
+        </div>
+        <div style={{ padding: "10px 14px" }}>
+        {Object.keys(perType).length === 0 && <p style={{ color: "var(--sec)", fontSize: 12 }}>감지된 Schema가 없어요.</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {Object.entries(perType).map(([t, v]: [string, any]) => {
             const missReq: string[] = v.missing_required || [];
@@ -489,6 +496,7 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
             );
           })}
         </div>
+        </div>
       </div>
 
       {/* ═══ 연결성(@id) — 있을 때만, 간단히 ═══ */}
@@ -506,7 +514,7 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
   );
 }
 
-function OverallBanner({ hq }: { hq: any }) {
+function OverallBanner({ hq, row }: { hq: any; row?: any }) {
   const l1 = hq.level1_apply_rate || {};
   const perType: Record<string, any> = hq.level2?.per_type || {};
   const overall = hq.overall || {};
@@ -514,8 +522,10 @@ function OverallBanner({ hq }: { hq: any }) {
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
       <span style={{ fontSize: 18 }}>{TL_EMOJI[overall.traffic_light] || "⚪"}</span>
       <b style={{ fontSize: 13.5 }}>종합 판단</b>
+      {row && (row.product || row.market_product) && <span style={{ fontSize: 10.5, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 6px" }}>{row.product || row.market_product}</span>}
+      {row && row.page_type && <span style={{ fontSize: 10.5, background: "#E8F0FE", color: "#1B57C4", borderRadius: 4, padding: "1px 6px" }}>{row.page_type}</span>}
       <span style={{ fontSize: 11.5, color: "var(--sec)" }}>
-        데이터 유무 {l1.apply_rate_pct ?? "—"}% · 퀄리티 {overall.final_pct ?? "—"}%
+        데이터 유무 {overall.prop_total ? Math.round((overall.prop_ok / overall.prop_total) * 100) : "—"}% ({overall.prop_ok ?? 0}/{overall.prop_total ?? 0}) · 퀄리티 {overall.final_pct ?? "—"}%
       </span>
       <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
         {Object.entries(perType).map(([t, v]: [string, any]) => (
@@ -538,11 +548,12 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
   if (rowsWithQa.length === 0) return null;
 
   if (rowsWithQa.length === 1) {
-    const hq = rowsWithQa[0].html_qa;
-    const findings = rowsWithQa[0].schema?.findings || [];
+    const r0 = rowsWithQa[0];
+    const hq = r0.html_qa;
+    const findings = r0.schema?.findings || [];
     return (
       <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
-        <OverallBanner hq={hq} />
+        <OverallBanner hq={hq} row={r0} />
         <HtmlQaDetail hq={hq} findings={findings} />
       </div>
     );
@@ -554,15 +565,16 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
   const dist = { green: 0, yellow: 0, red: 0 } as Record<string, number>;
   for (const r of rowsWithQa) dist[r.html_qa.overall?.traffic_light || "red"]++;
   const sorted = [...rowsWithQa].sort((a, b) => (a.html_qa.overall?.final_pct ?? -1) - (b.html_qa.overall?.final_pct ?? -1));
-  const applyVals = rowsWithQa.map((r) => r.html_qa.level1_apply_rate?.apply_rate_pct).filter((v: any) => v != null) as number[];
-  const avgApply = applyVals.length ? Math.round((applyVals.reduce((a, b) => a + b, 0) / applyVals.length) * 10) / 10 : null;
+  const propOk = rowsWithQa.reduce((a, r) => a + (r.html_qa.overall?.prop_ok || 0), 0);
+  const propTotal = rowsWithQa.reduce((a, r) => a + (r.html_qa.overall?.prop_total || 0), 0);
+  const avgApply = propTotal ? Math.round((propOk / propTotal) * 1000) / 10 : null;
   const expanded = c.qaExpandedSite;
 
   return (
     <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
         <b style={{ fontSize: 13.5 }}>DATA QA 종합</b>
-        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>{rowsWithQa.length}개 사이트 · 데이터 유무 {avgApply ?? "—"}% · 퀄리티 {avg ?? "—"}%</span>
+        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>{rowsWithQa.length}개 사이트 · 데이터 유무 {avgApply ?? "—"}% ({propOk}/{propTotal}) · 퀄리티 {avg ?? "—"}%</span>
         <span style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <span style={{ fontSize: 12 }}>🟢 {dist.green}</span>
           <span style={{ fontSize: 12 }}>🟡 {dist.yellow}</span>
@@ -580,6 +592,8 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
                 <span>{TL_EMOJI[tl] || "⚪"}</span>
                 <b>{r.sitecode}</b>
                 <span style={{ color: "var(--sec)" }}>{r.region} · {r.country}</span>
+                {(r.product || r.market_product) && <span style={{ fontSize: 10.5, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 6px" }}>{r.product || r.market_product}</span>}
+                {r.page_type && <span style={{ fontSize: 10.5, background: "#E8F0FE", color: "#1B57C4", borderRadius: 4, padding: "1px 6px" }}>{r.page_type}</span>}
                 <span style={{ marginLeft: "auto" }}>AEO {hq.overall?.final_pct ?? "—"}% · 적용율 {hq.level1_apply_rate?.apply_rate_pct ?? "—"}%</span>
                 <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
               </div>
