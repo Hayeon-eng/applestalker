@@ -2,7 +2,7 @@
 /* QubiSpecQa.tsx — Spec QA [V2] 렌더 블록 (Rule 기반 Spec Validation 결과 화면)
    QA 담당자가 30초 안에 ①어떤 Rule이 실패했는지 ②왜 ③어떻게 고치는지 이해하는 것이 목표.
    Data QA(QubiDataQa) 카드 스타일과 얼라인: 색 헤더 스트립 + 테두리 카드. */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const C = { crit: "#D8362F", warn: "#E0A008", pass: "#1F9E5C", na: "#98A2B3", blue: "#1B57C4" };
 const scoreColor = (s: number | null) => (s == null ? C.na : s < 50 ? C.crit : s < 80 ? C.warn : C.pass);
@@ -215,6 +215,160 @@ export function DictionaryPanel({ product, api }: { product: string; api: (p: st
           {data && <div style={{ marginTop: 8, fontSize: 11, color: "var(--sec)" }}>룰 {data.rules?.length ?? 0}개 · 버전 {data.version || "—"} — 기준값 수정은 Rule DB 엑셀 재업로드로 반영됩니다.</div>}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   V2 기준/점수 패널 — 기존 SpecTable/CriteriaPanel/ScorePanel의 V2 대체판.
+   V2 룰셋이 있는 제품(fold7/flip7 등)에서만 렌더되고, 없는 제품은 기존 패널 유지.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const VAL_KO: Record<string, { label: string; desc: string }> = {
+  exact: { label: "완전일치", desc: "정규화 후 문자열이 같아야 함 (해상도·IP48·카메라 조합)" },
+  numeric_exact: { label: "숫자일치", desc: "표기가 달라도 숫자만 비교 — 4,400 = 4.400 = 4 400 (배터리·무게·크기)" },
+  prefix: { label: "접두일치", desc: "앞부분만 일치하면 통과 — SM-F966B/DS의 지역 서픽스 허용" },
+  dictionary: { label: "사전", desc: "표기 변형 허용 — Wi-Fi 7 = WiFi 7, 칩셋명 현지화 접미사 허용" },
+  option_match: { label: "옵션전부", desc: "나열된 옵션이 모두 있어야 함 — 256/512/1TB 중 하나라도 빠지면 오류" },
+  exists: { label: "존재확인", desc: "언급 자체가 검수 대상 — Galaxy AI·구성품·disclaimer 문구" },
+};
+const PRI_COLOR: Record<string, string> = { Critical: "#D8362F", High: "#B54708", Medium: "#0A66E0", Low: "#667085" };
+
+/* ── V2 검수 기준 스펙표 — Rule DB 뷰어 + 엑셀 업로드 (구 SpecTable 대체) ── */
+export function SpecV2RuleTable({ product, api, flash }:
+  { product: string; api: (p: string) => string; flash: (m: string) => void }) {
+  const [data, setData] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const load = async () => {
+    try { setData(await (await fetch(api(`/api/qb/spec-rules?product=${encodeURIComponent(product)}`))).json()); }
+    catch { setData(null); }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [product]);
+  const upload = async (f: File) => {
+    setBusy(true);
+    try {
+      const b64: string = await new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result)); rd.onerror = rej; rd.readAsDataURL(f); });
+      const r = await fetch(api("/api/qb/spec-rules/upload"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ b64, product, version: f.name }) });
+      if (!r.ok) throw new Error(String((await r.json().catch(() => ({}))).detail || r.status));
+      flash("Rule DB 갱신됨 — 다음 검수부터 적용 🐝"); load();
+    } catch (e: any) { flash(`업로드 실패 — ${e.message || e}`); } finally { setBusy(false); }
+  };
+  const rules = data?.rules || [];
+  return (
+    <div className="card" style={{ marginTop: 18, padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <b style={{ fontSize: 14 }}>검수 기준 스펙 — Rule DB</b>
+        <span style={{ fontSize: 11, background: "#EEF4FE", color: C.blue, borderRadius: 5, padding: "2px 7px", fontWeight: 700 }}>{product}</span>
+        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>룰 {rules.length}개 · 버전 {data?.version || "—"}</span>
+        <span style={{ marginLeft: "auto" }}>
+          <button onClick={() => fileRef.current?.click()} disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>
+            {busy ? "업로드 중…" : "⬆ Rule DB 엑셀 업로드"}
+          </button>
+          <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.currentTarget.value = ""; }} />
+        </span>
+      </div>
+      <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "6px 0 8px" }}>
+        기준값은 이 Rule DB(엑셀)가 원본입니다 — 값 수정은 엑셀 편집 → 업로드로 반영하세요. 화면에서 직접 편집하지 않습니다(변경 이력·검토를 엑셀로 일원화).
+      </p>
+      <div style={{ maxHeight: 340, overflow: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead><tr style={{ color: "var(--sec)", fontSize: 11, textAlign: "left", position: "sticky", top: 0, background: "#F9FAFB" }}>
+            <th style={{ padding: "6px 8px" }}>분류</th><th style={{ padding: "6px 8px" }}>항목</th>
+            <th style={{ padding: "6px 8px" }}>기준값</th><th style={{ padding: "6px 8px" }}>검사</th>
+            <th style={{ padding: "6px 8px" }}>등급</th><th style={{ padding: "6px 8px" }}>위치</th></tr></thead>
+          <tbody>
+            {rules.map((r: any) => (
+              <tr key={r.rule_id}>
+                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)", color: "var(--sec)" }}>{r.category}</td>
+                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)" }}>{r.attribute}</td>
+                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)", fontWeight: 700 }}>{r.expected}{r.unit ? ` ${r.unit}` : ""}</td>
+                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)" }} title={VAL_KO[r.validation]?.desc || r.validation}>
+                  <span style={{ background: "#F2F4F7", borderRadius: 5, padding: "1px 6px", fontSize: 11 }}>{VAL_KO[r.validation]?.label || r.validation}</span></td>
+                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)" }}>
+                  <b style={{ color: PRI_COLOR[r.priority] || "var(--sec)", fontSize: 11 }}>{r.priority}</b></td>
+                <td style={{ padding: "5px 8px", borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11 }}>{r.page}{r.exception ? " ⓘ" : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── V2 검수 기준 설명 (구 CriteriaPanel 스펙 브랜치 대체) ── */
+export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: any }) {
+  if (!show) return null;
+  const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
+  return (
+    <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
+      <b style={{ fontSize: 14 }}>검수 기준 — 스펙 (Rule 기반 V2)</b>
+      <p style={{ fontSize: 12.5, color: "var(--sec)", margin: "6px 0 0" }}>
+        AI 추론이 아니라 <b>Rule DB 기준값과의 결정적(deterministic) 대조</b>입니다. 같은 페이지는 항상 같은 결과가 나오고, 모든 판정에 "판정 과정 보기"가 남습니다.
+      </p>
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>판정 순서 (항상 이 순서)</div>
+        <div style={{ fontSize: 12, color: "var(--sec)", lineHeight: 1.7 }}>
+          페이지 수집 → 스펙 영역 추출 → <b>섹션 판정</b>(본문/각주/구매박스/구성품…) → <b>항목 판정</b>(라벨이 어느 속성인지) → <b>사전 매핑</b>(23개 대표항목 × 637개 다국어 표현) → <b>정규화</b>(4,400=4.400=4 400) → <b>검사</b> → <b>예외 적용</b> → 결과
+        </div>
+      </div>
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>검사 방식 6종 — 항목마다 "틀리는 방식"에 맞춰 배정</div>
+        {Object.entries(VAL_KO).map(([k, v]) => (
+          <div key={k} style={{ fontSize: 12, color: "var(--sec)", lineHeight: 1.7 }}>
+            · <b style={{ color: "var(--label)" }}>{v.label}</b> — {v.desc}
+          </div>
+        ))}
+      </div>
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>판정 등급</div>
+        <div style={{ fontSize: 12, color: "var(--sec)", lineHeight: 1.8 }}>
+          <div>🔴 <b style={{ color: C.crit }}>Critical</b> — 값이 기준과 <b>다름</b> (예: 무게 216g ↔ 기준 215g)</div>
+          <div>🟡 <b style={{ color: C.warn }}>Warning</b> — 페이지에서 <b>사전에 없는 새 표현</b> 발견 → 번역/표기 재확인 후 [Dictionary 추가]로 승인</div>
+          <div>⚪ <b style={{ color: C.na }}>N/A</b> — 항목을 페이지에서 못 찾았거나 이 페이지타입에 해당 없음 (N/A가 절반 넘으면 커버리지 경고가 뜹니다)</div>
+        </div>
+      </div>
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>오탐(False Positive) 방지 장치</div>
+        <div style={{ fontSize: 12, color: "var(--sec)", lineHeight: 1.7 }}>
+          · <b>Typical ↔ Rated 상호 비교 금지</b> — 일반 4400과 각주의 정격 4272는 서로 다른 항목으로 취급<br />
+          · <b>프로모션 영역 제외</b> — 배너의 마케팅 숫자는 검사하지 않음<br />
+          · <b>적응형 주사율(1–120Hz)</b> — 최대값만 검증 · <b>국가 예외</b> — CountryException 시트로 국가별 스킵/허용
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── V2 점수 계산 설명 (구 ScorePanel의 스펙 탭 대응) ── */
+export function SpecV2Score({ show, panelRef }: { show: boolean; panelRef?: any }) {
+  if (!show) return null;
+  const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
+  const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
+  return (
+    <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 16 }}>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 스펙 점수는 이렇게 계산돼요 (V2)</div>
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① Validation Score</div>
+        <div style={li}><b>통과한 룰 ÷ 판정한 룰</b> × 100. "판정한 룰" = PASS + Critical만이에요 — <b>N/A는 분모에서 제외</b>합니다(페이지에 원래 없는 항목 때문에 점수가 깎이지 않게).</div>
+        <div style={{ ...li, marginTop: 4 }}>예) 룰 31개 중 N/A 6개 · PASS 23개 · Critical 2개 → 23 ÷ 25 = <b>92%</b></div>
+      </div>
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리 점수</div>
+        <div style={li}>같은 방식을 카테고리(Battery·Display…) 단위로 계산합니다. 카드에 보이는 "Rule Pass 8/8"이 그 분자/분모예요. 오류가 있는 카테고리는 자동으로 펼쳐집니다.</div>
+      </div>
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ Warning은 점수에 안 들어가요</div>
+        <div style={li}>🟡 Warning(사전 미등록 표현)은 "페이지가 틀렸다"가 아니라 <b>"검수 시스템이 이 표현을 아직 모른다"</b>는 뜻이라 점수와 분리해서 셉니다. 승인해서 사전에 추가하면 다음 검수부터 그 항목이 정식 판정됩니다.</div>
+      </div>
+      <div style={box}>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ 커버리지 경고 — 점수가 좋아 보여도 믿지 마세요</div>
+        <div style={li}>적용 대상 룰의 <b>절반 이상이 N/A</b>면 상단에 ⚠️ 경고가 뜹니다. 이 언어 표현이 사전에 없거나 페이지 구조가 달라 수집이 안 된 것일 수 있어요 — 이때의 높은 점수는 "다 통과"가 아니라 "거의 못 봤다"일 수 있으니, 새 표현 승인부터 해주세요.</div>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8 }}>
+        신호등: 🟢 80%↑ · 🟡 50–79% · 🔴 50% 미만 — Data QA와 동일 기준
+      </div>
     </div>
   );
 }

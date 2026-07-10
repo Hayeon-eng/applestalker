@@ -8,11 +8,13 @@ import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
 import { SpecTable, CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
-import { SpecV2Panel, DictionaryPanel } from "./QubiSpecQa";
+import { SpecV2Panel, DictionaryPanel, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
   const [product, setProduct] = useState("galaxy-s26-ultra");
+  const [v2Products, setV2Products] = useState<string[]>([]); // Rule DB(V2)가 있는 제품 — 기준/점수 패널을 V2판으로 게이트
+  const isV2 = v2Products.includes(product);
   const [pageType, setPageType] = useState("PDP");
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set(["galaxy-s26-ultra"])); // 배치 크롤용 제품 멀티선택
   const [selectedPageTypes, setSelectedPageTypes] = useState<Set<string>>(new Set(["PDP"])); // 배치 크롤용 타입 멀티선택
@@ -97,6 +99,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   useEffect(() => {
     fetch(api("/api/health")).then((r) => setOnline(r.ok)).catch(() => setOnline(false));
     loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra"); loadHistory(); loadOverview();
+    fetch(api("/api/qb/spec-rules/products")).then((r) => r.json())
+      .then((d) => setV2Products((d.products || []).map((p: any) => p.product))).catch(() => {});
   }, []);
   useEffect(() => { loadRules(); setSpecProduct(product); }, [product, pageType]);
   useEffect(() => { if (!pageTypesFor(product).includes(pageType)) setPageType("PDP"); }, [product]);
@@ -476,10 +480,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             </button>
           </div>
 
-          {/* 스펙표 · 룰추가 · 검수기준 패널 (QubiSections.tsx로 분리) */}
-          <SpecTable ctx={ctx} />
-          <CriteriaPanel ctx={ctx} />
+          {/* 스펙표 · 룰추가 · 검수기준 패널 — V2 룰셋 있는 제품(fold7/flip7)은 V2판, 없으면 기존판 */}
+          {tab === "copy" && isV2
+            ? <SpecV2RuleTable product={product} api={api} flash={flash} />
+            : <SpecTable ctx={ctx} />}
+          {tab === "copy" && isV2
+            ? <SpecV2Criteria show={showRules} panelRef={rulesRef} />
+            : <CriteriaPanel ctx={ctx} />}
           <ScorePanel ctx={ctx} />
+          {tab === "copy" && isV2 && <SpecV2Score show={showScore} panelRef={scoreRef} />}
           <HtmlQaSummary ctx={ctx} />
 
           {/* ═══ Spec QA [V2] — Rule 기반 Validation (spec_v2 있는 결과만) ═══ */}
