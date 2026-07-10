@@ -8,7 +8,6 @@ import {
 } from "./shared";
 import { Landing, Overview, PagesTab, ProductTab, CriteriaDrawer, InsightChat } from "./sections";
 import QubiApp from "./QubiApp";
-import CombiApp from "./CombiApp";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -17,7 +16,7 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace
 ════════════════════════════════════════════════════ */
 export default function Page() {
   const [view, setView] = useState<View>("home");
-  const [appMode, setAppMode] = useState<"applestalker" | "qubi" | "combi">("applestalker");
+  const [appMode, setAppMode] = useState<"applestalker" | "qubi">("applestalker");
   const [mainTab, setMainTab] = useState<MainTab>("overview");
   const [metricTab, setMetricTab] = useState<MetricView>("all");
   const [online, setOnline] = useState<boolean | null>(null);
@@ -238,16 +237,11 @@ export default function Page() {
   if (view === "home") {
     return <Landing
       onEnterApple={() => { setAppMode("applestalker"); setView("dashboard"); }}
-      onEnterQubi={() => { setAppMode("qubi"); setView("dashboard"); }}
-      onEnterCombi={() => { setAppMode("combi"); setView("dashboard"); }} />;
+      onEnterQubi={() => { setAppMode("qubi"); setView("dashboard"); }} />;
   }
 
   if (appMode === "qubi") {
     return <QubiApp apiBase={API} onHome={() => setView("home")} />;
-  }
-
-  if (appMode === "combi") {
-    return <CombiApp apiBase={API} onHome={() => setView("home")} />;
   }
 
   return (
