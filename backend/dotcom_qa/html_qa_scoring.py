@@ -263,109 +263,49 @@ def _all_ids(value: Any) -> List[str]:
     return out
 
 
-def axis3_id_linkage(html: str) -> Dict[str, Any]:
+def axis3_id_linkage(html: str, required_types: Optional[List[str]] = None) -> Dict[str, Any]:
+    """@id 연결성. required_types = 가이드가 요구하는 핵심 스키마 타입(페이지 룰 기반).
+    @id 부여율/형식은 '전체 노드'가 아니라 '가이드 필수 타입 노드'만 대상으로 채점한다
+    (배너/breadcrumb 등 부가 노드에 @id 없다고 감점하지 않음 → '가이드만 준수하면 100%')."""
     nodes = schema_checker.extract_jsonld(html)
     checks: List[Dict[str, Any]] = []
 
+    # 가이드 핵심 타입(없으면 통상적인 핵심 엔티티 기본값)
+    CORE = set(required_types or ["Product", "VideoObject", "3DModel", "FAQPage",
+                                  "WebPage", "ItemPage", "ItemList", "Organization", "Brand"])
+
+    def _is_core(n):
+        return bool(set(schema_checker._types_of(n)) & CORE)
+
+    core_nodes = [n for n in nodes if _is_core(n)]
+    core_with_id = [n for n in core_nodes if n.get("@id")]
     node_ids = {str(n.get("@id")) for n in nodes if n.get("@id")}
-    id_rate = round(100 * len(node_ids) / len(nodes), 1) if nodes else 0.0
-    checks.append({"item": "@id 부여율", "weight": 3, "score": 1.0 if nodes and len(node_ids) == len(nodes) else (0.5 if node_ids else 0.0),
-                  "detail": f"{len(node_ids)}/{len(nodes)} 노드에 @id 존재"})
 
-    invalid_fmt = [i for i in node_ids if not _ABS_URL_RE.match(i)]
-    checks.append({"item": "@id 형식 유효성", "weight": 2,
-                  "score": 1.0 if node_ids and not invalid_fmt else (0.0 if invalid_fmt else 0.5),
-                  "detail": f"비정상 형식 {len(invalid_fmt)}건" if invalid_fmt else "전부 절대 URI"})
+    # @id 부여율 — 핵심 노드가 하나도 없으면 '해당없음'(None), 있으면 그 노드들 기준
+    if core_nodes:
+        rate_score = 1.0 if len(core_with_id) == len(core_nodes) else (0.5 if core_with_id else 0.0)
+        checks.append({"item": "@id 부여율", "weight": 3, "score": rate_score,
+                       "detail": f"핵심 노드 {len(core_with_id)}/{len(core_nodes)}에 @id 존재"})
+    else:
+        checks.append({"item": "@id 부여율", "weight": 3, "score": None, "detail": "핵심 스키마 없음(해당없음)"})
 
-    def type_ids(*types):
-        return {str(n.get("@id")) for n in nodes if set(schema_checker._types_of(n)) & set(types) and n.get("@id")}
+    core_ids = {str(n.get("@id")) for n in core_with_id}
+    invalid_fmt = [i for i in core_ids if not _ABS_URL_RE.match(i)]
+    if core_ids:
+        checks.append({"item": "@id 형식 유효성", "weight": 2,
+                      "score": 1.0 if not invalid_fmt else 0.0,
+                      "detail": f"비정상 형식 {len(invalid_fmt)}건" if invalid_fmt else "전부 절대 URI"})
+    else:
+        checks.append({"item": "@id 형식 유효성", "weight": 2, "score": None, "detail": "해당없음"})
 
-    product_ids = type_ids("Product")
-    video_ids = type_ids("VideoObject")
-    model_ids = type_ids("3DModel")
-    faq_ids = type_ids("FAQPage")
-
-    referenced: set = set()
-    for n in nodes:
-        if set(schema_checker._types_of(n)) & {"Product"}:
-            referenced |= set(_all_ids(n.get("subjectOf")))
-
-    v_linked = len(referenced & video_ids)
-    checks.append({"item": "Product ↔ VideoObject", "weight": 4,
-                  "score": (v_linked / len(video_ids)) if video_ids else None,
-                  "detail": f"{v_linked}/{len(video_ids) or 0} 연결" if video_ids else "VideoObject 없음(해당없음)"})
-
-    m_linked = 1.0 if (referenced & model_ids) else (0.0 if model_ids else None)
-    checks.append({"item": "Product ↔ 3DModel", "weight": 3, "score": m_linked,
-                  "detail": "연결됨" if (referenced & model_ids) else ("미연결" if model_ids else "3DModel 없음(해당없음)")})
-
-    f_linked = 1.0 if (referenced & faq_ids) else (0.0 if faq_ids else None)
-    checks.append({"item": "Product ↔ FAQPage", "weight": 2, "score": f_linked,
-                  "detail": "연결됨" if (referenced & faq_ids) else ("미연결" if faq_ids else "FAQPage 없음(해당없음)")})
-
-    # 참조 무결성(dangling) — subjectOf/mainEntity/hasPart 참조 대상이 그래프 내 실제 존재하는지.
-    # 단, 현실 보정:
-    #  · about/mainEntityOfPage 는 '다른 페이지'(buy·compare 등)를 가리키는 게 정상이라 무결성 대상에서 제외.
-    #  · 같은 페이지를 가리키는 fragment(#...) 참조만 무결성 검사 대상으로 본다
-    #    (절대 URL로 외부 리소스를 참조하는 건 페이지 그래프 무결성과 무관).
-    INTEGRITY_KEYS = ("subjectOf", "mainEntity", "hasPart")
-
-    def _same_page_fragment(ref: str) -> bool:
-        # 이 페이지 노드들과 같은 베이스 + #fragment 형태만 '그래프 내부 참조'로 간주
-        if "#" not in ref:
-            return False
-        base = ref.split("#", 1)[0].rstrip("/")
-        return any(str(nid).split("#", 1)[0].rstrip("/") == base for nid in node_ids)
-
-    ref_total = 0
-    dangling = []
-    for n in nodes:
-        for key in INTEGRITY_KEYS:
-            for ref in _all_ids(n.get(key)):
-                if not ref or not _ABS_URL_RE.match(ref):
-                    continue
-                if not _same_page_fragment(ref):
-                    continue  # 외부/타페이지 참조는 무결성 대상 아님
-                ref_total += 1
-                if ref not in node_ids:
-                    dangling.append({"from": n.get("@id"), "key": key, "ref": ref})
-
-    # 게이트: 내부 참조가 하나라도 있고, 그 중 '과반 이상'이 깨졌을 때만 kill-switch.
-    # (소수 dangling은 감점(score)으로만 반영 — 삼성 페이지처럼 참조가 많은 경우 소수 누락으로
-    #  페이지 전체를 0점 처리하던 과잉 판정을 방지)
-    dangling_ratio = (len(dangling) / ref_total) if ref_total else 0.0
-    integrity_score = 1.0 if not dangling else (0.5 if dangling_ratio < 0.5 else 0.0)
-    integrity_gate_broken = ref_total > 0 and dangling_ratio >= 0.5
-    checks.append({"item": "참조 무결성(dangling 없음) ★게이트", "weight": 4,
-                  "score": integrity_score,
-                  "detail": (f"끊어진 내부 참조 {len(dangling)}/{ref_total}건"
-                             + ("" if not integrity_gate_broken else " — 과반 이상 깨짐(게이트)"))
-                            if dangling else "전부 유효"})
-
-    dup = [i for i in node_ids if list(node_ids).count(i) > 1]  # node_ids는 set이라 항상 0 — 원본 리스트로 재계산
-    raw_ids = [str(n.get("@id")) for n in nodes if n.get("@id")]
-    dup_ids = {i for i in raw_ids if raw_ids.count(i) > 1}
-    # 같은 @id가 서로 다른 @type 조합에 쓰였는지(충돌)만 문제로 봄(단순 반복 참조는 정상)
-    conflict = False
-    seen_types: Dict[str, set] = {}
-    for n in nodes:
-        nid = str(n.get("@id")) if n.get("@id") else None
-        if not nid:
-            continue
-        t = frozenset(schema_checker._types_of(n))
-        if nid in seen_types and seen_types[nid] != t:
-            conflict = True
-        seen_types[nid] = t
-    checks.append({"item": "@id 유일성(중복·충돌 없음)", "weight": 2,
-                  "score": 0.0 if conflict else 1.0, "detail": "충돌 발견" if conflict else "충돌 없음"})
-
+    # v0.9: @id 연결성은 '존재 여부(부여율·형식)'만 본다. 연결관계(Product↔Video/3D/FAQ)·
+    # 참조 무결성·유일성 등 상세 항목은 채점에서 제외(가이드만 준수하면 되도록 완화).
+    # 게이트도 없음 — @id 때문에 페이지 전체 점수를 0으로 만들지 않는다.
     scored = [c for c in checks if c["score"] is not None]
     total_w = sum(c["weight"] for c in scored)
     pct = round(100 * sum(c["weight"] * c["score"] for c in scored) / total_w, 1) if total_w else None
-    gate = 0 if integrity_gate_broken else 1
 
-    return {"checks": checks, "id_pct": pct, "gate": gate, "dangling": dangling,
-            "dangling_ratio": round(dangling_ratio, 2), "ref_total": ref_total}
+    return {"checks": checks, "id_pct": pct, "gate": 1}
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -456,7 +396,11 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
                                guide_h1_keywords=guide_h1_keywords,
                                guide_h2_min_count=guide_h2_min_count)
     axis2 = axis2_parsing_and_rich_result(html, schema_result, schema_types_in_rules, rendered_by=rendered_by)
-    axis3 = axis3_id_linkage(html)
+    # 가이드 룰의 실제 타입(@type)만 핵심으로 → @id 부여율/형식을 그 노드들만 대상으로
+    rule_types = []
+    for b in (schema_rules.get("blocks") or []):
+        rule_types += b.get("types", [])
+    axis3 = axis3_id_linkage(html, required_types=rule_types or None)
 
     per_type = {}
     for name in AXIS1_WEIGHTS:
@@ -496,6 +440,7 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
             "recommended_ok": rec_ok,
             "missing_required": missing_required,
             "weak_recommended": weak_recommended,
+            "prop_detail": [{"prop": p, "score": props[p]} for p in props],
         }
 
     overall_final = None

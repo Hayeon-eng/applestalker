@@ -264,6 +264,12 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         if rx is not None and not id_matched:
             f["id_mismatch"] = str(node.get("@id", ""))
 
+        # 프론트 '수정 위치' 표시용: 매칭된 노드를 보기 좋게 직렬화한 JSON-LD 스니펫(라인번호 UI에서 부여)
+        try:
+            f["raw"] = json.dumps(node, ensure_ascii=False, indent=2)[:4000]
+        except Exception:
+            f["raw"] = None
+
         # 필수 속성 검증 (Remarks 달린 선택 속성은 soft 로 분리)
         optional = set(block.get("optional_properties", []))
         for prop in block.get("required_properties", []):
