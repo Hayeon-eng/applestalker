@@ -5,6 +5,25 @@
 import { useEffect, useRef, useState } from "react";
 import { TL_COLOR, TL_EMOJI, tlSpec } from "./qubiShared";
 
+// 클릭하면 뜨는 툴팁 — 브라우저 기본 title은 안 뜨거나 느려서 직접 구현
+function InfoTip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ position: "relative", display: "inline-block", marginLeft: 6 }}>
+      <span onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        style={{ cursor: "pointer", color: "#0A66E0", fontSize: 11, userSelect: "none" }}>ⓘ</span>
+      {open && (
+        <>
+          <span onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }} />
+          <span style={{ position: "absolute", left: 0, top: "130%", zIndex: 51, width: 240, whiteSpace: "pre-line",
+            background: "#101318", color: "#fff", fontSize: 11, lineHeight: 1.55, borderRadius: 8, padding: "8px 10px",
+            boxShadow: "0 6px 18px rgba(0,0,0,.25)", fontWeight: 400 }}>{text}</span>
+        </>
+      )}
+    </span>
+  );
+}
+
 // 단어 단위 diff (Data QA MiniDiff와 동일 스타일) — 현재값(빨간 취소선) → 기준값(초록 밑줄)
 function _tok(s: string): string[] { return (s || "").match(/\s+|[^\s]+/g) || []; }
 function MiniDiff({ expected, actual }: { expected: string; actual: string }) {
@@ -300,11 +319,19 @@ export function SpecV2RuleTable({ product, api, flash }:
   // 기준값을 자연어 '이래야 정상'으로
   const normalText = (r: any) => {
     const v = `${r.expected}${r.unit ? ` ${r.unit}` : ""}`;
-    if (r.validation === "option_match") return `${v} — 나열된 옵션이 모두 있어야 해요`;
-    if (r.validation === "exists") return `"${v}" 언급이 페이지에 있어야 해요`;
-    if (r.validation === "numeric_exact") return `${v} (표기 달라도 숫자만 맞으면 통과)`;
+    if (r.validation === "option_match") return `${v} (이 값들이 옵션으로 노출)`;
+    if (r.validation === "exists") return `"${v}" 언급이 있어야`;
+    if (r.validation === "numeric_exact") return `${v} (표기 달라도 숫자 일치면 OK)`;
     if (r.validation === "dictionary") return `${v} (표기 변형·현지화 허용)`;
     return `정확히 "${v}"`;
+  };
+  // page(노출 영역) 라벨을 사람이 아는 말로
+  const PAGE_KO: Record<string, { ko: string; tip: string }> = {
+    "PDP": { ko: "제품 상세", tip: "제품 상세 페이지(PDP) 본문" },
+    "PDP/Compare": { ko: "상세·비교", tip: "제품 상세와 비교 페이지 양쪽" },
+    "Buy Box": { ko: "구매 영역", tip: "가격·구매 버튼이 있는 구매 박스 영역 (옵션 선택지가 여기 노출)" },
+    "Disclaimer": { ko: "각주", tip: "페이지 하단 법적 고지·각주 영역" },
+    "What's in the box": { ko: "구성품", tip: "박스 구성품 안내 영역" },
   };
   return (
     <div className="card" style={{ marginTop: 18, padding: 14 }}>
@@ -344,11 +371,12 @@ export function SpecV2RuleTable({ product, api, flash }:
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
                     <b style={{ color: "#067647" }}>{normalText(r)}</b>
-                    <span title={valDesc} style={{ marginLeft: 6, cursor: "help", color: "var(--sec)", fontSize: 11 }}>ⓘ</span>
+                    <InfoTip text={`검사 방식: ${valDesc}`} />
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11.5 }}>
-                    <span title={pri.why}>{pri.ko}</span> · {r.page}
-                    {r.exception && <span title="이 항목은 특정 국가/조건에서 예외 규칙이 있어요" style={{ cursor: "help", marginLeft: 4 }}>ⓘ</span>}
+                    <b style={{ color: pri.c }}>{pri.ko}</b>
+                    <span> · {(PAGE_KO[r.page]?.ko) || r.page}</span>
+                    <InfoTip text={`${pri.ko} — ${pri.why}\n위치: ${(PAGE_KO[r.page]?.tip) || r.page}${r.exception ? "\n※ 특정 국가/조건 예외 규칙 있음" : ""}`} />
                   </td>
                 </tr>
               );
@@ -368,31 +396,31 @@ export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: a
   const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.75 } as const;
   return (
     <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
-      <b style={{ fontSize: 14 }}>이렇게 검수해요 — 스펙</b>
+      <b style={{ fontSize: 14 }}>검수 방식 — 스펙</b>
       <p style={{ fontSize: 12.5, color: "var(--sec)", margin: "6px 0 0" }}>
-        정답지(Rule DB)에 적힌 값이 페이지에 제대로 있는지 하나씩 대조합니다. <b>AI 추측이 아니라 정해진 규칙대로만</b> 판정해서, 같은 페이지는 언제 돌려도 같은 결과가 나와요. 각 항목마다 "왜 이렇게 판정했나"를 펼쳐볼 수 있습니다.
+        정답지(Rule DB)의 각 항목이 페이지에 정확히 반영됐는지 규칙 기반으로 대조합니다. AI 추론이 아니라 정해진 규칙으로만 판정하므로 같은 페이지는 항상 동일한 결과가 나오며, 항목별 판정 근거를 펼쳐 확인할 수 있습니다.
       </p>
       <div style={box}>
-        <div style={h}>① 무엇을 보나</div>
+        <div style={h}>① 검사 대상</div>
         <div style={li}>
-          페이지에서 스펙이 적힌 부분(스펙표·각주·구성품 등)을 찾아, <b>정답지의 각 항목이 있는지 · 값이 맞는지</b>를 확인해요.
-          "4,400"과 "4 400"처럼 나라마다 표기가 달라도 <b>같은 값으로 인정</b>하고, 칩셋명 현지 표기 같은 것도 사전을 통해 맞춰줍니다.
+          스펙 노출 영역(스펙표·각주·구성품 등)에서 <b>정답지 항목의 존재 여부와 값 일치</b>를 확인합니다.
+          "4,400"과 "4 400"처럼 국가별 표기 차이는 <b>동일 값으로 인정</b>하며, 칩셋명 등 현지화 표기는 사전(Dictionary)으로 매핑합니다.
         </div>
       </div>
       <div style={box}>
-        <div style={h}>② 결과는 세 가지</div>
+        <div style={h}>② 판정 등급</div>
         <div style={li}>
-          <div>🔴 <b style={{ color: C.crit }}>오류</b> — 값이 정답과 다름 (예: 무게가 216g인데 정답은 215g). 하나라도 있으면 그 페이지는 빨간불이에요.</div>
-          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 사전에 없던 <b>새로운 표현</b>을 만남. "틀렸다"가 아니라 "이 표현을 아직 모른다"는 뜻 → 맞는 표현이면 [Dictionary 추가]로 승인하면 다음부터 정식 판정돼요.</div>
-          <div>⚪ <b style={{ color: C.na }}>해당없음</b> — 이 페이지엔 원래 없는 항목이거나 못 찾음. (못 찾은 게 너무 많으면 위에 커버리지 경고가 떠요.)</div>
+          <div>🔴 <b style={{ color: C.crit }}>오류</b> — 값이 정답과 불일치 (예: 무게 216g / 정답 215g). 1건이라도 있으면 해당 페이지는 오류 처리됩니다.</div>
+          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 사전 미등록 표현 발견. 오류가 아니라 "미학습 표현"이며, 유효한 표현이면 [Dictionary 추가]로 승인 시 다음 검수부터 정식 판정됩니다.</div>
+          <div>⚪ <b style={{ color: C.na }}>해당없음</b> — 해당 페이지타입에 없는 항목이거나 미검출 (미검출 과다 시 커버리지 경고 표시).</div>
         </div>
       </div>
       <div style={box}>
-        <div style={h}>③ 헷갈리기 쉬운 걸 일부러 안 틀리게</div>
+        <div style={h}>③ 오탐 방지 규칙</div>
         <div style={li}>
-          · 일반 용량(4400)과 각주의 정격 용량(4272)은 <b>서로 다른 항목</b>으로 봐서 섞지 않아요<br />
-          · 광고 배너의 마케팅 숫자는 검사 대상에서 <b>빼요</b> (진짜 스펙만 봄)<br />
-          · 나라마다 다른 규칙(어떤 항목은 특정 국가에서 생략 허용)도 <b>미리 반영</b>돼 있어요
+          · 일반 용량(4400)과 각주 정격 용량(4272)은 <b>별개 항목</b>으로 분리 판정<br />
+          · 프로모션 배너의 마케팅 수치는 <b>검사 대상에서 제외</b><br />
+          · 국가별 예외 규칙(특정 항목 생략 허용 등)을 사전 반영
         </div>
       </div>
     </div>

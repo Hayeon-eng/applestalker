@@ -210,12 +210,9 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
 
 // 점수 계산 설명 패널 — 검수 기준처럼 아래에 '뿅' 펼쳐짐. 개발자 용어 대신 쉬운 말로.
 export function ScorePanel({ ctx: c }: { ctx: any }) {
-  // [수정] 기존엔 c.tab !== "schema"면 무조건 null이라 스펙 탭에서 점수 버튼이 먹통이었음.
-  // 스펙 탭에서 V2 제품은 SpecV2Score가 담당하므로, 여기(구 ScorePanel)는
-  // '스키마 탭' 또는 '스펙 탭의 비(非)V2 제품'일 때만 뜬다.
-  if (!c.showScore) return null;
-  if (c.tab === "copy" && c.isV2) return null;   // 스펙 탭 V2 제품 → SpecV2Score가 처리
-  const isSpec = c.tab === "copy";
+  // 스펙 탭은 V2(Rule DB) 전용 → SpecV2Score가 담당. 여기(구 ScorePanel)는 스키마 탭에서만 뜬다.
+  if (c.tab !== "schema" || !c.showScore) return null;
+  const isSpec = false;
   const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
   const h = { fontWeight: 800, fontSize: 12.5, marginBottom: 4 } as const;
   const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
@@ -296,12 +293,14 @@ export function QuickView({ ctx: c }: { ctx: any }) {
         <span role="button" onClick={() => c.setQuickOpen(false)} style={{ cursor: "pointer" }}>✕</span>
       </div>
       <div style={{ padding: 14 }}>
-        <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 6 }}>권역 신호등</div>
-        {Object.keys(c.regionTier).length === 0 && <p style={{ fontSize: 12, color: "var(--sec)" }}>검수를 실행하면 권역별 상태가 표시됩니다.</p>}
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 6 }}>권역 신호등 <span style={{ fontWeight: 400 }}>— 좌 스키마 · 우 스펙</span></div>
+        {Object.keys(c.regionTierBoth || {}).length === 0 && <p style={{ fontSize: 12, color: "var(--sec)" }}>검수를 실행하면 권역별 상태가 표시됩니다.</p>}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-          {Object.entries(c.regionTier).map(([rg, cc]: [string, any]) => (
+          {Object.entries(c.regionTierBoth || {}).map(([rg, cc]: [string, any]) => (
             <span key={rg} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, border: "1px solid var(--line)", borderRadius: 999, padding: "3px 9px" }}>
-              <span className={`scoreDot ${tierOf(cc)}`} />{rg}<span style={{ color: "var(--sec)" }}>{cc.fail ? `오류${cc.fail}` : cc.warn ? `확인${cc.warn}` : "정상"}</span>
+              <span className={`scoreDot ${tierOf(cc.schema)}`} title={`스키마: ${cc.schema.fail ? `오류 ${cc.schema.fail}` : cc.schema.warn ? `확인 ${cc.schema.warn}` : "정상"}`} />
+              <span className={`scoreDot ${tierOf(cc.spec)}`} title={`스펙: ${cc.spec.fail ? `오류 ${cc.spec.fail}` : cc.spec.warn ? `확인 ${cc.spec.warn}` : "정상"}`} />
+              {rg}
             </span>
           ))}
         </div>

@@ -208,6 +208,10 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     }
   };
   const reportQs = () => (runId ? `?run_id=${encodeURIComponent(runId)}` : ""); // 화면에 보이는 이력과 동일 데이터 보장
+  const emailQs = () => { // 메일은 현재 탭 내용만 — schema/copy 중 지금 보는 것만 복사
+    const base = runId ? `?run_id=${encodeURIComponent(runId)}` : "?";
+    return `${base}${base.endsWith("?") ? "" : "&"}tab=${tab}`;
+  };
   const downloadXlsx = async () => {
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
     await downloadBlob(`/api/qb/report.xlsx${reportQs()}`, null, "qubi_qa_report.xlsx");
@@ -216,7 +220,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 메일 본문을 복사할 수 있어요."); return; }
     try {
       // Apple Stalker와 동일: 본문 없는 GET(CORS preflight 회피). run_id가 있으면 그 이력을, 없으면 서버가 든 마지막 결과를 받음
-      const r = await fetch(api(`/api/qb/email-draft${reportQs()}`), { cache: "no-store" });
+      const r = await fetch(api(`/api/qb/email-draft${emailQs()}`), { cache: "no-store" });
       if (!r.ok) throw new Error(`서버 오류 (${r.status})`);
       const body = await r.text();
       if (navigator.clipboard && "write" in navigator.clipboard && typeof ClipboardItem !== "undefined") {
@@ -295,7 +299,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           });
         }
       } else {
-        for (const f of r.copy?.findings || []) if (f.status !== "pass") out.push({ r, f, item: f.block || f.token || f.category || "" });
+        // 스펙 탭인데 spec_v2가 없는 결과(seed 미등록 제품 등) → 구 카피엔진 폴백을 쓰지 않는다.
+        // (구 엔진은 페이지의 임의 숫자를 스펙으로 오인해 허위 오류를 만들었음 — 표시 안 함)
       }
     }
     const rank: Record<string, number> = { fail: 0, warn: 1, na: 2 };
@@ -306,29 +311,44 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   // 권역 신호등
   // 권역 신호등 — [V2 정합] 현재 탭 기준으로만 집계(기존엔 schema+copy 합산이라 탭 화면과 불일치).
   // 스펙 탭: spec_v2 있으면 summary(critical/warning) 그대로 — SpecV2Panel 종합 배너와 같은 숫자.
+  // 한 결과에서 스키마/스펙 각각의 (fail,warn) 집계 헬퍼 — 두 곳(현재탭 신호등·양탭 신호등)에서 공용
+  const schemaCount = (r: any) => {
+    let fail = 0, warn = 0;
+    for (const f of r.schema?.findings || []) {
+      if (f.status !== "fail" && f.status !== "warn") continue;
+      const hasReal = (f.val_mismatch || []).length || (f.missing_props || []).length ||
+                      (f.name_issue || []).length || f.id_mismatch || (f.haspart_missing || []).length;
+      if ((f.translate_confirm || []).length && !hasReal) continue;  // 안내성 제외
+      if (f.status === "fail") fail++; else warn++;
+    }
+    return { fail, warn };
+  };
+  const specCount = (r: any) => {
+    if (r.spec_v2) return { fail: r.spec_v2.summary?.critical || 0, warn: r.spec_v2.summary?.warning || 0 };
+    return { fail: 0, warn: 0 };  // seed 미등록 → 구 카피엔진 쓰지 않음(허위 카운트 방지)
+  };
+  // 현재 탭 기준 권역 신호등 (Quick View 오류목록·요약과 동일 기준)
   const regionTier = useMemo(() => {
     const m: Record<string, { fail: number; warn: number }> = {};
     for (const r of results) {
       const rg = r.region || "기타"; m[rg] = m[rg] || { fail: 0, warn: 0 };
-      if (tab === "schema") {
-        for (const f of r.schema?.findings || []) {
-          if (f.status !== "fail" && f.status !== "warn") continue;
-          const hasReal = (f.val_mismatch || []).length || (f.missing_props || []).length ||
-                          (f.name_issue || []).length || f.id_mismatch || (f.haspart_missing || []).length;
-          if ((f.translate_confirm || []).length && !hasReal) continue;  // 안내성 제외
-          if (f.status === "fail") m[rg].fail++; else m[rg].warn++;
-        }
-      } else if (r.spec_v2) {
-        m[rg].fail += r.spec_v2.summary?.critical || 0;
-        m[rg].warn += r.spec_v2.summary?.warning || 0;
-      } else {
-        for (const f of r.copy?.findings || []) {
-          if (f.status === "fail") m[rg].fail++; else if (f.status === "warn") m[rg].warn++;
-        }
-      }
+      const c = tab === "schema" ? schemaCount(r) : specCount(r);
+      m[rg].fail += c.fail; m[rg].warn += c.warn;
     }
     return m;
   }, [results, tab]);
+  // 두 탭 동시 표시용 — 한 사이트가 "스키마 초록·스펙 빨강"인 걸 한눈에
+  const regionTierBoth = useMemo(() => {
+    const m: Record<string, { schema: { fail: number; warn: number }; spec: { fail: number; warn: number } }> = {};
+    for (const r of results) {
+      const rg = r.region || "기타";
+      m[rg] = m[rg] || { schema: { fail: 0, warn: 0 }, spec: { fail: 0, warn: 0 } };
+      const sc = schemaCount(r), sp = specCount(r);
+      m[rg].schema.fail += sc.fail; m[rg].schema.warn += sc.warn;
+      m[rg].spec.fail += sp.fail; m[rg].spec.warn += sp.warn;
+    }
+    return m;
+  }, [results]);
 
   const countries = useMemo(() => Array.from(new Set(results.map((r) => r.country).filter(Boolean))) as string[], [results]);
   const quickRows = useMemo(() => rows.filter((x) => qCountry === "전체" || x.r.country === qCountry), [rows, qCountry]);
@@ -340,7 +360,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     specProduct, setSpecProduct, products, newProd, setNewProd, addProduct, v2Products, isV2,
     specs, removeSpec, catalog, specForm, pickCatalog, setSpecForm, addSpec,
     ruleForm, setRuleForm, schemaTypes, addRule,
-    quickOpen, setQuickOpen, results, regionTier, countries, qCountry, setQCountry,
+    quickOpen, setQuickOpen, results, regionTier, regionTierBoth, countries, qCountry, setQCountry,
     quickRows, qDetail, setQDetail,
   };
 
@@ -492,15 +512,21 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             )}
           </div>
 
-          {/* 스펙표 · 검수기준 패널 — [확정] 구 검수기준표(SpecTable)는 스펙 탭에서 완전 제거.
-              V2 제품(fold7/flip7)이면 Rule DB 뷰어 노출, 그 외 제품은 기준표 없음(기준은 검수 기준 보기로).
-              점수 계산 패널은 제품과 무관하게 스펙 탭에서 항상 동작. */}
+          {/* 스펙 탭은 V2(Rule DB) 전용. V2 제품이면 Rule DB 뷰어+기준+점수, 비V2(seed 미등록)면 준비중 안내.
+              스키마 탭에서는 구 CriteriaPanel/ScorePanel이 동작. */}
           {tab === "copy" && isV2 && <SpecV2RuleTable product={product} api={api} flash={flash} />}
-          {tab === "copy" && isV2
-            ? <SpecV2Criteria show={showRules} panelRef={rulesRef} />
-            : <CriteriaPanel ctx={ctx} />}
-          <ScorePanel ctx={ctx} />
-          {tab === "copy" && <SpecV2Score show={showScore} panelRef={scoreRef} />}
+          {tab === "copy" && isV2 && <SpecV2Criteria show={showRules} panelRef={rulesRef} />}
+          {tab === "copy" && isV2 && <SpecV2Score show={showScore} panelRef={scoreRef} />}
+          {tab === "copy" && !isV2 && (
+            <div className="card" style={{ marginTop: 18, padding: 16, background: "#FFFAEB", border: "1px solid #FEDF89" }}>
+              <b style={{ fontSize: 13.5, color: "#93540A" }}>이 제품은 아직 스펙 검수 기준(Rule DB)이 등록되지 않았어요</b>
+              <p style={{ fontSize: 12, color: "#93540A", margin: "6px 0 0", lineHeight: 1.6 }}>
+                <b>{product}</b>의 Rule DB가 준비되면 스펙 검수가 활성화됩니다. 스펙 탭의 <b>Rule DB 엑셀 업로드</b>로 등록하거나, 담당자에게 시드 등록을 요청하세요. (스키마 검수는 Data QA 탭에서 정상 이용 가능)
+              </p>
+            </div>
+          )}
+          {tab === "schema" && <CriteriaPanel ctx={ctx} />}
+          {tab === "schema" && <ScorePanel ctx={ctx} />}
           <HtmlQaSummary ctx={ctx} />
 
           {/* ═══ Spec QA [V2] — Rule 기반 Validation (spec_v2 있는 결과만) ═══ */}
