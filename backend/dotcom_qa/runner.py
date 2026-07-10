@@ -200,16 +200,28 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
 
 def check_html(html: str, rules: Dict[str, Any],
                sitecode: str = None, site_lang: str = None, rendered_by: str = None) -> Dict[str, Any]:
-    """단일 페이지 HTML 검수 → {schema, copy, html_qa}."""
+    """단일 페이지 HTML 검수 → {schema, copy, html_qa, spec_v2}.
+    spec_v2: Rule DB(V2) 기반 Spec Validation — 해당 제품 룰셋이 있을 때만 실행.
+    기존 schema/copy/html_qa 결과와 Score는 변경하지 않는다(병행 필드)."""
     pt = rules.get("page_type", "PDP")
     mp = rules.get("market_product")
     schema_result = schema_checker.check_page(html, rules["schema"],
                                               sitecode=sitecode, site_lang=site_lang,
                                               market_product=mp)
+    spec_v2 = None
+    try:
+        import spec_rule_db, spec_engine
+        ruleset = spec_rule_db.load(mp) if mp else None
+        if ruleset:
+            spec_v2 = spec_engine.run(html, ruleset, page_type=pt, sitecode=sitecode or "",
+                                      rendered_by=rendered_by or "source")
+    except Exception as e:  # V2 실패가 기존 검수를 죽이지 않게
+        print(f"[runner] spec_v2 skip: {e}")
     return {
         "schema": schema_result,
         "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt),
         "html_qa": html_qa_scoring.score_html_qa(html, rules["schema"], schema_result, rendered_by=rendered_by),
+        "spec_v2": spec_v2,
     }
 
 
@@ -219,7 +231,8 @@ def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any], page_type: 
     return {"sitecode": site.get("sitecode"), "url": site.get("url"),
             "region": site.get("region"), "country": site.get("country"),
             "product": site.get("product", "galaxy-s26-ultra"), "lang": site.get("lang"),
-            "page_type": page_type, "schema": res["schema"], "copy": res["copy"], "html_qa": res["html_qa"]}
+            "page_type": page_type, "schema": res["schema"], "copy": res["copy"], "html_qa": res["html_qa"],
+            "spec_v2": res.get("spec_v2")}
 
 
 def run_all(fetch_html: Callable[[str], Optional[str]],
