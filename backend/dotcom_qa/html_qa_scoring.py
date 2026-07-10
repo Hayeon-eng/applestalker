@@ -107,12 +107,31 @@ def extract_html_signals(html: str) -> Dict[str, Any]:
     }
 
 
+# 전각(CJK) 언어권 — Google SERP는 픽셀너비 기준 절단이라, 폭이 넓은 CJK 문자는
+# 라틴 문자 대비 실제 노출 가능 글자 수가 훨씬 적다(2026-07 결정: 여유 포함 35자/90자).
+_FULLWIDTH_LANG_PREFIXES = ("ja", "ko", "zh")
+
+
+def _is_fullwidth_lang(site_lang: Optional[str]) -> bool:
+    if not site_lang:
+        return False
+    return site_lang.strip().lower().split("-")[0] in _FULLWIDTH_LANG_PREFIXES
+
+
 def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
                        guide_h1_keywords: Optional[List[str]] = None,
                        guide_h2_min_count: Optional[int] = None,
-                       title_max_len: int = 60, desc_max_len: int = 160) -> Dict[str, Any]:
+                       title_max_len: Optional[int] = None, desc_max_len: Optional[int] = None,
+                       site_lang: Optional[str] = None) -> Dict[str, Any]:
     """가이드 적용율(%) = 실제 적용 항목 수 / 전체 항목 수.
-    guide_h1_keywords/guide_h2_min_count는 마케팅 가이드 데이터가 있을 때만 채점(없으면 항목 자체를 건너뜀 — 거짓으로 O/X 매기지 않음)."""
+    guide_h1_keywords/guide_h2_min_count는 마케팅 가이드 데이터가 있을 때만 채점(없으면 항목 자체를 건너뜀 — 거짓으로 O/X 매기지 않음).
+    title_max_len/desc_max_len을 명시적으로 넘기지 않으면 site_lang(ja-JP/ko-KR/zh-CN 등)에 따라
+    CJK 전각 기준(35자/90자)과 일반 기준(60자/160자)을 자동 선택한다."""
+    if title_max_len is None:
+        title_max_len = 35 if _is_fullwidth_lang(site_lang) else 60
+    if desc_max_len is None:
+        desc_max_len = 90 if _is_fullwidth_lang(site_lang) else 160
+
     sig = extract_html_signals(html)
     items: List[Dict[str, Any]] = []
 
@@ -422,14 +441,17 @@ def traffic_light(final_pct: Optional[float], any_gate_zero: bool) -> str:
 def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[str, Any],
                    rendered_by: Optional[str] = None,
                    guide_h1_keywords: Optional[List[str]] = None,
-                   guide_h2_min_count: Optional[int] = None) -> Dict[str, Any]:
+                   guide_h2_min_count: Optional[int] = None,
+                   site_lang: Optional[str] = None) -> Dict[str, Any]:
     """1단계(적용율%) + 2단계(AEO 퀄리티 점수, 타입별) 를 합쳐 리턴.
-    schema_result는 schema_checker.check_page(html, schema_rules, ...) 결과를 그대로 받는다(재계산 안 함)."""
+    schema_result는 schema_checker.check_page(html, schema_rules, ...) 결과를 그대로 받는다(재계산 안 함).
+    site_lang(ja-JP/ko-KR/zh-CN 등)을 넘기면 Meta Title/Description 길이 기준이 CJK 전각 문자에 맞게 자동 조정된다."""
     schema_types_in_rules = [b.get("name") for b in (schema_rules.get("blocks") or [])]
 
     level1 = level1_apply_rate(html, schema_rules,
                                guide_h1_keywords=guide_h1_keywords,
-                               guide_h2_min_count=guide_h2_min_count)
+                               guide_h2_min_count=guide_h2_min_count,
+                               site_lang=site_lang)
     axis2 = axis2_parsing_and_rich_result(html, schema_result, schema_types_in_rules, rendered_by=rendered_by)
     # 가이드 룰의 실제 타입(@type)만 핵심으로 → @id 부여율/형식을 그 노드들만 대상으로
     rule_types = []
@@ -519,3 +541,4 @@ if __name__ == "__main__":
     sres = schema_checker.check_page(html, rules["schema"])
     out = score_html_qa(html, rules["schema"], sres)
     print(json.dumps(out, ensure_ascii=False, indent=2)[:4000])
+
