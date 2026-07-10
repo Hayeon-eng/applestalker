@@ -1,9 +1,7 @@
 "use client";
 /* QubiSections.tsx — QubiApp에서 분리한 큰 렌더 블록들(파일 크기 축소용).
    상태/핸들러는 QubiApp에서 ctx 객체로 주입받는다. */
-import { useState, Fragment } from "react";
-import type { ReactNode } from "react";
-import { SEV, HONEY, tierOf, inputStyle, sel } from "./qubiShared";
+import { SEV, HONEY, tierOf, inputStyle, sel, humanizeTerm } from "./qubiShared";
 
 export function SpecTable({ ctx: c }: { ctx: any }) {
   if (c.tab !== "copy") return null;
@@ -196,20 +194,47 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
   );
 }
 
-// 내부 계산 토큰을 사람이 읽는 말로 (QuickView 등 findings 텍스트에 노출될 때)
-const TERM_MAP: Record<string, string> = {
-  structure_valid: "FAQ 구조 유효성",
-  screen_match: "화면 노출 일치",
-  type_combo: "타입 선언(@type)",
-  contentUrlOrEmbedUrl: "영상 URL",
-  encoding_contentUrl: "3D 파일 URL",
-  encoding_encodingFormat: "3D 포맷",
-};
-function humanizeTerm(s: string): string {
-  if (!s) return s;
-  let out = s;
-  for (const [k, v] of Object.entries(TERM_MAP)) out = out.split(k).join(v);
-  return out;
+// 점수 계산 설명 패널 — 검수 기준처럼 아래에 '뿅' 펼쳐짐. 개발자 용어 대신 쉬운 말로.
+export function ScorePanel({ ctx: c }: { ctx: any }) {
+  if (c.tab !== "schema" || !c.showScore) return null;
+  const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
+  const h = { fontWeight: 800, fontSize: 12.5, marginBottom: 4 } as const;
+  const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
+  return (
+    <div ref={c.scoreRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 16 }}>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수는 이렇게 계산돼요</div>
+
+      <div style={box}>
+        <div style={h}>① 데이터 유무 (기본 점검)</div>
+        <div style={li}>가이드가 “있어야 한다”고 정한 항목(H태그·Meta·스키마·각 속성)이 페이지에 <b>실제로 들어있는지</b>만 셉니다. <b>있는 개수 ÷ 있어야 할 전체 개수</b>. 내용이 맞는지가 아니라 ‘있다/없다’만 봐요.</div>
+      </div>
+
+      <div style={box}>
+        <div style={h}>② 퀄리티 (얼마나 잘 채웠나)</div>
+        <div style={li}>스키마 타입(Product·FAQ 등)마다 <b>중요한 속성일수록 높은 점수</b>를 주고 합산해 100점 만점으로 환산합니다. 예를 들어 Product는 제품명·이미지가 브랜드명보다 배점이 큽니다.</div>
+        <div style={{ ...li, marginTop: 4 }}>각 속성은 <b>제대로 있으면 만점</b>, <b>있는데 값이 애매하면 절반</b>, <b>없으면 0점</b>으로 칩니다.</div>
+      </div>
+
+      <div style={box}>
+        <div style={h}>③ 이럴 땐 그 타입이 0점이 돼요 (치명적 문제)</div>
+        <div style={li}>· <b>꼭 있어야 하는 필수 속성이 아예 없을 때</b> — 그 스키마는 검색결과 자격을 잃어서 0점 처리돼요.</div>
+        <div style={li}>· <b>코드(JSON-LD) 문법이 깨져서 읽을 수 없을 때</b> — 검색엔진이 인식 못 하므로 0점.</div>
+        <div style={{ ...li, marginTop: 4 }}>반대로 값이 조금 안 맞거나 ‘있으면 좋은’ 권장 속성이 빠진 정도는 <b>0점이 아니라 감점</b>만 됩니다.</div>
+      </div>
+
+      <div style={box}>
+        <div style={h}>④ 점수에서 제외하는 경우</div>
+        <div style={li}>· 페이지에 원래 <b>없는 스키마 타입</b>(예: 영상이 없는 페이지의 VideoObject)은 채점에서 빼요 — 없다고 0점 주지 않아요.</div>
+        <div style={li}>· 검색결과(리치결과) 지원 대상이 아닌 타입은 그 이유로 감점하지 않아요.</div>
+        <div style={li}>· 가격·재고(offers·sku)는 <b>버즈 같은 단순 제품 페이지에만</b> 채점하고, 갤럭시 S 시리즈엔 적용하지 않아요.</div>
+        <div style={li}>· @id(연결 식별자)는 <b>있는지·형식이 맞는지만</b> 보고, 그것 때문에 전체 점수를 깎지 않아요.</div>
+      </div>
+
+      <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8 }}>
+        전체 점수 = 페이지에 있는 스키마 타입들의 점수 <b>평균</b> · 신호등 🟢 80점↑ · 🟡 50–79점 · 🔴 50점 미만
+      </div>
+    </div>
+  );
 }
 
 export function QuickView({ ctx: c }: { ctx: any }) {
@@ -262,388 +287,6 @@ export function QuickView({ ctx: c }: { ctx: any }) {
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// ── HTML QA 종합 패널 [신규] ──────────────────────────────────────
-// 최상단 종합판단(전체 신호등 + 타입별 신호등) + 항목별 그룹핑(Meta/H태그 · 스키마 정보적합성 ·
-// 파싱+리치결과 · id연결성). Level1(적용율%)+Level2(3축) 백엔드(/api/qb/check-html-qa) 결과를 그대로 렌더링.
-const TL_COLOR: Record<string, string> = { green: "#1F9E5C", yellow: "#E0A008", red: "#D8362F" };
-const TL_EMOJI: Record<string, string> = { green: "🟢", yellow: "🟡", red: "🔴" };
-
-function Accordion({ title, defaultOpen, children }: { title: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(!!defaultOpen);
-  return (
-    <div style={{ border: "1px solid var(--line)", borderRadius: 10, marginTop: 10, overflow: "hidden" }}>
-      <div onClick={() => setOpen((v) => !v)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#F9FAFB", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-        <span>{title}</span><span style={{ fontSize: 11, color: "#0A66E0" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
-      </div>
-      {open && <div className="qbiPopIn" style={{ padding: "10px 12px" }}>{children}</div>}
-    </div>
-  );
-}
-
-// 속성별 '수정 위치 + 영향' 표시용 정적 사전(로직/점수와 무관, 표현 전용)
-const PROP_HELP: Record<string, { label: string; where: string; why: string }> = {
-  name: { label: "제품명(name)", where: "JSON-LD → Product → name", why: "제품명 누락 시 Product 리치결과 생성 불가" },
-  image: { label: "대표 이미지(image)", where: "JSON-LD → Product → image", why: "이미지 없으면 리치결과 미표기 가능" },
-  brand: { label: "브랜드(brand)", where: "JSON-LD → Product → brand", why: "브랜드 정보로 신뢰도·매칭 향상" },
-  manufacturer: { label: "제조사(manufacturer)", where: "JSON-LD → Product → manufacturer", why: "제조사 정보 보강" },
-  potentialAction: { label: "구매 액션(potentialAction)", where: "JSON-LD → Product → potentialAction", why: "구매 액션 연결" },
-  subjectOf: { label: "연결 선언(subjectOf)", where: "JSON-LD → Product → subjectOf(@id)", why: "영상·3D·FAQ 연결 선언" },
-  offers: { label: "가격·재고(offers)", where: "JSON-LD → Product → offers", why: "가격·재고 정보(단독형 PDP 필수)" },
-  sku: { label: "제품 식별자(sku)", where: "JSON-LD → Product → sku", why: "제품 식별자" },
-  // 내부 계산 키 → 사람이 읽는 라벨
-  structure_valid: { label: "FAQ 구조 유효성", where: "JSON-LD → FAQPage → mainEntity(Question/Answer)", why: "질문·답변 구조가 올바라야 FAQ로 인식" },
-  screen_match: { label: "화면 노출 일치", where: "FAQPage 마크업 ↔ 화면 Q&A", why: "마크업과 실제 화면 내용이 일치해야 함" },
-  type_combo: { label: "타입 선언(@type)", where: "JSON-LD → @type", why: "필수 타입 조합 선언" },
-  url: { label: "URL", where: "JSON-LD → url", why: "정규 URL과 일치" },
-  numberOfItems: { label: "항목 수(numberOfItems)", where: "JSON-LD → ItemList → numberOfItems", why: "선언 개수 = 실제 항목 수" },
-  itemListElement: { label: "목록 항목(itemListElement)", where: "JSON-LD → ItemList → itemListElement", why: "목록 항목 완비" },
-  mainEntityOfPage: { label: "페이지 연결(mainEntityOfPage)", where: "JSON-LD → mainEntityOfPage", why: "페이지와 상호 연결" },
-  encoding_contentUrl: { label: "3D 파일 URL(encoding.contentUrl)", where: "JSON-LD → 3DModel → encoding.contentUrl", why: "3D 모델 파일 경로" },
-  encoding_encodingFormat: { label: "3D 포맷(encoding.encodingFormat)", where: "JSON-LD → 3DModel → encoding.encodingFormat", why: "유효한 3D MIME" },
-  thumbnailUrl: { label: "썸네일(thumbnailUrl)", where: "JSON-LD → VideoObject → thumbnailUrl", why: "영상 썸네일" },
-  uploadDate: { label: "업로드일(uploadDate)", where: "JSON-LD → VideoObject → uploadDate", why: "ISO8601 업로드일" },
-  contentUrlOrEmbedUrl: { label: "영상 URL(contentUrl/embedUrl)", where: "JSON-LD → VideoObject → contentUrl 또는 embedUrl", why: "재생 가능한 영상 경로" },
-  duration: { label: "재생 길이(duration)", where: "JSON-LD → VideoObject → duration", why: "영상 길이(PT#S)" },
-  description: { label: "설명(description)", where: "JSON-LD → description", why: "요약 설명" },
-};
-const propHelp = (p: string) => PROP_HELP[p] || { label: p, where: `JSON-LD → ${p}`, why: "" };
-
-// PASS/부족 배지
-function StatusChip({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <span style={{ fontSize: 11, borderRadius: 6, padding: "3px 8px", whiteSpace: "nowrap",
-      background: ok ? "#ECFDF3" : "#FEF3F2", color: ok ? "#067647" : "#D8362F" }}>
-      {ok ? "✅" : "❌"} {label}
-    </span>
-  );
-}
-
-// 충족률 게이지(작은 막대) — KPI 유지용
-function Meter({ pct, danger }: { pct: number | null; danger?: boolean }) {
-  const v = pct == null ? 0 : pct;
-  const color = danger || v < 50 ? "#D8362F" : v < 80 ? "#E0A008" : "#1F9E5C";
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 130 }}>
-      <div style={{ flex: 1, height: 6, background: "#EEF1F6", borderRadius: 999 }}>
-        <div style={{ width: `${v}%`, height: "100%", background: color, borderRadius: 999 }} />
-      </div>
-      <b style={{ fontSize: 12.5, color }}>{pct == null ? "—" : `${pct}%`}</b>
-    </div>
-  );
-}
-
-export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] }) {
-  const l1 = hq.level1_apply_rate || {};
-  const axis2 = hq.level2?.axis2_parsing_rich_result || {};
-  const axis3 = hq.level2?.axis3_id_linkage || {};
-  const perType: Record<string, any> = hq.level2?.per_type || {};
-  const sig = l1.signals || {};
-
-  // findings를 블록별로 묶어 '수정 위치' 표시에 활용
-  const findingsByBlock: Record<string, any[]> = {};
-  for (const f of findings || []) (findingsByBlock[f.block || "기타"] ||= []).push(f);
-
-  // HTML QA 항목(Meta/H태그) — PASS/FAIL 한눈에
-  const titleLen = (sig.title || "").length;
-  const descLen = (sig.meta_description || "").length;
-  const h1n = (sig.h1_list || []).length;
-  const htmlItems = [
-    { key: "Meta Title", ok: !!sig.title && titleLen <= 60, val: sig.title, note: sig.title ? `${titleLen}자` : "누락", where: "<head> → <title>" },
-    { key: "Meta Description", ok: !!sig.meta_description && descLen <= 160, val: sig.meta_description, note: sig.meta_description ? `${descLen}자` : "누락", where: "<head> → meta[name=description]" },
-    { key: "H1", ok: h1n === 1, val: (sig.h1_list || []).join(" / "), note: `${h1n}개`, where: "본문 <h1>" },
-    { key: "H2", ok: (sig.h2_list || []).length > 0, val: `${(sig.h2_list || []).length}개`, note: `${(sig.h2_list || []).length}개`, where: "본문 <h2>" },
-  ];
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* ═══ HTML 검수 카드 (파랑 계열) ═══ */}
-      <div style={{ border: "1px solid #DCE7FA", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ background: "#EEF4FE", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#1B57C4", borderLeft: "3px solid #1B57C4" }}>
-          HTML 검수 <span style={{ fontWeight: 400, color: "#5B7BB4", fontSize: 10.5 }}>Meta · 제목 태그</span>
-        </div>
-        <div style={{ padding: "10px 14px" }}>
-        {/* 문제 먼저 */}
-        {htmlItems.filter((i) => !i.ok).length > 0 && (
-          <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "7px 10px", marginBottom: 8 }}>
-            {htmlItems.filter((i) => !i.ok).map((i) => (
-              <div key={i.key} style={{ fontSize: 11.5, padding: "2px 0" }}>
-                <b style={{ color: "#B42318" }}>❌ {i.key}</b> <span style={{ color: "var(--sec)" }}>{i.note}</span>
-                <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 11 }}>· 수정 위치: {i.where}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* 실제 태깅 값 + PASS (글씨 작게) */}
-        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 6, fontSize: 11.5, alignItems: "start" }}>
-          {htmlItems.map((i) => (
-            <Fragment key={i.key}>
-              <span style={{ color: "var(--sec)" }}>{i.ok ? "✅" : "❌"} {i.key}</span>
-              <span>
-                {i.key === "H2"
-                  ? ((sig.h2_list || []).length ? (sig.h2_list || []).map((t: string, k: number) => <span key={k} style={{ display: "inline-block", background: "#F2F4F7", padding: "1px 6px", borderRadius: 5, margin: "1px 4px 1px 0", fontSize: 10.5 }}>{t}</span>) : <i style={{ color: "#B42318" }}>누락</i>)
-                  : (i.val ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word", fontSize: 11 }}>{i.val}</code> : <i style={{ color: "#B42318" }}>누락</i>)}
-              </span>
-            </Fragment>
-          ))}
-        </div>
-        </div>
-      </div>
-
-      {/* ═══ Schema 검수 (앰버 계열) ═══ */}
-      <div style={{ border: "1px solid #F5E6C8", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ background: "#FDF6E9", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#96690B", borderLeft: "3px solid #E0A008" }}>
-          Schema 검수 <span style={{ fontWeight: 400, color: "#A98A4B", fontSize: 10.5 }}>구조화 데이터(JSON-LD)</span>
-        </div>
-        <div style={{ padding: "10px 14px" }}>
-        {Object.keys(perType).length === 0 && <p style={{ color: "var(--sec)", fontSize: 12 }}>감지된 Schema가 없어요.</p>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {Object.entries(perType).map(([t, v]: [string, any]) => {
-            const missReq: string[] = v.missing_required || [];
-            const weakRec: string[] = v.weak_recommended || [];
-            const blockFindings = (findingsByBlock[t] || []).filter((f) => f.status === "fail" || f.status === "warn");
-            // 파싱/리치결과 Critical 중, 이미 '필수 누락'으로 위에 표시한 속성과 겹치는 메시지는 제외(중복 방지)
-            const parseCritical = (axis2.by_type?.[t]?.detail || []).filter((d: any) =>
-              d.severity === "Critical" && !missReq.some((p) => (d.message || "").includes(p)));
-            const allBlockFindings = (findingsByBlock[t] || []);
-            const codeSnippet = allBlockFindings.find((f: any) => f.raw)?.raw || "";
-            return (
-              <details key={t} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px" }}>
-                <summary style={{ listStyle: "none", cursor: "pointer" }}>
-                  {/* 헤더: 신호등 + 타입 + 최종% */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>{TL_EMOJI[v.traffic_light] || "⚪"}</span>
-                    <b style={{ fontSize: 13 }}>{t}</b>
-                    {v.rich_result_status && v.rich_result_status !== "정식" &&
-                      <span style={{ fontSize: 10.5, color: "var(--sec)", background: "#F2F4F7", borderRadius: 5, padding: "1px 6px" }}>리치결과 {v.rich_result_status}</span>}
-                    <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-                      <Meter pct={v.final_pct} danger={v.axis1_gate_triggered || v.axis2_gate === 0} />
-                      <span style={{ fontSize: 11, color: "#0A66E0" }}>펼치기 ▾</span>
-                    </span>
-                  </div>
-
-                  {/* 1) 문제 먼저 (사람 라벨 + 영향 + 수정 위치) */}
-                  {missReq.length > 0 && (
-                    <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "8px 10px", marginTop: 8 }}>
-                      {missReq.map((p) => {
-                        const h = propHelp(p);
-                        return (
-                          <div key={p} style={{ fontSize: 12.5, padding: "3px 0" }}>
-                            <b style={{ color: "#B42318" }}>❌ {h.label} 누락/미흡</b>
-                            {h.why && <div style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 18 }}>영향: {h.why}</div>}
-                            <div style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 18 }}>수정 위치: {h.where}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {parseCritical.length > 0 && (
-                    <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
-                      {parseCritical.map((d: any, i: number) => (
-                        <div key={i} style={{ fontSize: 12.5, color: "#B42318" }}>❌ {d.message}</div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* 2) 충족 현황(개수) */}
-                  <div style={{ display: "flex", gap: 16, fontSize: 12.5, flexWrap: "wrap", marginTop: 8 }}>
-                    <span style={{ color: "var(--sec)" }}>정보 충족률 <b style={{ color: "var(--label)" }}>{v.axis1_info_adequacy_pct}%</b></span>
-                    <span style={{ color: "var(--sec)" }}>필수 속성 <b style={{ color: v.required_ok < v.required_total ? "#B42318" : "#067647" }}>{v.required_ok} / {v.required_total}</b></span>
-                    <span style={{ color: "var(--sec)" }}>권장 속성 <b style={{ color: v.recommended_ok < v.recommended_total ? "#E0A008" : "#067647" }}>{v.recommended_ok} / {v.recommended_total}</b></span>
-                  </div>
-                  {weakRec.length > 0 && (
-                    <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--sec)" }}>🟡 권장 보강: {weakRec.map((p) => propHelp(p).label).join(", ")}</div>
-                  )}
-                  {missReq.length === 0 && !v.axis1_gate_triggered && weakRec.length === 0 && parseCritical.length === 0 && (
-                    <div style={{ marginTop: 6, fontSize: 12, color: "#067647" }}>✅ 모든 필수·권장 항목 충족</div>
-                  )}
-                </summary>
-
-                {/* ── 펼침: 속성별 상세 + JSON-LD 코드 ── */}
-                <div style={{ marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 4 }}>속성별 상세</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", rowGap: 4, fontSize: 12 }}>
-                    {(v.prop_detail || []).length > 0 ? (v.prop_detail || []).map((pd: any, i: number) => (
-                      <Fragment key={i}>
-                        <span>{pd.score >= 1 ? "✅" : pd.score > 0 ? "🟡" : "❌"} {propHelp(pd.prop).label}</span>
-                        <span style={{ color: "var(--sec)", textAlign: "right" }}>{pd.score >= 1 ? "충족" : pd.score > 0 ? "부분" : "누락"}</span>
-                      </Fragment>
-                    )) : <span style={{ color: "var(--sec)" }}>상세 정보 없음</span>}
-                  </div>
-                  {blockFindings.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 4 }}>판정 근거</div>
-                      {blockFindings.map((f: any, i: number) => (
-                        <div key={i} style={{ fontSize: 11.5, color: "var(--sec)", padding: "2px 0" }}>· {f.as_is}{f.to_be ? ` → ${f.to_be}` : ""}</div>
-                      ))}
-                    </div>
-                  )}
-                  {codeSnippet && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 4 }}>현재 JSON-LD (수정 대상)</div>
-                      <pre style={{ margin: 0, background: "#0F172A", color: "#E2E8F0", fontSize: 11, borderRadius: 8, padding: "8px 10px", overflowX: "auto", lineHeight: 1.5 }}>
-{codeSnippet.split("\n").map((ln: string, i: number) => (
-  <div key={i}><span style={{ color: "#475569", userSelect: "none", display: "inline-block", width: 26, textAlign: "right", marginRight: 10 }}>{i + 1}</span>{ln}</div>
-))}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              </details>
-            );
-          })}
-        </div>
-        </div>
-      </div>
-
-      {/* ═══ 연결성(@id) — 있을 때만, 간단히 ═══ */}
-      {(axis3.checks || []).length > 0 && (
-        <Accordion title={`Schema 연결성(@id) — ${axis3.id_pct ?? "—"}%${axis3.gate === 0 ? " · 🔴 연결 끊김" : ""}`}>
-          {(axis3.checks || []).map((ck: any, i: number) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderTop: "1px solid var(--line)" }}>
-              <span>{ck.item.replace(" ★게이트", "")}</span>
-              <span style={{ color: "var(--sec)" }}>{ck.score === null ? "해당없음" : `${Math.round(ck.score * 100)}%`} · {ck.detail}</span>
-            </div>
-          ))}
-        </Accordion>
-      )}
-    </div>
-  );
-}
-
-function OverallBanner({ hq, row }: { hq: any; row?: any }) {
-  const l1 = hq.level1_apply_rate || {};
-  const perType: Record<string, any> = hq.level2?.per_type || {};
-  const overall = hq.overall || {};
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 18 }}>{TL_EMOJI[overall.traffic_light] || "⚪"}</span>
-      <b style={{ fontSize: 13.5 }}>종합 판단</b>
-      {row && (row.product || row.market_product) && <span style={{ fontSize: 10.5, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 6px" }}>{row.product || row.market_product}</span>}
-      {row && row.page_type && <span style={{ fontSize: 10.5, background: "#E8F0FE", color: "#1B57C4", borderRadius: 4, padding: "1px 6px" }}>{row.page_type}</span>}
-      <span style={{ fontSize: 11.5, color: "var(--sec)" }}>
-        데이터 유무 {overall.prop_total ? Math.round((overall.prop_ok / overall.prop_total) * 100) : "—"}% ({overall.prop_ok ?? 0}/{overall.prop_total ?? 0}) · 퀄리티 {overall.final_pct ?? "—"}%
-      </span>
-      <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {Object.entries(perType).map(([t, v]: [string, any]) => (
-          <span key={t} style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "3px 9px",
-            background: (TL_COLOR[v.traffic_light] || "#98A2B3") + "1A", color: TL_COLOR[v.traffic_light] || "#98A2B3" }}>
-            {TL_EMOJI[v.traffic_light]} {t} {v.final_pct ?? "—"}%
-          </span>
-        ))}
-      </span>
-    </div>
-  );
-}
-
-// ctx.results 안의 각 행에 html_qa가 들어있으면(일괄검수/이력 포함 전부 공통) 그걸 그대로 씀.
-// 단일검수(1건)면 상세 4개 아코디언을 바로 펼치고, 다건(일괄검수)이면 전체 집계 배너 +
-// 사이트별 신호등 리스트(최악 사이트 먼저) → 클릭하면 그 사이트의 4개 아코디언이 펼쳐짐.
-export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
-  if (c.tab !== "schema") return null;
-  const rowsWithQa: any[] = (c.results || []).filter((r: any) => r.html_qa);
-  if (rowsWithQa.length === 0) return null;
-
-  if (rowsWithQa.length === 1) {
-    const r0 = rowsWithQa[0];
-    const hq = r0.html_qa;
-    const findings = r0.schema?.findings || [];
-    return (
-      <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
-        <OverallBanner hq={hq} row={r0} />
-        <HtmlQaDetail hq={hq} findings={findings} />
-      </div>
-    );
-  }
-
-  // 일괄검수 — 집계 + 사이트별 드릴다운
-  const finals = rowsWithQa.map((r) => r.html_qa.overall?.final_pct).filter((v: any) => v != null) as number[];
-  const avg = finals.length ? Math.round((finals.reduce((a, b) => a + b, 0) / finals.length) * 10) / 10 : null;
-  const dist = { green: 0, yellow: 0, red: 0 } as Record<string, number>;
-  for (const r of rowsWithQa) dist[r.html_qa.overall?.traffic_light || "red"]++;
-  const sorted = [...rowsWithQa].sort((a, b) => (a.html_qa.overall?.final_pct ?? -1) - (b.html_qa.overall?.final_pct ?? -1));
-  const propOk = rowsWithQa.reduce((a, r) => a + (r.html_qa.overall?.prop_ok || 0), 0);
-  const propTotal = rowsWithQa.reduce((a, r) => a + (r.html_qa.overall?.prop_total || 0), 0);
-  const avgApply = propTotal ? Math.round((propOk / propTotal) * 1000) / 10 : null;
-  const expanded = c.qaExpandedSite;
-
-  return (
-    <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <b style={{ fontSize: 13.5 }}>DATA QA 종합</b>
-        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>{rowsWithQa.length}개 사이트 · 데이터 유무 {avgApply ?? "—"}% ({propOk}/{propTotal}) · 퀄리티 {avg ?? "—"}%</span>
-        <span style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <span style={{ fontSize: 12 }}>🟢 {dist.green}</span>
-          <span style={{ fontSize: 12 }}>🟡 {dist.yellow}</span>
-          <span style={{ fontSize: 12 }}>🔴 {dist.red}</span>
-        </span>
-      </div>
-      <div style={{ marginTop: 10 }}>
-        {sorted.map((r, i) => {
-          const hq = r.html_qa; const tl = hq.overall?.traffic_light;
-          const key = r.sitecode + i;
-          return (
-            <div key={key} style={{ borderTop: "1px solid var(--line)" }}>
-              <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px", cursor: "pointer", fontSize: 12.5 }}>
-                <span>{TL_EMOJI[tl] || "⚪"}</span>
-                <b>{r.sitecode}</b>
-                <span style={{ color: "var(--sec)" }}>{r.region} · {r.country}</span>
-                {(r.product || r.market_product) && <span style={{ fontSize: 10.5, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 6px" }}>{r.product || r.market_product}</span>}
-                {r.page_type && <span style={{ fontSize: 10.5, background: "#E8F0FE", color: "#1B57C4", borderRadius: 4, padding: "1px 6px" }}>{r.page_type}</span>}
-                <span style={{ marginLeft: "auto" }}>AEO {hq.overall?.final_pct ?? "—"}% · 적용율 {hq.level1_apply_rate?.apply_rate_pct ?? "—"}%</span>
-                <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
-              </div>
-              {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px" }}><HtmlQaDetail hq={hq} findings={r.schema?.findings || []} /></div>}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── 전사이트 현황판 [신규] ────────────────────────────────────────
-// 최상단. 이력에서 '각 권역의 가장 최근 검수'를 모아 AEO 점수를 평균낸 전사이트 스냅샷.
-// 기본은 전체 점수만 한 줄로. '권역별 점수 ▸' 누르면 권역 칩이 펼쳐짐.
-export function SiteOverview({ ctx: c }: { ctx: any }) {
-  const [open, setOpen] = useState(false);
-  if (c.tab !== "schema") return null;
-  const ov = c.overview;
-  if (!ov || !ov.regions || ov.regions.length === 0) return null;
-  const tl = (a: number | null) => (a == null ? "red" : a >= 80 ? "green" : a >= 50 ? "yellow" : "red");
-  const total = ov.total_avg_aeo;
-  const dist = ov.distribution || { green: 0, yellow: 0, red: 0 };
-
-  return (
-    <div className="summaryCard" style={{ marginTop: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: "var(--sec)", fontWeight: 700 }}>전사이트 현황</span>
-        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 5 }}>
-          <b style={{ fontSize: 26, color: TL_COLOR[tl(total)] }}>{total ?? "—"}</b>
-          <span style={{ fontSize: 12, color: "var(--sec)" }}>점 · 평균 AEO 퀄리티</span>
-        </span>
-        <span style={{ fontSize: 12, color: "var(--sec)" }}>🟢 {dist.green} · 🟡 {dist.yellow} · 🔴 {dist.red}</span>
-        <button onClick={() => setOpen((v) => !v)}
-          style={{ marginLeft: "auto", background: "none", border: "1px solid var(--line)", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: "pointer", color: "var(--label)" }}>
-          권역별 점수 {open ? "▾" : "▸"}
-        </button>
-      </div>
-      {open && (
-        <div className="qbiPopIn" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-          {ov.regions.map((r: any) => (
-            <span key={r.region} title={r.at}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12,
-                border: "1px solid var(--line)", borderRadius: 999, padding: "4px 11px" }}>
-              <span style={{ color: "var(--sec)" }}>{r.region}</span>
-              <b style={{ color: TL_COLOR[tl(r.avg_aeo)] }}>{r.avg_aeo ?? "—"}</b>
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

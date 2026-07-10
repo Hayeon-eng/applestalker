@@ -22,3 +22,23 @@ export const family = (code: string) => (code || "").includes("buds") ? "M12" : 
 export const tierOf = (c: { fail: number; warn: number }) => (c.fail > 0 ? "bad" : c.warn > 0 ? "mid" : "good");
 export const inputStyle = { fontSize: 12, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6 } as const;
 export const sel = (v: string, on: boolean) => ({ fontSize: 12, padding: "4px 10px", borderRadius: 999, cursor: "pointer", border: on ? "1px solid #0A66E0" : "1px solid var(--line)", background: on ? "#0A66E0" : "#fff", color: on ? "#fff" : "var(--label)" });
+
+// 내부 계산 토큰을 사람이 읽는 말로 (QuickView·DATA QA 상세 등 findings 텍스트 공유)
+export const TERM_MAP: Record<string, string> = {
+  structure_valid: "FAQ 구조 유효성",
+  screen_match: "화면 노출 일치",
+  type_combo: "타입 선언(@type)",
+  contentUrlOrEmbedUrl: "영상 URL",
+  encoding_contentUrl: "3D 파일 URL",
+  encoding_encodingFormat: "3D 포맷",
+};
+export function humanizeTerm(s: string): string {
+  if (!s) return s;
+  let out = s;
+  for (const [k, v] of Object.entries(TERM_MAP)) out = out.split(k).join(v);
+  return out;
+}
+
+// DATA QA 신호등 색/이모지 (공유)
+export const TL_COLOR: Record<string, string> = { green: "#1F9E5C", yellow: "#E0A008", red: "#D8362F" };
+export const TL_EMOJI: Record<string, string> = { green: "🟢", yellow: "🟡", red: "🔴" };

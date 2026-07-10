@@ -6,7 +6,8 @@
  */
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
-import { SpecTable, CriteriaPanel, ScorePanel, QuickView, HtmlQaSummary, SiteOverview } from "./QubiSections";
+import { SpecTable, CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
+import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
