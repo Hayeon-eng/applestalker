@@ -145,6 +145,25 @@ class POV(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class CombiRun(Base):
+    """Combi(🍯) 실행 1건 = Prompt 1개 × Country 1개 크롤 결과.
+    [SKELETON] 지금은 rule_engine.py의 STUB 결과를 그대로 저장 — 크롤러 붙으면 값만 실데이터로 교체."""
+    __tablename__ = "combi_runs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    combi_run_id = Column(String(100), unique=True, index=True, nullable=False)
+    prompt_id = Column(String(30), index=True)
+    prompt_text = Column(String(500))
+    category = Column(String(50))
+    country = Column(String(10), index=True)
+    shelf_json = Column(Text)          # JSON: compute_shelf() 결과
+    coverage_json = Column(Text)       # JSON: compute_coverage() 결과 (Samsung 기준)
+    gaps_json = Column(Text)           # JSON: find_gaps() 결과
+    samsung_rank = Column(Integer, nullable=True)     # Samsung.com 최상위 순위(없으면 null)
+    samsung_above_fold = Column(Boolean, default=False)
+    gap_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class QbSpecRules(Base):
     """큐비 Spec QA Rule DB — 제품별 룰셋 전체를 JSON 문서 1행으로 저장.
     (MasterSpec / Dictionary / ExceptionRule / InteractionRule / CountryException / Candidates)
