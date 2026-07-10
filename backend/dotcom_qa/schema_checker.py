@@ -249,7 +249,13 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
             node = cand[0]  # 타입은 있으나 @id 불일치
 
         f: Dict[str, Any] = {"block": name, "types": types, "id_slug": block.get("id_slug"),
-                             "conditional": conditional, "missing_props": [], "haspart_missing": []}
+                             "conditional": conditional, "missing_props": [], "haspart_missing": [],
+                             # 리포트/화면이 '붙여넣을 코드'를 만들 수 있도록 룰 기대값을 그대로 실어보냄
+                             "rule_expected": block.get("expected_values") or {},
+                             "rule_id_pattern": id_pat,
+                             "rule_types": types,
+                             "rule_required": block.get("required_properties", []),
+                             "rule_haspart_ids": block.get("haspart_ids", [])}
 
         if node is None:
             # 없음 → 조건부면 경고, 아니면 실패

@@ -225,7 +225,8 @@ def qb_check(payload: Dict[str, Any] = Body(...)):
     out["market_product"] = mp
     global _LAST_RESULTS
     _LAST_RESULTS = [{"sitecode": payload.get("sitecode") or "(입력)", "url": "", "page_type": page_type,
-                      "market_product": mp, "schema": out["schema"], "copy": out["copy"]}]
+                      "market_product": mp, "schema": out["schema"], "copy": out["copy"],
+                      "html_qa": out.get("html_qa")}]
     return out
 
 
