@@ -86,6 +86,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   // 검수 이력
   const [history, setHistory] = useState<any[]>([]);
+  const [runId, setRunId] = useState<string | null>(null); // 현재 화면에 표시 중인 결과의 run_id — Excel/메일이 화면과 같은 데이터를 받도록 서버에 전달
   const [overview, setOverview] = useState<any>(null); // 전사이트 현황(각 권역 최신 검수 AEO 평균)
 
   const api = (p: string) => `${apiBase}${p}`;
@@ -110,7 +111,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   async function loadHistory() { try { setHistory((await (await fetch(api("/api/qb/history"))).json()).history || []); } catch { /* */ } }
   async function loadOverview() { try { setOverview(await (await fetch(api("/api/qb/overview"))).json()); } catch { /* */ } }
   const openHistory = async (id: string) => {
-    try { const d = await (await fetch(api(`/api/qb/history/${id}`))).json(); setResults(d.results || []); flash(`이력 ${id} 불러옴`); }
+    try { const d = await (await fetch(api(`/api/qb/history/${id}`))).json(); setResults(d.results || []); setRunId(id); flash(`이력 ${id} 불러옴`); }
     catch { setErr("이력 불러오기 실패"); }
   };
   const removeHistory = async (id: string) => { await fetch(api("/api/qb/history/remove"), J({ run_id: id })); loadHistory(); };
@@ -127,13 +128,13 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         const r = await fetch(api("/api/qb/check-url"), J({ url: urlOne.trim(), product: family(product), market_product: product, page_type: pageType }));
         if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일 검수를 이용하세요.");
         if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `검수 실패 (${r.status})`);
-        setResults([await r.json()]); // html_qa 포함돼서 옴
+        setResults([await r.json()]); setRunId(null); // html_qa 포함돼서 옴 — run_id 없음(서버가 마지막 결과 보관)
       } else {
         if (!html.trim()) throw new Error("검수할 HTML을 넣으세요.");
         const r = await fetch(api("/api/qb/check"), J({ html, product: family(product), market_product: product, page_type: pageType }));
         if (!r.ok) throw new Error(`검수 실패 (${r.status})`);
         const d = await r.json();
-        setResults([{ sitecode: "(입력)", url: "", page_type: pageType, schema: d.schema, copy: d.copy, html_qa: d.html_qa }]);
+        setResults([{ sitecode: "(입력)", url: "", page_type: pageType, schema: d.schema, copy: d.copy, html_qa: d.html_qa }]); setRunId(null);
       }
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -151,7 +152,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   const runByRegion = async () => {
     if (busy) return;
-    setBusy(true); setErr(""); setResults([]);
+    setBusy(true); setErr(""); setResults([]); setRunId(null);
     const codes = targetCodes;
     if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); setBusy(false); return; }
     const label = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
@@ -186,7 +187,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               clearTimeout(timeout); es.close();
               fetch(api(`/api/qb/history/${encodeURIComponent(d.run_id)}`))
                 .then((rr) => rr.ok ? rr.json() : null)
-                .then((dd) => { if (dd?.results) setResults(dd.results); resolve(); })
+                .then((dd) => { if (dd?.results) { setResults(dd.results); setRunId(d.run_id); } resolve(); })
                 .catch(() => resolve());
             } else if (d.type === "status" && d.crawling === false) { clearTimeout(timeout); es.close(); resolve(); }
           } catch { /* heartbeat 무시 */ }
@@ -211,15 +212,16 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
       setErr(`${filename} 다운로드 실패 — ${e.message || e}`);
     }
   };
+  const reportQs = () => (runId ? `?run_id=${encodeURIComponent(runId)}` : ""); // 화면에 보이는 이력과 동일 데이터 보장
   const downloadXlsx = async () => {
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
-    await downloadBlob("/api/qb/report.xlsx", null, "qubi_qa_report.xlsx");
+    await downloadBlob(`/api/qb/report.xlsx${reportQs()}`, null, "qubi_qa_report.xlsx");
   };
   const copyEmail = async () => {
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 메일 본문을 복사할 수 있어요."); return; }
     try {
-      // Apple Stalker와 동일: 서버가 든 마지막 결과를 GET으로 받음(본문 없음 → CORS preflight 없음)
-      const r = await fetch(api("/api/qb/email-draft"), { cache: "no-store" });
+      // Apple Stalker와 동일: 본문 없는 GET(CORS preflight 회피). run_id가 있으면 그 이력을, 없으면 서버가 든 마지막 결과를 받음
+      const r = await fetch(api(`/api/qb/email-draft${reportQs()}`), { cache: "no-store" });
       if (!r.ok) throw new Error(`서버 오류 (${r.status})`);
       const body = await r.text();
       if (navigator.clipboard && "write" in navigator.clipboard && typeof ClipboardItem !== "undefined") {
@@ -359,7 +361,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                 {showScore ? "ⓘ 점수 계산 숨기기" : "ⓘ 점수 계산 보기"}
               </button>
               <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
-              <a className="toolBtn" href={api("/api/qb/report.xlsx")} onClick={(e) => { if (!results.length) { e.preventDefault(); setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); } }} download>📊 Excel</a>
+              <button className="toolBtn" onClick={downloadXlsx}>📊 Excel</button>
             </div>
           </div>
         </header>
