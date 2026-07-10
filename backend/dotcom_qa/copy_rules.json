@@ -151,6 +151,58 @@
         "Snapdragon 8 Elite Gen 5",
         "Vapor Chamber"
       ]
+    },
+    "galaxy-z-fold7": {
+      "spec_tokens": [
+        "200 MP",
+        "12 MP",
+        "10 MP",
+        "4400 mAh",
+        "25 W",
+        "2600 nits",
+        "215 g",
+        "1 TB",
+        "512 GB",
+        "256 GB",
+        "12 GB",
+        "16 GB",
+        "120 Hz"
+      ],
+      "proper_nouns": [
+        "Galaxy Z Fold7",
+        "Galaxy AI",
+        "Snapdragon 8 Elite",
+        "Armor FlexHinge",
+        "Corning Gorilla Glass Ceramic 2",
+        "Corning Gorilla Glass Victus 2",
+        "ProVisual Engine",
+        "Wi-Fi 7"
+      ]
+    },
+    "galaxy-z-flip7": {
+      "spec_tokens": [
+        "50 MP",
+        "12 MP",
+        "10 MP",
+        "4300 mAh",
+        "25 W",
+        "2600 nits",
+        "188 g",
+        "512 GB",
+        "256 GB",
+        "12 GB",
+        "120 Hz"
+      ],
+      "proper_nouns": [
+        "Galaxy Z Flip7",
+        "Galaxy AI",
+        "Exynos 2500",
+        "FlexWindow",
+        "FlexCam",
+        "ProVisual Engine",
+        "Corning Gorilla Glass Victus 2",
+        "Wi-Fi 7"
+      ]
     }
   },
   "market_map": {

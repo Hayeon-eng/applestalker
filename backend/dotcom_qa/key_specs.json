@@ -614,6 +614,14 @@
           ]
         }
       ]
+    },
+    "galaxy-z-fold7": {
+      "label": "Galaxy Z Fold7",
+      "specs": []
+    },
+    "galaxy-z-flip7": {
+      "label": "Galaxy Z Flip7",
+      "specs": []
     }
   }
 }
