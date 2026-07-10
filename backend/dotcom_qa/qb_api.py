@@ -529,6 +529,7 @@ def qb_overview():
             continue
         # 이 run에 포함된 region별로, 아직 확정 안 된 region만 이 run 값으로 채운다.
         by_region_here: Dict[str, List[float]] = {}
+        applyacc_here: Dict[str, List[int]] = {}  # region -> [prop_ok합, prop_total합]
         run_at = r.at
         for row in results:
             region = row.get("region") or "기타"
@@ -539,17 +540,27 @@ def qb_overview():
             if fp is None:
                 continue
             by_region_here.setdefault(region, []).append(fp)
+            ov = hq.get("overall") or {}
+            acc = applyacc_here.setdefault(region, [0, 0])
+            acc[0] += ov.get("prop_ok") or 0
+            acc[1] += ov.get("prop_total") or 0
         for region, scores in by_region_here.items():
             if region in seen_regions:
                 continue  # 더 최신 run에서 이미 확정됨
             seen_regions.add(region)
             avg = round(sum(scores) / len(scores), 1) if scores else None
-            region_latest[region] = {"region": region, "avg_aeo": avg,
-                                       "sites": len(scores), "at": run_at}
+            acc = applyacc_here.get(region, [0, 0])
+            apply_pct = round(100 * acc[0] / acc[1], 1) if acc[1] else None
+            region_latest[region] = {"region": region, "avg_aeo": avg, "apply_pct": apply_pct,
+                                     "prop_ok": acc[0], "prop_total": acc[1],
+                                     "sites": len(scores), "at": run_at}
 
     regions = sorted(region_latest.values(), key=lambda x: (x["avg_aeo"] if x["avg_aeo"] is not None else -1))
     vals = [x["avg_aeo"] for x in regions if x["avg_aeo"] is not None]
     total_avg = round(sum(vals) / len(vals), 1) if vals else None
+    tot_ok = sum(x.get("prop_ok") or 0 for x in regions)
+    tot_all = sum(x.get("prop_total") or 0 for x in regions)
+    total_apply = round(100 * tot_ok / tot_all, 1) if tot_all else None
     dist = {"green": 0, "yellow": 0, "red": 0}
     for x in regions:
         a = x["avg_aeo"]
@@ -561,7 +572,7 @@ def qb_overview():
             dist["yellow"] += 1
         else:
             dist["red"] += 1
-    return {"total_avg_aeo": total_avg, "region_count": len(regions),
+    return {"total_avg_aeo": total_avg, "total_apply_pct": total_apply, "region_count": len(regions),
             "regions": regions, "distribution": dist}
 
 
