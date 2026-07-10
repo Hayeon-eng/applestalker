@@ -470,6 +470,18 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
         apply_axis2 = rich_status in ("정식", "제한적(AR만)")
         eff_axis2_gate = raw_axis2_gate if apply_axis2 else 1
         final_pct = round(eff_axis2_gate * axis3["gate"] * a1["pct"], 1)
+
+        # 표현용 집계(이미 계산된 a1.props를 세기만 함 — 점수 로직/값은 그대로).
+        props = a1.get("props", {})
+        required = set(a1.get("required", []))
+        req_props = [p for p in props if p in required]
+        rec_props = [p for p in props if p not in required]
+        req_ok = sum(1 for p in req_props if props[p] >= 1.0)
+        rec_ok = sum(1 for p in rec_props if props[p] >= 1.0)
+        # 부족/확인 속성(사용자가 먼저 봐야 할 것): 필수 미충족 먼저, 그다음 권장
+        missing_required = [p for p in req_props if props[p] < 1.0]
+        weak_recommended = [p for p in rec_props if props[p] < 1.0]
+
         per_type[name] = {
             "axis1_info_adequacy_pct": a1["pct"],
             "axis1_gate_triggered": a1["gate_triggered"],
@@ -477,6 +489,13 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
             "rich_result_status": rich_status,
             "final_pct": final_pct,
             "traffic_light": traffic_light(final_pct, eff_axis2_gate == 0 or axis3["gate"] == 0 or a1["gate_triggered"]),
+            # ── 표현용(요구사항: 개수/부족항목/수정위치) ──
+            "required_total": len(req_props),
+            "required_ok": req_ok,
+            "recommended_total": len(rec_props),
+            "recommended_ok": rec_ok,
+            "missing_required": missing_required,
+            "weak_recommended": weak_recommended,
         }
 
     overall_final = None
