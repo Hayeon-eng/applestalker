@@ -53,40 +53,47 @@ def _en(f):
     return f.get("as_is", ""), f.get("to_be", "")
 
 
-def _flatten(page_results):
+def _flatten(page_results, tab=None):
+    """검수 결과를 이슈 행으로 평탄화.
+    tab="schema" → 스키마 이슈만 · tab="copy" → 스펙(spec_v2/copy) 이슈만 · None → 전체(Excel·요약용).
+    Data QA(스키마)와 Spec QA(스펙)는 독자가 달라(SEO담당 vs 마케팅담당), 메일은 보고 있던 탭 것만 담는다."""
+    want_schema = tab in (None, "schema")
+    want_spec = tab in (None, "copy")
     rows = []
     for pr in page_results:
         base = {"sitecode": pr.get("sitecode", ""), "url": pr.get("url", ""),
                 "region": pr.get("region", ""), "country": pr.get("country", "")}
-        for f in (pr.get("schema") or {}).get("findings", []):
-            if f.get("status") == "pass":
-                continue
-            rows.append({**base, "area": "Schema", "item": f.get("block", ""),
-                         "status": f.get("status"), "f": f})
-        sv = pr.get("spec_v2")
-        if sv:
-            # [V2 정합] 스펙은 Rule DB 판정을 화면·엑셀과 동일하게: Critical=fail, Warning=미등록 표현.
-            for it in sv.get("items", []):
-                if it.get("status") != "fail":
-                    continue
-                exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
-                rows.append({**base, "area": "Spec", "item": it.get("attribute", ""),
-                             "status": "fail",
-                             "f": {"status": "fail",
-                                   "as_is": f'현재 {it.get("found") or "(페이지에 없음)"}',
-                                   "to_be": f'기준 {exp}' + (f' — {it["fix_guide"]}' if it.get("fix_guide") else "")}})
-            for c in sv.get("candidates", []):
-                rows.append({**base, "area": "Spec·Dictionary", "item": c.get("alias", ""),
-                             "status": "warn",
-                             "f": {"status": "warn",
-                                   "as_is": f'미등록 표현: {c.get("alias","")}',
-                                   "to_be": "번역/표기 확인 후 Dictionary 추가로 승인"}})
-        else:
-            for f in (pr.get("copy") or {}).get("findings", []):
+        if want_schema:
+            for f in (pr.get("schema") or {}).get("findings", []):
                 if f.get("status") == "pass":
                     continue
-                rows.append({**base, "area": "Copy·" + (f.get("kind", "") or ""), "item": f.get("token", ""),
+                rows.append({**base, "area": "Schema", "item": f.get("block", ""),
                              "status": f.get("status"), "f": f})
+        if want_spec:
+            sv = pr.get("spec_v2")
+            if sv:
+                # [V2 정합] 스펙은 Rule DB 판정을 화면·엑셀과 동일하게: Critical=fail, Warning=미등록 표현.
+                for it in sv.get("items", []):
+                    if it.get("status") != "fail":
+                        continue
+                    exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
+                    rows.append({**base, "area": "Spec", "item": it.get("attribute", ""),
+                                 "status": "fail",
+                                 "f": {"status": "fail",
+                                       "as_is": f'현재 {it.get("found") or "(페이지에 없음)"}',
+                                       "to_be": f'기준 {exp}' + (f' — {it["fix_guide"]}' if it.get("fix_guide") else "")}})
+                for c in sv.get("candidates", []):
+                    rows.append({**base, "area": "Spec·Dictionary", "item": c.get("alias", ""),
+                                 "status": "warn",
+                                 "f": {"status": "warn",
+                                       "as_is": f'미등록 표현: {c.get("alias","")}',
+                                       "to_be": "번역/표기 확인 후 Dictionary 추가로 승인"}})
+            else:
+                for f in (pr.get("copy") or {}).get("findings", []):
+                    if f.get("status") == "pass":
+                        continue
+                    rows.append({**base, "area": "Copy·" + (f.get("kind", "") or ""), "item": f.get("token", ""),
+                                 "status": f.get("status"), "f": f})
     return rows
 
 
@@ -602,10 +609,13 @@ def build_xlsx(page_results):
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
 
-def build_email_draft(page_results, when=""):
+def build_email_draft(page_results, when="", tab=None):
     from html import escape
-    s = summary_counts(page_results)
-    rows = _flatten(page_results)
+    rows = _flatten(page_results, tab=tab)
+    s = {"pages": len(page_results),
+         "fail": sum(1 for r in rows if r["status"] == "fail"),
+         "warn": sum(1 for r in rows if r["status"] == "warn")}
+    qa_label = {"schema": "Data QA (스키마·검색 노출)", "copy": "Spec QA (스펙 정확성)"}.get(tab, "QA")
     by_site = {}
     for r in rows:
         by_site.setdefault(r["sitecode"], []).append(r)
@@ -631,7 +641,7 @@ def build_email_draft(page_results, when=""):
         blocks = "<p style='color:#1F9E5C'>검수한 페이지에서 오류가 발견되지 않았습니다.</p>"
     return ("<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'>"
             "<div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'>"
-            "<div style='font-size:12px;color:#667085;font-weight:700'>큐비 🐝 — Dotcom QA 리포트</div>"
+            "<div style='font-size:12px;color:#667085;font-weight:700'>큐비 🐝 — " + escape(qa_label) + " 리포트</div>"
             "<h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + "</h1>"
             "<div style='font-size:13px;color:#667085'>검수 " + str(s["pages"]) + "페이지 · 오류 " + str(s["fail"]) + "건 · 확인 " + str(s["warn"]) + "건</div>"
             "<div style='margin-top:14px'>" + blocks + "</div></div></div>")

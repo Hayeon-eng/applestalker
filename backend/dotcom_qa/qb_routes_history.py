@@ -177,12 +177,12 @@ def qb_report_xlsx(payload: Dict[str, Any] = Body(default={})):
 
 
 @qb_router.get("/email-draft")
-def qb_email_draft_get(run_id: str = Query(None)):
-    return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(run_id=run_id)))
+def qb_email_draft_get(run_id: str = Query(None), tab: str = Query(None)):
+    return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(run_id=run_id), tab=tab))
 
 
 @qb_router.post("/email-draft")
 def qb_email_draft(payload: Dict[str, Any] = Body(default={})):
-    return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(payload)))
+    return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(payload), tab=payload.get("tab")))
 
 
