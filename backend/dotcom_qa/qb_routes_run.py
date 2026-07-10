@@ -23,6 +23,7 @@ from models import QbHistory
 
 import qb_core
 from qb_core import qb_router, _registry
+from qb_routes_history import _history_save  # [분할 누락 수정] 크롤 종료 시 이력 저장 — 없으면 NameError로 크롤이 죽음
 
 # ── 대량 크롤(91개 등)을 하나의 긴 요청에 물지 않기 위한 백그라운드 실행 ──
 # Apple Stalker의 /trigger-crawl/all + /api/crawl-progress 패턴과 동일:
