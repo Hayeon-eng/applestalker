@@ -123,8 +123,6 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
 from dotcom_qa.qb_api import qb_router, enable_default_crawler
 app.include_router(qb_router)
 
-from combi.combi_api import combi_router
-app.include_router(combi_router)
 enable_default_crawler()
 
 
