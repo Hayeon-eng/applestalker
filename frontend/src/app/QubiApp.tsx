@@ -12,11 +12,11 @@ import { SpecV2Panel, DictionaryPanel, SpecV2RuleTable, SpecV2Criteria, SpecV2Sc
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
-  const [product, setProduct] = useState("galaxy-s26-ultra");
+  const [product, setProduct] = useState("galaxy-z-fold7");
   const [v2Products, setV2Products] = useState<string[]>([]); // Rule DB(V2)가 있는 제품 — 기준/점수 패널을 V2판으로 게이트
   const isV2 = v2Products.includes(product);
   const [pageType, setPageType] = useState("PDP");
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set()); // 배치 크롤용 제품 멀티선택 (비면 전체)
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set(["galaxy-z-fold7"])); // 크롤 대상 제품(제품 버튼과 동기화)
   const [selectedPageTypes, setSelectedPageTypes] = useState<Set<string>>(new Set(["PDP"])); // 배치 크롤용 타입 멀티선택
   const [results, setResults] = useState<PageResult[]>([]);
   const [qaExpandedSite, setQaExpandedSite] = useState<string | null>(null); // HTML QA 일괄검수 드릴다운(사이트별 펼침)
@@ -70,7 +70,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   // 스펙 관리
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [specProduct, setSpecProduct] = useState("galaxy-s26-ultra");
+  const [specProduct, setSpecProduct] = useState("galaxy-z-fold7");
   const [specs, setSpecs] = useState<any[]>([]);
   const [newProd, setNewProd] = useState("");
   const [specForm, setSpecForm] = useState({ category: "", value: "", unit: "" });
@@ -94,7 +94,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   useEffect(() => {
     fetch(api("/api/health")).then((r) => setOnline(r.ok)).catch(() => setOnline(false));
-    loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-s26-ultra"); loadHistory(); loadOverview();
+    loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-z-fold7"); loadHistory(); loadOverview();
     fetch(api("/api/qb/spec-rules/products")).then((r) => r.json())
       .then((d) => {
         const codes = (d.products || []).map((p: any) => p.product);
@@ -438,15 +438,16 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
           <SiteOverview ctx={ctx} />
 
-          {/* 제품 · 페이지타입 (여러 개 선택 가능 — 배치 크롤 대상) */}
+          {/* 제품 — 클릭 시: 화면·검수기준표는 그 제품 하나를 보여주고(product), 크롤 대상엔 토글로 누적/해제(selectedProducts 다중). */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 4px", flexWrap: "wrap" }}>
             <span style={{ fontSize: 12.5, color: "var(--sec)" }}>제품:</span>
             {products.filter((p) => !p.spec_only).map((p) => {
-              const on = selectedProducts.has(p.code);
+              const shown = product === p.code;          // 파란 테두리 = 지금 화면에 보이는 제품
+              const inCrawl = selectedProducts.has(p.code); // ✓ = 크롤 대상에 포함
               return <button key={p.code} onClick={() => {
-                setProduct(p.code);
-                setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? n.delete(p.code) : n.add(p.code); return n; });
-              }} style={sel(p.code, on)}>{on ? "✓ " : ""}{p.label}</button>;
+                setProduct(p.code);  // 화면·검수기준표를 이 제품으로
+                setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? (n.size > 1 && n.delete(p.code)) : n.add(p.code); return n; });
+              }} style={sel(p.code, shown)}>{inCrawl ? "✓ " : ""}{p.label}</button>;
             })}
             <span style={{ fontSize: 12.5, color: "var(--sec)", marginLeft: 10 }}>페이지타입:</span>
             {PAGE_TYPES.map((p) => {
