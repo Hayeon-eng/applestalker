@@ -226,14 +226,15 @@ def attribute_block(block_norm: str, tokens: List[Tuple[str, str]]) -> Optional[
     return None
 
 
-def prev_accepted_for(prev_models: List[Dict[str, Any]], model: str,
-                      unit: str) -> Optional[List[float]]:
-    """전작 모델의 해당 단위 정답 숫자 합집합. 스펙 정보가 없으면 None(판정 불가)."""
+def prev_accepted_for(prev_models: List[Dict[str, Any]], model: Optional[str],
+                      unit: str, any_model: bool = False) -> Optional[List[float]]:
+    """전작 모델의 해당 단위 정답 숫자 합집합. 스펙 정보가 없으면 None(판정 불가).
+    any_model=True면 모델 구분 없이 전 전작의 합집합 — '전작 값 혼입' 검사용."""
     cu = canon_unit(unit)
     vals: List[float] = []
     found_any = False
     for pm in prev_models or []:
-        if pm.get("model") != model:
+        if not any_model and pm.get("model") != model:
             continue
         for sp in pm.get("specs") or []:
             if canon_unit(sp.get("unit", "")) != cu:
@@ -297,6 +298,7 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                 prev_fail = (h, owner, pv)
             continue
         # ── 검수 대상 제품 소속 숫자 ──
+        prev_all = prev_accepted_for(prev_models, None, unit, any_model=True) or []
         if h["value"] in accepted:
             if h["approx"]:
                 approx_hit = approx_hit or h
@@ -307,6 +309,10 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                 qualifier_fail = qualifier_fail or (h, mism)
             else:
                 exact_pass_hit = exact_pass_hit or h
+        elif h["value"] in prev_all and label_in_block and label_in_block(h["block"]):
+            # [V3.2] 모델명 없이도 전작 정답값이 이 항목 라벨과 함께 적혀 있으면
+            # 전작 값 혼입(예: Fold7 페이지에 "무게 239g") — 오기재로 승격
+            label_fail = label_fail or h
         elif h["value"] in union:
             continue  # 같은 단위 다른 스펙의 정답(RAM 12 vs Storage 256 등) — 무관
         else:

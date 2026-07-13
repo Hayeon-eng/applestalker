@@ -300,8 +300,25 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                                 f"전작 값 혼입 — '{rule['attribute']}'에 전작({prev_hit[0]})의 값 '{prev_hit[1]}'이 표기됨", p)
                 break
             if rule["validation"] == "numeric_exact":
-                pair_verdict = ("fail", p["value"],
-                                f"오기재 — 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule['unit'] else ''}이 아닌 값이 항목에 표기됨: '{p['value'][:60]}'", p)
+                # [V3.2] 숫자 룰의 페어 불일치도 "실제 다른 숫자"가 있을 때만 오류다.
+                # Compare 표에서 라벨 셀 텍스트("커버 디스플레이 크기", "무게")가 값으로
+                # 잡히는 경우 숫자가 없다 — 그건 오기재 증거가 아니라 미노출이므로 보류.
+                pn = _num(p["value"])
+                if pn is None:
+                    trace.append({"step": "pair", "detail":
+                                  f"'{p['label']}' → '{p['value'][:40]}' — 숫자 없음(라벨성 텍스트), 오기재 증거 아님 → 보류"})
+                    break
+                cu = svm.canon_unit(rule.get("unit", ""))
+                prev_vals = svm.prev_accepted_for(prev_models, None, cu, any_model=True) or []
+                if pn in prev_vals:
+                    pair_verdict = ("fail", p["value"],
+                                    f"전작 값 혼입 의심 — '{rule['attribute']}'에 전작 정답 {pn:g}{rule.get('unit','')}이 표기됨 (현 제품 정답: {rule['expected']})", p)
+                elif pn in unit_union.get(cu, set()):
+                    pair_verdict = ("warn", p["value"],
+                                    f"확인 필요 — 같은 단위의 다른 스펙 정답값 {pn:g}{rule.get('unit','')}이 이 항목에 표기됨 (행/값 배치 확인)", p)
+                else:
+                    pair_verdict = ("fail", p["value"],
+                                    f"오기재 — 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule['unit'] else ''}이 아닌 {pn:g}이 항목에 표기됨", p)
                 break
             if rule["validation"] in ("exact", "prefix"):
                 exp_norm = svm.normalize_text(rule["expected"])
@@ -349,6 +366,9 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                 trace.append({"step": "value-scan", "detail": d})
             if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
                 res = {"status": "pass", "found": pair_verdict[1], "confidence": "high", "message": "OK"}
+            elif res["status"] == "na" and pair_verdict and pair_verdict[0] == "warn":
+                res = {"status": "warn", "found": pair_verdict[1], "confidence": "medium",
+                       "message": pair_verdict[2]}
             item.update(status=res["status"], found=(res.get("found") or "")[:120],
                         confidence=res.get("confidence", ""), message=res["message"],
                         source=item["source"] or "value-scan")

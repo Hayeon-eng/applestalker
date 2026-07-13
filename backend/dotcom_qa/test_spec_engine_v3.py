@@ -176,7 +176,32 @@ check("O1 확인만 있는 카테고리 점수는 감점 없음(100 또는 None)
 check("O2 pass만 있는 카테고리 100%", dim["score"] == 100.0, str(dim))
 check("O3 전체 점수도 확인 미반영", r["summary"]["score"] in (100.0, None), str(r["summary"]))
 
+# ── P. [Compare 스크린샷 오탐] 숫자 없는 페어·행 배치·전작 혼입 구분 ──
+def TBL(rows_):
+    return "<html><body><table>" + "".join(
+        f"<tr><td>{a}</td><td>{b}</td></tr>" for a, b in rows_) + "</table></body></html>"
+
+r = run(TBL([("Cover Display Size", "Cover Display Size"), ("Weight", "무게")]), page_type="Compare")
+check("P1 라벨성 텍스트(숫자 없음)가 값으로 잡혀도 FAIL 아님 — Cover Display Size na",
+      item(r, "DISPLAY_003")["status"] == "na", item(r, "DISPLAY_003")["message"])
+check("P2 Weight도 na(오류 0)", item(r, "DIM_001")["status"] == "na"
+      and r["summary"]["critical"] == 0, str(r["summary"]))
+
+r = run(TBL([("Cover Display Size", "8.0 inch")]), page_type="Compare")
+check("P3 같은 단위 다른 스펙 정답값(메인 8.0이 커버 행에) → warn",
+      item(r, "DISPLAY_003")["status"] == "warn", item(r, "DISPLAY_003")["message"])
+
+r = run(TBL([("Weight", "239 g")]), page_type="Compare")
+check("P4 전작 정답값(Fold6 239g)이 현 제품 행에 → FAIL(전작 값 혼입)",
+      item(r, "DIM_001")["status"] == "fail", item(r, "DIM_001")["message"])
+
+r = run(P("무게(Weight) 239 g의 가벼운 바디"))
+check("P5 본문에서도 모델명 없이 전작 값+라벨 → FAIL",
+      item(r, "DIM_001")["status"] == "fail", item(r, "DIM_001")["message"])
+r = run(P("무게(Weight) 215 g의 가벼운 바디"))
+check("P6 정답 무게는 PASS 유지", item(r, "DIM_001")["status"] == "pass")
+
 print()
 if FAILED:
     print(f"❌ {len(FAILED)} failed: {FAILED}"); sys.exit(1)
-print("✅ all V3 regression tests passed (incl. L·M·N·O)")
+print("✅ all V3 regression tests passed (incl. L·M·N·O·P)")
