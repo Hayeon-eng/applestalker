@@ -179,7 +179,12 @@ def _pair_owner(pair: Dict[str, Any], target_tokens: List[str],
     for tok, model in prev_tokens:
         if tok in hint:
             return model
-    return "skip"
+    # [V3.3] 제품명으로 보이는 헤더("갤럭시 …", "Galaxy …")인데 대상/전작 어느 쪽도
+    # 아니면 무관 제품 컬럼 → skip. 그 외("사양", "Spec", 빈 헤더 등 일반 컬럼명)는
+    # 제품 정보가 아니므로 대상 페어로 취급 — 통째로 버려서 전부 미감지가 되는 것 방지.
+    if re.search(r"galaxy|갤럭시|iphone|아이폰|xiaomi|pixel", hint):
+        return "skip"
+    return None
 
 
 # ── 메인 ──────────────────────────────────────────────────────────────
@@ -193,6 +198,9 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
     unit_union = _unit_accepted_union(rules, prev_models)
     prev_tokens = svm.model_tokens(prev_models)
     target_tokens = [svm.normalize_text(ruleset.get("product", ""))]
+    # [V3.3] Compare 헤더는 현지어 제품명("갤럭시 Z 폴드7")이 흔하다 — 시드/엑셀의
+    # product_aliases(다국어 제품명)를 대상 토큰에 포함해 컬럼 귀속이 끊기지 않게 한다.
+    target_tokens += [svm.normalize_text(a) for a in (ruleset.get("product_aliases") or [])]
     for r in rules:
         if svm.normalize_text(r.get("attribute", "")) == "product name":
             target_tokens += [svm.normalize_text(v) for v in svm.parse_accepted(r.get("expected", ""))]
@@ -476,5 +484,21 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
         "na": sum(1 for i in items if i["status"] == "na"),
         "dictionary_pending": len(candidate_hits),
     }
+    # [V3.3] 진단 — 적용 대상 룰이 있는데 아무것도(pass/fail/warn) 감지되지 않으면,
+    # 원인 판별에 필요한 추출 통계를 함께 내려 프론트가 안내 배너를 띄울 수 있게 한다.
+    summary["detected"] = summary["pass"] + summary["critical"] + summary["warning"]
+    applicable_cnt = sum(1 for i in items if not str(i.get("message", "")).startswith("Not applicable")
+                         and "country exception" not in str(i.get("message", "")).lower())
+    if applicable_cnt and summary["detected"] == 0:
+        all_blocks = [b for bl in section_blocks.values() for b in bl]
+        digit_blocks = sum(1 for b in all_blocks if re.search(r"\d", b))
+        summary["diagnosis"] = {
+            "rendered_by": rendered_by,
+            "blocks": len(all_blocks), "digit_blocks": digit_blocks,
+            "pairs": len(pairs),
+            "hint": ("크롤 HTML에 텍스트가 거의 없음 — JS 렌더링 전 HTML일 가능성"
+                     if len(all_blocks) < 30 or digit_blocks == 0 else
+                     "텍스트는 있으나 스펙 값 패턴(숫자+단위)이 없음 — 값이 이미지/스크립트로 노출되거나 단위 표기가 미등록일 가능성"),
+        }
     return {"summary": summary, "categories": categories, "items": items,
             "candidate_hits": candidate_hits[:40]}

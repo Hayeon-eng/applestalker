@@ -201,7 +201,32 @@ check("P5 본문에서도 모델명 없이 전작 값+라벨 → FAIL",
 r = run(P("무게(Weight) 215 g의 가벼운 바디"))
 check("P6 정답 무게는 PASS 유지", item(r, "DIM_001")["status"] == "pass")
 
+# ── Q. Compare 한국어 헤더 귀속 · 일반 헤더 미skip · 감지0 진단 ─────
+kr_tbl = """<html><body><table>
+<tr><th>사양</th><th>갤럭시 Z 폴드7</th><th>갤럭시 Z 폴드6</th></tr>
+<tr><td>Cover Display Size</td><td>6.5 인치</td><td>6.3 인치</td></tr>
+<tr><td>Weight</td><td>215 g</td><td>239 g</td></tr>
+</table></body></html>"""
+r = run(kr_tbl, page_type="Compare")
+check("Q1 한국어 헤더 '갤럭시 Z 폴드7' 컬럼 정상 귀속 → Cover Size PASS",
+      item(r, "DISPLAY_003")["status"] == "pass", item(r, "DISPLAY_003")["message"])
+check("Q2 전작(폴드6) 컬럼 6.3/239는 오류 아님 → critical 0",
+      r["summary"]["critical"] == 0, str(r["summary"]))
+
+gen_tbl = """<html><body><table>
+<tr><th>구분</th><th>상세</th><th>비고</th></tr>
+<tr><td>Weight</td><td>215 g</td><td>-</td></tr>
+</table></body></html>"""
+r = run(gen_tbl, page_type="Compare")
+check("Q3 일반 헤더('상세') 컬럼이 skip되지 않음 → Weight PASS",
+      item(r, "DIM_001")["status"] == "pass", item(r, "DIM_001")["message"])
+
+r = run("<html><body><p>지금 구매하세요</p></body></html>", page_type="Compare")
+check("Q4 감지 0이면 summary.diagnosis 제공(원인 힌트 포함)",
+      r["summary"].get("detected") == 0 and bool(r["summary"].get("diagnosis", {}).get("hint")),
+      str(r["summary"].get("diagnosis")))
+
 print()
 if FAILED:
     print(f"❌ {len(FAILED)} failed: {FAILED}"); sys.exit(1)
-print("✅ all V3 regression tests passed (incl. L·M·N·O·P)")
+print("✅ all V3 regression tests passed (incl. L~Q)")
