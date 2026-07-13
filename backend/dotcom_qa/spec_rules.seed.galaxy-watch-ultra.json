@@ -1,0 +1,401 @@
+{
+  "product": "galaxy-watch-ultra",
+  "version": "V1_seed_2026-07",
+  "rules": [
+    {
+      "rule_id": "DEVICE_001",
+      "category": "Device",
+      "attribute": "Product Name",
+      "expected": "Galaxy Watch Ultra",
+      "unit": "",
+      "validation": "exact",
+      "priority": "Critical",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Use official product name 'Galaxy Watch Ultra' (2025 refresh)",
+      "notes": ""
+    },
+    {
+      "rule_id": "DEVICE_002",
+      "category": "Device",
+      "attribute": "Model Code",
+      "expected": "SM-L705",
+      "unit": "",
+      "validation": "prefix",
+      "priority": "Critical",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "Regional/connectivity suffix allowed (LTE only model — 47mm 단일 사이즈)",
+      "fix_guide": "Verify regional suffix only — base must be SM-L705",
+      "notes": ""
+    },
+    {
+      "rule_id": "DISPLAY_001",
+      "category": "Display",
+      "attribute": "Main Display Size",
+      "expected": "1.5",
+      "unit": "inch",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to 1.5 inch (47mm)",
+      "notes": ""
+    },
+    {
+      "rule_id": "DISPLAY_002",
+      "category": "Display",
+      "attribute": "Resolution",
+      "expected": "480 x 480",
+      "unit": "",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to 480 x 480 px",
+      "notes": ""
+    },
+    {
+      "rule_id": "PROCESSOR_001",
+      "category": "Processor",
+      "attribute": "Processor",
+      "expected": "Exynos W1000",
+      "unit": "",
+      "validation": "dictionary",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to Exynos W1000 (3nm, Penta-core)",
+      "notes": ""
+    },
+    {
+      "rule_id": "MEMORY_001",
+      "category": "Memory",
+      "attribute": "RAM",
+      "expected": "2",
+      "unit": "GB",
+      "validation": "numeric_exact",
+      "priority": "Medium",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to 2GB RAM",
+      "notes": ""
+    },
+    {
+      "rule_id": "MEMORY_002",
+      "category": "Memory",
+      "attribute": "Storage",
+      "expected": "64",
+      "unit": "GB",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to 64GB storage",
+      "notes": "2025 리프레시에서 32GB→64GB로 2배 증가 — 구형 표기(32GB) 잔존 여부 확인 포인트"
+    },
+    {
+      "rule_id": "BATTERY_001",
+      "category": "Battery",
+      "attribute": "Typical Battery Capacity",
+      "expected": "590",
+      "unit": "mAh",
+      "validation": "numeric_exact",
+      "priority": "Critical",
+      "page": "Disclaimer",
+      "interaction": "Expand",
+      "exception": "Do not compare with Rated",
+      "fix_guide": "Update to 590 mAh (typical)",
+      "notes": ""
+    },
+    {
+      "rule_id": "BATTERY_002",
+      "category": "Battery",
+      "attribute": "Wired Charging",
+      "expected": "10",
+      "unit": "W",
+      "validation": "numeric_exact",
+      "priority": "Low",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to 10W charging",
+      "notes": ""
+    },
+    {
+      "rule_id": "CONNECT_001",
+      "category": "Connectivity",
+      "attribute": "Bluetooth Version",
+      "expected": "5.3",
+      "unit": "",
+      "validation": "numeric_exact",
+      "priority": "Medium",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to Bluetooth 5.3",
+      "notes": ""
+    },
+    {
+      "rule_id": "CONNECT_002",
+      "category": "Connectivity",
+      "attribute": "Wi-Fi",
+      "expected": "2.4GHz, 5GHz",
+      "unit": "",
+      "validation": "dictionary",
+      "priority": "Low",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to Wi-Fi 2.4GHz & 5GHz",
+      "notes": ""
+    },
+    {
+      "rule_id": "CONNECT_003",
+      "category": "Connectivity",
+      "attribute": "GPS",
+      "expected": "Dual-frequency GPS (L1+L5)",
+      "unit": "",
+      "validation": "exists",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Mention dual-frequency GPS (L1+L5)",
+      "notes": ""
+    },
+    {
+      "rule_id": "CONNECT_004",
+      "category": "Connectivity",
+      "attribute": "NFC",
+      "expected": "Present",
+      "unit": "",
+      "validation": "exists",
+      "priority": "Low",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Mention NFC support",
+      "notes": ""
+    },
+    {
+      "rule_id": "DURABILITY_001",
+      "category": "Durability",
+      "attribute": "Water Resistance",
+      "expected": "10ATM+IP68",
+      "unit": "",
+      "validation": "exact",
+      "priority": "Critical",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to 10ATM + IP68 (Watch8 대비 상위 등급 — 혼동 주의)",
+      "notes": ""
+    },
+    {
+      "rule_id": "DURABILITY_002",
+      "category": "Durability",
+      "attribute": "Durability Standard",
+      "expected": "MIL-STD-810H",
+      "unit": "",
+      "validation": "exists",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Mention MIL-STD-810H compliance",
+      "notes": ""
+    },
+    {
+      "rule_id": "BODY_001",
+      "category": "Body",
+      "attribute": "Case Material",
+      "expected": "Titanium",
+      "unit": "",
+      "validation": "dictionary",
+      "priority": "Medium",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to Titanium (Grade 4/2 mix)",
+      "notes": ""
+    },
+    {
+      "rule_id": "BODY_002",
+      "category": "Body",
+      "attribute": "Glass Type",
+      "expected": "Sapphire Crystal",
+      "unit": "",
+      "validation": "dictionary",
+      "priority": "Low",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to Sapphire Crystal",
+      "notes": ""
+    },
+    {
+      "rule_id": "DIMENSION_001",
+      "category": "Dimension",
+      "attribute": "Weight",
+      "expected": "60.5",
+      "unit": "g",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to 60.5g (without strap)",
+      "notes": ""
+    },
+    {
+      "rule_id": "DIMENSION_002",
+      "category": "Dimension",
+      "attribute": "Dimensions",
+      "expected": "47.4 x 47.1 x 12.1",
+      "unit": "mm",
+      "validation": "exact",
+      "priority": "Medium",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Update to 47.4 x 47.1 x 12.1 mm",
+      "notes": ""
+    },
+    {
+      "rule_id": "SOFTWARE_001",
+      "category": "Software",
+      "attribute": "Operating System",
+      "expected": "Wear OS",
+      "unit": "",
+      "validation": "exists",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Mention Wear OS (One UI Watch 8)",
+      "notes": ""
+    },
+    {
+      "rule_id": "SENSOR_001",
+      "category": "Sensor",
+      "attribute": "BioActive Sensor",
+      "expected": "Present",
+      "unit": "",
+      "validation": "exists",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Mention BioActive Sensor (optical HR, ECG, BIA)",
+      "notes": ""
+    },
+    {
+      "rule_id": "BUYBOX_001",
+      "category": "Buy Box",
+      "attribute": "Colors",
+      "expected": "Titanium Gray / Titanium Silver / Titanium White / Titanium Blue",
+      "unit": "",
+      "validation": "option_match",
+      "priority": "High",
+      "page": "Buy Box",
+      "interaction": "Iterate color variants",
+      "exception": "",
+      "fix_guide": "Ensure all 4 Titanium colorways are listed (Blue is the newest addition)",
+      "notes": ""
+    },
+    {
+      "rule_id": "BOX_001",
+      "category": "Box",
+      "attribute": "In The Box",
+      "expected": "Galaxy Watch Ultra, Watch Strap, USB-C Cable",
+      "unit": "",
+      "validation": "exists",
+      "priority": "Low",
+      "page": "What's in the box",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Confirm box contents listing (충전 어댑터 미포함 — 각주 확인)",
+      "notes": ""
+    }
+  ],
+  "dictionary": {
+    "Resolution": [
+      "解像度",
+      "해상도"
+    ],
+    "GPS": [
+      "デュアル周波数GPS",
+      "듀얼 주파수 GPS",
+      "GPS (L1+L5)"
+    ],
+    "NFC": [
+      "NFC対応",
+      "NFC 지원"
+    ],
+    "Durability Standard": [
+      "耐久規格",
+      "내구 규격",
+      "MIL規格",
+      "군사 표준"
+    ],
+    "Case Material": [
+      "ケース素材",
+      "케이스 소재",
+      "本体素材",
+      "チタニウム",
+      "티타늄"
+    ],
+    "Glass Type": [
+      "ガラスタイプ",
+      "글래스 종류",
+      "保護ガラス"
+    ],
+    "Dimensions": [
+      "サイズ(縦x横x厚さ)",
+      "크기(가로x세로x두께)",
+      "本体サイズ"
+    ],
+    "BioActive Sensor": [
+      "バイオアクティブセンサー",
+      "바이오액티브 센서"
+    ],
+    "In The Box": [
+      "同梱物",
+      "구성품",
+      "박스 구성"
+    ]
+  },
+  "exceptions": [
+    {
+      "rule": "BATTERY",
+      "description": "Typical and Rated battery capacities are different attributes — never compared to each other"
+    },
+    {
+      "rule": "DISCLAIMER",
+      "description": "Promotion/offer/banner sections are excluded from spec validation"
+    },
+    {
+      "rule": "STORAGE_LEGACY",
+      "description": "2025 refresh doubled storage 32GB→64GB — pages still showing 32GB likely reference the pre-2025 model and should be flagged"
+    }
+  ],
+  "interactions": [
+    {
+      "section": "Buy Box",
+      "action": "Iterate color variants (4 Titanium finishes)"
+    },
+    {
+      "section": "Disclaimer",
+      "action": "Expand footnotes for battery typical/rated values"
+    }
+  ],
+  "country_exceptions": [],
+  "candidates": []
+}
