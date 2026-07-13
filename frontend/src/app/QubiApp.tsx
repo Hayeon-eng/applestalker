@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
 import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
-import { SpecV2Panel, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
+import { SpecV2Panel, SpecOverallBanner, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
@@ -531,6 +531,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {/* ═══ Spec QA [V2] — Rule 기반 Validation (spec_v2 있는 결과만) ═══ */}
           {tab === "copy" && results.some((r: any) => r.spec_v2) && (
             <>
+              {/* [V3.4] 최상단 종합 신호등 — Data QA 종합 판단과 동일한 시각 문법 */}
+              <SpecOverallBanner results={results} />
               {results.filter((r: any) => r.spec_v2).map((r: any, i: number) => (
                 <SpecV2Panel key={(r.sitecode || "") + i} row={r}
                   product={r.market_product || product} api={api} flash={flash} />
