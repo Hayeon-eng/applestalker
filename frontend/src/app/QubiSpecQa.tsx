@@ -211,10 +211,14 @@ export function SpecV2Panel({ row, product, api, flash }:
           <span style={{ color: C.pass, fontWeight: 700 }}>✅ 정상 {s.pass ?? 0}</span>
         </span>
       </div>
-      {s.coverage_low && (
-        <div style={{ background: "#FFFAEB", padding: "7px 14px", fontSize: 12, color: "#93540A", borderBottom: "1px solid #FEDF89" }}>
-          ⚠️ 적용 대상 룰의 절반 이상을 페이지에서 찾지 못했어요 — 이 언어의 표현이 Dictionary에 없거나 페이지 구조가 달라 수집이 안 됐을 수 있습니다.
-          아래 <b>Dictionary Review</b> 섹션(접힘)에서 이 제품의 반복 발견 표현을 확인해보세요.
+      {s.diagnosis && (
+        <div style={{ background: "#FFFAEB", padding: "8px 14px", fontSize: 12, color: "#93540A", borderBottom: "1px solid #FEDF89", lineHeight: 1.6 }}>
+          ⚠️ <b>이 페이지에서 스펙 값을 하나도 찾지 못했어요</b> (오류 아님 — 판정할 값 자체가 없음)
+          <div>추정 원인: {s.diagnosis.hint}</div>
+          <div style={{ fontSize: 11, color: "#A57A2B" }}>
+            수집 상태 — 렌더링: <b>{s.diagnosis.rendered_by || "?"}</b> · 텍스트 블록 {s.diagnosis.blocks}개(숫자 포함 {s.diagnosis.digit_blocks}개) · 구조 페어 {s.diagnosis.pairs}개.
+            {s.diagnosis.rendered_by === "httpx" ? " → JS 렌더링 전 HTML로 보입니다. 렌더링(Playwright) 수집으로 재시도해보세요." : " 값이 스크립트/이미지로만 노출되거나, 비교 대상 미선택 상태의 빈 페이지일 수 있어요."}
+          </div>
         </div>
       )}
       <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
