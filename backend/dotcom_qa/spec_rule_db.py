@@ -69,6 +69,8 @@ def parse_xlsx(content: bytes, product: str, version: str = "") -> Dict[str, Any
         "product": product, "version": version or "uploaded",
         "rules": [], "dictionary": {}, "exceptions": [],
         "interactions": [], "country_exceptions": [], "candidates": [],
+        # [V3] 단위 동의어(운영자 관리 시트) · 전작 정답지(전작 비교 문구 판정용)
+        "unit_synonyms": {}, "previous_models": [],
     }
 
     # ── MasterSpec ──
@@ -88,13 +90,22 @@ def parse_xlsx(content: bytes, product: str, version: str = "") -> Dict[str, Any
         if not row or not _cell(row[0]):
             continue
         vtype_raw = col(row, "validation").lower()
+        vtype = _VALIDATION_TYPES.get(vtype_raw, vtype_raw or "exact")
+        # [V3 운영 결정] exists(Present/Included류) 룰 전면 삭제 — "값 없음 ≠ 오류"
+        # 원칙에 따라 존재 확인형 룰은 기준표에서 제외한다. 엑셀에 남아 있어도 무시.
+        if vtype == "exists":
+            continue
         rule = {
             "rule_id": col(row, "ruleid"),
             "category": col(row, "category"),
             "attribute": col(row, "attribute"),
+            # [V3] Official Value는 '|'로 복수 정답 허용 — 예: '4400|4272', '8.0|7.8'
             "expected": col(row, "officialvaluedraft", "officialvalue", "value"),
             "unit": col(row, "unit"),
-            "validation": _VALIDATION_TYPES.get(vtype_raw, vtype_raw or "exact"),
+            "validation": vtype,
+            # [V3] Qualifier 컬럼 — '4400=typical,일반,標準;4272=rated,정격,定格'
+            # 값별 한정어 오짝(숫자는 집합 안인데 라벨이 다른 값의 것) FAIL 판정용.
+            "qualifier": col(row, "qualifier", "qualifiers"),
             "priority": col(row, "priority") or "Medium",
             "page": col(row, "page") or "PDP",
             "interaction": col(row, "interaction"),
@@ -158,6 +169,47 @@ def parse_xlsx(content: bytes, product: str, version: str = "") -> Dict[str, Any
                 "rule": _cell(row[1] if len(row) > 1 else ""),
                 "action": _cell(row[2] if len(row) > 2 else ""),
             })
+
+    # ── UnitSynonym(선택) — [V3] 운영자 관리 다국어 단위 표기 시트 ──
+    #    컬럼: Canonical Unit | Synonym  (예: nits | 니트 · nits | ニト · inch | Zoll)
+    #    코드 기본 테이블(spec_value_match.DEFAULT_UNIT_SYNONYMS)에 병합·우선된다.
+    ws = _find_sheet("unitsynonym", "unit synonym", "단위")
+    if ws is not None:
+        rows = ws.iter_rows(values_only=True)
+        next(rows, None)
+        for row in rows:
+            if not row:
+                continue
+            canon, syn = _cell(row[0]), _cell(row[1] if len(row) > 1 else "")
+            if canon and syn:
+                ruleset["unit_synonyms"].setdefault(canon, [])
+                if syn not in ruleset["unit_synonyms"][canon]:
+                    ruleset["unit_synonyms"][canon].append(syn)
+
+    # ── PreviousModel(선택) — [V3] 전작 정답지 시트 ──
+    #    컬럼: Model | Aliases(콤마) | Attribute | Values('|' 복수) | Unit
+    #    PDP의 전작 비교 문구("Fold6의 1,750니트보다…") 속 숫자를 전작 정답과
+    #    대조해 pass/fail 판정하기 위한 데이터. 직전 1세대만 운영(운영 결정).
+    ws = _find_sheet("previousmodel", "previous model", "전작")
+    if ws is not None:
+        rows = ws.iter_rows(values_only=True)
+        next(rows, None)
+        by_model: Dict[str, Dict[str, Any]] = {}
+        for row in rows:
+            if not row or not _cell(row[0]):
+                continue
+            model = _cell(row[0])
+            aliases = [a.strip() for a in _cell(row[1] if len(row) > 1 else "").split(",") if a.strip()]
+            attribute = _cell(row[2] if len(row) > 2 else "")
+            values = [v.strip() for v in _cell(row[3] if len(row) > 3 else "").split("|") if v.strip()]
+            unit = _cell(row[4] if len(row) > 4 else "")
+            pm = by_model.setdefault(model, {"model": model, "aliases": aliases, "specs": []})
+            for a in aliases:
+                if a not in pm["aliases"]:
+                    pm["aliases"].append(a)
+            if attribute and values:
+                pm["specs"].append({"attribute": attribute, "values": values, "unit": unit})
+        ruleset["previous_models"] = list(by_model.values())
 
     return ruleset
 

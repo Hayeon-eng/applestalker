@@ -1,6 +1,6 @@
 {
   "product": "galaxy-watch-ultra",
-  "version": "V1_seed_2026-07",
+  "version": "V1_seed_2026-07+V3",
   "rules": [
     {
       "rule_id": "DEVICE_001",
@@ -157,34 +157,6 @@
       "notes": ""
     },
     {
-      "rule_id": "CONNECT_003",
-      "category": "Connectivity",
-      "attribute": "GPS",
-      "expected": "Dual-frequency GPS (L1+L5)",
-      "unit": "",
-      "validation": "exists",
-      "priority": "Medium",
-      "page": "PDP",
-      "interaction": "",
-      "exception": "",
-      "fix_guide": "Mention dual-frequency GPS (L1+L5)",
-      "notes": ""
-    },
-    {
-      "rule_id": "CONNECT_004",
-      "category": "Connectivity",
-      "attribute": "NFC",
-      "expected": "Present",
-      "unit": "",
-      "validation": "exists",
-      "priority": "Low",
-      "page": "PDP",
-      "interaction": "",
-      "exception": "",
-      "fix_guide": "Mention NFC support",
-      "notes": ""
-    },
-    {
       "rule_id": "DURABILITY_001",
       "category": "Durability",
       "attribute": "Water Resistance",
@@ -196,20 +168,6 @@
       "interaction": "",
       "exception": "",
       "fix_guide": "Update to 10ATM + IP68 (Watch8 대비 상위 등급 — 혼동 주의)",
-      "notes": ""
-    },
-    {
-      "rule_id": "DURABILITY_002",
-      "category": "Durability",
-      "attribute": "Durability Standard",
-      "expected": "MIL-STD-810H",
-      "unit": "",
-      "validation": "exists",
-      "priority": "Medium",
-      "page": "PDP",
-      "interaction": "",
-      "exception": "",
-      "fix_guide": "Mention MIL-STD-810H compliance",
       "notes": ""
     },
     {
@@ -269,34 +227,6 @@
       "notes": ""
     },
     {
-      "rule_id": "SOFTWARE_001",
-      "category": "Software",
-      "attribute": "Operating System",
-      "expected": "Wear OS",
-      "unit": "",
-      "validation": "exists",
-      "priority": "Medium",
-      "page": "PDP",
-      "interaction": "",
-      "exception": "",
-      "fix_guide": "Mention Wear OS (One UI Watch 8)",
-      "notes": ""
-    },
-    {
-      "rule_id": "SENSOR_001",
-      "category": "Sensor",
-      "attribute": "BioActive Sensor",
-      "expected": "Present",
-      "unit": "",
-      "validation": "exists",
-      "priority": "Medium",
-      "page": "PDP",
-      "interaction": "",
-      "exception": "",
-      "fix_guide": "Mention BioActive Sensor (optical HR, ECG, BIA)",
-      "notes": ""
-    },
-    {
       "rule_id": "BUYBOX_001",
       "category": "Buy Box",
       "attribute": "Colors",
@@ -308,20 +238,6 @@
       "interaction": "Iterate color variants",
       "exception": "",
       "fix_guide": "Ensure all 4 Titanium colorways are listed (Blue is the newest addition)",
-      "notes": ""
-    },
-    {
-      "rule_id": "BOX_001",
-      "category": "Box",
-      "attribute": "In The Box",
-      "expected": "Galaxy Watch Ultra, Watch Strap, USB-C Cable",
-      "unit": "",
-      "validation": "exists",
-      "priority": "Low",
-      "page": "What's in the box",
-      "interaction": "",
-      "exception": "",
-      "fix_guide": "Confirm box contents listing (충전 어댑터 미포함 — 각주 확인)",
       "notes": ""
     }
   ],
@@ -384,6 +300,10 @@
     {
       "rule": "STORAGE_LEGACY",
       "description": "2025 refresh doubled storage 32GB→64GB — pages still showing 32GB likely reference the pre-2025 model and should be flagged"
+    },
+    {
+      "rule": "MISSING",
+      "description": "[V3] Missing value is NOT an error"
     }
   ],
   "interactions": [
@@ -397,5 +317,7 @@
     }
   ],
   "country_exceptions": [],
-  "candidates": []
+  "candidates": [],
+  "unit_synonyms": {},
+  "previous_models": []
 }

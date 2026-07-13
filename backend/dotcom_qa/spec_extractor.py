@@ -144,13 +144,37 @@ def extract(html: str) -> Dict[str, Any]:
                 pairs.append({"label": label, "value": value, "section": sec, "source": "dl"})
 
     # ② <table> th/td (또는 td 2개) 행
+    #    [V3] Compare형 표(값 컬럼 2개 이상 + 헤더 행) 지원 — 각 값 셀에 소속 컬럼의
+    #    헤더 텍스트를 product_hint로 붙여, 엔진이 "이 값이 어느 제품 것인지"를 알 수
+    #    있게 한다(이웃 제품 컬럼 값을 검수 대상 제품 값으로 오인하는 문제 방지).
     for table in soup.find_all("table"):
         sec = _classify(table)
-        for tr in table.find_all("tr"):
+        rows_ = table.find_all("tr")
+        header_cells: List[str] = []
+        if rows_:
+            first = rows_[0].find_all(["th", "td"])
+            if len(first) >= 3 or (first and first[0].name == "th" and len(first) >= 2):
+                header_cells = [_clean(c.get_text(" ")) for c in first]
+        for ri, tr in enumerate(rows_):
             cells = tr.find_all(["th", "td"])
-            if len(cells) >= 2:
-                label, value = _clean(cells[0].get_text(" ")), _clean(cells[1].get_text(" "))
-                if label and value and len(label) < 80:
+            if len(cells) < 2:
+                continue
+            label = _clean(cells[0].get_text(" "))
+            if not label or len(label) >= 80:
+                continue
+            if header_cells and ri == 0:
+                continue  # 헤더 행 자체는 페어가 아니다
+            if header_cells and len(cells) >= 3:
+                # 다중 값 컬럼(Compare) — 컬럼별 페어 + product_hint
+                for ci in range(1, len(cells)):
+                    value = _clean(cells[ci].get_text(" "))
+                    hint = header_cells[ci] if ci < len(header_cells) else ""
+                    if value:
+                        pairs.append({"label": label, "value": value, "section": sec,
+                                      "source": "table", "product_hint": hint})
+            else:
+                value = _clean(cells[1].get_text(" "))
+                if value:
                     pairs.append({"label": label, "value": value, "section": sec, "source": "table"})
 
     # ③ label/value 형제 페어 — class에 label/name/title vs value/data가 붙는 흔한 패턴
