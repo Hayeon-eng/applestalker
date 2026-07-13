@@ -98,6 +98,11 @@ _UNIT_CANON = {
     "g": "g", "mm": "mm", "mp": "mp", "gb": "gb", "tb": "tb",
     "x": "x", "px": "px", "atm": "atm", "cm": "cm",
 }
+# [V3.1] 오답 단정이 불가능한 범용 단위 — 라벨 동반 불일치도 FAIL 대신 확인(warn).
+# 'x'(줌 배율): 광학 3배 외에 "광학 줌 수준의 2배"(센서 크롭)·"30배 스페이스 줌" 등
+# 렌즈/주장별 정당한 값이 공존한다.
+GENERIC_AMBIGUOUS_UNITS = {"x"}
+
 # 단위 환산: 정답 단위 → {발견될 수 있는 다른 단위: 계수} (발견값 = 정답값 × 계수)
 _UNIT_CONVERSIONS: Dict[str, Dict[str, float]] = {
     "inch": {"cm": 2.54, "mm": 25.4},
@@ -306,7 +311,13 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
             continue  # 같은 단위 다른 스펙의 정답(RAM 12 vs Storage 256 등) — 무관
         else:
             if label_in_block and label_in_block(h["block"]):
-                label_fail = label_fail or h
+                # [V3.1] 범용 단위(x=줌 배율)는 라벨 동반이어도 FAIL로 단정하지 않는다 —
+                # "광학 줌 수준의 2배"(센서 크롭 광학급 줌)처럼 렌즈/주장에 따라 정당한
+                # 다른 값이 흔해 오답 단정이 불가 → 확인(warn) 등급으로만.
+                if unit in GENERIC_AMBIGUOUS_UNITS:
+                    lone_mismatch = lone_mismatch or h
+                else:
+                    label_fail = label_fail or h
             else:
                 lone_mismatch = lone_mismatch or h
 

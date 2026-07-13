@@ -121,6 +121,22 @@ def _candidate_worthy(label: str) -> bool:
     return True
 
 
+# ── 전작 텍스트 값 혼입 검사 (Processor 등 텍스트 스펙의 유일한 FAIL 근거) ──
+def _prev_text_value_in(prev_models: List[Dict], rule: Dict, v_norm: str) -> Optional[Tuple[str, str]]:
+    """전작 정답지의 같은 attribute 텍스트 값이 v_norm에 들어있으면 (모델, 값) 반환.
+    숫자 단독 값(2600 등)은 오탐 위험이 커서 텍스트(글자 포함) 값만 본다."""
+    attr_norm = _norm_loose(rule.get("attribute", ""))
+    for pm in prev_models or []:
+        for sp in pm.get("specs") or []:
+            if _norm_loose(sp.get("attribute", "")) != attr_norm:
+                continue
+            for v in sp.get("values") or []:
+                nv = svm.normalize_text(str(v))
+                if nv and re.search(r"[a-z가-힣一-鿿]", nv) and nv in v_norm:
+                    return (pm.get("model", ""), str(v))
+    return None
+
+
 # ── 단위별 정답 합집합 (같은 단위 다른 스펙의 정답끼리 오답 취급 방지) ──
 def _unit_accepted_union(rules: List[Dict], prev_models: List[Dict]) -> Dict[str, set]:
     union: Dict[str, set] = {}
@@ -268,9 +284,38 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                 hit_ok = pn is not None and pn in [a for a in acc_nums if a is not None]
             if hit_ok:
                 pair_verdict = ("pass", p["value"], "OK", p)
-            else:
+                break
+            # [V3.1] 페어 불일치 ≠ 곧바로 오류. "값 없음 ≠ 오류" 원칙은 구조 페어에도
+            # 적용된다 — 라벨 옆 서술이 다르다는 것만으로는 '틀린 값'의 증거가 아니다.
+            #   · dictionary형(Processor 등 텍스트 스펙): 페이지가 "3나노 프로세서"처럼
+            #     다르게 서술하는 것은 미노출이지 오기재가 아님 → FAIL 금지.
+            #     단, 전작의 값(예: 'Snapdragon 8 Gen 3')이 현 제품 라벨에 붙어 있으면
+            #     그건 적극적 오기재 증거 → FAIL.
+            #   · exact/prefix: 같은 형태의 '비교 가능한 토큰'이 실제로 있을 때만 FAIL —
+            #     해상도(NxM) 정답엔 다른 NxM, 숫자 포함 정답(Bluetooth 5.4)엔 다른 숫자.
+            #     비교 가능한 토큰이 없으면 오기재 증거가 아니므로 판정 보류.
+            prev_hit = _prev_text_value_in(prev_models, rule, v_norm)
+            if prev_hit:
+                pair_verdict = ("fail", p["value"],
+                                f"전작 값 혼입 — '{rule['attribute']}'에 전작({prev_hit[0]})의 값 '{prev_hit[1]}'이 표기됨", p)
+                break
+            if rule["validation"] == "numeric_exact":
                 pair_verdict = ("fail", p["value"],
                                 f"오기재 — 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule['unit'] else ''}이 아닌 값이 항목에 표기됨: '{p['value'][:60]}'", p)
+                break
+            if rule["validation"] in ("exact", "prefix"):
+                exp_norm = svm.normalize_text(rule["expected"])
+                conflict = False
+                if re.search(r"\d\s*x\s*\d", exp_norm):
+                    conflict = bool(re.search(r"\d{3,4}\s*x\s*\d{3,4}", v_norm))
+                elif re.search(r"\d", exp_norm):
+                    conflict = bool(re.search(r"\d", v_norm))
+                if conflict:
+                    pair_verdict = ("fail", p["value"],
+                                    f"오기재 — 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule['unit'] else ''}이 아닌 값이 항목에 표기됨: '{p['value'][:60]}'", p)
+                    break
+            trace.append({"step": "pair", "detail":
+                          f"'{p['label']}' → '{p['value'][:40]}' — 정답 미포함이나 오기재 증거 아님(서술 상이), 판정 보류"})
             break
 
         # Dictionary 후보 수집 (V2 유지)
@@ -382,9 +427,12 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
         item["message"] = f"unknown validation '{vtype}'"
         items.append(item)
 
-    # ── 집계 (na는 '판정 대상 아님' — 점수·표시 모두 제외) ──
+    # ── 집계 ──
+    # [V3.1 운영 결정] 점수 = 일치 ÷ (일치 + 불일치). 확인(warn)은 "오답 단정 불가 —
+    # 사람이 봐달라"는 표시일 뿐 감점 사유가 아니므로 분모에서 제외한다 (확인만 있는
+    # 페이지는 100% + 확인 배지). na(값 없음)도 오류가 아니므로 당연히 제외.
     def _score(rows):
-        applicable = [i for i in rows if i["status"] != "na"]
+        applicable = [i for i in rows if i["status"] in ("pass", "fail")]
         p = sum(1 for i in applicable if i["status"] == "pass")
         return round(100 * p / len(applicable), 1) if applicable else None
 

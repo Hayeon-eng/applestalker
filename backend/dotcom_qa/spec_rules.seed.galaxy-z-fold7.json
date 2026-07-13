@@ -1232,6 +1232,13 @@
             "5.6"
           ],
           "unit": "mm"
+        },
+        {
+          "attribute": "Processor",
+          "values": [
+            "Snapdragon 8 Gen 3"
+          ],
+          "unit": ""
         }
       ]
     }

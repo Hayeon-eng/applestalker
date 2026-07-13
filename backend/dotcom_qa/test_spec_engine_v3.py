@@ -152,7 +152,31 @@ r = run(P("100x 줌"))
 check("L3 라벨 없는 100x는 warn(단독 불일치)로만",
       item(r, "CAM_004")["status"] == "warn", item(r, "CAM_004")["message"])
 
+# ── M. 텍스트 룰(Processor) — 다른 서술은 오류 아님, 전작 칩명 혼입만 FAIL ──
+r = run('<html><body><table><tr><td>CPU</td><td>3나노 프로세서</td></tr></table></body></html>')
+check("M1 'CPU: 3나노 프로세서' — Snapdragon 미포함이어도 FAIL 아님(na)",
+      item(r, "CPU_001")["status"] == "na", item(r, "CPU_001")["message"])
+r = run('<html><body><table><tr><td>CPU</td><td>Snapdragon 8 Elite for Galaxy</td></tr></table></body></html>')
+check("M2 정답 칩명 표기 → PASS", item(r, "CPU_001")["status"] == "pass")
+r = run('<html><body><table><tr><td>CPU</td><td>Snapdragon 8 Gen 3</td></tr></table></body></html>')
+check("M3 전작 칩명(8 Gen 3) 혼입 → FAIL",
+      item(r, "CPU_001")["status"] == "fail", item(r, "CPU_001")["message"])
+
+# ── N. 범용 단위 'x' — 라벨 동반 다른 배율도 FAIL 아닌 확인 ──────────
+r = run(P("200MP 광각 카메라 광학 줌 수준의 2배 줌"))
+check("N1 '광학 줌 수준의 2배' → Optical Zoom warn(확인), FAIL 아님",
+      item(r, "CAM_004")["status"] == "warn", item(r, "CAM_004")["message"])
+
+# ── O. 점수 — 확인은 분모 제외 (100% + 확인 배지) ────────────────────
+r = run(P("무게 215g", "약 8인치의 대화면"))
+dim = next(c for c in r["categories"] if c["category"] == "Dimension")
+disp = next(c for c in r["categories"] if c["category"] == "Display")
+check("O1 확인만 있는 카테고리 점수는 감점 없음(100 또는 None)",
+      disp["score"] in (100.0, None) and disp["warn"] >= 1, str(disp))
+check("O2 pass만 있는 카테고리 100%", dim["score"] == 100.0, str(dim))
+check("O3 전체 점수도 확인 미반영", r["summary"]["score"] in (100.0, None), str(r["summary"]))
+
 print()
 if FAILED:
     print(f"❌ {len(FAILED)} failed: {FAILED}"); sys.exit(1)
-print("✅ all V3 regression tests passed (incl. L)")
+print("✅ all V3 regression tests passed (incl. L·M·N·O)")
