@@ -548,8 +548,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <>
               <div style={{ margin: "18px 0 8px", fontSize: 13, fontWeight: 700, color: failCount ? "#B42318" : "var(--label)" }}>
                 {failCount ? `🔴 오류 ${failCount}건` : "🟡 검토"}
-                {(() => { const w = rows.filter((x) => x.f.status === "warn").length; const na = rows.filter((x) => x.f.status === "na").length;
-                  return <span style={{ color: "var(--sec)", fontWeight: 400 }}> · 확인 {w}건{na ? ` · 해당없음 ${na}건` : ""}</span>; })()}
+                {(() => { const w = rows.filter((x) => x.f.status === "warn").length;
+                  return <span style={{ color: "var(--sec)", fontWeight: 400 }}> · 확인 {w}건</span>; })()}
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead><tr style={{ color: "var(--sec)", fontSize: 11, textAlign: "left" }}>

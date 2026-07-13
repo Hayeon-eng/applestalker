@@ -196,7 +196,6 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
               <li><b style={{ color: "var(--high)" }}>정확히 일치</b> — 숫자+하드웨어 단위(200 MP · 1 TB · 512 GB · 5000 mAh · 2600 nits · 100x …)는 번역돼도 동일하므로 페이지에 정확히 있는지 검사. 같은 단위인데 <b>다른 값</b>이 있으면 오류(예: 2600 nits 자리에 600).</li>
               <li><b style={{ color: HONEY }}>확인(WARN)</b> — 기대 스펙 값이 <b>아예 없으면</b> 확인 필요(나라별로 미표기일 수 있어 오류 아님).</li>
               <li><b style={{ color: HONEY }}>확인(WARN)</b> — 고유명사(Snapdragon 8 Elite Gen 5 · Vapor Chamber · Galaxy AI …)는 현지어 대체 가능성이 있어 <b>존재만</b> 확인.</li>
-              <li><b style={{ color: "var(--sec)" }}>해당없음(회색)</b> — 그 페이지타입에 원래 없는 스펙은 검사 제외.</li>
               <li>서술형 문장은 값 일치를 검사하지 않습니다.</li>
             </ul>
           </div>
@@ -229,7 +228,6 @@ export function ScorePanel({ ctx: c }: { ctx: any }) {
             <div style={h}>② 등급</div>
             <div style={li}>· 🔴 <b>오류</b> — 같은 단위인데 기대와 다른 값(예: 2600 nits 자리에 600).</div>
             <div style={li}>· 🟡 <b>확인</b> — 기대 스펙 값이 아예 없음(나라별 미표기 가능 → 오류 아님). 고유명사(Snapdragon·Vapor Chamber 등)는 현지어 대체 가능성이 있어 존재만 확인.</div>
-            <div style={li}>· ⚪ <b>해당없음</b> — 그 페이지타입에 원래 없는 스펙은 검사 제외.</div>
           </div>
           <div style={box}>
             <div style={h}>③ 서술형 문장</div>

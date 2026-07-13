@@ -156,13 +156,12 @@ function CategoryCard({ cat, items }: { cat: any; items: any[] }) {
   const fails = items.filter((i) => i.status === "fail");
   const warns = items.filter((i) => i.status === "warn");
   const passes = items.filter((i) => i.status === "pass");
-  const nas = items.filter((i) => i.status === "na");
   return (
     <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
       <div onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 13px", cursor: "pointer", background: cat.fail > 0 ? "#FFF5F4" : cat.warn > 0 ? "#FFFCF5" : "#FAFBFC" }}>
         <b style={{ fontSize: 13 }}>{cat.category}</b>
         <Meter pct={cat.score} />
-        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>Rule Pass <b style={{ color: cat.fail ? C.crit : C.pass }}>{cat.pass} / {cat.pass + cat.fail}</b>{cat.warn ? ` · 확인 ${cat.warn}` : ""}{cat.na ? ` · N/A ${cat.na}` : ""}</span>
+        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>Rule Pass <b style={{ color: cat.fail ? C.crit : C.pass }}>{cat.pass} / {cat.pass + cat.fail}</b>{cat.warn ? ` · 확인 ${cat.warn}` : ""}</span>
         <span style={{ marginLeft: "auto", fontSize: 11, color: "#0A66E0" }}>{open ? "▲" : "▼"}</span>
       </div>
       {open && (
@@ -179,11 +178,6 @@ function CategoryCard({ cat, items }: { cat: any; items: any[] }) {
                   <span style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: 10.5, color: "var(--sec)" }}>{it.rule_id}</span>
                 </div>
               ))}
-            </div>
-          )}
-          {nas.length > 0 && (
-            <div style={{ marginTop: 6, fontSize: 11.5, color: C.na }}>
-              ⚪ N/A: {nas.map((i) => i.attribute).join(", ")}
             </div>
           )}
           {passes.length > 0 && fails.length === 0 && warns.length === 0 && <RuleTrace trace={passes[0].trace} />}
@@ -206,7 +200,7 @@ export function SpecV2Panel({ row, product, api, flash }:
   for (const it of sv.items || []) (byCat[it.category] ||= []).push(it);
   return (
     <div style={{ border: "1px solid #D7E3F8", borderRadius: 12, overflow: "hidden", marginTop: 14 }}>
-      {/* 종합 배너 — 🔴 Critical(fail) > 🟡 Warning(진짜 재확인 필요) > ✅ Pass > ⚪ N/A 순으로 고정 */}
+      {/* 종합 배너 — 🔴 Critical(fail) > 🟡 Warning(재확인) > ✅ Pass. [V3] 값 없음(na)은 오류가 아니므로 표시하지 않는다 */}
       <div style={{ background: "#EEF4FE", padding: "9px 14px", borderLeft: `3px solid ${C.blue}`, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <span style={{ fontSize: 17 }}>{TL_EMOJI[tlSpec(s.critical ?? 0, s.warning ?? 0)]}</span>
         <b style={{ fontSize: 12.5, color: C.blue }}>Spec Validation {row.sitecode ? `— ${row.sitecode}` : ""}</b>
@@ -215,7 +209,6 @@ export function SpecV2Panel({ row, product, api, flash }:
           <b style={{ color: C.crit }}>🔴 오류 {s.critical ?? 0}</b>
           <span style={{ margin: "0 6px", color: C.warn, fontWeight: 700 }}>🟡 확인 {s.warning ?? 0}</span>
           <span style={{ color: C.pass, fontWeight: 700 }}>✅ 정상 {s.pass ?? 0}</span>
-          <span style={{ marginLeft: 6, color: C.na }}>⚪ 해당없음 {s.na ?? 0}</span>
         </span>
       </div>
       {s.coverage_low && (
@@ -582,26 +575,27 @@ export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: a
       <div style={box}>
         <div style={h}>① 검사 대상</div>
         <div style={li}>
-          스펙 노출 영역(스펙표·각주·구성품 등)에서 <b>정답지 항목의 존재 여부와 값 일치</b>를 확인합니다. Header/Footer/Nav/Menu/Button/Popup·본문 마케팅 카피는 검사 대상에서 제외합니다.
+          스펙 노출 영역(스펙표·각주·구성품)과 본문에서 <b>정답 값의 노출과 오기재 여부</b>를 확인합니다. Header/Footer/Nav/Menu/Button/Popup·프로모션은 검사 대상에서 제외합니다.
           "4,400"과 "4 400"처럼 국가별 표기 차이는 <b>동일 값으로 인정</b>하며, 칩셋명 등 현지화 표기는 사전(Dictionary)으로 매핑합니다.
         </div>
       </div>
       <div style={box}>
         <div style={h}>② 판정 등급</div>
         <div style={li}>
-          <div>🔴 <b style={{ color: C.crit }}>오류</b> — 값이 정답과 불일치 (예: 무게 216g / 정답 215g), 구조화된 스펙 표 등 신뢰도 높은 근거로 확인됨. 1건이라도 있으면 해당 페이지는 오류 처리됩니다.</div>
-          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 값은 찾았지만 신뢰도 낮은 근거(마케팅 카피 등)라 오류로 단정하지 않고 재확인을 요청하는 항목. Dictionary Missing과는 무관합니다.</div>
-          <div>⚪ <b style={{ color: C.na }}>해당없음</b> — 해당 페이지타입에 없는 항목이거나 미검출 (미검출 과다 시 커버리지 경고 표시).</div>
+          <div>🔴 <b style={{ color: C.crit }}>오류</b> — <b>틀린 값이 실제로 적혀 있음</b>이 확인된 항목: 항목 라벨과 함께 표기된 오답, 한정어 오짝(예: "일반 4,272mAh"), 전작 비교 문구 속 전작 스펙 오기재. 1건이라도 있으면 해당 페이지는 오류 처리됩니다.</div>
+          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 오답으로 단정하기 어려운 발견: 근사 표기("약 8인치")·단위 환산 표기, 또는 라벨 없이 단독으로 발견된 불일치 숫자(다른 대상의 값일 수 있음). 사람이 한번 봐주세요.</div>
+          <div style={{ marginTop: 2 }}>ℹ️ <b>값이 페이지에 없는 것은 오류가 아닙니다</b> — 미노출 항목은 표시·집계하지 않습니다. 오류는 "잘못 들어간 값"에만 부여됩니다.</div>
           <div>📖 <b>Dictionary Review</b> — 오류·확인과 별개의 보조 기능. 화면 맨 아래 접힌 섹션에서, 제품 내 여러 페이지에 반복 등장한 미등록 표현만 빈도순으로 보여줍니다.</div>
         </div>
       </div>
       <div style={box}>
         <div style={h}>③ 오탐 방지 규칙</div>
         <div style={li}>
-          · 일반 용량(4400)과 각주 정격 용량(4272)은 <b>별개 항목</b>으로 분리 판정<br />
-          · 프로모션 배너의 마케팅 수치는 <b>검사 대상에서 제외</b><br />
-          · 폴백 값 추출은 컴포넌트 경계를 보존한 블록 단위로만 검색 — 서로 다른 문구가 섞여 값으로 오인되지 않게 함<br />
-          · 국가별 예외 규칙(특정 항목 생략 허용 등)을 사전 반영
+          · 판정은 <b>값 우선(value-first)</b> — 라벨 번역이 아니라 정답 값 자체(숫자+다국어 단위)를 찾으므로 언어·표기(2,600nits=2600니트=٢٦٠٠ نت)에 무관<br />
+          · <b>복수 정답</b> 지원 — 일반 4,400mAh / 정격 4,272mAh처럼 어느 표기든 정답으로 인정하고, 한정어 짝만 교차검증<br />
+          · <b>전작 비교 문구 인식</b> — "Galaxy Z Fold6의 …" 문장 속 숫자는 전작 정답지와 대조 (전작 값이 틀리면 그것대로 오류)<br />
+          · Compare 표는 <b>컬럼→제품 귀속</b> — 이웃 제품 컬럼의 값을 검수 대상 값으로 오인하지 않음<br />
+          · 프로모션 배너 수치 제외 · 국가별 예외 규칙 사전 반영
         </div>
       </div>
     </div>
@@ -618,8 +612,8 @@ export function SpecV2Score({ show, panelRef }: { show: boolean; panelRef?: any 
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수 산출 방식 — 스펙</div>
       <div style={box}>
         <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 점수 = 통과 ÷ 판정 대상</div>
-        <div style={li}><b>정답 일치 항목 ÷ (일치 + 불일치 + 확인)</b> × 100. <b>"해당없음(⚪)"은 분모에서 제외</b>합니다 — 해당 페이지에 존재하지 않는 항목이 점수를 왜곡하지 않도록 하기 위함입니다.</div>
-        <div style={{ ...li, marginTop: 4 }}>예) 31개 중 해당없음 6 · 일치 22 · 불일치 2 · 확인 1 → 22 ÷ 25 = <b>88%</b></div>
+        <div style={li}><b>정답 일치 항목 ÷ (일치 + 불일치 + 확인)</b> × 100. 값이 페이지에 없는 항목은 <b>오류가 아니므로 표시·집계 모두에서 제외</b>됩니다 — 미노출이 점수를 왜곡하지 않습니다.</div>
+        <div style={{ ...li, marginTop: 4 }}>예) 판정 대상 25개 — 일치 22 · 불일치 2 · 확인 1 → 22 ÷ 25 = <b>88%</b></div>
       </div>
       <div style={box}>
         <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리별 동일 산식</div>
