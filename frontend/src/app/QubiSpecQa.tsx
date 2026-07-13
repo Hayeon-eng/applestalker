@@ -451,12 +451,13 @@ export function DictionaryPanel({ product, api }: { product: string; api: (p: st
    ═══════════════════════════════════════════════════════════════════ */
 
 const VAL_KO: Record<string, { label: string; desc: string }> = {
-  exact: { label: "완전일치", desc: "정규화 후 문자열이 같아야 함 (해상도·IP48·카메라 조합)" },
-  numeric_exact: { label: "숫자일치", desc: "표기가 달라도 숫자만 비교 — 4,400 = 4.400 = 4 400 (배터리·무게·크기)" },
-  prefix: { label: "접두일치", desc: "앞부분만 일치하면 통과 — SM-F966B/DS의 지역 서픽스 허용" },
-  dictionary: { label: "사전", desc: "표기 변형 허용 — Wi-Fi 7 = WiFi 7, 칩셋명 현지화 접미사 허용" },
-  option_match: { label: "옵션전부", desc: "나열된 옵션이 모두 있어야 함 — 256/512/1TB 중 하나라도 빠지면 오류" },
-  exists: { label: "존재확인", desc: "언급 자체가 검수 대상 — Galaxy AI·구성품·disclaimer 문구" },
+  // [V3] 공통 원칙: 값이 페이지에 없는 건 오류가 아니고, "틀린 값이 항목과 함께
+  // 적혀 있을 때"만 오류. 아래 설명은 그 원칙을 유형별 예시로 풀어쓴 것.
+  exact: { label: "값 그대로", desc: "이 값이 페이지에 보이면 정상. 콤마·공백·× 같은 표기 차이는 같은 값으로 인정 (2184 x 1968 = 2184×1968). 다른 값이 이 항목 이름과 함께 적혀 있을 때만 오류" },
+  numeric_exact: { label: "숫자 일치", desc: "숫자만 맞으면 정상 — 4,400mAh = 4.400mAh = 4400mAh, 니트·ニト 같은 현지어 단위도 인정. 다른 숫자가 이 항목 이름과 함께 적혀 있을 때만 오류" },
+  prefix: { label: "앞부분 일치", desc: "이 값으로 시작하면 정상 — 예: SM-F966B, SM-F966N/DS처럼 뒤에 지역 코드가 붙어도 통과" },
+  dictionary: { label: "표기 자유", desc: "나라마다 표기가 다른 항목(칩셋명 등) — 정답 표기나 등록된 현지 표기가 보이면 정상. 다르게 서술돼 있어도 오류 아님(전작 칩명이 잘못 들어간 경우만 오류)" },
+  option_match: { label: "옵션 노출", desc: "나열된 옵션 중 페이지에 보이는 것을 확인 — 일부가 안 보여도 오류 아님(국가별 미출시 가능). 목록에 없는 엉뚱한 옵션 값이 이 항목과 함께 적혀 있을 때만 오류" },
 };
 const PRI_COLOR: Record<string, string> = { Critical: "#D8362F", High: "#B54708", Medium: "#0A66E0", Low: "#667085" };
 
@@ -489,13 +490,11 @@ export function SpecV2RuleTable({ product, api, flash }:
     Low: { c: "#667085", ko: "참고", why: "부가 정보 — 없어도 큰 문제 아님" },
   };
   // 기준값을 자연어 '이래야 정상'으로
+  // [V3] 기준값만 깔끔하게 — 검사 방식 설명은 옆의 ⓘ 툴팁이 담당한다(괄호 사족 제거).
+  //      복수 정답 '4400|4272'는 사람이 읽기 좋게 '4400 또는 4272'로 표기.
   const normalText = (r: any) => {
-    const v = `${r.expected}${r.unit ? ` ${r.unit}` : ""}`;
-    if (r.validation === "option_match") return `${v} (이 값들이 옵션으로 노출)`;
-    if (r.validation === "exists") return `"${v}" 언급이 있어야`;
-    if (r.validation === "numeric_exact") return `${v} (표기 달라도 숫자 일치면 OK)`;
-    if (r.validation === "dictionary") return `${v} (표기 변형·현지화 허용)`;
-    return `정확히 "${v}"`;
+    const exp = String(r.expected || "").split("|").map((x: string) => x.trim()).join(" 또는 ");
+    return `${exp}${r.unit ? ` ${r.unit}` : ""}`;
   };
   // page(노출 영역) 라벨을 사람이 아는 말로
   const PAGE_KO: Record<string, { ko: string; tip: string }> = {
