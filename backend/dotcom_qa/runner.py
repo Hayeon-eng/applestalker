@@ -47,10 +47,12 @@ def product_from_url(url: str) -> Optional[str]:
         return "galaxy-s26-plus"
     if "galaxy-s26" in u:
         return "galaxy-s26"
-    if "galaxy-buds4-pro" in u:
-        return "galaxy-buds4-pro"
-    if "galaxy-buds4" in u or "galaxy-buds" in u:
-        return "galaxy-buds4"
+    # 워치 — Ultra를 먼저(워치8보다 구체적인 슬러그). 다음 세대(watch9 등)는 여기 한 줄씩 추가.
+    if "galaxy-watch-ultra" in u:
+        return "galaxy-watch-ultra"
+    if "galaxy-watch8" in u:
+        return "galaxy-watch8"
+    # [2026-07] galaxy-buds4/-pro는 운영 대상에서 제외됨(요청) — Rule DB 시드도 함께 삭제됨.
     return None
 
 
@@ -229,9 +231,14 @@ def check_html(html: str, rules: Dict[str, Any],
                                               market_product=mp)
     spec_v2 = None
     try:
-        import spec_rule_db, spec_engine
+        import spec_rule_db, spec_engine, spec_dict_global
         ruleset = spec_rule_db.load(mp) if mp else None
         if ruleset:
+            # [2026-07] Global Dictionary(제품 공통 번역) ∪ 제품별 dictionary — 신모델이
+            # 나와도 세대 간 재사용 가능한 번역(Weight/Storage/Water Resistance 등)을
+            # 다시 쌓지 않도록 여기서 병합한다. spec_engine 자체는 여전히 결정론적으로,
+            # 병합된 최종 dictionary만 넘겨받아 그대로 사용한다.
+            ruleset = {**ruleset, "dictionary": spec_dict_global.merge_for(ruleset.get("dictionary", {}))}
             spec_v2 = spec_engine.run(html, ruleset, page_type=pt, sitecode=sitecode or "",
                                       rendered_by=rendered_by or "source")
     except Exception as e:  # V2 실패가 기존 검수를 죽이지 않게

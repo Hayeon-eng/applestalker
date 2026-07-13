@@ -1,5 +1,11 @@
 """
 qb_routes_run.py — 대량 검수 백그라운드 실행 (/run, /run-status, /run-progress) [qb_api 분할]
+
+[2026-07 수정] 검수 실행이 끝난 뒤, 페이지별 Dictionary 후보(candidate_hits)를 제품
+단위로 모아 spec_dict_review.aggregate()로 "여러 페이지 반복 발견" 여부와 Confidence를
+재검증한다. Dictionary는 보조 기능이므로 이 결과는 summary(score/critical/warning)에는
+전혀 영향을 주지 않고, run 이벤트/이력에 별도 필드(dictionary_review)로만 붙는다.
+프론트엔드는 이 필드를 항상 접힌 상태의 'Dictionary Review' 섹션에서만 사용한다.
 """
 from __future__ import annotations
 import asyncio
@@ -18,6 +24,7 @@ import runner
 import qa_report
 import schema_checker
 import html_qa_scoring
+import spec_dict_review
 from database import SessionLocal
 from models import QbHistory
 
@@ -32,7 +39,8 @@ from qb_routes_history import _history_save  # [분할 누락 수정] 크롤 종
 #     → 91개를 한꺼번에 열지 않고, 한 번에 QB_RUN_CONCURRENCY(기본 6)개씩만 진행
 #  3) 진행 상황은 SSE로 스트리밍, 완료되면 이력에 저장
 _RUN_STATE: Dict[str, Any] = {"running": False, "run_id": None, "done": 0, "total": 0,
-                              "events": [], "result_run_id": None, "summary": None}
+                              "events": [], "result_run_id": None, "summary": None,
+                              "dictionary_review": {}}
 _RUN_CONCURRENCY = int(os.getenv("QB_RUN_CONCURRENCY", "6"))
 
 
@@ -52,7 +60,8 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
         targets = [t for t in targets if runner.product_from_url(t.get("url", "")) in prset]
 
     _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=__import__("time").time(),
-                      events=[{"type": "start", "total": len(targets)}], result_run_id=None, summary=None)
+                      events=[{"type": "start", "total": len(targets)}], result_run_id=None, summary=None,
+                      dictionary_review={})
 
     # 필터 결과가 0개면 조용히 끝나지 않고 명확히 알린다(제품/사이트/타입 필터가 서로 안 맞는 흔한 케이스)
     if not targets:
@@ -117,10 +126,24 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
         final = [r for r in results if r]
         qb_core.LAST_RESULTS = final
         summary = qa_report.summary_counts(final)
+
+        # ── Dictionary Review 집계(보조 기능) — summary에는 영향 없음 ──
+        try:
+            dict_review = spec_dict_review.aggregate(final)
+        except Exception as e:
+            print(f"[qb_routes_run] dictionary_review aggregate skip: {e}")
+            dict_review = {}
+        # 페이지 결과에도 되돌려 붙여준다 — 프론트가 SpecV2Panel마다 다시 계산할 필요 없이
+        # 제품 단위로 이미 필터링된 최종 후보를 그대로 렌더링만 하면 되게.
+        for pr in final:
+            sv = pr.get("spec_v2")
+            if sv is not None:
+                sv["dictionary_review"] = dict_review.get(pr.get("product") or "unknown", [])
+
         entry = _history_save(final, summary, product=product,
                               scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"))
         _RUN_STATE["events"].append({"type": "done", "run_id": entry["run_id"], "summary": summary})
-        _RUN_STATE.update(result_run_id=entry["run_id"], summary=summary)
+        _RUN_STATE.update(result_run_id=entry["run_id"], summary=summary, dictionary_review=dict_review)
     except Exception as e:
         # 배치 전체가 실패해도 상태는 반드시 풀어준다(안 그러면 이후 /run이 계속 409)
         _RUN_STATE["events"].append({"type": "error", "message": str(e)})
@@ -138,7 +161,6 @@ def qb_run_reset():
     """검수 상태를 강제로 해제(멈춘 상태에서 409가 계속 날 때 수동 복구용)."""
     _RUN_STATE.update(running=False)
     return {"ok": True, "running": False}
-
 
 @qb_router.post("/run")
 async def qb_run(payload: Dict[str, Any] = Body(default={})):
@@ -192,5 +214,3 @@ async def qb_run_progress():
             yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
             await asyncio.sleep(1)
     return StreamingResponse(gen(), media_type="text/event-stream")
-
-

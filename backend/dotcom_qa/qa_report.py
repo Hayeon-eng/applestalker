@@ -19,8 +19,8 @@ from qa_messages import render
 
 MARK = {"pass": "O", "warn": "△", "fail": "X", "-": "-"}
 MARK_COLOR = {"pass": "1F9E5C", "warn": "E0A008", "fail": "D8362F", "-": "98A2B3"}
-SEV_KO = {"fail": "오류", "warn": "확인", "pass": "정상"}
-SEV_COLOR = {"fail": "D8362F", "warn": "E0A008", "pass": "1F9E5C"}
+SEV_KO = {"fail": "오류", "warn": "확인", "pass": "정상", "info": "참고(사전)"}
+SEV_COLOR = {"fail": "D8362F", "warn": "E0A008", "pass": "1F9E5C", "info": "98A2B3"}
 _TYPE_ORDER = ["WebPage", "ItemList", "Product", "3DModel", "ImageObject", "VideoObject", "FAQPage", "BreadcrumbList"]
 _WORST = {"pass": 0, "warn": 1, "fail": 2}
 
@@ -72,22 +72,27 @@ def _flatten(page_results, tab=None):
         if want_spec:
             sv = pr.get("spec_v2")
             if sv:
-                # [V2 정합] 스펙은 Rule DB 판정을 화면·엑셀과 동일하게: Critical=fail, Warning=미등록 표현.
+                # [V2 정합 — 2026-07 리팩토링] Critical=fail(실제 Spec 오류),
+                # Warning=warn(값은 찾았으나 추출 신뢰도가 낮아 재확인 필요한 항목).
+                # Dictionary(미등록 표현)는 보조 기능이므로 Critical/Warning 집계에서 완전히
+                # 분리한다 — status를 "info"로 둬서 summary_counts(fail/warn만 집계)에 잡히지
+                # 않게 하고, 화면에서도 항상 별도의 접힌 섹션에서만 보여준다.
                 for it in sv.get("items", []):
-                    if it.get("status") != "fail":
+                    if it.get("status") not in ("fail", "warn"):
                         continue
                     exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
                     rows.append({**base, "area": "Spec", "item": it.get("attribute", ""),
-                                 "status": "fail",
-                                 "f": {"status": "fail",
+                                 "status": it["status"],
+                                 "f": {"status": it["status"],
                                        "as_is": f'현재 {it.get("found") or "(페이지에 없음)"}',
                                        "to_be": f'기준 {exp}' + (f' — {it["fix_guide"]}' if it.get("fix_guide") else "")}})
-                for c in sv.get("candidates", []):
-                    rows.append({**base, "area": "Spec·Dictionary", "item": c.get("alias", ""),
-                                 "status": "warn",
-                                 "f": {"status": "warn",
-                                       "as_is": f'미등록 표현: {c.get("alias","")}',
-                                       "to_be": "번역/표기 확인 후 Dictionary 추가로 승인"}})
+                # Dictionary Review는 보조 정보 — fail/warn 집계에 섞이지 않도록 status="info"
+                for c in sv.get("dictionary_review", []) or []:
+                    rows.append({**base, "area": "Spec·Dictionary(보조)", "item": c.get("alias", ""),
+                                 "status": "info",
+                                 "f": {"status": "info",
+                                       "as_is": f'미등록 표현(제품 내 {c.get("count","?")}개 페이지 반복, confidence={c.get("confidence","")})',
+                                       "to_be": "번역/표기 확인 후 Dictionary 추가로 승인 (선택)"}})
             else:
                 for f in (pr.get("copy") or {}).get("findings", []):
                     if f.get("status") == "pass":
@@ -146,7 +151,7 @@ def _copy_row(pr):
 
 
 SEV_EN = {"fail": "Error", "warn": "Check", "na": "N/A", "pass": "OK"}
-SEV_COLOR2 = {"fail": "D8362F", "warn": "E0A008", "na": "98A2B3", "pass": "1F9E5C"}
+SEV_COLOR2 = {"fail": "D8362F", "warn": "E0A008", "na": "98A2B3", "pass": "1F9E5C", "info": "98A2B3"}
 
 
 # ── 작업자용 상세 행 빌더 — 대시보드(QubiDataQa)와 동일한 정보 밀도로 Excel 행 생성 ──
@@ -510,8 +515,8 @@ def build_xlsx(page_results):
         cell.font = Font(bold=True, color=MARK_COLOR.get(sev, "98A2B3"))
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    sev_rank = {"fail": 0, "warn": 1}
-    SEV_LABEL = {"fail": "🔴 Must Fix", "warn": "🟡 Review"}
+    sev_rank = {"fail": 0, "warn": 1, "info": 2}
+    SEV_LABEL = {"fail": "🔴 Must Fix", "warn": "🟡 Review", "info": "⚪ Dictionary(보조)"}
 
     def _meta(pr):
         return (pr.get("region", ""), pr.get("country", ""), pr.get("sitecode", ""),
@@ -566,11 +571,11 @@ def build_xlsx(page_results):
         meta = _meta(pr)
         sv = pr.get("spec_v2")
         if sv:
-            # [V2 정합] Rule DB 판정을 화면(SpecV2Panel)과 동일하게 리포트:
-            #   Critical = 룰 fail(현재값↔기준값), Warning = 미등록 표현(candidates).
-            #   N/A(못 찾음·페이지타입 미적용)는 오류가 아니라 리포트에서 제외.
+            # [V2 정합 — 2026-07 리팩토링] Critical=fail, Warning=warn(재확인 필요,
+            # 추출 신뢰도 낮음). Dictionary(미등록 표현)는 보조 기능이라 severity를
+            # "info"로 분리해 Critical/Warning 집계·정렬 우선순위를 흐리지 않게 한다.
             for it in sv.get("items", []):
-                if it.get("status") != "fail":
+                if it.get("status") not in ("fail", "warn"):
                     continue
                 item = it.get("attribute", "")
                 exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
@@ -578,10 +583,13 @@ def build_xlsx(page_results):
                 loc = f'{it.get("page", "")}' + (f' > {it["section"]}' if it.get("section") else "")
                 if it.get("fix_guide"):
                     exp = f'{exp}  ·  Fix: {it["fix_guide"]}'
-                spec_rows.append((meta, f"Rule · {it.get('rule_id','')}", item, "fail", exp, found_s, loc or "PDP"))
-            for c in sv.get("candidates", []):
-                spec_rows.append((meta, "Dictionary", c.get("alias", ""), "warn",
-                                  "번역/표기 확인 후 Dictionary 추가로 승인", "(unmapped label)", "Spec"))
+                label = "Rule · " + it.get("rule_id", "") + (" (low-confidence)" if it.get("status") == "warn" else "")
+                spec_rows.append((meta, label, item, it["status"], exp, found_s, loc or "PDP"))
+            for c in sv.get("dictionary_review", []) or []:
+                spec_rows.append((meta, "Dictionary(보조)", c.get("alias", ""), "info",
+                                  f'제품 내 {c.get("count","?")}개 페이지 반복 · confidence={c.get("confidence","")} '
+                                  "· 번역/표기 확인 후 Dictionary 추가로 승인(선택)",
+                                  "(unmapped label)", "Spec"))
         else:
             for f in (pr.get("copy") or {}).get("findings", []):
                 if f.get("status") not in ("fail", "warn"):

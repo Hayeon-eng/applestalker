@@ -171,11 +171,29 @@ def _db():
     return SessionLocal, QbSpecRules
 
 
-def save(product: str, ruleset: Dict[str, Any], version: str = "") -> Dict[str, Any]:
+def save(product: str, ruleset: Dict[str, Any], version: str = "", merge_dictionary: bool = True) -> Dict[str, Any]:
+    """[2026-07 버그 수정] 기존엔 재업로드 시 dictionary를 통째로 덮어써서, MasterSpec(스펙
+    값)만 고치려고 엑셀을 재업로드해도 그동안 운영자가 승인해둔 alias가 전부 삭제됐다.
+    merge_dictionary=True(기본)면 저장 전에 '기존 DB의 dictionary ∪ 새로 넘어온 dictionary'로
+    합쳐서 저장한다 — 새 alias는 추가되고, 예전에 승인된 alias는 절대 사라지지 않는다.
+    (Global Dictionary 자체를 저장할 때는 spec_dict_global.save()가 merge_dictionary=False로
+    호출한다 — 이미 병합이 끝난 최종본이므로 이중 병합을 피하기 위함.)"""
     SessionLocal, QbSpecRules = _db()
     db = SessionLocal()
     try:
         row = db.query(QbSpecRules).filter(QbSpecRules.product == product).first()
+        if row and merge_dictionary and row.data:
+            try:
+                prev = json.loads(row.data)
+                merged = dict(ruleset.get("dictionary", {}))
+                for rep, aliases in (prev.get("dictionary") or {}).items():
+                    cur = merged.setdefault(rep, [])
+                    for a in aliases:
+                        if a not in cur:
+                            cur.append(a)
+                ruleset = {**ruleset, "dictionary": merged}
+            except Exception as e:
+                print(f"[spec_rule_db] dictionary merge skip (falling back to overwrite): {e}")
         payload = json.dumps(ruleset, ensure_ascii=False)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if row:
@@ -219,6 +237,8 @@ def list_products() -> List[Dict[str, Any]]:
         db = SessionLocal()
         try:
             for row in db.query(QbSpecRules).all():
+                if row.product == "__global__":  # Global Dictionary 저장용 가짜 제품 행 — 목록 제외
+                    continue
                 out.append({"product": row.product, "version": row.version,
                             "updated_at": row.updated_at, "source": "db"})
                 seen.add(row.product)
@@ -228,7 +248,7 @@ def list_products() -> List[Dict[str, Any]]:
         pass
     for fn in os.listdir(_HERE):
         m = re.match(r"spec_rules\.seed\.(.+)\.json$", fn)
-        if m and m.group(1) not in seen:
+        if m and m.group(1) not in seen and m.group(1) != "__global__":
             out.append({"product": m.group(1), "version": "seed", "updated_at": "", "source": "seed"})
     return out
 
