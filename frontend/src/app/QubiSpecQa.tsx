@@ -582,8 +582,8 @@ export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: a
       <div style={box}>
         <div style={h}>② 판정 등급</div>
         <div style={li}>
-          <div>🔴 <b style={{ color: C.crit }}>오류</b> — <b>틀린 값이 실제로 적혀 있음</b>이 확인된 항목: 항목 라벨과 함께 표기된 오답, 한정어 오짝(예: "일반 4,272mAh"), 전작 비교 문구 속 전작 스펙 오기재. 1건이라도 있으면 해당 페이지는 오류 처리됩니다.</div>
-          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 오답으로 단정하기 어려운 발견: 근사 표기("약 8인치")·단위 환산 표기, 또는 라벨 없이 단독으로 발견된 불일치 숫자(다른 대상의 값일 수 있음). 사람이 한번 봐주세요.</div>
+          <div>🔴 <b style={{ color: C.crit }}>오류</b> — <b>틀린 값이 실제로 적혀 있음</b>이 확인된 항목: 항목 라벨과 함께 표기된 오답, 한정어 오짝(예: "일반 4,272mAh"), 전작 비교 문구 속 전작 스펙 오기재, 전작 값 혼입(예: CPU에 전작 칩명). 텍스트 스펙(칩셋명 등)은 서술이 달라도 오류가 아닙니다 — 전작 값 혼입 등 적극적 증거가 있을 때만 오류. 1건이라도 있으면 해당 페이지는 오류 처리됩니다.</div>
+          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 오답으로 단정하기 어려운 발견: 근사 표기("약 8인치")·단위 환산 표기, 라벨 없이 단독 발견된 불일치 숫자, 배율(x)처럼 렌즈·주장에 따라 값이 달라지는 항목. <b>점수에 반영되지 않으며</b> 사람이 한번 봐주면 됩니다.</div>
           <div style={{ marginTop: 2 }}>ℹ️ <b>값이 페이지에 없는 것은 오류가 아닙니다</b> — 미노출 항목은 표시·집계하지 않습니다. 오류는 "잘못 들어간 값"에만 부여됩니다.</div>
           <div>📖 <b>Dictionary Review</b> — 오류·확인과 별개의 보조 기능. 화면 맨 아래 접힌 섹션에서, 제품 내 여러 페이지에 반복 등장한 미등록 표현만 빈도순으로 보여줍니다.</div>
         </div>
@@ -612,8 +612,8 @@ export function SpecV2Score({ show, panelRef }: { show: boolean; panelRef?: any 
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수 산출 방식 — 스펙</div>
       <div style={box}>
         <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 점수 = 통과 ÷ 판정 대상</div>
-        <div style={li}><b>정답 일치 항목 ÷ (일치 + 불일치 + 확인)</b> × 100. 값이 페이지에 없는 항목은 <b>오류가 아니므로 표시·집계 모두에서 제외</b>됩니다 — 미노출이 점수를 왜곡하지 않습니다.</div>
-        <div style={{ ...li, marginTop: 4 }}>예) 판정 대상 25개 — 일치 22 · 불일치 2 · 확인 1 → 22 ÷ 25 = <b>88%</b></div>
+        <div style={li}><b>정답 일치 항목 ÷ (일치 + 불일치)</b> × 100. <b>확인(🟡)은 감점 사유가 아니므로 분모에서 제외</b>됩니다 — 확인만 있는 페이지는 100% + 확인 배지로 표시됩니다. 값이 페이지에 없는 항목도 오류가 아니므로 표시·집계 모두에서 제외됩니다.</div>
+        <div style={{ ...li, marginTop: 4 }}>예) 일치 22 · 불일치 2 · 확인 1 → 22 ÷ 24 = <b>91.7%</b> (확인 1은 배지로만 표시)</div>
       </div>
       <div style={box}>
         <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리별 동일 산식</div>
