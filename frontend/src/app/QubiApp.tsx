@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
 import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
-import { SpecV2Panel, DictionaryPanel, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
+import { SpecV2Panel, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
@@ -535,6 +535,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                 <SpecV2Panel key={(r.sitecode || "") + i} row={r}
                   product={r.market_product || product} api={api} flash={flash} />
               ))}
+              {/* Dictionary Review — 보조 기능. 페이지별이 아니라 제품당 1회, 맨 아래 접힘 상태로만 노출(요구사항 1·5) */}
+              <DictionaryReviewSection results={results} product={product} api={api} flash={flash} />
             </>
           )}
           {/* Dictionary는 검수 결과와 무관하게 상시(좌측 하단 플로팅) — 스펙 탭 & V2 제품일 때 */}

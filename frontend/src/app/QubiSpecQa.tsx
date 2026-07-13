@@ -1,7 +1,16 @@
 "use client";
 /* QubiSpecQa.tsx — Spec QA [V2] 렌더 블록 (Rule 기반 Spec Validation 결과 화면)
    QA 담당자가 30초 안에 ①어떤 Rule이 실패했는지 ②왜 ③어떻게 고치는지 이해하는 것이 목표.
-   Data QA(QubiDataQa) 카드 스타일과 얼라인: 색 헤더 스트립 + 테두리 카드. */
+   Data QA(QubiDataQa) 카드 스타일과 얼라인: 색 헤더 스트립 + 테두리 카드.
+
+   [2026-07 리팩토링 — QA 우선순위 재정렬]
+   기존에는 Dictionary Missing(미등록 표현)이 "Warning"으로 실제 Spec 오류와 같은 자리에
+   노출되어, 운영자가 진짜 오류를 찾기 전에 대량의 사전 미등록 카드를 먼저 봐야 했다.
+   이제 우선순위는 다음과 같이 고정된다:
+     🔴 Critical Error(fail) > 🟡 Warning(warn — 추출 신뢰도 낮아 재확인 필요) >
+     ✅ Pass > (완전히 분리된, 기본 접힘) Dictionary Review
+   Dictionary Review는 페이지 1건이 아니라 "제품 전체 실행" 단위로 집계되어(백엔드
+   spec_dict_review.py) 빈도순으로 그룹 표시된다 — QubiApp.tsx에서 1회만 렌더한다. */
 import { useEffect, useRef, useState } from "react";
 import { TL_COLOR, TL_EMOJI, tlSpec } from "./qubiShared";
 
@@ -91,7 +100,7 @@ function RuleTrace({ trace }: { trace: any[] }) {
   );
 }
 
-/* ── Error Card: 문제/현재/기준/Rule/수정 위치/권장 수정 ── */
+/* ── Error Card(Critical): 문제/현재/기준/Rule/수정 위치/권장 수정 ── */
 function ErrorCard({ it }: { it: any }) {
   const foundStr = it.found ? `${it.found}` : "";
   const expStr = `${it.expected}${it.unit ? ` ${it.unit}` : ""}`;
@@ -119,23 +128,47 @@ function ErrorCard({ it }: { it: any }) {
   );
 }
 
-/* ── Category Card: Validation Score → Critical → PASS 순 ── */
+/* ── Warn Card(진짜 Warning): 값은 찾았지만 추출 신뢰도가 낮아 확정 오류로 단정할 수 없는 항목.
+   Dictionary Missing과는 무관하다 — "찾긴 했는데 근거가 약해 재확인이 필요하다"는 뜻. ── */
+function WarnCard({ it }: { it: any }) {
+  const expStr = `${it.expected}${it.unit ? ` ${it.unit}` : ""}`;
+  return (
+    <div style={{ background: "#FFFAEB", border: "1px solid #FEDF89", borderRadius: 10, padding: "11px 13px", marginTop: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: "#93540A" }}>🟡 {it.attribute}
+        <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, background: "#fff", border: "1px solid #FEDF89", borderRadius: 5, padding: "1px 6px", color: "#93540A" }}>재확인 필요</span>
+      </div>
+      <div style={{ marginTop: 6, fontSize: 12, color: "#93540A" }}>
+        기준 <b>{expStr}</b> — 페이지에서 <b>{it.found || "(불확실)"}</b> 근처를 찾았지만, 구조화된 스펙 표가 아니라 마케팅 카피 등에서
+        추출한 값이라 오류로 단정하지 않았어요. 직접 페이지를 확인해주세요.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr", gap: "3px 10px", fontSize: 11.5, marginTop: 8, color: "var(--sec)" }}>
+        <span>확인 위치</span>
+        <span>{it.section ? `${it.page} › ${it.section}` : it.page}</span>
+      </div>
+      <RuleTrace trace={it.trace} />
+    </div>
+  );
+}
+
+/* ── Category Card: Validation Score → Critical → Warning → PASS 순 ── */
 function CategoryCard({ cat, items }: { cat: any; items: any[] }) {
-  const [open, setOpen] = useState(cat.fail > 0); // 오류 있는 카테고리는 기본 펼침
+  const [open, setOpen] = useState(cat.fail > 0 || cat.warn > 0); // 오류·확인 있는 카테고리는 기본 펼침
   const fails = items.filter((i) => i.status === "fail");
+  const warns = items.filter((i) => i.status === "warn");
   const passes = items.filter((i) => i.status === "pass");
   const nas = items.filter((i) => i.status === "na");
   return (
     <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
-      <div onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 13px", cursor: "pointer", background: cat.fail > 0 ? "#FFF5F4" : "#FAFBFC" }}>
+      <div onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 13px", cursor: "pointer", background: cat.fail > 0 ? "#FFF5F4" : cat.warn > 0 ? "#FFFCF5" : "#FAFBFC" }}>
         <b style={{ fontSize: 13 }}>{cat.category}</b>
         <Meter pct={cat.score} />
-        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>Rule Pass <b style={{ color: cat.fail ? C.crit : C.pass }}>{cat.pass} / {cat.pass + cat.fail}</b>{cat.na ? ` · N/A ${cat.na}` : ""}</span>
+        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>Rule Pass <b style={{ color: cat.fail ? C.crit : C.pass }}>{cat.pass} / {cat.pass + cat.fail}</b>{cat.warn ? ` · 확인 ${cat.warn}` : ""}{cat.na ? ` · N/A ${cat.na}` : ""}</span>
         <span style={{ marginLeft: "auto", fontSize: 11, color: "#0A66E0" }}>{open ? "▲" : "▼"}</span>
       </div>
       {open && (
         <div style={{ padding: "4px 13px 12px", borderTop: "1px solid var(--line)" }}>
           {fails.map((it, i) => <ErrorCard key={i} it={it} />)}
+          {warns.map((it, i) => <WarnCard key={i} it={it} />)}
           {passes.length > 0 && (
             <div style={{ marginTop: 8 }}>
               {passes.map((it, i) => (
@@ -153,85 +186,27 @@ function CategoryCard({ cat, items }: { cat: any; items: any[] }) {
               ⚪ N/A: {nas.map((i) => i.attribute).join(", ")}
             </div>
           )}
-          {passes.length > 0 && fails.length === 0 && <RuleTrace trace={passes[0].trace} />}
+          {passes.length > 0 && fails.length === 0 && warns.length === 0 && <RuleTrace trace={passes[0].trace} />}
         </div>
       )}
     </div>
   );
 }
 
-/* ── Candidate: 새로운 표현 발견 → 사용자 승인으로만 Dictionary 반영 ── */
-function CandidateCard({ cand, attributes, product, api, flash, onDone }:
-  { cand: any; attributes: string[]; product: string; api: (p: string) => string; flash: (m: string) => void; onDone: () => void }) {
-  const [rep, setRep] = useState(cand.representative || "");
-  const [busy, setBusy] = useState(false);
-  const [ai, setAi] = useState<any>(null);  // AI 제안 결과 {available, attribute, confidence, reason}
-  useEffect(() => {  // 후보가 뜨면 AI 제안 자동 조회 (키 없으면 available:false로 폴백)
-    let alive = true;
-    (async () => {
-      try {
-        const r = await fetch(api("/api/qb/spec-rules/dictionary/suggest"), {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ product, alias: cand.alias }),
-        });
-        if (alive && r.ok) setAi(await r.json());
-      } catch { /* 조용히 무시 */ }
-    })();
-    return () => { alive = false; };
-  }, [cand.alias, product]);
-  const add = async () => {
-    if (!rep) { flash("어느 항목의 표현인지 선택하세요"); return; }
-    setBusy(true);
-    try {
-      const r = await fetch(api("/api/qb/spec-rules/dictionary/add"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product, representative: rep, alias: cand.alias }) });
-      if (!r.ok) throw new Error(String(r.status));
-      flash(`Dictionary 추가됨: ${cand.alias} → ${rep}`); onDone();
-    } catch { flash("추가 실패 — 서버 확인"); } finally { setBusy(false); }
-  };
-  return (
-    <div style={{ background: "#FFFAEB", border: "1px solid #FEDF89", borderRadius: 10, padding: "9px 12px", marginTop: 8 }}>
-      <div style={{ fontSize: 12.5 }}>🟡 <b>새로운 표현 발견</b> — <span style={{ fontFamily: "monospace", background: "#fff", padding: "1px 6px", borderRadius: 5 }}>{cand.alias}</span>
-        <span style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 6 }}>딕셔너리 미등록 · 번역/표기 재확인 필요</span>
-      </div>
-      {/* AI 제안 줄 — 판정이 아니라 참고용 제안. 최종 승인은 사람이 아래 버튼으로. */}
-      <div style={{ marginTop: 6, fontSize: 11.5, background: "#fff", border: "1px dashed #D6BB6A", borderRadius: 7, padding: "5px 9px" }}>
-        {ai == null && <span style={{ color: "var(--sec)" }}>✨ AI 제안 확인 중…</span>}
-        {ai && ai.available && ai.attribute && (
-          <span>✨ <b>AI 제안</b>: 이 표현은 <b style={{ color: "#0A66E0" }}>{ai.attribute}</b>{ai.confidence != null ? ` (신뢰도 ${ai.confidence}%)` : ""}
-            <button onClick={() => setRep(ai.attribute)} style={{ marginLeft: 8, fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid #0A66E0", background: "#fff", color: "#0A66E0", cursor: "pointer" }}>제안 적용</button>
-            {ai.reason && <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginTop: 2 }}>{ai.reason}</span>}
-          </span>
-        )}
-        {ai && ai.available && !ai.attribute && <span style={{ color: "var(--sec)" }}>✨ AI가 마땅한 항목을 못 찾았어요 — 직접 선택해주세요.</span>}
-        {ai && !ai.available && <span style={{ color: "#98A2B3", fontStyle: "italic" }}>✨ AI 번역 제안 — 준비 중 (API 키 연결 시 활성화)</span>}
-      </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 7 }}>
-        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>예상 Canonical</span>
-        <select value={rep} onChange={(e) => setRep(e.target.value)} style={{ fontSize: 12, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--line)" }}>
-          <option value="">— 항목 선택 —</option>
-          {attributes.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <button onClick={add} disabled={busy} style={{ fontSize: 11.5, fontWeight: 700, padding: "5px 10px", borderRadius: 7, border: "none", background: "#0A66E0", color: "#fff", cursor: "pointer" }}>Dictionary 추가</button>
-        <button onClick={onDone} style={{ fontSize: 11.5, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--line)", background: "#fff", cursor: "pointer" }}>무시</button>
-      </div>
-    </div>
-  );
-}
-
-/* ── 사이트 1건의 Spec QA V2 패널 ── */
+/* ── 사이트 1건의 Spec QA V2 패널 ──
+   Dictionary(신규 표현)는 이 패널에서 더 이상 렌더하지 않는다 — 페이지 1건이 아니라
+   제품 전체 실행 단위로 집계해야 "여러 페이지 반복 발견" 조건을 검증할 수 있기 때문에,
+   QubiApp.tsx에서 <DictionaryReviewSection>으로 한 번만(제품당) 렌더한다. */
 export function SpecV2Panel({ row, product, api, flash }:
   { row: any; product: string; api: (p: string) => string; flash: (m: string) => void }) {
-  const [dismissed, setDismissed] = useState<string[]>([]);
   const sv = row.spec_v2;
   if (!sv) return null;
   const s = sv.summary || {};
-  const attributes: string[] = Array.from(new Set((sv.items || []).map((i: any) => i.attribute)));
-  const cands = (sv.candidates || []).filter((c: any) => !dismissed.includes(c.alias));
   const byCat: Record<string, any[]> = {};
   for (const it of sv.items || []) (byCat[it.category] ||= []).push(it);
   return (
     <div style={{ border: "1px solid #D7E3F8", borderRadius: 12, overflow: "hidden", marginTop: 14 }}>
-      {/* 종합 배너 — 신호등은 Data QA와 동일 이모지, 판정은 스펙 규칙(오류 1건이라도 🔴) */}
+      {/* 종합 배너 — 🔴 Critical(fail) > 🟡 Warning(진짜 재확인 필요) > ✅ Pass > ⚪ N/A 순으로 고정 */}
       <div style={{ background: "#EEF4FE", padding: "9px 14px", borderLeft: `3px solid ${C.blue}`, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <span style={{ fontSize: 17 }}>{TL_EMOJI[tlSpec(s.critical ?? 0, s.warning ?? 0)]}</span>
         <b style={{ fontSize: 12.5, color: C.blue }}>Spec Validation {row.sitecode ? `— ${row.sitecode}` : ""}</b>
@@ -245,20 +220,154 @@ export function SpecV2Panel({ row, product, api, flash }:
       </div>
       {s.coverage_low && (
         <div style={{ background: "#FFFAEB", padding: "7px 14px", fontSize: 12, color: "#93540A", borderBottom: "1px solid #FEDF89" }}>
-          ⚠️ 적용 대상 룰의 절반 이상을 페이지에서 찾지 못했어요 — 이 언어의 표현이 Dictionary에 없거나 페이지 구조가 달라 수집이 안 됐을 수 있습니다. 아래 "새로운 표현"을 승인해 Dictionary를 보강하세요.
+          ⚠️ 적용 대상 룰의 절반 이상을 페이지에서 찾지 못했어요 — 이 언어의 표현이 Dictionary에 없거나 페이지 구조가 달라 수집이 안 됐을 수 있습니다.
+          아래 <b>Dictionary Review</b> 섹션(접힘)에서 이 제품의 반복 발견 표현을 확인해보세요.
         </div>
       )}
       <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-        {/* 새로운 표현(Warning) — 승인 흐름 */}
-        {cands.map((c: any, i: number) => (
-          <CandidateCard key={c.alias + i} cand={c} attributes={attributes} product={product} api={api} flash={flash}
-            onDone={() => setDismissed((d) => [...d, c.alias])} />
-        ))}
-        {/* Category Cards */}
         {(sv.categories || []).map((cat: any) => (
           <CategoryCard key={cat.category} cat={cat} items={byCat[cat.category] || []} />
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ── Dictionary Review 승인 행: 제품 단위로 집계된 그룹(빈도순) 1건 ──
+   기존 CandidateCard(페이지별·1건씩)를 대체 — "GPU (15)"처럼 이미 여러 페이지에서
+   반복 발견되고 Confidence 기준을 통과한 것만 여기 도달한다(백엔드 spec_dict_review.py). */
+function GroupedCandidateRow({ cand, attributes, product, api, flash, onDone }:
+  { cand: any; attributes: string[]; product: string; api: (p: string) => string; flash: (m: string) => void; onDone: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [rep, setRep] = useState("");
+  const [productOnly, setProductOnly] = useState(false); // [2026-07] 기본은 전체 공통(Global) — 체크하면 이 제품에만 적용
+  const [busy, setBusy] = useState(false);
+  const [ai, setAi] = useState<any>(null);
+  useEffect(() => {  // 펼쳤을 때만 AI 제안 조회(그룹이 많을 수 있어 지연 로드)
+    if (!expanded || ai !== null) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch(api("/api/qb/spec-rules/dictionary/suggest"), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ product, alias: cand.alias }),
+        });
+        if (alive && r.ok) setAi(await r.json());
+      } catch { /* 조용히 무시 */ }
+    })();
+    return () => { alive = false; };
+  }, [expanded, cand.alias, product]);
+  useEffect(() => {  // High confidence는 펼치기 전에도 추천값을 미리 채워둔다(요구사항 4)
+    if (cand.recommend_canonical && attributes.includes(cand.alias)) setRep(cand.alias);
+  }, [cand.alias, cand.recommend_canonical]);
+  const add = async () => {
+    if (!rep) { flash("어느 항목의 표현인지 선택하세요"); return; }
+    setBusy(true);
+    try {
+      const r = await fetch(api("/api/qb/spec-rules/dictionary/add"), { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product, representative: rep, alias: cand.alias, scope: productOnly ? "product" : "global" }) });
+      if (!r.ok) throw new Error(String(r.status));
+      flash(`Dictionary 추가됨(${productOnly ? "이 제품 전용" : "전체 공통"}): ${cand.alias} → ${rep}`); onDone();
+    } catch { flash("추가 실패 — 서버 확인"); } finally { setBusy(false); }
+  };
+  const confBadge = cand.confidence === "high"
+    ? { bg: "#EAF7EE", fg: "#067647", label: "High" }
+    : { bg: "#FFFAEB", fg: "#93540A", label: "Medium" };
+  return (
+    <div style={{ border: "1px solid var(--line)", borderRadius: 10, marginTop: 6, overflow: "hidden" }}>
+      <div onClick={() => setExpanded((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 11px", cursor: "pointer", background: "#FAFBFC" }}>
+        <span style={{ fontFamily: "monospace", background: "#F2F4F7", padding: "1px 7px", borderRadius: 5, fontSize: 12.5, fontWeight: 700 }}>{cand.alias}</span>
+        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>({cand.count}개 페이지 반복)</span>
+        <span style={{ fontSize: 10.5, fontWeight: 700, background: confBadge.bg, color: confBadge.fg, borderRadius: 5, padding: "1px 6px" }}>{confBadge.label}</span>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "#0A66E0" }}>{expanded ? "▲" : "▼"}</span>
+      </div>
+      {expanded && (
+        <div style={{ padding: "9px 11px", borderTop: "1px solid var(--line)" }}>
+          <div style={{ fontSize: 11, color: "var(--sec)", marginBottom: 6 }}>발견 위치: {cand.sections?.join(", ") || "spec"}</div>
+          {/* AI 제안 줄 — 판정이 아니라 참고용 제안. 최종 승인은 사람이 아래 버튼으로.
+              Confidence: High만 자동 추천 채움, Medium은 선택 가능하되 자동 채우지 않음, Low는 애초에 여기 도달하지 않음(요구사항 4). */}
+          <div style={{ fontSize: 11.5, background: "#fff", border: "1px dashed #D6BB6A", borderRadius: 7, padding: "5px 9px" }}>
+            {ai == null && <span style={{ color: "var(--sec)" }}>✨ AI 제안 확인 중…</span>}
+            {ai && ai.available && ai.attribute && (
+              <span>✨ <b>AI 제안</b>: 이 표현은 <b style={{ color: "#0A66E0" }}>{ai.attribute}</b>{ai.confidence != null ? ` (신뢰도 ${ai.confidence}%)` : ""}
+                <button onClick={() => setRep(ai.attribute)} style={{ marginLeft: 8, fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid #0A66E0", background: "#fff", color: "#0A66E0", cursor: "pointer" }}>제안 적용</button>
+                {ai.reason && <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginTop: 2 }}>{ai.reason}</span>}
+              </span>
+            )}
+            {ai && ai.available && !ai.attribute && <span style={{ color: "var(--sec)" }}>✨ AI가 마땅한 항목을 못 찾았어요 — 직접 선택해주세요.</span>}
+            {ai && !ai.available && <span style={{ color: "#98A2B3", fontStyle: "italic" }}>✨ AI 번역 제안 — 준비 중 (API 키 연결 시 활성화)</span>}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 7, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11.5, color: "var(--sec)" }}>예상 Canonical</span>
+            <select value={rep} onChange={(e) => setRep(e.target.value)} style={{ fontSize: 12, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--line)" }}>
+              <option value="">— 항목 선택 —</option>
+              {attributes.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <button onClick={add} disabled={busy} style={{ fontSize: 11.5, fontWeight: 700, padding: "5px 10px", borderRadius: 7, border: "none", background: "#0A66E0", color: "#fff", cursor: "pointer" }}>Dictionary 추가</button>
+            <button onClick={onDone} style={{ fontSize: 11.5, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--line)", background: "#fff", cursor: "pointer" }}>무시</button>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "var(--sec)", marginLeft: "auto", cursor: "pointer" }}>
+              <input type="checkbox" checked={productOnly} onChange={(e) => setProductOnly(e.target.checked)} />
+              이 제품({product})에만 적용
+            </label>
+          </div>
+          <div style={{ fontSize: 10, color: "#98A2B3", marginTop: 4 }}>
+            기본은 <b>전체 제품 공통</b>으로 저장돼요 — Weight·Storage처럼 신모델이 나와도 번역이 재사용되는 표현이 대부분이라서요.
+            이번 세대에만 있는 고유 기능명 등은 위 체크박스로 이 제품에만 한정할 수 있어요.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Dictionary Review 섹션 — 제품당 1회, 기본 접힘.
+   요구사항 5: 동일 표현을 카드 여러 개로 흩뿌리지 않고 빈도순 그룹으로 표시.
+   요구사항 1: Critical/Warning/Pass 아래, 항상 맨 마지막에만 노출(보조 기능). ──*/
+export function DictionaryReviewSection({ results, product, api, flash }:
+  { results: any[]; product: string; api: (p: string) => string; flash: (m: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const [attributes, setAttributes] = useState<string[]>([]);
+
+  useEffect(() => {  // 항목 선택 드롭다운용 — Rule DB의 attribute 목록만 가볍게 조회
+    let alive = true;
+    (async () => {
+      try {
+        const d = await (await fetch(api(`/api/qb/spec-rules?product=${encodeURIComponent(product)}`))).json();
+        if (alive) setAttributes((d.rules || []).map((r: any) => r.attribute));
+      } catch { if (alive) setAttributes([]); }
+    })();
+    return () => { alive = false; };
+  }, [product]);
+
+  // 이번 실행 결과 중 이 product의 spec_v2.dictionary_review는 어느 페이지나 동일(제품 단위
+  // 집계 결과가 그대로 복사되어 있음) — 첫 번째 것만 사용
+  const withSv = results.find((r: any) => r.spec_v2?.dictionary_review);
+  const all: any[] = withSv?.spec_v2?.dictionary_review || [];
+  const cands = all.filter((c) => !dismissed.includes(c.alias));
+  if (!all.length) return null;
+
+  return (
+    <div style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", marginTop: 16 }}>
+      <div onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", background: "#FAFBFC" }}>
+        <span style={{ fontSize: 15 }}>📖</span>
+        <b style={{ fontSize: 13 }}>Dictionary Review</b>
+        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>사전 미등록 표현 {cands.length}건 — 보조 기능, Spec 오류가 아닙니다</span>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "#0A66E0" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "4px 14px 12px", borderTop: "1px solid var(--line)" }}>
+          <div style={{ fontSize: 11, color: "var(--sec)", margin: "8px 0" }}>
+            이번 실행에서 <b>{product}</b>의 여러 페이지에 반복 등장했고 신뢰도(Confidence)가 낮지 않은 표현만 모았습니다.
+            1회성으로만 발견됐거나 신뢰도가 낮은 표현은 자동으로 제외되었습니다.
+          </div>
+          {cands.map((c, i) => (
+            <GroupedCandidateRow key={c.alias + i} cand={c} attributes={attributes} product={product} api={api} flash={flash}
+              onDone={() => setDismissed((d) => [...d, c.alias])} />
+          ))}
+          {cands.length === 0 && <div style={{ fontSize: 12, color: "var(--sec)" }}>처리할 항목이 없어요.</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -473,16 +582,17 @@ export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: a
       <div style={box}>
         <div style={h}>① 검사 대상</div>
         <div style={li}>
-          스펙 노출 영역(스펙표·각주·구성품 등)에서 <b>정답지 항목의 존재 여부와 값 일치</b>를 확인합니다.
+          스펙 노출 영역(스펙표·각주·구성품 등)에서 <b>정답지 항목의 존재 여부와 값 일치</b>를 확인합니다. Header/Footer/Nav/Menu/Button/Popup·본문 마케팅 카피는 검사 대상에서 제외합니다.
           "4,400"과 "4 400"처럼 국가별 표기 차이는 <b>동일 값으로 인정</b>하며, 칩셋명 등 현지화 표기는 사전(Dictionary)으로 매핑합니다.
         </div>
       </div>
       <div style={box}>
         <div style={h}>② 판정 등급</div>
         <div style={li}>
-          <div>🔴 <b style={{ color: C.crit }}>오류</b> — 값이 정답과 불일치 (예: 무게 216g / 정답 215g). 1건이라도 있으면 해당 페이지는 오류 처리됩니다.</div>
-          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 사전 미등록 표현 발견. 오류가 아니라 "미학습 표현"이며, 유효한 표현이면 [Dictionary 추가]로 승인 시 다음 검수부터 정식 판정됩니다.</div>
+          <div>🔴 <b style={{ color: C.crit }}>오류</b> — 값이 정답과 불일치 (예: 무게 216g / 정답 215g), 구조화된 스펙 표 등 신뢰도 높은 근거로 확인됨. 1건이라도 있으면 해당 페이지는 오류 처리됩니다.</div>
+          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 값은 찾았지만 신뢰도 낮은 근거(마케팅 카피 등)라 오류로 단정하지 않고 재확인을 요청하는 항목. Dictionary Missing과는 무관합니다.</div>
           <div>⚪ <b style={{ color: C.na }}>해당없음</b> — 해당 페이지타입에 없는 항목이거나 미검출 (미검출 과다 시 커버리지 경고 표시).</div>
+          <div>📖 <b>Dictionary Review</b> — 오류·확인과 별개의 보조 기능. 화면 맨 아래 접힌 섹션에서, 제품 내 여러 페이지에 반복 등장한 미등록 표현만 빈도순으로 보여줍니다.</div>
         </div>
       </div>
       <div style={box}>
@@ -490,6 +600,7 @@ export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: a
         <div style={li}>
           · 일반 용량(4400)과 각주 정격 용량(4272)은 <b>별개 항목</b>으로 분리 판정<br />
           · 프로모션 배너의 마케팅 수치는 <b>검사 대상에서 제외</b><br />
+          · 폴백 값 추출은 컴포넌트 경계를 보존한 블록 단위로만 검색 — 서로 다른 문구가 섞여 값으로 오인되지 않게 함<br />
           · 국가별 예외 규칙(특정 항목 생략 허용 등)을 사전 반영
         </div>
       </div>
@@ -507,24 +618,24 @@ export function SpecV2Score({ show, panelRef }: { show: boolean; panelRef?: any 
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수 산출 방식 — 스펙</div>
       <div style={box}>
         <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 점수 = 통과 ÷ 판정 대상</div>
-        <div style={li}><b>정답 일치 항목 ÷ (일치 + 불일치)</b> × 100. <b>"해당없음(⚪)"은 분모에서 제외</b>합니다 — 해당 페이지에 존재하지 않는 항목이 점수를 왜곡하지 않도록 하기 위함입니다.</div>
-        <div style={{ ...li, marginTop: 4 }}>예) 31개 중 해당없음 6 · 일치 23 · 불일치 2 → 23 ÷ 25 = <b>92%</b></div>
+        <div style={li}><b>정답 일치 항목 ÷ (일치 + 불일치 + 확인)</b> × 100. <b>"해당없음(⚪)"은 분모에서 제외</b>합니다 — 해당 페이지에 존재하지 않는 항목이 점수를 왜곡하지 않도록 하기 위함입니다.</div>
+        <div style={{ ...li, marginTop: 4 }}>예) 31개 중 해당없음 6 · 일치 22 · 불일치 2 · 확인 1 → 22 ÷ 25 = <b>88%</b></div>
       </div>
       <div style={box}>
         <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리별 동일 산식</div>
-        <div style={li}>배터리·디스플레이 등 카테고리 단위로도 같은 방식으로 계산합니다. 카드의 "Rule Pass 8/8"이 해당 카테고리의 일치/판정 대상 수이며, 불일치가 있는 카테고리는 자동 전개됩니다.</div>
+        <div style={li}>배터리·디스플레이 등 카테고리 단위로도 같은 방식으로 계산합니다. 카드의 "Rule Pass 8/8"이 해당 카테고리의 일치/판정 대상 수이며, 불일치·확인이 있는 카테고리는 자동 전개됩니다.</div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ "확인(🟡)"은 점수에 미반영</div>
-        <div style={li}>🟡은 페이지 오류가 아니라 <b>검수기의 사전 미등록 표현</b>을 의미하므로 점수와 분리해 집계합니다. 유효한 표현은 승인 시 사전에 반영되어 다음 검수부터 정식 판정됩니다.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ Dictionary Review는 점수에 미반영</div>
+        <div style={li}>Dictionary는 <b>보조 기능</b>이라 점수·Critical/Warning 집계에서 완전히 분리됩니다. 제품 내 여러 페이지에서 반복 등장하고 Confidence가 낮지 않은 표현만 화면 맨 아래(접힘)에 모여 표시되며, 유효한 표현은 승인 시 사전에 반영되어 다음 검수부터 정식 판정됩니다.</div>
       </div>
       <div style={box}>
         <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ 커버리지 경고 시 점수 해석 주의</div>
-        <div style={li}>판정 대상의 <b>절반 이상이 미검출</b>이면 상단에 경고가 표시됩니다. 사전 미등록 또는 페이지 구조 차이로 수집되지 않았을 수 있으며, 이 경우 높은 점수는 "전부 통과"가 아니라 "검출 자체가 적음"을 의미할 수 있으므로 미등록 표현 승인이 선행되어야 합니다.</div>
+        <div style={li}>판정 대상의 <b>절반 이상이 미검출</b>이면 상단에 경고가 표시됩니다. 사전 미등록 또는 페이지 구조 차이로 수집되지 않았을 수 있으며, 이 경우 높은 점수는 "전부 통과"가 아니라 "검출 자체가 적음"을 의미할 수 있으므로 Dictionary Review 확인이 도움이 될 수 있습니다.</div>
       </div>
       <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8, background: "#FFF5F4", border: "1px solid #FECDCA", borderRadius: 8, padding: "8px 10px" }}>
         <b>신호등 (스펙은 더 엄격한 기준)</b> — 🔴 <b>오류 1건 이상이면 빨강</b> · 🟡 오류 0, 확인만 존재 · 🟢 오류·확인 모두 0.
-        <span style={{ display: "block", marginTop: 3, fontSize: 11 }}>색·형태는 Data QA와 동일하나, 스펙 값 오류는 소비자 오인·법적 리스크로 이어지므로 Data QA(점수 %기준)와 달리 "오류 1건 = 즉시 빨강"으로 판정합니다.</span>
+        <span style={{ display: "block", marginTop: 3, fontSize: 11 }}>색·형태는 Data QA와 동일하나, 스펙 값 오류는 소비자 오인·법적 리스크로 이어지므로 Data QA(점수 %기준)와 달리 "오류 1건 = 즉시 빨강"으로 판정합니다. Dictionary Review는 이 신호등에 전혀 영향을 주지 않습니다.</span>
       </div>
     </div>
   );
