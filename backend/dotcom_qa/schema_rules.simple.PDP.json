@@ -383,7 +383,8 @@
         },
         "duration": {
           "value": "PT5S",
-          "kind": "enum",
+          "kind": "duration_fmt",
+          "check": "영상길이_형식만",
           "nested": null
         },
         "thumbnailUrl": {
