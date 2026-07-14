@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
 import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
-import { SpecQaSummary, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
+import { SpecSiteOverview, SpecQaDetails, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
@@ -123,10 +123,10 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   async function loadHistory() { try { setHistory((await (await fetch(api("/api/qb/history"))).json()).history || []); } catch { /* */ } }
   async function loadOverview() { try { setOverview(await (await fetch(api("/api/qb/overview"))).json()); } catch { /* */ } }
   const openHistory = async (id: string) => {
-    try { const d = await (await fetch(api(`/api/qb/history/${id}`))).json(); setResults(d.results || []); setRunId(id); flash(`이력 ${id} 불러옴`); }
+    try { const d = await (await fetch(api(`/api/qb/history/${id}`))).json(); setResults(d.results || []); setRunId(id); flash(`이력 ${id} 불러옴`); loadOverview(); }
     catch { setErr("이력 불러오기 실패"); }
   };
-  const removeHistory = async (id: string) => { await fetch(api("/api/qb/history/remove"), J({ run_id: id })); loadHistory(); };
+  const removeHistory = async (id: string) => { await fetch(api("/api/qb/history/remove"), J({ run_id: id })); loadHistory(); loadOverview(); }; // [2026-07] 이력 삭제 → 전사이트 현황도 즉시 재계산
 
   const allSites = useMemo(() => Object.entries(regionsMap).flatMap(([rg, arr]) => arr.map((s) => ({ ...s, region: rg }))), [regionsMap]);
   const regionNames = useMemo(() => Object.keys(regionsMap), [regionsMap]);
@@ -212,7 +212,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   };
   const downloadXlsx = async () => {
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
-    await downloadBlob(`/api/qb/report.xlsx${reportQs()}`, null, "qubi_qa_report.xlsx");
+    await downloadBlob(`/api/qb/report.xlsx${reportQs()}`, null, `qubi_qa_report${runId ? `_${runId}` : ""}.xlsx`); // [2026-07] 파일명에 run_id — 어느 검수의 리포트인지 파일만 봐도 구분
   };
   const copyEmail = async () => {
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 메일 본문을 복사할 수 있어요."); return; }
@@ -277,23 +277,20 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           out.push({ r, f, item: f.block || f.token || f.category || "" });
         }
       } else if (r.spec_v2) {
+        // [2026-07 Quick View 정합] 종합 배너(summary.critical/warning)와 완전히 같은 소스:
+        // 오류 = 룰 fail, 확인 = 엔진 warn(재확인 필요). 미등록 표현(candidates)은 점수·배너와
+        // 무관한 보조 기능이므로 Quick View에서 제외 — Dictionary Review 섹션에서만 다룬다.
         for (const it of r.spec_v2.items || []) {
-          if (it.status !== "fail") continue;
+          if (it.status !== "fail" && it.status !== "warn") continue;
           out.push({
             r, item: it.attribute,
-            f: { status: "fail", category: it.category, region: it.section,
+            f: { status: it.status, category: it.category, region: it.section,
                  as_is: it.found ? `현재 '${it.found}'` : (it.message || "값 불일치"),
-                 to_be: `기준 ${it.expected}${it.unit ? ` ${it.unit}` : ""}${it.fix_guide ? ` — ${it.fix_guide}` : ""}`,
+                 to_be: it.status === "fail"
+                   ? `기준 ${it.expected}${it.unit ? ` ${it.unit}` : ""}${it.fix_guide ? ` — ${it.fix_guide}` : ""}`
+                   : `기준 ${it.expected}${it.unit ? ` ${it.unit}` : ""} — ${it.message || "재확인 필요"}`,
                  expected: `${it.expected}${it.unit ? ` ${it.unit}` : ""}`,
                  found: it.found ? [String(it.found)] : [] },
-          });
-        }
-        for (const c of r.spec_v2.candidates || []) {
-          out.push({
-            r, item: c.alias,
-            f: { status: "warn", category: "Dictionary",
-                 as_is: `미등록 표현 발견: '${c.alias}'`,
-                 to_be: "번역/표기 확인 후 [Dictionary 추가]로 승인하면 다음 검수부터 정식 판정" },
           });
         }
       } else {
@@ -437,7 +434,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           </h2>
 
           <SiteOverview ctx={ctx} />
-          <SpecQaSummary ctx={ctx} />
+          {/* [2026-07] Spec QA도 DATA QA와 동일 문법 — 맨 위엔 종합 점수 + 권역별 보기만,
+              PDP/Compare별 상세 오류·확인 현황은 아래쪽(HtmlQaSummary 자리)으로 이동 */}
+          <SpecSiteOverview ctx={ctx} />
 
           {/* 제품 — 클릭 시: 화면·검수기준표는 그 제품 하나를 보여주고(product), 크롤 대상엔 토글로 누적/해제(selectedProducts 다중). */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 4px", flexWrap: "wrap" }}>
@@ -528,8 +527,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {tab === "schema" && <CriteriaPanel ctx={ctx} />}
           {tab === "schema" && <ScorePanel ctx={ctx} />}
           <HtmlQaSummary ctx={ctx} />
+          <SpecQaDetails ctx={ctx} />
 
-          {/* ═══ Spec QA [V2] — 사이트별 상세는 위 SpecQaSummary에서 펼쳐 봄. 여기서는 Dictionary Review만 ═══ */}
+          {/* ═══ Spec QA [V2] — 상단 "스펙 현황" + 위 SpecQaDetails에서 사이트별 상세. 여기서는 Dictionary Review만 ═══ */}
           {tab === "copy" && results.some((r: any) => r.spec_v2) && (
             <DictionaryReviewSection results={results} product={product} api={api} flash={flash} />
           )}

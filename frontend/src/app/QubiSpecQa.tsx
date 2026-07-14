@@ -137,7 +137,7 @@ export function SpecOverallBanner({ results }: { results: any[] }) {
       <b style={{ fontSize: 20, color: TL_COLOR[overall] }}>{score ?? "—"}{score != null ? "%" : ""}</b>
       <span style={{ fontSize: 11.5, color: "var(--sec)" }}>
         사이트 {rows.length}곳 · 🔴 오류 {agg.crit} · 🟡 확인 {agg.warn} · ✅ 정상 {agg.pass}
-        <span title="점수 = 정상 ÷ (정상+오류). 확인·미노출은 점수에 반영하지 않습니다"> ⓘ</span>
+        <span style={{ display: "block", fontSize: 10.5, color: "#98A2B3" }}>점수 = 정상 ÷ (정상+오류) — 확인·미노출은 반영하지 않아요</span>
       </span>
       {rows.length > 1 && (
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -154,12 +154,76 @@ export function SpecOverallBanner({ results }: { results: any[] }) {
   );
 }
 
-/* ── [V3.5] 스펙 QA 종합 — Data QA(HtmlQaSummary)와 동일한 문법으로 최상단 배치 ──
-   요구사항: ① 종합 점수·권역별 점수·신호를 화면 맨 위로, ② PDP/Compare를 사이트별로 분리해서 표시.
-   구조: 종합 배너 → [PDP 섹션 → 권역 → 사이트(펼치면 상세)] → [Compare 섹션 → 권역 → 사이트].
-   QubiApp.tsx에서 <SiteOverview>(Data QA)와 나란히, 결과 화면 맨 위에서 호출한다. */
+/* ── [2026-07 재배치 — DATA QA와 순서·양식 얼라인] ──
+   · SpecSiteOverview: 화면 맨 위 — DATA QA의 '전사이트 현황'(SiteOverview)과 같은 문법.
+     현재 검수 결과의 종합 점수 + '권역별 점수 ▸' 토글만 보여준다.
+   · SpecQaDetails: 화면 아래쪽(HtmlQaSummary 옆) — PDP/Compare → 권역 → 사이트 드릴다운 상세.
+   두 컴포넌트는 QubiApp.tsx에서 각각 상단/하단에 렌더된다. */
 const PAGE_TYPE_LABEL: Record<string, string> = { PDP: "제품 상세 (PDP)", Compare: "비교 (Compare)" };
-export function SpecQaSummary({ ctx: c }: { ctx: any }) {
+
+const _specScoreOf = (r: any) => {
+  const s = r.spec_v2.summary || {};
+  const d = (s.pass || 0) + (s.critical || 0);
+  return d ? Math.round(((s.pass || 0) / d) * 100) : null;
+};
+const _specAggOf = (rs: any[]) => rs.reduce((a, r) => {
+  const s = r.spec_v2.summary || {};
+  a.crit += s.critical || 0; a.warn += s.warning || 0; a.pass += s.pass || 0; return a;
+}, { crit: 0, warn: 0, pass: 0 });
+
+/* 맨 위 — 스펙 현황(종합 + 권역별 보기). DATA QA SiteOverview와 동일한 summaryCard 스타일. */
+export function SpecSiteOverview({ ctx: c }: { ctx: any }) {
+  const [open, setOpen] = useState(false);
+  if (c.tab !== "copy") return null;
+  const rows: any[] = (c.results || []).filter((r: any) => r.spec_v2);
+  if (!rows.length) return null;
+  const agg = _specAggOf(rows);
+  const denom = agg.pass + agg.crit;
+  const score = denom ? Math.round((agg.pass / denom) * 1000) / 10 : null;
+  const overall = tlSpec(agg.crit, agg.warn);
+  // 권역별 집계
+  const byRegion: Record<string, any[]> = {};
+  for (const r of rows) (byRegion[r.region || "기타"] ||= []).push(r);
+  const regions = Object.keys(byRegion).map((rg) => {
+    const a = _specAggOf(byRegion[rg]);
+    const d = a.pass + a.crit;
+    return { region: rg, tl: tlSpec(a.crit, a.warn), score: d ? Math.round((a.pass / d) * 100) : null, crit: a.crit, warn: a.warn };
+  }).sort((x, y) => (x.score ?? 101) - (y.score ?? 101));
+  return (
+    <div className="summaryCard" style={{ marginTop: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: "var(--sec)", fontWeight: 700 }}>스펙 현황</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 16 }}>{TL_EMOJI[overall]}</span>
+          <span style={{ fontSize: 11.5, color: "var(--sec)" }}>스펙 정확도</span>
+          <b style={{ fontSize: 20, color: TL_COLOR[overall] }}>{score ?? "—"}{score != null ? "%" : ""}</b>
+        </span>
+        <span style={{ fontSize: 12, color: "var(--sec)" }}>사이트 {rows.length}곳 · 🔴 오류 {agg.crit} · 🟡 확인 {agg.warn} · ✅ 정상 {agg.pass}</span>
+        <button onClick={() => setOpen((v) => !v)}
+          style={{ marginLeft: "auto", background: "none", border: "1px solid var(--line)", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: "pointer", color: "var(--label)" }}>
+          권역별 점수 {open ? "▾" : "▸"}
+        </button>
+      </div>
+      <div style={{ fontSize: 10.5, color: "#98A2B3", marginTop: 4 }}>점수 = 정상 ÷ (정상+오류) — 확인·미노출은 반영하지 않아요 · 상세 오류·확인 현황은 화면 아래 "스펙 QA 상세"에서</div>
+      {open && (
+        <div className="qbiPopIn" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+          {regions.map((r) => (
+            <span key={r.region} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12,
+              border: "1px solid var(--line)", borderRadius: 999, padding: "4px 11px", background: "#fff" }}>
+              <span>{TL_EMOJI[r.tl]}</span>
+              <span style={{ color: "var(--sec)" }}>{r.region}</span>
+              <b style={{ color: TL_COLOR[r.tl] }}>{r.score ?? "—"}{r.score != null ? "%" : ""}</b>
+              <span style={{ fontSize: 10.5, color: "var(--sec)" }}>🔴{r.crit}·🟡{r.warn}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* 아래쪽 — 스펙 QA 상세 (PDP/Compare → 권역 → 사이트 드릴다운) */
+export function SpecQaDetails({ ctx: c }: { ctx: any }) {
   if (c.tab !== "copy") return null;
   const rows: any[] = (c.results || []).filter((r: any) => r.spec_v2);
   if (!rows.length) return null;
@@ -168,7 +232,7 @@ export function SpecQaSummary({ ctx: c }: { ctx: any }) {
   if (rows.length === 1) {
     const r0 = rows[0];
     return (
-      <div className="card qbiPopIn" style={{ marginTop: 10, padding: 14 }}>
+      <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
         <SpecOverallBanner results={rows} />
         <SpecV2Panel row={r0} product={r0.market_product || c.product} api={c.api} flash={c.flash} />
       </div>
@@ -197,8 +261,9 @@ export function SpecQaSummary({ ctx: c }: { ctx: any }) {
   const expanded = c.qaExpandedSite;
 
   return (
-    <div className="card qbiPopIn" style={{ marginTop: 10, padding: 14 }}>
-      {/* ② 종합 점수 + 신호(사이트 pill) — 맨 위 */}
+    <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
+      <b style={{ fontSize: 13.5 }}>스펙 QA 상세</b>
+      <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>페이지타입(PDP/Compare) → 권역 → 사이트 순 — 문제 많은 곳부터</span>
       <SpecOverallBanner results={rows} />
       {typeKeys.map((pt) => {
         const ptRows = byType[pt];

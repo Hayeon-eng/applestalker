@@ -3,7 +3,7 @@
    [2026-07 분할] QubiSpecQa.tsx에서 분리. */
 import { useEffect, useRef, useState } from "react";
 
-import { C, InfoTip } from "./specQaShared";
+import { C } from "./specQaShared";
 
 const VAL_KO: Record<string, { label: string; desc: string }> = {
   // [V3] 공통 원칙: 값이 페이지에 없는 건 오류가 아니고, "틀린 값이 항목과 함께
@@ -72,9 +72,23 @@ export function SpecV2RuleTable({ product, api, flash }:
         <b style={{ fontSize: 14 }}>검수 기준 스펙 — Rule DB</b>
         <span style={{ fontSize: 11, background: "#EEF4FE", color: C.blue, borderRadius: 5, padding: "2px 7px", fontWeight: 700 }}>{product}</span>
         <span style={{ fontSize: 11.5, color: "var(--sec)" }}>룰 {rules.length}개 · 버전 {versionDisplay(data?.version) || "—"}</span>
-        <span style={{ marginLeft: "auto" }}>
+        <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6 }}>
           <button onClick={() => fileRef.current?.click()} disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>
             {busy ? "업로드 중…" : "⬆ Rule DB 엑셀 업로드"}
+          </button>
+          {/* [2026-07] 모델 DB 삭제 — 신모델 엑셀 업로드 후 구모델(예: Fold7)을 목록에서 내릴 때.
+              룰·제품 사전·예외가 전부 삭제되며, 검수 이력·모니터링 URL·Global 사전은 유지된다. */}
+          <button disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px", color: "#B42318", borderColor: "#FECDCA" }}
+            onClick={async () => {
+              if (!window.confirm(`'${product}'의 Rule DB 전체(룰 ${rules.length}개 + 제품 사전)를 삭제할까요?\n\n검수 이력·모니터링 URL·공통(Global) 사전은 그대로 유지됩니다.\n같은 제품 엑셀을 다시 업로드하면 언제든 복구돼요.`)) return;
+              setBusy(true);
+              try {
+                const r = await fetch(api("/api/qb/spec-rules/delete"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product }) });
+                if (!r.ok) throw new Error(String((await r.json().catch(() => ({}))).detail || r.status));
+                flash(`'${product}' Rule DB 삭제됨 — 제품 목록은 새로고침 후 반영 🐝`); load();
+              } catch (e: any) { flash(`삭제 실패 — ${e.message || e}`); } finally { setBusy(false); }
+            }}>
+            🗑 모델 삭제
           </button>
           <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.currentTarget.value = ""; }} />
         </span>
@@ -83,7 +97,7 @@ export function SpecV2RuleTable({ product, api, flash }:
         이 표가 "정답지"예요. 각 항목이 페이지에 <b>이래야 정상</b>이라는 기준입니다. 값 수정은 엑셀을 고쳐 업로드하세요(화면 직접 편집 안 함 — 이력 관리를 엑셀로 일원화).
       </p>
       <div style={{ fontSize: 10.5, color: "var(--sec)", marginBottom: 8 }}>
-        등급: <span style={{ color: "#D8362F" }}>●</span> 필수 · <span style={{ color: "#B54708" }}>●</span> 중요 · <span style={{ color: "#0A66E0" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고 · 각 행의 <b style={{ color: C.blue }}>ⓘ</b>를 누르면 검사 방식이 나와요
+        등급: <span style={{ color: "#D8362F" }}>●</span> 필수(틀리면 즉시 오류) · <span style={{ color: "#B54708" }}>●</span> 중요 · <span style={{ color: "#0A66E0" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고 — 검사 방식·노출 위치는 각 행 아래 작은 글씨로 표시돼요
       </div>
       <div style={{ maxHeight: 340, overflow: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
@@ -97,20 +111,22 @@ export function SpecV2RuleTable({ product, api, flash }:
               const valDesc = VAL_KO[r.validation]?.desc || r.validation;
               return (
                 <tr key={r.rule_id}>
+                  {/* [2026-07] 기준표 ⓘ 툴팁 전면 삭제 — 클릭 없이 읽히도록 서브텍스트로 상시 노출 */}
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
                     <span style={{ color: pri.c, marginRight: 5 }}>●</span>
                     <b>{r.attribute}</b>
-                    <InfoTip text={`${pri.ko} — ${pri.why}`} />
                     <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginLeft: 13 }}>{r.category}</span>
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
                     <b style={{ color: "#067647" }}>{normalText(r)}</b>
-                    <InfoTip text={`검사 방식: ${valDesc}`} />
+                    <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginTop: 2, lineHeight: 1.5 }}>{VAL_KO[r.validation]?.label || r.validation} — {valDesc}</span>
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11.5 }}>
                     <b style={{ color: pri.c }}>{pri.ko}</b>
                     <span> · {(PAGE_KO[r.page]?.ko) || r.page}</span>
-                    <InfoTip text={`위치: ${(PAGE_KO[r.page]?.tip) || r.page}${r.exception ? "\n※ 특정 국가/조건 예외 규칙 있음" : ""}`} />
+                    <span style={{ display: "block", fontSize: 10.5, color: "#98A2B3", marginTop: 2 }}>
+                      {(PAGE_KO[r.page]?.tip) || r.page}{r.exception ? " · ※ 국가/조건 예외 있음" : ""}
+                    </span>
                   </td>
                 </tr>
               );
@@ -122,7 +138,7 @@ export function SpecV2RuleTable({ product, api, flash }:
   );
 }
 
-/* ── V2 검수 기준 설명 (구 CriteriaPanel 스펙 브랜치 대체) ── */
+/* ── V2 검수 기준 설명 — [2026-07] 사람 친화적으로 재작성: 3가지 결과 중심, 짧은 문장 ── */
 export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: any }) {
   if (!show) return null;
   const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
@@ -132,83 +148,62 @@ export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: a
     <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
       <b style={{ fontSize: 14 }}>검수 방식 — 스펙</b>
       <p style={{ fontSize: 12.5, color: "var(--sec)", margin: "6px 0 0" }}>
-        한 줄 요약: 위 Rule DB 표에 적힌 <b>정답 값</b>이 실제 페이지에 <b>그대로 있는지</b>를 규칙으로 대조합니다. AI가 추측하지 않고 정해진 규칙만 쓰기 때문에 같은 페이지는 항상 같은 결과가 나옵니다.
+        위 Rule DB 표의 <b>정답 값</b>이 페이지에 <b>제대로 적혀 있는지</b>를 규칙으로만 대조해요. AI 추측이 없어서 같은 페이지는 언제나 같은 결과가 나옵니다.
       </p>
       <div style={box}>
-        <div style={h}>① 어디를 검사하나요</div>
+        <div style={h}>결과는 딱 3가지</div>
         <div style={li}>
-          스펙표·각주·구성품 영역과 본문에서 <b>정답 값이 올바르게 노출됐는지 / 틀린 값이 적혀 있는지</b>만 봅니다. Header·Footer·Nav·메뉴·버튼·팝업/프로모션은 애초에 검사하지 않습니다.<br />
-          "4,400"과 "4 400"처럼 나라별 표기 차이는 <b>같은 값으로 인정</b>하고, 칩셋명처럼 나라마다 부르는 이름이 다른 항목은 사전(Dictionary)에 등록된 표기면 정상으로 봅니다.
+          <div>🔴 <b style={{ color: C.crit }}>오류</b> — 틀린 값이 <b>실제로 적혀 있음</b>. 예: 항목 이름 옆에 다른 숫자, 전작 스펙이 잘못 섞임. 1건만 있어도 페이지는 빨간불.</div>
+          <div style={{ marginTop: 4 }}>🟡 <b style={{ color: C.warn }}>확인</b> — 틀렸다고 단정하긴 애매한 것. 사람이 한 번 봐주면 되고, <b>점수는 깎이지 않아요</b>.</div>
+          <div style={{ marginTop: 4 }}>⚪ <b>값 없음</b> — 페이지에 아예 안 보이면 <b>오류가 아니에요</b>. 표시도 집계도 하지 않습니다.</div>
         </div>
       </div>
       <div style={box}>
-        <div style={h}>② 세 가지 판정 결과</div>
+        <div style={h}>언어·표기가 달라도 알아봐요</div>
         <div style={li}>
-          <div>🔴 <b style={{ color: C.crit }}>오류</b> — <b>틀린 값이 실제로 적혀 있음</b>을 확인한 경우. 예: 항목 라벨과 함께 적힌 오답, "일반 4,272mAh"처럼 한정어가 바뀐 값, 전작 스펙이 잘못 섞여 들어간 경우. 1건만 있어도 그 페이지는 오류로 처리됩니다.</div>
-          <div style={{ marginTop: 4 }}>🟡 <b style={{ color: C.warn }}>확인</b> — 오답이라 단정하기엔 근거가 약한 경우. 예: "약 8인치" 같은 근사 표기, 라벨 없이 혼자 발견된 다른 숫자. <b>점수에는 영향 없고</b> 사람이 한 번 눈으로 봐주면 됩니다.</div>
-          <div style={{ marginTop: 4 }}>⚪ <b>값 없음 = 오류 아님</b> — 페이지에 아예 안 보이는 항목은 표시도, 집계도 하지 않습니다. 오류는 "틀린 값이 적혀 있을 때"만 발생합니다.</div>
+          4,400 mAh = 4.400 mAh = 4400mAh, 24 hours = 24時間 = 24시간 = 24 hrs처럼 <b>나라별 숫자·단위 표기를 같은 값으로 인정</b>해요.
+          칩셋명처럼 나라마다 이름이 다른 항목은 사전(Dictionary)에 등록된 표기면 정상. "Fold6보다 …" 같은 전작 비교 문구는 전작 정답지와 따로 대조합니다.
         </div>
       </div>
       <div style={box}>
-        <div style={h}>③ 잘못 잡아내지 않기 위한 안전장치</div>
-        <div style={li}>
-          · 정답 값 자체(숫자+다국어 단위)로 찾기 때문에 언어가 달라도(2,600nits = 2600니트) 문제 없음<br />
-          · 정답이 여러 개 허용되는 항목(일반 4,400mAh / 정격 4,272mAh)은 어느 쪽이든 정상 처리<br />
-          · "Galaxy Z Fold6의 …"처럼 전작을 언급하는 문장은 전작 정답지와 따로 대조<br />
-          · Compare 표는 컬럼 단위로 제품을 구분해서, 옆 제품 컬럼 값을 오인하지 않음<br />
-          · 프로모션 배너 숫자·국가별 예외 규칙은 미리 반영
-        </div>
+        <div style={h}>검사하지 않는 곳</div>
+        <div style={li}>Header · Footer · 메뉴 · 팝업/프로모션 배너는 애초에 보지 않아요. Compare 표는 컬럼(제품)별로 구분해서 옆 제품 값을 오인하지 않습니다.</div>
       </div>
       <div style={box}>
-        <div style={h}>④ Dictionary Review는 별개 기능</div>
-        <div style={li}>
-          화면 맨 아래 접힌 섹션에 나오는 <b>Dictionary Review</b>는 오류·확인과 무관한 보조 기능입니다. 제품 내 여러 페이지에 반복 등장한 <b>미등록 표현</b>만 빈도순으로 모아 보여줄 뿐, 점수나 신호등에는 전혀 영향을 주지 않습니다.
-        </div>
+        <div style={h}>Dictionary Review는 별개</div>
+        <div style={li}>화면 맨 아래의 미등록 표현 목록은 <b>점수·신호등과 무관한</b> 번역 관리 기능이에요. 승인하면 다음 검수부터 반영됩니다.</div>
       </div>
     </div>
   );
 }
 
-/* ── V2 점수 계산 설명 (구 ScorePanel의 스펙 탭 대응) ── */
+/* ── V2 점수 계산 설명 — [2026-07] 계산식 한 줄 + 예시 한 줄 중심으로 간결화 ── */
 export function SpecV2Score({ show, panelRef }: { show: boolean; panelRef?: any }) {
   if (!show) return null;
   const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
   const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
   return (
     <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 16 }}>
-      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>📊 점수 산출 방식 — 스펙</div>
-      <p style={{ fontSize: 12.5, color: "var(--sec)", margin: "0 0 8px" }}>
-        한 줄 요약: <b>정답과 일치한 항목의 비율</b>입니다. "확인"과 "값 없음"은 감점하지 않습니다.
-      </p>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>📊 점수 계산 — 스펙</div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 계산식</div>
-        <div style={li}>정상(일치) ÷ (정상 + 오류) × 100</div>
-        <div style={{ ...li, marginTop: 4 }}>
-          🟡 확인은 감점 사유가 아니라서 분모에서 빠집니다 — 확인만 있는 페이지는 <b>100%</b> + 확인 배지로 표시됩니다.<br />
-          값이 페이지에 없는 항목도 오류가 아니므로 애초에 집계 대상이 아닙니다.
+        <div style={{ fontSize: 15, fontWeight: 800 }}>점수 = 정상 ÷ (정상 + 오류) × 100</div>
+        <div style={{ ...li, marginTop: 6 }}>
+          🟡 확인과 ⚪ 값 없음은 <b>계산에 넣지 않아요</b> — 오답이라는 증거가 아니기 때문이에요.
+          확인만 있는 페이지는 <b>100% + 🟡 배지</b>로 표시됩니다.
         </div>
         <div style={{ ...li, marginTop: 6, background: "#fff", border: "1px solid var(--line)", borderRadius: 6, padding: "6px 8px" }}>
-          예시: 정상 22 · 오류 2 · 확인 1 → 22 ÷ (22+2) = <b>91.7%</b> (확인 1건은 배지로만 별도 표시, 계산에서 제외)
+          예) 정상 22 · 오류 2 · 확인 1 → 22 ÷ 24 = <b>91.7%</b> (확인 1건은 배지로만)
         </div>
-      </div>
-      <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리 점수도 같은 방식</div>
-        <div style={li}>배터리·디스플레이 등 카테고리별 점수도 위와 똑같은 식으로 계산합니다. 카드에 보이는 "Rule Pass 8/8"이 그 카테고리의 (정상 / 정상+오류) 값이고, 오류·확인이 하나라도 있으면 해당 카테고리는 자동으로 펼쳐집니다.</div>
-      </div>
-      <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ Dictionary Review는 점수와 무관</div>
-        <div style={li}>화면 맨 아래 Dictionary Review는 점수·신호등 계산에서 완전히 분리된 보조 기능입니다. 여러 페이지에서 반복 등장한 미등록 표현만 모아 보여주고, 담당자가 승인하면 다음 검수부터 정식 사전에 반영됩니다.</div>
-      </div>
-      <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ "커버리지 경고"가 뜨면 점수를 곧이곧대로 보지 마세요</div>
-        <div style={li}>판정 대상의 절반 이상이 아예 검출되지 않으면 상단에 경고가 뜹니다. 이때 높은 점수는 "다 통과했다"가 아니라 "애초에 검출된 게 적다"는 뜻일 수 있으니, Dictionary Review를 먼저 확인해보세요.</div>
+        <div style={{ ...li, marginTop: 4 }}>카테고리(배터리·디스플레이…) 점수도 같은 식이에요.</div>
       </div>
       <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8, background: "#FFF5F4", border: "1px solid #FECDCA", borderRadius: 8, padding: "8px 10px" }}>
-        <b>신호등 기준 (스펙은 Data QA보다 엄격)</b>
-        <div style={{ marginTop: 3 }}>🔴 오류 1건 이상 · 🟡 오류 0 + 확인 있음 · 🟢 오류·확인 모두 0</div>
-        <div style={{ marginTop: 3 }}>최상단 종합 판단 배너와 사이트별 신호등도 전부 같은 기준입니다. Data QA와 색·이모지는 같지만, 스펙 값 오류는 소비자 오인·법적 리스크로 이어질 수 있어 "%기준"이 아니라 <b>"오류 1건 = 즉시 빨강"</b>으로 판정합니다.</div>
+        <b>신호등 (스펙은 %가 아니라 건수 기준 — Data QA보다 엄격)</b>
+        <div style={{ marginTop: 3 }}>🔴 오류 1건 이상 · 🟡 오류 0 + 확인 있음 · 🟢 둘 다 0</div>
+        <div style={{ marginTop: 3, fontSize: 11.5 }}>스펙 오기재는 소비자 오인·법적 리스크로 이어질 수 있어 "오류 1건 = 즉시 빨강"으로 봅니다.</div>
+      </div>
+      <div style={{ fontSize: 11.5, color: "#93540A", marginTop: 8, background: "#FFFAEB", border: "1px solid #FEDF89", borderRadius: 8, padding: "8px 10px" }}>
+        ⚠️ 상단에 <b>커버리지 경고</b>가 뜨면 점수를 그대로 믿지 마세요 — "다 맞았다"가 아니라 "검출된 게 적다"는 뜻일 수 있어요.
       </div>
     </div>
   );
 }
-
