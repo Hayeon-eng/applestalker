@@ -1078,6 +1078,139 @@
   "unit_synonyms": {},
   "previous_models": [
     {
+      "model": "Galaxy Z Flip7 FE",
+      "aliases": [
+        "Z Flip7 FE",
+        "Flip7 FE",
+        "갤럭시 Z 플립7 FE",
+        "플립7 FE"
+      ],
+      "specs": [
+        {
+          "attribute": "Main Display Size",
+          "values": [
+            "6.7"
+          ],
+          "unit": "inch"
+        },
+        {
+          "attribute": "Cover Display Size",
+          "values": [
+            "3.4"
+          ],
+          "unit": "inch"
+        },
+        {
+          "attribute": "Main Resolution",
+          "values": [
+            "2640 x 1080"
+          ],
+          "unit": "px"
+        },
+        {
+          "attribute": "Cover Resolution",
+          "values": [
+            "720 x 748"
+          ],
+          "unit": "px"
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "2600",
+            "1600"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "Refresh Rate",
+          "values": [
+            "120",
+            "60"
+          ],
+          "unit": "Hz"
+        },
+        {
+          "attribute": "RAM",
+          "values": [
+            "8"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Storage Option",
+          "values": [
+            "128",
+            "256"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "50"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Ultra Wide Camera",
+          "values": [
+            "12"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Front Camera",
+          "values": [
+            "10"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Battery Capacity",
+          "values": [
+            "4000"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "24"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "187"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "14.9"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Thickness (Unfolded)",
+          "values": [
+            "6.9"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Processor",
+          "values": [
+            "Exynos 2400"
+          ],
+          "unit": ""
+        }
+      ]
+    },
+    {
       "model": "Galaxy Z Flip6",
       "aliases": [
         "Galaxy Z Flip 6",

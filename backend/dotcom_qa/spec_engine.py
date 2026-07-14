@@ -169,16 +169,24 @@ def _unit_accepted_union(rules: List[Dict], prev_models: List[Dict]) -> Dict[str
 def _pair_owner(pair: Dict[str, Any], target_tokens: List[str],
                 prev_tokens: List[Tuple[str, str]]) -> Optional[str]:
     """Compare 표 페어의 소속 제품. None=검수 대상(또는 미상), 'skip'=무관 제품,
-    그 외 문자열=전작 모델키."""
+    그 외 문자열=전작 모델키.
+
+    [2026-07 FIX — 이름 포함 관계 오귀속]
+    'Galaxy Watch8 Classic'/'Galaxy Z Flip7 FE'처럼 이웃 모델명이 대상 제품명을
+    문자열로 포함하는 경우, 기존 '대상 토큰 우선' 검사로는 그 컬럼이 대상 제품으로
+    오귀속됐다(실측: Classic 컬럼 64GB → Watch8 오류 오탐). 이제 대상/전작 양쪽에서
+    '가장 긴 매칭 토큰'을 찾아 더 구체적인(긴) 쪽으로 귀속한다 — 'galaxy watch8
+    classic'(전작 등록)이 'galaxy watch8'(대상)보다 길므로 Classic으로 정확히 귀속."""
     hint = svm.normalize_text(pair.get("product_hint", ""))
     if not hint:
         return None
-    for t in target_tokens:
-        if t and t in hint:
-            return None
+    best_target = max((len(t) for t in target_tokens if t and t in hint), default=0)
+    best_prev, best_prev_model = 0, None
     for tok, model in prev_tokens:
-        if tok in hint:
-            return model
+        if tok and tok in hint and len(tok) > best_prev:
+            best_prev, best_prev_model = len(tok), model
+    if best_target or best_prev:
+        return None if best_target >= best_prev else best_prev_model
     # [V3.3] 제품명으로 보이는 헤더("갤럭시 …", "Galaxy …")인데 대상/전작 어느 쪽도
     # 아니면 무관 제품 컬럼 → skip. 그 외("사양", "Spec", 빈 헤더 등 일반 컬럼명)는
     # 제품 정보가 아니므로 대상 페어로 취급 — 통째로 버려서 전부 미감지가 되는 것 방지.

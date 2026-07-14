@@ -239,6 +239,23 @@ check("Q4 감지 0이면 summary.diagnosis 제공(원인 힌트 포함)",
       r["summary"].get("detected") == 0 and bool(r["summary"].get("diagnosis", {}).get("hint")),
       str(r["summary"].get("diagnosis")))
 
+# [2026-07] 이름 포함 관계 컬럼 귀속 — 이웃 모델명이 대상 제품명을 포함하는 Compare
+fe_tbl = """<html><body><table>
+<tr><th>사양</th><th>Galaxy Z Fold7 스페셜(가상)</th><th>갤럭시 Z 폴드7</th></tr>
+<tr><td>Weight</td><td>239 g</td><td>215 g</td></tr>
+</table></body></html>"""
+# 가상 이웃 모델을 전작 정답지에 등록해 longest-token 귀속 검증
+RS_FE = {**RS, "previous_models": RS.get("previous_models", []) + [
+    {"model": "Galaxy Z Fold7 스페셜(가상)", "aliases": ["갤럭시 Z 폴드7 스페셜"],
+     "specs": [{"attribute": "Weight", "values": ["239"], "unit": "g"}]}]}
+import spec_engine as _se
+r = _se.run(fe_tbl, RS_FE, page_type="Compare")
+check("Q5 대상명을 포함한 이웃 모델 컬럼(…폴드7 스페셜) → 최장 토큰 귀속, critical 0",
+      r["summary"]["critical"] == 0, str(r["summary"]))
+r = run("""<html><body><table><tr><th>사양</th><th>갤럭시 Z 폴드7</th></tr>
+<tr><td>Weight</td><td>239 g</td></tr></table></body></html>""", page_type="Compare")
+check("Q6 대상 컬럼의 전작 값(239g)은 여전히 FAIL", r["summary"]["critical"] >= 1, str(r["summary"]))
+
 print()
 if FAILED:
     print(f"❌ {len(FAILED)} failed: {FAILED}"); sys.exit(1)
