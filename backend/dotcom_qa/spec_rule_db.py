@@ -26,6 +26,12 @@ from typing import Any, Dict, List, Optional
 
 _HERE = os.path.dirname(__file__)
 
+# 제품 목록에서 항상 제외되는 가짜/공통 키.
+# [2026-07 FIX] Global Dictionary 시드가 spec_rules.seed.global.json 이름으로 저장돼
+# 제품 필터에 'global'이라는 유령 제품 칩이 떴다 — 시드 파일명을 __global__로 통일하고
+# (spec_dict_global.load()가 찾는 이름과 일치), 목록에서는 두 표기를 모두 제외한다.
+_NON_PRODUCT_KEYS = {"__global__", "global", "__deleted__"}
+
 # Validation 타입 표준화(엑셀 표기 흔들림 흡수)
 _VALIDATION_TYPES = {
     "exact": "exact",
@@ -257,6 +263,13 @@ def save(product: str, ruleset: Dict[str, Any], version: str = "", merge_diction
                               version=version or ruleset.get("version", ""), updated_at=now)
             db.add(row)
         db.commit()
+        # [2026-07] 삭제 마커에 있던 제품을 다시 업로드하면 마커에서 자동 해제
+        try:
+            dp = deleted_products()
+            if product in dp:
+                _set_deleted([p for p in dp if p != product])
+        except Exception:
+            pass
         return {"product": product, "version": row.version, "updated_at": now,
                 "rules": len(ruleset.get("rules", []))}
     finally:
@@ -276,6 +289,8 @@ def load(product: str) -> Optional[Dict[str, Any]]:
             db.close()
     except Exception as e:  # DB 미설정(로컬 등)이어도 시드로 동작
         print(f"[spec_rule_db] DB load skip: {e}")
+    if product in deleted_products():  # 삭제된 제품 — 시드 폴백 금지
+        return None
     seed = os.path.join(_HERE, f"spec_rules.seed.{product}.json")
     if os.path.exists(seed):
         return json.load(open(seed, encoding="utf-8"))
@@ -284,12 +299,13 @@ def load(product: str) -> Optional[Dict[str, Any]]:
 
 def list_products() -> List[Dict[str, Any]]:
     out, seen = [], set()
+    deleted = set(deleted_products())
     try:
         SessionLocal, QbSpecRules = _db()
         db = SessionLocal()
         try:
             for row in db.query(QbSpecRules).all():
-                if row.product == "__global__":  # Global Dictionary 저장용 가짜 제품 행 — 목록 제외
+                if row.product in _NON_PRODUCT_KEYS:  # Global Dictionary/마커 행 — 목록 제외
                     continue
                 out.append({"product": row.product, "version": row.version,
                             "updated_at": row.updated_at, "source": "db"})
@@ -300,9 +316,74 @@ def list_products() -> List[Dict[str, Any]]:
         pass
     for fn in os.listdir(_HERE):
         m = re.match(r"spec_rules\.seed\.(.+)\.json$", fn)
-        if m and m.group(1) not in seen and m.group(1) != "__global__":
-            out.append({"product": m.group(1), "version": "seed", "updated_at": "", "source": "seed"})
+        if not m:
+            continue
+        p = m.group(1)
+        # [2026-07] 삭제된 제품(deleted_products)은 시드가 저장소에 남아 있어도 되살리지 않는다.
+        if p in seen or p in _NON_PRODUCT_KEYS or p in deleted:
+            continue
+        out.append({"product": p, "version": "seed", "updated_at": "", "source": "seed"})
     return out
+
+
+# ── [2026-07 신규] 제품 Rule DB 삭제 ────────────────────────────────────
+# 신모델(예: 다음 세대 폴더블)을 엑셀로 올린 뒤 구모델(Fold7/Flip7 등)을 목록에서
+# 내리기 위한 기능. DB 행을 지우고, 저장소에 시드 JSON이 남아 있어도 부활하지 않도록
+# '__deleted__' 마커 행(제품명 목록 JSON)에 기록한다. 같은 제품을 다시 엑셀 업로드하면
+# 마커에서 자동 해제된다(save 참조).
+
+def deleted_products() -> List[str]:
+    try:
+        SessionLocal, QbSpecRules = _db()
+        db = SessionLocal()
+        try:
+            row = db.query(QbSpecRules).filter(QbSpecRules.product == "__deleted__").first()
+            if row and row.data:
+                return list(json.loads(row.data))
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return []
+
+
+def _set_deleted(products: List[str]) -> None:
+    SessionLocal, QbSpecRules = _db()
+    db = SessionLocal()
+    try:
+        row = db.query(QbSpecRules).filter(QbSpecRules.product == "__deleted__").first()
+        payload = json.dumps(sorted(set(products)), ensure_ascii=False)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if row:
+            row.data = payload; row.updated_at = now
+        else:
+            db.add(QbSpecRules(product="__deleted__", data=payload, version="marker", updated_at=now))
+        db.commit()
+    finally:
+        db.close()
+
+
+def delete_product(product: str) -> Dict[str, Any]:
+    """제품의 Rule DB 전체 삭제(룰·사전·예외·후보 포함 1행). Global Dictionary(공통 번역)는
+    별도 행(__global__)이라 영향받지 않는다."""
+    if product in _NON_PRODUCT_KEYS:
+        raise ValueError("공통/마커 행은 삭제할 수 없습니다.")
+    removed_db = False
+    try:
+        SessionLocal, QbSpecRules = _db()
+        db = SessionLocal()
+        try:
+            n = db.query(QbSpecRules).filter(QbSpecRules.product == product).delete(synchronize_session=False)
+            db.commit()
+            removed_db = n > 0
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[spec_rule_db] delete skip: {e}")
+    has_seed = os.path.exists(os.path.join(_HERE, f"spec_rules.seed.{product}.json"))
+    if has_seed:  # 시드 부활 방지 마커
+        _set_deleted(deleted_products() + [product])
+    return {"product": product, "removed_db": removed_db, "seed_blocked": has_seed}
 
 
 def add_alias(product: str, representative: str, alias: str) -> Dict[str, Any]:

@@ -362,6 +362,14 @@ def _schema_detail_rows(pr):
                          "Add new <script type=\"application/ld+json\"> in <head>/<body>",
                          "Block missing — no rich result / AEO signal for this type",
                          _fix_code_for_block_missing(f, pr)))
+            # [2026-07 FIX — 리포트 중복] 블록 자체가 없는데 그 블록의 속성 누락
+            # (inLanguage/about 등)을 별도 행으로 또 내리면 "FAQPage 없음" + "FAQPage의
+            # inLanguage 없음"이 모순처럼 겹친다. 블록 미존재 행의 Fix Code에 전체 템플릿이
+            # 이미 들어가므로, 이 finding의 속성 단위 행은 전부 생략한다.
+            for prop in (f.get("missing_props") or []):
+                covered.add((ty, prop))
+            covered.add((ty, "@id"))
+            continue  # 아래 속성 단위 분해 루프를 건너뛴다
         if code == "schema.parse_error":
             structured = True
             ln, col = f.get("parse_lineno"), f.get("parse_colno")
@@ -583,7 +591,7 @@ def build_xlsx(page_results):
                 loc = f'{it.get("page", "")}' + (f' > {it["section"]}' if it.get("section") else "")
                 if it.get("fix_guide"):
                     exp = f'{exp}  ·  Fix: {it["fix_guide"]}'
-                label = "Rule · " + it.get("rule_id", "") + (" (low-confidence)" if it.get("status") == "warn" else "")
+                label = "Rule · " + it.get("rule_id", "") + (" (review — not a confirmed error)" if it.get("status") == "warn" else "")
                 spec_rows.append((meta, label, item, it["status"], exp, found_s, loc or "PDP"))
             for c in sv.get("dictionary_review", []) or []:
                 spec_rows.append((meta, "Dictionary(보조)", c.get("alias", ""), "info",

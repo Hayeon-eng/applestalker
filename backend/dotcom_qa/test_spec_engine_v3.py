@@ -113,13 +113,26 @@ check("H2 값 없음 항목은 na(집계 제외)", item(r, "DISPLAY_006")["statu
 check("H3 exists 룰이 결과에 없음",
       not any(i["validation"] == "exists" for i in r["items"]))
 
-# ── I. 근사·단독 불일치 → warn ───────────────────────────────────────
+# ── I. 근사·단독 불일치 ─────────────────────────────────────────────
+# [2026-07 운영 결정 변경] 근사 마커('약/約')가 있어도 값이 정답 집합 안이면 PASS.
+# 'Up to 24 hours'의 현지화('約24時間'/'약 24시간')가 확인으로 내려가던 오탐 수정.
 r = run(P("약 8인치의 대화면"))
-check("I1 '약 8인치' 근사 표기 → warn",
-      item(r, "DISPLAY_001")["status"] == "warn", item(r, "DISPLAY_001")["message"])
+check("I1 '약 8인치'(정답값 8.0) → PASS(근사 마커는 감점/확인 사유 아님)",
+      item(r, "DISPLAY_001")["status"] == "pass", item(r, "DISPLAY_001")["message"])
+r = run(P("約24 時間のビデオ再生"))
+check("I1b '約24 時間'(정답 24 hours) → PASS(다국어 단위+근사 마커)",
+      item(r, "BATTERY_004")["status"] == "pass", item(r, "BATTERY_004")["message"])
 r = run(P("1,750니트로 촬영된 콘텐츠도 생생하게"))
 check("I2 라벨·모델명 없는 단독 불일치 → warn(Critical 아님)",
       item(r, "DISPLAY_006")["status"] == "warn", item(r, "DISPLAY_006")["message"])
+
+# ── I3. [2026-07] 델타 표기·타모델 비교 블록 오탐 방지 ──────────────
+r = run(P("Galaxy Z Fold3 Folded 14.4 mm  Thickness (Folded) -5.5 mm  Weight -56 g"))
+check("I3 전작 비교 델타(-5.5mm/-56g) → critical 0 (스펙 주장 아님)",
+      r["summary"]["critical"] == 0, str(r["summary"]))
+r = run(P("Galaxy S25 Ultra 8.2 mm  Thickness (Folded) +0.7 mm"))
+check("I4 등록된 참조 모델(S25 Ultra) 두께 8.2mm + 델타 +0.7mm → critical 0",
+      r["summary"]["critical"] == 0, str(r["summary"]))
 
 # ── J. 단위 합집합 ───────────────────────────────────────────────────
 r = run(P("12GB RAM과 256GB 저장 공간"))
@@ -168,7 +181,7 @@ check("N1 '광학 줌 수준의 2배' → Optical Zoom warn(확인), FAIL 아님
       item(r, "CAM_004")["status"] == "warn", item(r, "CAM_004")["message"])
 
 # ── O. 점수 — 확인은 분모 제외 (100% + 확인 배지) ────────────────────
-r = run(P("무게 215g", "약 8인치의 대화면"))
+r = run(P("무게 215g", "1,750니트로 촬영된 콘텐츠도 생생하게"))
 dim = next(c for c in r["categories"] if c["category"] == "Dimension")
 disp = next(c for c in r["categories"] if c["category"] == "Display")
 check("O1 확인만 있는 카테고리 점수는 감점 없음(100 또는 None)",

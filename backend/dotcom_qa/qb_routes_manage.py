@@ -86,11 +86,22 @@ def qb_products():
     # [V2] Rule DB(spec_rules) 제품도 드롭다운에 합류 — 없으면 V2 화면으로 갈 입구가 없음
     try:
         import spec_rule_db as _srd
+
+        def _v2_label(code: str) -> str:
+            # 슬러그 → 사람이 읽는 제품명. 새 계열이 나오면 여기 한 줄이면 된다.
+            KNOWN = {
+                "galaxy-watch8": "Galaxy Watch8",
+                "galaxy-watch-ultra": "Galaxy Watch Ultra",
+            }
+            if code in KNOWN:
+                return KNOWN[code]
+            out = code.replace("galaxy-z-", "Galaxy Z ").replace("galaxy-watch", "Galaxy Watch")
+            out = out.replace("fold", "Fold").replace("flip", "Flip")
+            return out
         have = {p["code"] for p in out}
         for p in _srd.list_products():
             if p["product"] not in have:
-                label = p["product"].replace("galaxy-z-", "Galaxy Z ").replace("fold", "Fold").replace("flip", "Flip")
-                out.append({"code": p["product"], "label": label, "spec_only": False, "v2": True})
+                out.append({"code": p["product"], "label": _v2_label(p["product"]), "spec_only": False, "v2": True})
             else:
                 for o in out:
                     if o["code"] == p["product"]:

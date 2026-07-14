@@ -163,9 +163,18 @@ def scan_unit_hits(blocks: List[str], unit: str,
             val = float(m.group(1))
             ctx_pre = nb[max(0, m.start() - 12):m.start()]
             approx = bool(_APPROX_RX.search(ctx_pre))
+            # [2026-07] 차이값(델타) 표기 감지 — PDP 비교 섹션은 "Thickness (Folded) +0.7 mm",
+            # "Weight -56 g"처럼 전작 대비 '증감량'을 적는다(카피덱 확인). 이 숫자는 어느 모델의
+            # 스펙 주장도 아니므로 판정 대상에서 제외해야 한다.
+            #   · 직전 문자가 '+' → 델타
+            #   · 직전 문자가 '-' 이고 그 앞이 숫자가 아니면 → 델타 ("1-120hz" 범위 표기의
+            #     '-'는 앞이 숫자이므로 델타가 아님 — 범위 최대값 판정 유지)
+            prev1 = nb[m.start() - 1] if m.start() >= 1 else ""
+            prev2 = nb[m.start() - 2] if m.start() >= 2 else ""
+            delta = prev1 == "+" or (prev1 == "-" and not prev2.isdigit())
             out.append({"value": val, "unit": cu, "text": m.group(0),
                         "block": block, "block_norm": nb, "pos": m.start(),
-                        "approx": approx})
+                        "approx": approx, "delta": delta})
     return out
 
 
@@ -205,6 +214,46 @@ def parse_qualifiers(qualifier: str) -> Dict[str, List[str]]:
 
 
 # ── ⑤ 모델 귀속 (전작 비교 문구 인식) ─────────────────────────────────
+# [2026-07] 등록되지 않은 '다른 갤럭시 모델' 언급 감지 — PDP에는 Fold3~5·S22~S25 Ultra처럼
+# 전작 정답지에 없는 모델과의 비교 블록이 흔하다(카피덱 확인). 그 블록의 숫자를 검수 대상
+# 제품의 오답으로 단정(FAIL)하면 오탐이므로, 대상 제품 토큰이 없는데 다른 Galaxy 모델명이
+# 있으면 '비교 문구'로 보고 FAIL 승격을 막는다(확인 등급으로만).
+_GALAXY_MODEL_RX = re.compile(
+    r"(galaxy|갤럭시|ギャラクシー|盖乐世)\s*(z\s*)?(fold|flip|폴드|플립|s\d{2}|note|watch|워치|buds|버즈|a\d{2}|m\d{2}|tab|탭)",
+    re.I)
+
+
+def mentions_other_galaxy_model(block_norm: str, target_tokens: List[str]) -> bool:
+    """블록이 (정규화 기준) 다른 Galaxy 모델을 언급하고, 검수 대상 제품 토큰은 없는 경우 True."""
+    if not _GALAXY_MODEL_RX.search(block_norm):
+        return False
+    for t in target_tokens or []:
+        if t and t in block_norm:
+            return False
+    return True
+
+
+def split_expected_numeric_unit(expected: str, unit: str,
+                                unit_synonyms: Dict[str, List[str]]) -> Optional[Tuple[str, str]]:
+    """[2026-07 — '24 hours' exact 룰 오탐 수정]
+    exact 룰의 expected가 '숫자(+|숫자…) + 알려진 단위'(예: '24 hours', '2600 nits')이면
+    (숫자부, 정준단위)를 반환 — 이 경우 문자열 일치 대신 numeric(다국어 단위) 판정으로
+    위임해야 '24 時間'·'24시간' 같은 현지어 표기를 정답으로 인정할 수 있다."""
+    exp = normalize_text(expected)
+    if unit:  # 단위 컬럼이 이미 있으면 그대로 numeric 위임 가능 여부만 확인
+        cu = canon_unit(unit)
+        if cu in unit_synonyms and re.fullmatch(r"[\d .|/]+", exp):
+            return (expected, cu)
+        return None
+    m = re.fullmatch(r"([\d.]+(?:\s*\|\s*[\d.]+)*)\s*([a-z\"']+)", exp)
+    if not m:
+        return None
+    cu = canon_unit(m.group(2))
+    if cu in unit_synonyms:
+        return (m.group(1), cu)
+    return None
+
+
 def model_tokens(prev_models: List[Dict[str, Any]]) -> List[Tuple[str, str]]:
     """previous_models → [(normalize된 토큰, 모델키)] — 긴 토큰 우선 매칭."""
     toks: List[Tuple[str, str]] = []
@@ -252,7 +301,8 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                      unit_synonyms: Dict[str, List[str]],
                      prev_models: List[Dict[str, Any]],
                      unit_accepted_union: Dict[str, set],
-                     label_in_block=None) -> Dict[str, Any]:
+                     label_in_block=None,
+                     target_tokens: Optional[List[str]] = None) -> Dict[str, Any]:
     """numeric_exact 룰의 V3 판정.
     반환: {status: pass|fail|warn|na, found, message, detail[], confidence}
       · pass — 정답 집합 값이 (한정어 모순 없이) 발견됨
@@ -279,13 +329,15 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
     toks = model_tokens(prev_models)
 
     exact_pass_hit = None
-    approx_hit = None
     qualifier_fail = None
     label_fail = None
     lone_mismatch = None
     prev_fail = None
 
     for h in hits:
+        if h.get("delta"):
+            detail.append(f"델타 표기 {h['text']} ('+/-' 증감량) — 스펙 주장이 아니므로 판정 제외")
+            continue
         owner = attribute_block(h["block_norm"], toks)
         if owner:  # ── 전작 소속 숫자 ──
             pv = prev_accepted_for(prev_models, owner, unit)
@@ -300,15 +352,18 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
         # ── 검수 대상 제품 소속 숫자 ──
         prev_all = prev_accepted_for(prev_models, None, unit, any_model=True) or []
         if h["value"] in accepted:
-            if h["approx"]:
-                approx_hit = approx_hit or h
-                continue
-            # 한정어 교차검증: 같은 블록에 '다른 정답값'의 한정어가 붙어 있으면 오짝
+            # [2026-07 FIX — 約24時間/約4,400mAh 오탐]
+            # 근사 마커(約/약/approx…)가 붙어 있어도 값 자체가 정답 집합 안이면 PASS다.
+            # 'Up to 24 hours'의 현지화가 '約24時間'(JP)·'약 24시간'(KR)으로 흔히 번역되는데,
+            # 이를 '확인'으로 내리면 정상 페이지가 대량으로 노란 배지를 받는다(실제 리포트로 확인).
+            # 근사 마커는 이제 '정답 집합 밖 값'을 판정할 때만 참고한다.
             mism = _qualifier_mismatch(h, accepted_str, quals)
             if mism:
                 qualifier_fail = qualifier_fail or (h, mism)
             else:
                 exact_pass_hit = exact_pass_hit or h
+                if h["approx"]:
+                    detail.append(f"근사 표기('{h['text']}' 주변)지만 값이 정답 집합 안 — 정상 처리")
         elif h["value"] in prev_all and label_in_block and label_in_block(h["block"]):
             # [V3.2] 모델명 없이도 전작 정답값이 이 항목 라벨과 함께 적혀 있으면
             # 전작 값 혼입(예: Fold7 페이지에 "무게 239g") — 오기재로 승격
@@ -316,7 +371,8 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
         elif h["value"] in union:
             continue  # 같은 단위 다른 스펙의 정답(RAM 12 vs Storage 256 등) — 무관
         else:
-            if label_in_block and label_in_block(h["block"]):
+            other_model = mentions_other_galaxy_model(h["block_norm"], target_tokens or [])
+            if label_in_block and label_in_block(h["block"]) and not other_model:
                 # [V3.1] 범용 단위(x=줌 배율)는 라벨 동반이어도 FAIL로 단정하지 않는다 —
                 # "광학 줌 수준의 2배"(센서 크롭 광학급 줌)처럼 렌즈/주장에 따라 정당한
                 # 다른 값이 흔해 오답 단정이 불가 → 확인(warn) 등급으로만.
@@ -325,6 +381,10 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                 else:
                     label_fail = label_fail or h
             else:
+                # [2026-07] 전작 정답지에 없는 다른 Galaxy 모델(S25 Ultra, Fold4 등)과의
+                # 비교 블록은 라벨이 함께 있어도 오기재의 증거가 아니다 → 확인으로만.
+                if other_model:
+                    detail.append(f"다른 Galaxy 모델 비교 문구의 {_fmt_num(h['value'])}{unit} — FAIL 승격 제외(확인 등급)")
                 lone_mismatch = lone_mismatch or h
 
     # ── 우선순위대로 결론 ── (오짝/라벨 동반 오답 > 정답 발견 > 전작 오답 > 확인 > 없음)
@@ -356,11 +416,11 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                 "message": (f"전작 오기재 — '{owner}'의 {unit} 정답은 "
                             f"{'/'.join(_fmt_num(v) for v in pv)}인데 {_fmt_num(h['value'])}로 표기됨"),
                 "detail": detail}
-    if approx_hit or conv:
-        h = approx_hit or conv[0]
-        kind = "근사 표기" if approx_hit else f"단위 환산 표기({h.get('text','')})"
+    if conv:
+        h = conv[0]
         return {"status": "warn", "found": h["block"][:120], "confidence": "medium",
-                "message": f"{kind} 발견 — 정답 {'/'.join(accepted_str)}{unit}과 상응하나 표기 방식 확인 필요",
+                "message": (f"단위 환산 표기({h.get('text','')}) 발견 — 정답 {'/'.join(accepted_str)}{unit}과 "
+                            "상응하나 표기 단위가 가이드와 다름 (확인 필요)"),
                 "detail": detail}
     if lone_mismatch:
         h = lone_mismatch

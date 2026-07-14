@@ -329,6 +329,14 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                                     f"오기재 — 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule['unit'] else ''}이 아닌 {pn:g}이 항목에 표기됨", p)
                 break
             if rule["validation"] in ("exact", "prefix"):
+                # [2026-07] '24 hours'처럼 숫자+단위인 exact 룰은 여기서 문자열 충돌로 FAIL시키지
+                # 않는다 — 아래 값 우선 단계에서 다국어 단위(24 時間=24시간=24 hrs) numeric으로
+                # 판정한다. (기존엔 v_norm에 숫자만 있어도 오기재 FAIL → JP/KR 페이지 오탐)
+                if rule["validation"] == "exact" and svm.split_expected_numeric_unit(
+                        rule.get("expected", ""), rule.get("unit", ""), unit_synonyms):
+                    trace.append({"step": "pair", "detail":
+                                  f"'{p['label']}' → '{p['value'][:40]}' — 숫자+단위 exact 룰은 다국어 numeric으로 판정(보류)"})
+                    break
                 exp_norm = svm.normalize_text(rule["expected"])
                 conflict = False
                 if re.search(r"\d\s*x\s*\d", exp_norm):
@@ -369,7 +377,8 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
 
         if vtype == "numeric_exact":
             res = svm.evaluate_numeric(rule, blocks, unit_synonyms, prev_models,
-                                       unit_union, label_in_block=label_in_block)
+                                       unit_union, label_in_block=label_in_block,
+                                       target_tokens=target_tokens)
             for d in res.get("detail", []):
                 trace.append({"step": "value-scan", "detail": d})
             if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
@@ -384,6 +393,31 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             items.append(item); continue
 
         if vtype in ("exact", "dictionary", "prefix"):
+            # [2026-07 FIX — '24 hours' exact 룰이 '24 時間'을 오류로 잡던 문제]
+            # expected가 '숫자 + 알려진 단위'(24 hours / 2600 nits …)면 문자열 일치가 아니라
+            # numeric(다국어 단위 동의어) 판정으로 위임한다. 문자열 exact는 언어가 바뀌는 순간
+            # ('24 hours' ⊄ '24 時間') 정상 페이지를 오기재로 판정했다 — 실제 리포트로 확인.
+            if vtype == "exact":
+                nu = svm.split_expected_numeric_unit(rule.get("expected", ""), rule.get("unit", ""),
+                                                     unit_synonyms)
+                if nu:
+                    num_expected, cu = nu
+                    num_rule = {**rule, "expected": num_expected, "unit": cu,
+                                "validation": "numeric_exact"}
+                    trace.append({"step": "value-first", "detail":
+                                  f"exact '{rule['expected']}' → 숫자+단위({cu})로 재해석해 다국어 numeric 판정"})
+                    res = svm.evaluate_numeric(num_rule, blocks, unit_synonyms, prev_models,
+                                               unit_union, label_in_block=label_in_block,
+                                               target_tokens=target_tokens)
+                    for d in res.get("detail", []):
+                        trace.append({"step": "value-scan", "detail": d})
+                    if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
+                        res = {"status": "pass", "found": pair_verdict[1], "confidence": "high", "message": "OK"}
+                    item.update(status=res["status"], found=(res.get("found") or "")[:120],
+                                confidence=res.get("confidence", ""), message=res["message"],
+                                source=item["source"] or "value-scan")
+                    trace.append({"step": "result", "detail": f"{res['status'].upper()} — {res['message']}"})
+                    items.append(item); continue
             # 값 자체(숫자·고유 토큰)는 언어 불문이므로 값 우선 존재 검색이 성립한다.
             variants = list(accepted_str)
             if vtype == "prefix":

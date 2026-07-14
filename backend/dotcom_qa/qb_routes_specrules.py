@@ -54,6 +54,33 @@ def qb_spec_rules_get(product: str = Query(...)):
             "global_representatives": sorted(_spec_dict_global.global_representatives())}
 
 
+@qb_router.post("/spec-rules/delete")
+def qb_spec_rules_delete(payload: Dict[str, Any] = Body(...)):
+    """[2026-07 신규] 제품 Rule DB 전체 삭제 — 신모델 업로드 후 구모델(Fold7/Flip7 등)을
+    내릴 때 사용. 룰·제품별 사전·예외가 담긴 DB 1행을 지우고, 저장소 시드가 남아 있어도
+    되살아나지 않도록 삭제 마커에 기록한다(같은 제품을 다시 엑셀 업로드하면 자동 해제).
+    Global(공통) Dictionary와 다른 제품에는 영향이 없다.
+    body: {product: 'galaxy-z-fold7'}"""
+    product = (payload.get("product") or "").strip()
+    if not product:
+        raise HTTPException(400, "product가 필요합니다.")
+    try:
+        info = _spec_rule_db.delete_product(product)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    # 구식 key_specs.json 쪽에도 같은 제품이 있으면 함께 정리(제품 칩 잔존 방지)
+    try:
+        import qb_routes_manage as _mg
+        data = _mg._load_specs()
+        if product in (data.get("products") or {}):
+            del data["products"][product]
+            _mg._save_specs(data)
+            info["removed_key_specs"] = True
+    except Exception as e:
+        print(f"[spec-rules/delete] key_specs cleanup skip: {e}")
+    return {"ok": True, **info, "products": _spec_rule_db.list_products()}
+
+
 @qb_router.post("/spec-rules/upload")
 def qb_spec_rules_upload(payload: Dict[str, Any] = Body(...)):
     """Rule DB 엑셀 업로드 → 파싱 → DB 저장.

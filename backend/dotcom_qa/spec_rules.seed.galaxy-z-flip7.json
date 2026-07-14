@@ -1,6 +1,6 @@
 {
   "product": "galaxy-z-flip7",
-  "version": "V3+V3",
+  "version": "V3+V3+2026-07copydeck",
   "rules": [
     {
       "rule_id": "DEVICE_001",
@@ -159,16 +159,32 @@
     {
       "rule_id": "CAM_001",
       "category": "Camera",
-      "attribute": "Rear Camera",
-      "expected": "50MP + 12MP",
-      "unit": "",
-      "validation": "exact",
+      "attribute": "Wide Camera",
+      "expected": "50",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "qualifier": "",
+      "priority": "Critical",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Wide 50MP",
+      "notes": "카피덱: 50 MP Wide"
+    },
+    {
+      "rule_id": "CAM_001B",
+      "category": "Camera",
+      "attribute": "Ultra Wide Camera",
+      "expected": "12",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "qualifier": "",
       "priority": "High",
       "page": "PDP/Compare",
       "interaction": "",
       "exception": "",
-      "fix_guide": "50MP Wide + 12MP Ultra Wide",
-      "notes": ""
+      "fix_guide": "Ultra Wide 12MP",
+      "notes": "카피덱: 12 MP Ultra Wide"
     },
     {
       "rule_id": "CAM_002",
@@ -1175,6 +1191,123 @@
             "Snapdragon 8 Gen 3"
           ],
           "unit": ""
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Flip5",
+      "aliases": [
+        "Z Flip5",
+        "Flip5",
+        "Flip 5",
+        "갤럭시 Z 플립5",
+        "플립5"
+      ],
+      "specs": [
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "12"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Flip4",
+      "aliases": [
+        "Z Flip4",
+        "Flip4",
+        "Flip 4",
+        "갤럭시 Z 플립4",
+        "플립4"
+      ],
+      "specs": [
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "12"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Flip3",
+      "aliases": [
+        "Z Flip3",
+        "Flip3",
+        "Flip 3",
+        "갤럭시 Z 플립3",
+        "플립3"
+      ],
+      "specs": [
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "12"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S25",
+      "aliases": [
+        "갤럭시 S25"
+      ],
+      "specs": [
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "50"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S24",
+      "aliases": [
+        "갤럭시 S24"
+      ],
+      "specs": [
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "50"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S23",
+      "aliases": [
+        "갤럭시 S23"
+      ],
+      "specs": [
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "50"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S22",
+      "aliases": [
+        "갤럭시 S22"
+      ],
+      "specs": [
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "50"
+          ],
+          "unit": "MP"
         }
       ]
     }

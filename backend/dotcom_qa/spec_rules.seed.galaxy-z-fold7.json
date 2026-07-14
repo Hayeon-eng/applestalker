@@ -1,6 +1,6 @@
 {
   "product": "galaxy-z-fold7",
-  "version": "V3+V3",
+  "version": "V3+V3+2026-07copydeck",
   "rules": [
     {
       "rule_id": "DEVICE_001",
@@ -159,16 +159,47 @@
     {
       "rule_id": "CAM_001",
       "category": "Camera",
-      "attribute": "Rear Camera",
-      "expected": "200MP + 12MP + 10MP",
-      "unit": "",
-      "validation": "exact",
+      "attribute": "Wide Camera",
+      "expected": "200",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "qualifier": "",
+      "priority": "Critical",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Wide 200MP",
+      "notes": "카피덱: 200 MP Wide"
+    },
+    {
+      "rule_id": "CAM_001B",
+      "category": "Camera",
+      "attribute": "Ultra Wide Camera",
+      "expected": "12",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "qualifier": "",
       "priority": "High",
       "page": "PDP/Compare",
       "interaction": "",
       "exception": "",
-      "fix_guide": "200MP Wide + 12MP Ultra Wide + 10MP Telephoto",
-      "notes": ""
+      "fix_guide": "Ultra Wide 12MP",
+      "notes": "카피덱: 12 MP Ultra Wide"
+    },
+    {
+      "rule_id": "CAM_001C",
+      "category": "Camera",
+      "attribute": "Telephoto Camera",
+      "expected": "10",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "qualifier": "",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Telephoto 10MP (3x)",
+      "notes": "카피덱: 10 MP Telephoto"
     },
     {
       "rule_id": "CAM_002",
@@ -1239,6 +1270,253 @@
             "Snapdragon 8 Gen 3"
           ],
           "unit": ""
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Fold5",
+      "aliases": [
+        "Z Fold5",
+        "Fold5",
+        "Fold 5",
+        "갤럭시 Z 폴드5",
+        "폴드5"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "13.4"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "253"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "21"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Rear Camera",
+          "values": [
+            "50",
+            "12",
+            "10"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Fold4",
+      "aliases": [
+        "Z Fold4",
+        "Fold4",
+        "Fold 4",
+        "갤럭시 Z 폴드4",
+        "폴드4"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "14.2"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "263"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "20"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Rear Camera",
+          "values": [
+            "50",
+            "12",
+            "10"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Fold3",
+      "aliases": [
+        "Z Fold3",
+        "Fold3",
+        "Fold 3",
+        "갤럭시 Z 폴드3",
+        "폴드3"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "14.4"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "271"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "18"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Rear Camera",
+          "values": [
+            "12"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S25 Ultra",
+      "aliases": [
+        "S25 Ultra",
+        "갤럭시 S25 울트라"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness",
+          "values": [
+            "8.2"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "218"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "200"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S24 Ultra",
+      "aliases": [
+        "S24 Ultra",
+        "갤럭시 S24 울트라"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness",
+          "values": [
+            "8.6"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "232",
+            "233"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "200"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S23 Ultra",
+      "aliases": [
+        "S23 Ultra",
+        "갤럭시 S23 울트라"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness",
+          "values": [
+            "8.9"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "233",
+            "234"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "200"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S22 Ultra",
+      "aliases": [
+        "S22 Ultra",
+        "갤럭시 S22 울트라"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness",
+          "values": [
+            "8.9"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "228",
+            "229"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "108"
+          ],
+          "unit": "MP"
         }
       ]
     }
