@@ -101,7 +101,12 @@ def _applicable(rule_page: str, page_type: str) -> bool:
     for t in tokens:
         if t in ("pdp", "disclaimer", "what's in the box", "buy box") and pt in ("pdp", "buying"):
             return True
-        if t == "compare" and pt == "compare":
+        # [FIX] Compare(제품비교) 스펙은 별도 /compare URL뿐 아니라, PDP 페이지 안에
+        # 임베드된 Compare 위젯(예: samsung.com/.../galaxy-z-fold7의 비교 표)에도
+        # 흔히 존재한다. 기존엔 page_type이 정확히 "compare"일 때만 적용되어, PDP URL로
+        # 크롤한 페이지 안의 Compare 표 스펙은 룰 자체가 전부 "not applicable"로
+        # 건너뛰어졌다(허용 섹션엔 이미 "compare"가 포함되어 있어 실제 오탐 위험은 없음).
+        if t == "compare" and pt in ("compare", "pdp"):
             return True
         if t == "buy box" and pt == "buying":
             return True

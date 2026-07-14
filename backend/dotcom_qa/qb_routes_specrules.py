@@ -56,9 +56,11 @@ def qb_spec_rules_get(product: str = Query(...)):
 
 @qb_router.post("/spec-rules/delete")
 def qb_spec_rules_delete(payload: Dict[str, Any] = Body(...)):
-    """[2026-07 신규] 제품 Rule DB 전체 삭제 — 신모델 업로드 후 구모델(Fold7/Flip7 등)을
-    내릴 때 사용. 룰·제품별 사전·예외가 담긴 DB 1행을 지우고, 저장소 시드가 남아 있어도
+    """[2026-07 신규] 제품 Rule DB 삭제 — 신모델 업로드 후 구모델(Fold7/Flip7 등)을
+    내릴 때 사용. 룰·예외·후보가 담긴 DB 1행을 지우고, 저장소 시드가 남아 있어도
     되살아나지 않도록 삭제 마커에 기록한다(같은 제품을 다시 엑셀 업로드하면 자동 해제).
+    [2026-07 FIX] 제품 용어사전(Dictionary)은 함께 삭제되지 않는다 — 별도 보관해두었다가
+    재업로드 시 자동 복원되며, 완전히 지우려면 /spec-rules/dictionary/delete를 따로 호출해야 한다.
     Global(공통) Dictionary와 다른 제품에는 영향이 없다.
     body: {product: 'galaxy-z-fold7'}"""
     product = (payload.get("product") or "").strip()
@@ -79,6 +81,17 @@ def qb_spec_rules_delete(payload: Dict[str, Any] = Body(...)):
     except Exception as e:
         print(f"[spec-rules/delete] key_specs cleanup skip: {e}")
     return {"ok": True, **info, "products": _spec_rule_db.list_products()}
+
+
+@qb_router.post("/spec-rules/dictionary/delete")
+def qb_spec_rules_dictionary_delete(payload: Dict[str, Any] = Body(...)):
+    """[2026-07 신규] 제품 용어사전(Dictionary)만 별도로 완전 삭제 — 제품(룰 DB) 삭제와는
+    분리된 별도 기능이다. /spec-rules/delete는 이 사전을 건드리지 않는다.
+    body: {product: 'galaxy-z-fold7'}"""
+    product = (payload.get("product") or "").strip()
+    if not product:
+        raise HTTPException(400, "product가 필요합니다.")
+    return {"ok": True, **_spec_rule_db.delete_dictionary(product)}
 
 
 @qb_router.post("/spec-rules/upload")

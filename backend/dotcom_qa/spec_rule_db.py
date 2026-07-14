@@ -252,6 +252,18 @@ def save(product: str, ruleset: Dict[str, Any], version: str = "", merge_diction
                 ruleset = {**ruleset, "dictionary": merged}
             except Exception as e:
                 print(f"[spec_rule_db] dictionary merge skip (falling back to overwrite): {e}")
+        elif not row and merge_dictionary:
+            # [2026-07 FIX] 제품 삭제 후 재업로드 — delete_product()가 보관해둔 Dictionary를
+            # 자동으로 복원 병합한다(삭제 이전에 승인해둔 alias가 유실되지 않도록).
+            backup = _load_dictionary_backup(product)
+            if backup:
+                merged = dict(ruleset.get("dictionary", {}))
+                for rep, aliases in backup.items():
+                    cur = merged.setdefault(rep, [])
+                    for a in aliases:
+                        if a not in cur:
+                            cur.append(a)
+                ruleset = {**ruleset, "dictionary": merged}
         payload = json.dumps(ruleset, ensure_ascii=False)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if row:
@@ -305,8 +317,8 @@ def list_products() -> List[Dict[str, Any]]:
         db = SessionLocal()
         try:
             for row in db.query(QbSpecRules).all():
-                if row.product in _NON_PRODUCT_KEYS:  # Global Dictionary/마커 행 — 목록 제외
-                    continue
+                if row.product in _NON_PRODUCT_KEYS or row.product.startswith("__dict_backup__"):
+                    continue  # Global Dictionary/마커/용어사전 백업 행 — 목록 제외
                 out.append({"product": row.product, "version": row.version,
                             "updated_at": row.updated_at, "source": "db"})
                 seen.add(row.product)
@@ -363,9 +375,64 @@ def _set_deleted(products: List[str]) -> None:
         db.close()
 
 
+def _dict_backup_key(product: str) -> str:
+    return f"__dict_backup__{product}"
+
+
+def _backup_dictionary(product: str, dictionary: Dict[str, List[str]]) -> None:
+    """제품 삭제 전, 그 제품의 Dictionary만 별도 보관 행에 병합 저장.
+    save()가 재업로드 시 이 보관본과 자동 병합해 복원한다(add_alias 등으로 쌓인
+    승인 이력이 제품 삭제로 함께 사라지지 않도록)."""
+    if not dictionary:
+        return
+    SessionLocal, QbSpecRules = _db()
+    db = SessionLocal()
+    try:
+        key = _dict_backup_key(product)
+        row = db.query(QbSpecRules).filter(QbSpecRules.product == key).first()
+        merged = dict(dictionary)
+        if row and row.data:
+            try:
+                prev = json.loads(row.data) or {}
+                for rep, aliases in prev.items():
+                    cur = merged.setdefault(rep, [])
+                    for a in aliases:
+                        if a not in cur:
+                            cur.append(a)
+            except Exception:
+                pass
+        payload = json.dumps(merged, ensure_ascii=False)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if row:
+            row.data = payload; row.updated_at = now
+        else:
+            db.add(QbSpecRules(product=key, data=payload, version="dict_backup", updated_at=now))
+        db.commit()
+    finally:
+        db.close()
+
+
+def _load_dictionary_backup(product: str) -> Dict[str, List[str]]:
+    try:
+        SessionLocal, QbSpecRules = _db()
+        db = SessionLocal()
+        try:
+            row = db.query(QbSpecRules).filter(QbSpecRules.product == _dict_backup_key(product)).first()
+            if row and row.data:
+                return json.loads(row.data)
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return {}
+
+
 def delete_product(product: str) -> Dict[str, Any]:
-    """제품의 Rule DB 전체 삭제(룰·사전·예외·후보 포함 1행). Global Dictionary(공통 번역)는
-    별도 행(__global__)이라 영향받지 않는다."""
+    """제품의 Rule DB 삭제(룰·예외·후보 등 제품 데이터만). [2026-07 FIX] 제품 용어사전
+    (Dictionary)은 여기서 함께 지우지 않는다 — 삭제 전 별도 보관 행으로 백업해두었다가,
+    같은 제품을 다시 업로드하면 save()가 자동으로 복원한다. Dictionary 자체를 완전히
+    지우려면 delete_dictionary()를 별도로 호출해야 한다. Global(공통) Dictionary와
+    다른 제품에는 영향이 없다."""
     if product in _NON_PRODUCT_KEYS:
         raise ValueError("공통/마커 행은 삭제할 수 없습니다.")
     removed_db = False
@@ -373,6 +440,13 @@ def delete_product(product: str) -> Dict[str, Any]:
         SessionLocal, QbSpecRules = _db()
         db = SessionLocal()
         try:
+            row = db.query(QbSpecRules).filter(QbSpecRules.product == product).first()
+            if row and row.data:
+                try:
+                    prev = json.loads(row.data)
+                    _backup_dictionary(product, prev.get("dictionary") or {})
+                except Exception as e:
+                    print(f"[spec_rule_db] dictionary backup skip: {e}")
             n = db.query(QbSpecRules).filter(QbSpecRules.product == product).delete(synchronize_session=False)
             db.commit()
             removed_db = n > 0
@@ -384,6 +458,33 @@ def delete_product(product: str) -> Dict[str, Any]:
     if has_seed:  # 시드 부활 방지 마커
         _set_deleted(deleted_products() + [product])
     return {"product": product, "removed_db": removed_db, "seed_blocked": has_seed}
+
+
+def delete_dictionary(product: str) -> Dict[str, Any]:
+    """[2026-07 신규] 제품 용어사전(Dictionary)만 별도로 완전 삭제 — 제품 삭제와는 분리된
+    기능이다. 보관본(백업 행)과, 아직 남아있는 제품 룰 행 안의 dictionary를 모두 비운다.
+    Global(공통) Dictionary와 다른 제품에는 영향이 없다."""
+    SessionLocal, QbSpecRules = _db()
+    db = SessionLocal()
+    removed = False
+    try:
+        n = db.query(QbSpecRules).filter(QbSpecRules.product == _dict_backup_key(product)).delete(synchronize_session=False)
+        removed = n > 0
+        row = db.query(QbSpecRules).filter(QbSpecRules.product == product).first()
+        if row and row.data:
+            try:
+                data = json.loads(row.data)
+                if data.get("dictionary"):
+                    data["dictionary"] = {}
+                    row.data = json.dumps(data, ensure_ascii=False)
+                    row.updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    removed = True
+            except Exception as e:
+                print(f"[spec_rule_db] delete_dictionary row clear skip: {e}")
+        db.commit()
+    finally:
+        db.close()
+    return {"product": product, "dictionary_removed": removed}
 
 
 def add_alias(product: str, representative: str, alias: str) -> Dict[str, Any]:
