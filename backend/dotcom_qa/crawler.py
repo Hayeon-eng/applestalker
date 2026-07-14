@@ -438,11 +438,11 @@ class HybridCrawler:
         d["internal_links"] = self._links(soup)
         d["images"] = self._images(soup, page_url)
 
-        d["body_content"] = self._body_copy_text(soup)
+        d["body_content"] = self._body_copy_text(soup, page_url)
         d["word_count"] = len(d["body_content"].split())
         return d
 
-    def _body_copy_text(self, soup: BeautifulSoup) -> str:
+    def _body_copy_text(self, soup: BeautifulSoup, page_url: str = "") -> str:
         """반복 크롤 안정화를 위한 본문 카피 추출.
 
         기존 body 전체 텍스트는 헤더/푸터/메뉴/쿠키/추천 영역까지 포함해
@@ -454,6 +454,15 @@ class HybridCrawler:
         if not root:
             return ""
 
+        # [FIX 2026-07] "compare"는 원래 PDP 등 다른 페이지에 뜨는 '비교하기' 업셀
+        # 위젯(cross-sell)을 걸러내려던 키워드였는데, 정작 Compare 페이지 자신은
+        # 최상위 컨테이너부터 "compare-..." 클래스/id를 쓰는 경우가 많아, 이 하나의
+        # 키워드가 Compare 페이지의 스펙 그리드 전체를 통째로 지워버리고 있었다
+        # (그래서 Compare 페이지에서 스펙이 "아예" 안 잡히는 현상 발생).
+        # → 지금 크롤 중인 URL 자체가 Compare 페이지면 "compare/비교" 키워드는
+        #   노이즈 필터에서 빼고, 대신 업셀 위젯에만 쓰이는 더 구체적인 패턴으로 대체.
+        is_compare_page = bool(re.search(r"/compare(/|$)", page_url or "", re.IGNORECASE))
+
         # 원본 soup를 훼손하지 않도록 복제한 뒤 노이즈 영역 제거
         clean = BeautifulSoup(str(root), "lxml")
         noisy_tags = [
@@ -463,10 +472,19 @@ class HybridCrawler:
         for t in clean.find_all(noisy_tags):
             t.decompose()
 
+        compare_token = (
+            # Compare 페이지 자신을 크롤할 때: 업셀 위젯만 좁게 매칭(자기 자신의
+            # compare-key-specs / compare-table 같은 본문 컨테이너는 건드리지 않음)
+            r"compare[-_]?(cta|widget|upsell|promo|banner|module)|"
+            r"(you[-_ ]?may|related|recommend)[-_ ]?compare"
+            if is_compare_page
+            # 그 외 페이지(PDP 등)에서는 기존처럼 "compare" 전체를 노이즈로 간주
+            else r"compare"
+        )
         noisy_re = re.compile(
             r"(cookie|consent|privacy|legal|footer|header|nav|menu|gnb|breadcrumb|"
             r"modal|popup|overlay|drawer|tooltip|pagination|carousel-control|"
-            r"recommend|related|recently|compare|support|search|login|account|"
+            rf"recommend|related|recently|{compare_token}|support|search|login|account|"
             r"쿠키|동의|개인정보|약관|푸터|헤더|메뉴|내비|모달|팝업|추천|관련|검색|로그인)",
             re.IGNORECASE,
         )
