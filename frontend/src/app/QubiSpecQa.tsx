@@ -154,6 +154,117 @@ export function SpecOverallBanner({ results }: { results: any[] }) {
   );
 }
 
+/* ── [V3.5] 스펙 QA 종합 — Data QA(HtmlQaSummary)와 동일한 문법으로 최상단 배치 ──
+   요구사항: ① 종합 점수·권역별 점수·신호를 화면 맨 위로, ② PDP/Compare를 사이트별로 분리해서 표시.
+   구조: 종합 배너 → [PDP 섹션 → 권역 → 사이트(펼치면 상세)] → [Compare 섹션 → 권역 → 사이트].
+   QubiApp.tsx에서 <SiteOverview>(Data QA)와 나란히, 결과 화면 맨 위에서 호출한다. */
+const PAGE_TYPE_LABEL: Record<string, string> = { PDP: "제품 상세 (PDP)", Compare: "비교 (Compare)" };
+export function SpecQaSummary({ ctx: c }: { ctx: any }) {
+  if (c.tab !== "copy") return null;
+  const rows: any[] = (c.results || []).filter((r: any) => r.spec_v2);
+  if (!rows.length) return null;
+
+  // 단일 사이트 검수 — 바로 상세만
+  if (rows.length === 1) {
+    const r0 = rows[0];
+    return (
+      <div className="card qbiPopIn" style={{ marginTop: 10, padding: 14 }}>
+        <SpecOverallBanner results={rows} />
+        <SpecV2Panel row={r0} product={r0.market_product || c.product} api={c.api} flash={c.flash} />
+      </div>
+    );
+  }
+
+  const scoreOf = (r: any) => {
+    const s = r.spec_v2.summary || {};
+    const d = (s.pass || 0) + (s.critical || 0);
+    return d ? Math.round(((s.pass || 0) / d) * 100) : null;
+  };
+  const critWarnOf = (rs: any[]) => rs.reduce((a, r) => {
+    const s = r.spec_v2.summary || {};
+    a.crit += s.critical || 0; a.warn += s.warning || 0; return a;
+  }, { crit: 0, warn: 0 });
+
+  // ① PDP/Compare 분리 (요청 1) — 등장 순서 고정, 그 외 타입은 뒤에
+  const PT_ORDER = ["PDP", "Compare"];
+  const byType: Record<string, any[]> = {};
+  for (const r of rows) (byType[r.page_type || "기타"] ||= []).push(r);
+  const typeKeys = Object.keys(byType).sort((a, b) => {
+    const ia = PT_ORDER.indexOf(a), ib = PT_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+
+  const expanded = c.qaExpandedSite;
+
+  return (
+    <div className="card qbiPopIn" style={{ marginTop: 10, padding: 14 }}>
+      {/* ② 종합 점수 + 신호(사이트 pill) — 맨 위 */}
+      <SpecOverallBanner results={rows} />
+      {typeKeys.map((pt) => {
+        const ptRows = byType[pt];
+        const ptAgg = critWarnOf(ptRows);
+        const ptTl = tlSpec(ptAgg.crit, ptAgg.warn);
+        // 권역별 그룹 (문제 많은 권역 먼저)
+        const byRegion: Record<string, any[]> = {};
+        for (const r of ptRows) (byRegion[r.region || "기타"] ||= []).push(r);
+        const regionScore = (rs: any[]) => { const v = rs.map(scoreOf).filter((x) => x != null) as number[]; return v.length ? v.reduce((a, b) => a + b, 0) / v.length : -1; };
+        const regionOrder = Object.keys(byRegion).sort((a, b) => regionScore(byRegion[a]) - regionScore(byRegion[b]));
+        return (
+          <div key={pt} style={{ marginTop: 16 }}>
+            {/* 페이지 타입 헤더 — 요청1: PDP/Compare를 별개 블록으로 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 4px", borderBottom: "2px solid var(--line)" }}>
+              <span>{TL_EMOJI[ptTl]}</span>
+              <b style={{ fontSize: 13, background: "#E8F0FE", color: "#1B57C4", borderRadius: 6, padding: "2px 9px" }}>{PAGE_TYPE_LABEL[pt] || pt}</b>
+              <span style={{ fontSize: 11.5, color: "var(--sec)" }}>{ptRows.length}개 페이지 · 🔴 {ptAgg.crit} · 🟡 {ptAgg.warn}</span>
+            </div>
+            {regionOrder.map((region) => {
+              const pages = byRegion[region];
+              const rAgg = critWarnOf(pages);
+              const rTl = tlSpec(rAgg.crit, rAgg.warn);
+              const rScore = regionScore(pages);
+              return (
+                <div key={region} style={{ marginTop: 10 }}>
+                  {/* 권역 헤더 — 요청2: 권역별 점수·신호 노출 */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 4px" }}>
+                    <span>{TL_EMOJI[rTl]}</span>
+                    <b style={{ fontSize: 12.5 }}>{region}</b>
+                    <span style={{ fontSize: 11, color: "var(--sec)" }}>
+                      {pages.length}개 · 평균 {rScore < 0 ? "—" : `${Math.round(rScore)}%`} · 🔴 {rAgg.crit} · 🟡 {rAgg.warn}
+                    </span>
+                  </div>
+                  {pages.map((r: any, i: number) => {
+                    const s = r.spec_v2.summary || {};
+                    const tl = tlSpec(s.critical || 0, s.warning || 0);
+                    const key = `spec:${pt}|${region}|${r.sitecode}|${i}`;
+                    const prod = r.market_product || r.product || "";
+                    return (
+                      <div key={key} style={{ borderBottom: "1px solid var(--line)" }}>
+                        <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
+                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px 8px 16px", cursor: "pointer", fontSize: 12.5 }}>
+                          <span>{TL_EMOJI[tl]}</span>
+                          <b style={{ minWidth: 130 }}>{prod || r.sitecode}</b>
+                          <span style={{ fontSize: 10.5, color: "var(--sec)" }}>{r.sitecode}</span>
+                          <span style={{ marginLeft: "auto" }}>🔴 오류 {s.critical ?? 0} · 🟡 확인 {s.warning ?? 0} · ✅ 정상 {s.pass ?? 0}</span>
+                          <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
+                        </div>
+                        {expanded === key && (
+                          <div className="qbiPopIn" style={{ padding: "0 4px 10px 16px" }}>
+                            <SpecV2Panel row={r} product={prod || c.product} api={c.api} flash={c.flash} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── 사이트 1건의 Spec QA V2 패널 ──
    Dictionary(신규 표현)는 이 패널에서 더 이상 렌더하지 않는다 — 페이지 1건이 아니라
    제품 전체 실행 단위로 집계해야 "여러 페이지 반복 발견" 조건을 검증할 수 있기 때문에,

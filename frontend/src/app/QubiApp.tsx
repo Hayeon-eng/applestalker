@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
 import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
-import { SpecV2Panel, SpecOverallBanner, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
+import { SpecQaSummary, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
@@ -359,7 +359,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     specs, removeSpec, catalog, specForm, pickCatalog, setSpecForm, addSpec,
     ruleForm, setRuleForm, schemaTypes, addRule,
     quickOpen, setQuickOpen, results, regionTier, regionTierBoth, countries, qCountry, setQCountry,
-    quickRows, qDetail, setQDetail,
+    quickRows, qDetail, setQDetail, api, flash,
   };
 
   return (
@@ -437,6 +437,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           </h2>
 
           <SiteOverview ctx={ctx} />
+          <SpecQaSummary ctx={ctx} />
 
           {/* 제품 — 클릭 시: 화면·검수기준표는 그 제품 하나를 보여주고(product), 크롤 대상엔 토글로 누적/해제(selectedProducts 다중). */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "10px 0 4px", flexWrap: "wrap" }}>
@@ -528,18 +529,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {tab === "schema" && <ScorePanel ctx={ctx} />}
           <HtmlQaSummary ctx={ctx} />
 
-          {/* ═══ Spec QA [V2] — Rule 기반 Validation (spec_v2 있는 결과만) ═══ */}
+          {/* ═══ Spec QA [V2] — 사이트별 상세는 위 SpecQaSummary에서 펼쳐 봄. 여기서는 Dictionary Review만 ═══ */}
           {tab === "copy" && results.some((r: any) => r.spec_v2) && (
-            <>
-              {/* [V3.4] 최상단 종합 신호등 — Data QA 종합 판단과 동일한 시각 문법 */}
-              <SpecOverallBanner results={results} />
-              {results.filter((r: any) => r.spec_v2).map((r: any, i: number) => (
-                <SpecV2Panel key={(r.sitecode || "") + i} row={r}
-                  product={r.market_product || product} api={api} flash={flash} />
-              ))}
-              {/* Dictionary Review — 보조 기능. 페이지별이 아니라 제품당 1회, 맨 아래 접힘 상태로만 노출(요구사항 1·5) */}
-              <DictionaryReviewSection results={results} product={product} api={api} flash={flash} />
-            </>
+            <DictionaryReviewSection results={results} product={product} api={api} flash={flash} />
           )}
           {/* Dictionary는 검수 결과와 무관하게 상시(좌측 하단 플로팅) — 스펙 탭 & V2 제품일 때 */}
           {tab === "copy" && isV2 && <DictionaryPanel product={product} api={api} />}

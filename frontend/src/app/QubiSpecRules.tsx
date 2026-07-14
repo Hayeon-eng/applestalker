@@ -37,6 +37,13 @@ export function SpecV2RuleTable({ product, api, flash }:
     } catch (e: any) { flash(`업로드 실패 — ${e.message || e}`); } finally { setBusy(false); }
   };
   const rules = data?.rules || [];
+  // [FIX] Rule DB 병합 이력에 따라 버전이 "V3+V3"처럼 같은 값이 겹쳐 저장되는 경우가 있어(구분자 '+'),
+  // 화면에는 중복 제거된 값만 보여준다. 원본 문자열 자체는 건드리지 않음(엑셀 이력 그대로 유지).
+  const versionDisplay = (v: string) => {
+    if (!v) return v;
+    const parts = Array.from(new Set(v.split("+").map((x) => x.trim()).filter(Boolean)));
+    return parts.join("+");
+  };
   // 등급 → 색점 + 사람 설명 (개발자용 'Critical/High' 대신)
   const PRI_DOT: Record<string, { c: string; ko: string; why: string }> = {
     Critical: { c: "#D8362F", ko: "필수", why: "틀리면 바로 오류 — 반드시 정확해야 하는 핵심 스펙" },
@@ -64,7 +71,7 @@ export function SpecV2RuleTable({ product, api, flash }:
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <b style={{ fontSize: 14 }}>검수 기준 스펙 — Rule DB</b>
         <span style={{ fontSize: 11, background: "#EEF4FE", color: C.blue, borderRadius: 5, padding: "2px 7px", fontWeight: 700 }}>{product}</span>
-        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>룰 {rules.length}개 · 버전 {data?.version || "—"}</span>
+        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>룰 {rules.length}개 · 버전 {versionDisplay(data?.version) || "—"}</span>
         <span style={{ marginLeft: "auto" }}>
           <button onClick={() => fileRef.current?.click()} disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>
             {busy ? "업로드 중…" : "⬆ Rule DB 엑셀 업로드"}
@@ -76,7 +83,7 @@ export function SpecV2RuleTable({ product, api, flash }:
         이 표가 "정답지"예요. 각 항목이 페이지에 <b>이래야 정상</b>이라는 기준입니다. 값 수정은 엑셀을 고쳐 업로드하세요(화면 직접 편집 안 함 — 이력 관리를 엑셀로 일원화).
       </p>
       <div style={{ fontSize: 10.5, color: "var(--sec)", marginBottom: 8 }}>
-        등급: <span style={{ color: "#D8362F" }}>●</span> 필수 · <span style={{ color: "#B54708" }}>●</span> 중요 · <span style={{ color: "#0A66E0" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고 · 각 행 ⓘ 에 마우스를 올리면 검사 방식이 나와요
+        등급: <span style={{ color: "#D8362F" }}>●</span> 필수 · <span style={{ color: "#B54708" }}>●</span> 중요 · <span style={{ color: "#0A66E0" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고 · 각 행의 <b style={{ color: C.blue }}>ⓘ</b>를 누르면 검사 방식이 나와요
       </div>
       <div style={{ maxHeight: 340, overflow: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
@@ -91,8 +98,9 @@ export function SpecV2RuleTable({ product, api, flash }:
               return (
                 <tr key={r.rule_id}>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
-                    <span style={{ color: pri.c, marginRight: 5 }} title={`${pri.ko} — ${pri.why}`}>●</span>
+                    <span style={{ color: pri.c, marginRight: 5 }}>●</span>
                     <b>{r.attribute}</b>
+                    <InfoTip text={`${pri.ko} — ${pri.why}`} />
                     <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginLeft: 13 }}>{r.category}</span>
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
@@ -102,7 +110,7 @@ export function SpecV2RuleTable({ product, api, flash }:
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11.5 }}>
                     <b style={{ color: pri.c }}>{pri.ko}</b>
                     <span> · {(PAGE_KO[r.page]?.ko) || r.page}</span>
-                    <InfoTip text={`${pri.ko} — ${pri.why}\n위치: ${(PAGE_KO[r.page]?.tip) || r.page}${r.exception ? "\n※ 특정 국가/조건 예외 규칙 있음" : ""}`} />
+                    <InfoTip text={`위치: ${(PAGE_KO[r.page]?.tip) || r.page}${r.exception ? "\n※ 특정 국가/조건 예외 규칙 있음" : ""}`} />
                   </td>
                 </tr>
               );
@@ -124,32 +132,37 @@ export function SpecV2Criteria({ show, panelRef }: { show: boolean; panelRef?: a
     <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
       <b style={{ fontSize: 14 }}>검수 방식 — 스펙</b>
       <p style={{ fontSize: 12.5, color: "var(--sec)", margin: "6px 0 0" }}>
-        정답지(Rule DB)의 각 항목이 페이지에 정확히 반영됐는지 규칙 기반으로 대조합니다. AI 추론이 아니라 정해진 규칙으로만 판정하므로 같은 페이지는 항상 동일한 결과가 나오며, 항목별 판정 근거를 펼쳐 확인할 수 있습니다.
+        한 줄 요약: 위 Rule DB 표에 적힌 <b>정답 값</b>이 실제 페이지에 <b>그대로 있는지</b>를 규칙으로 대조합니다. AI가 추측하지 않고 정해진 규칙만 쓰기 때문에 같은 페이지는 항상 같은 결과가 나옵니다.
       </p>
       <div style={box}>
-        <div style={h}>① 검사 대상</div>
+        <div style={h}>① 어디를 검사하나요</div>
         <div style={li}>
-          스펙 노출 영역(스펙표·각주·구성품)과 본문에서 <b>정답 값의 노출과 오기재 여부</b>를 확인합니다. Header/Footer/Nav/Menu/Button/Popup·프로모션은 검사 대상에서 제외합니다.
-          "4,400"과 "4 400"처럼 국가별 표기 차이는 <b>동일 값으로 인정</b>하며, 칩셋명 등 현지화 표기는 사전(Dictionary)으로 매핑합니다.
+          스펙표·각주·구성품 영역과 본문에서 <b>정답 값이 올바르게 노출됐는지 / 틀린 값이 적혀 있는지</b>만 봅니다. Header·Footer·Nav·메뉴·버튼·팝업/프로모션은 애초에 검사하지 않습니다.<br />
+          "4,400"과 "4 400"처럼 나라별 표기 차이는 <b>같은 값으로 인정</b>하고, 칩셋명처럼 나라마다 부르는 이름이 다른 항목은 사전(Dictionary)에 등록된 표기면 정상으로 봅니다.
         </div>
       </div>
       <div style={box}>
-        <div style={h}>② 판정 등급</div>
+        <div style={h}>② 세 가지 판정 결과</div>
         <div style={li}>
-          <div>🔴 <b style={{ color: C.crit }}>오류</b> — <b>틀린 값이 실제로 적혀 있음</b>이 확인된 항목: 항목 라벨과 함께 표기된 오답, 한정어 오짝(예: "일반 4,272mAh"), 전작 비교 문구 속 전작 스펙 오기재, 전작 값 혼입(예: CPU에 전작 칩명). 텍스트 스펙(칩셋명 등)은 서술이 달라도 오류가 아닙니다 — 전작 값 혼입 등 적극적 증거가 있을 때만 오류. 1건이라도 있으면 해당 페이지는 오류 처리됩니다.</div>
-          <div>🟡 <b style={{ color: C.warn }}>확인</b> — 오답으로 단정하기 어려운 발견: 근사 표기("약 8인치")·단위 환산 표기, 라벨 없이 단독 발견된 불일치 숫자, 배율(x)처럼 렌즈·주장에 따라 값이 달라지는 항목. <b>점수에 반영되지 않으며</b> 사람이 한번 봐주면 됩니다.</div>
-          <div style={{ marginTop: 2 }}>ℹ️ <b>값이 페이지에 없는 것은 오류가 아닙니다</b> — 미노출 항목은 표시·집계하지 않습니다. 오류는 "잘못 들어간 값"에만 부여됩니다.</div>
-          <div>📖 <b>Dictionary Review</b> — 오류·확인과 별개의 보조 기능. 화면 맨 아래 접힌 섹션에서, 제품 내 여러 페이지에 반복 등장한 미등록 표현만 빈도순으로 보여줍니다.</div>
+          <div>🔴 <b style={{ color: C.crit }}>오류</b> — <b>틀린 값이 실제로 적혀 있음</b>을 확인한 경우. 예: 항목 라벨과 함께 적힌 오답, "일반 4,272mAh"처럼 한정어가 바뀐 값, 전작 스펙이 잘못 섞여 들어간 경우. 1건만 있어도 그 페이지는 오류로 처리됩니다.</div>
+          <div style={{ marginTop: 4 }}>🟡 <b style={{ color: C.warn }}>확인</b> — 오답이라 단정하기엔 근거가 약한 경우. 예: "약 8인치" 같은 근사 표기, 라벨 없이 혼자 발견된 다른 숫자. <b>점수에는 영향 없고</b> 사람이 한 번 눈으로 봐주면 됩니다.</div>
+          <div style={{ marginTop: 4 }}>⚪ <b>값 없음 = 오류 아님</b> — 페이지에 아예 안 보이는 항목은 표시도, 집계도 하지 않습니다. 오류는 "틀린 값이 적혀 있을 때"만 발생합니다.</div>
         </div>
       </div>
       <div style={box}>
-        <div style={h}>③ 오탐 방지 규칙</div>
+        <div style={h}>③ 잘못 잡아내지 않기 위한 안전장치</div>
         <div style={li}>
-          · 판정은 <b>값 우선(value-first)</b> — 라벨 번역이 아니라 정답 값 자체(숫자+다국어 단위)를 찾으므로 언어·표기(2,600nits=2600니트=٢٦٠٠ نت)에 무관<br />
-          · <b>복수 정답</b> 지원 — 일반 4,400mAh / 정격 4,272mAh처럼 어느 표기든 정답으로 인정하고, 한정어 짝만 교차검증<br />
-          · <b>전작 비교 문구 인식</b> — "Galaxy Z Fold6의 …" 문장 속 숫자는 전작 정답지와 대조 (전작 값이 틀리면 그것대로 오류)<br />
-          · Compare 표는 <b>컬럼→제품 귀속</b> — 이웃 제품 컬럼의 값을 검수 대상 값으로 오인하지 않음<br />
-          · 프로모션 배너 수치 제외 · 국가별 예외 규칙 사전 반영
+          · 정답 값 자체(숫자+다국어 단위)로 찾기 때문에 언어가 달라도(2,600nits = 2600니트) 문제 없음<br />
+          · 정답이 여러 개 허용되는 항목(일반 4,400mAh / 정격 4,272mAh)은 어느 쪽이든 정상 처리<br />
+          · "Galaxy Z Fold6의 …"처럼 전작을 언급하는 문장은 전작 정답지와 따로 대조<br />
+          · Compare 표는 컬럼 단위로 제품을 구분해서, 옆 제품 컬럼 값을 오인하지 않음<br />
+          · 프로모션 배너 숫자·국가별 예외 규칙은 미리 반영
+        </div>
+      </div>
+      <div style={box}>
+        <div style={h}>④ Dictionary Review는 별개 기능</div>
+        <div style={li}>
+          화면 맨 아래 접힌 섹션에 나오는 <b>Dictionary Review</b>는 오류·확인과 무관한 보조 기능입니다. 제품 내 여러 페이지에 반복 등장한 <b>미등록 표현</b>만 빈도순으로 모아 보여줄 뿐, 점수나 신호등에는 전혀 영향을 주지 않습니다.
         </div>
       </div>
     </div>
@@ -163,27 +176,37 @@ export function SpecV2Score({ show, panelRef }: { show: boolean; panelRef?: any 
   const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
   return (
     <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 16 }}>
-      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>📊 점수 산출 방식 — 스펙</div>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>📊 점수 산출 방식 — 스펙</div>
+      <p style={{ fontSize: 12.5, color: "var(--sec)", margin: "0 0 8px" }}>
+        한 줄 요약: <b>정답과 일치한 항목의 비율</b>입니다. "확인"과 "값 없음"은 감점하지 않습니다.
+      </p>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 점수 = 통과 ÷ 판정 대상</div>
-        <div style={li}><b>정답 일치 항목 ÷ (일치 + 불일치)</b> × 100. <b>확인(🟡)은 감점 사유가 아니므로 분모에서 제외</b>됩니다 — 확인만 있는 페이지는 100% + 확인 배지로 표시됩니다. 값이 페이지에 없는 항목도 오류가 아니므로 표시·집계 모두에서 제외됩니다.</div>
-        <div style={{ ...li, marginTop: 4 }}>예) 일치 22 · 불일치 2 · 확인 1 → 22 ÷ 24 = <b>91.7%</b> (확인 1은 배지로만 표시)</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>① 계산식</div>
+        <div style={li}>정상(일치) ÷ (정상 + 오류) × 100</div>
+        <div style={{ ...li, marginTop: 4 }}>
+          🟡 확인은 감점 사유가 아니라서 분모에서 빠집니다 — 확인만 있는 페이지는 <b>100%</b> + 확인 배지로 표시됩니다.<br />
+          값이 페이지에 없는 항목도 오류가 아니므로 애초에 집계 대상이 아닙니다.
+        </div>
+        <div style={{ ...li, marginTop: 6, background: "#fff", border: "1px solid var(--line)", borderRadius: 6, padding: "6px 8px" }}>
+          예시: 정상 22 · 오류 2 · 확인 1 → 22 ÷ (22+2) = <b>91.7%</b> (확인 1건은 배지로만 별도 표시, 계산에서 제외)
+        </div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리별 동일 산식</div>
-        <div style={li}>배터리·디스플레이 등 카테고리 단위로도 같은 방식으로 계산합니다. 카드의 "Rule Pass 8/8"이 해당 카테고리의 일치/판정 대상 수이며, 불일치·확인이 있는 카테고리는 자동 전개됩니다.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>② 카테고리 점수도 같은 방식</div>
+        <div style={li}>배터리·디스플레이 등 카테고리별 점수도 위와 똑같은 식으로 계산합니다. 카드에 보이는 "Rule Pass 8/8"이 그 카테고리의 (정상 / 정상+오류) 값이고, 오류·확인이 하나라도 있으면 해당 카테고리는 자동으로 펼쳐집니다.</div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ Dictionary Review는 점수에 미반영</div>
-        <div style={li}>Dictionary는 <b>보조 기능</b>이라 점수·Critical/Warning 집계에서 완전히 분리됩니다. 제품 내 여러 페이지에서 반복 등장하고 Confidence가 낮지 않은 표현만 화면 맨 아래(접힘)에 모여 표시되며, 유효한 표현은 승인 시 사전에 반영되어 다음 검수부터 정식 판정됩니다.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>③ Dictionary Review는 점수와 무관</div>
+        <div style={li}>화면 맨 아래 Dictionary Review는 점수·신호등 계산에서 완전히 분리된 보조 기능입니다. 여러 페이지에서 반복 등장한 미등록 표현만 모아 보여주고, 담당자가 승인하면 다음 검수부터 정식 사전에 반영됩니다.</div>
       </div>
       <div style={box}>
-        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ 커버리지 경고 시 점수 해석 주의</div>
-        <div style={li}>판정 대상의 <b>절반 이상이 미검출</b>이면 상단에 경고가 표시됩니다. 사전 미등록 또는 페이지 구조 차이로 수집되지 않았을 수 있으며, 이 경우 높은 점수는 "전부 통과"가 아니라 "검출 자체가 적음"을 의미할 수 있으므로 Dictionary Review 확인이 도움이 될 수 있습니다.</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 4 }}>④ "커버리지 경고"가 뜨면 점수를 곧이곧대로 보지 마세요</div>
+        <div style={li}>판정 대상의 절반 이상이 아예 검출되지 않으면 상단에 경고가 뜹니다. 이때 높은 점수는 "다 통과했다"가 아니라 "애초에 검출된 게 적다"는 뜻일 수 있으니, Dictionary Review를 먼저 확인해보세요.</div>
       </div>
       <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 8, background: "#FFF5F4", border: "1px solid #FECDCA", borderRadius: 8, padding: "8px 10px" }}>
-        <b>신호등 (스펙은 더 엄격한 기준)</b> — 🔴 <b>오류 1건 이상이면 빨강</b> · 🟡 오류 0, 확인만 존재 · 🟢 오류·확인 모두 0. 최상단 <b>종합 판단 — 스펙</b> 배너와 사이트별 pill도 같은 기준·같은 색(Data QA와 동일 팔레트)입니다.
-        <span style={{ display: "block", marginTop: 3, fontSize: 11 }}>색·형태는 Data QA와 동일하나, 스펙 값 오류는 소비자 오인·법적 리스크로 이어지므로 Data QA(점수 %기준)와 달리 "오류 1건 = 즉시 빨강"으로 판정합니다. Dictionary Review는 이 신호등에 전혀 영향을 주지 않습니다.</span>
+        <b>신호등 기준 (스펙은 Data QA보다 엄격)</b>
+        <div style={{ marginTop: 3 }}>🔴 오류 1건 이상 · 🟡 오류 0 + 확인 있음 · 🟢 오류·확인 모두 0</div>
+        <div style={{ marginTop: 3 }}>최상단 종합 판단 배너와 사이트별 신호등도 전부 같은 기준입니다. Data QA와 색·이모지는 같지만, 스펙 값 오류는 소비자 오인·법적 리스크로 이어질 수 있어 "%기준"이 아니라 <b>"오류 1건 = 즉시 빨강"</b>으로 판정합니다.</div>
       </div>
     </div>
   );
