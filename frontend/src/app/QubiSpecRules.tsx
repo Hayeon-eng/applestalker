@@ -76,11 +76,12 @@ export function SpecV2RuleTable({ product, api, flash }:
           <button onClick={() => fileRef.current?.click()} disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>
             {busy ? "업로드 중…" : "⬆ Rule DB 엑셀 업로드"}
           </button>
-          {/* [2026-07] 모델 DB 삭제 — 신모델 엑셀 업로드 후 구모델(예: Fold7)을 목록에서 내릴 때.
-              룰·제품 사전·예외가 전부 삭제되며, 검수 이력·모니터링 URL·Global 사전은 유지된다. */}
+          {/* [2026-07 FIX] 모델 DB 삭제 — 신모델 엑셀 업로드 후 구모델(예: Fold7)을 목록에서 내릴 때.
+              룰·예외만 삭제되고, 제품 용어사전(Dictionary)은 별도 보관되어 삭제되지 않는다
+              (재업로드 시 자동 복원). 검수 이력·모니터링 URL·Global 사전도 그대로 유지된다. */}
           <button disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px", color: "#B42318", borderColor: "#FECDCA" }}
             onClick={async () => {
-              if (!window.confirm(`'${product}'의 Rule DB 전체(룰 ${rules.length}개 + 제품 사전)를 삭제할까요?\n\n검수 이력·모니터링 URL·공통(Global) 사전은 그대로 유지됩니다.\n같은 제품 엑셀을 다시 업로드하면 언제든 복구돼요.`)) return;
+              if (!window.confirm(`'${product}'의 Rule DB(룰 ${rules.length}개)를 삭제할까요?\n\n제품 용어사전(Dictionary)·검수 이력·모니터링 URL·공통(Global) 사전은 그대로 유지됩니다.\n같은 제품 엑셀을 다시 업로드하면 언제든 복구돼요.`)) return;
               setBusy(true);
               try {
                 const r = await fetch(api("/api/qb/spec-rules/delete"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product }) });

@@ -447,7 +447,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               return <button key={p.code} onClick={() => {
                 setProduct(p.code);  // 화면·검수기준표를 이 제품으로
                 setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? (n.size > 1 && n.delete(p.code)) : n.add(p.code); return n; });
-              }} style={sel(p.code, shown)}>{inCrawl ? "✓ " : ""}{p.label}</button>;
+              }} style={{ ...sel(p.code, inCrawl), ...(shown ? { boxShadow: "0 0 0 2px #0A66E0 inset" } : {}) }}>{inCrawl ? "✓ " : ""}{p.label}</button>;
             })}
             <span style={{ fontSize: 12.5, color: "var(--sec)", marginLeft: 10 }}>페이지타입:</span>
             {PAGE_TYPES.map((p) => {
