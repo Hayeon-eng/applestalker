@@ -12,6 +12,8 @@ Excel 리포트(시트 2개) — QA 관례에 맞춰 전체 영어로 출력.
 from __future__ import annotations
 import io
 import json
+import copy
+import difflib
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -279,6 +281,52 @@ def _fix_code_for_value(prop, expected):
     return f'"{prop}": "' + str(expected).replace('"', '\\"') + '"'
 
 
+# ── [2026-07 신규] AS-IS 전체 블록 ↔ TO-BE 전체 블록 비교(하연 요청 — "코드가 어디 붙는지
+# 모르겠다"는 피드백에 대응). 한 줄짜리 코드 조각 대신, 페이지에 실제로 있는 JSON-LD
+# 블록 전체(raw)를 기준으로 고쳐야 할 속성만 바꾼 전체 블록을 나란히 보여준다. ──
+def _parse_raw_node(f: Dict[str, Any]):
+    """finding의 f['raw'](AS-IS 전체 블록 JSON 문자열)를 dict로 복원. 실패 시 None."""
+    raw = f.get("raw") if f else None
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+def _set_nested(obj: Dict[str, Any], dotted_prop: str, value: Any) -> None:
+    """'encoding_contentUrl' 같은 '_' 구분 경로를 실제 중첩 dict 구조(encoding.contentUrl)에 반영.
+    _prop_help()의 표시 규칙(prop.replace('_','.'))과 동일한 구분자를 쓴다."""
+    parts = dotted_prop.split("_")
+    cur = obj
+    for i, p in enumerate(parts):
+        if i == len(parts) - 1:
+            cur[p] = value
+        else:
+            nxt = cur.get(p)
+            if not isinstance(nxt, dict):
+                nxt = {}
+                cur[p] = nxt
+            cur = nxt
+
+
+def _code_pair_diff(as_is_obj, to_be_obj):
+    """실제 페이지의 전체 블록(as_is_obj)과, 이 속성만 고친 전체 블록(to_be_obj)을 나란히
+    비교 — 엑셀에서 달라진 줄만 빨간색으로 강조해서 그린다."""
+    return {"mode": "diff", "as_is": as_is_obj, "to_be": to_be_obj}
+
+
+def _code_pair_new_block(code: str):
+    """블록 자체가 페이지에 없을 때 — 통째로 붙여넣을 새 블록(비교 대상 없음)."""
+    return {"mode": "new_block", "code": code}
+
+
+def _code_pair_text(as_is_text: str, to_be_text: str):
+    """JSON 노드를 못 얻은 경우(파싱 실패/HTML 레벨 이슈/확인만 필요)의 일반 텍스트 대응."""
+    return {"mode": "text", "as_is": as_is_text, "to_be": to_be_text}
+
+
 
 def _html_qa_rows(pr):
     """html_qa(대시보드 'HTML 검수' 카드)를 작업자용 영어 행으로.
@@ -295,28 +343,32 @@ def _html_qa_rows(pr):
     h2s = sig.get("h2_list") or []
 
     if not title:
-        rows.append(("HTML", "Meta Title", "title", "fail", "(missing) — no <title> tag found",
+        as_is, to_be = "(missing) — no <title> tag found", '<title>Samsung Galaxy S26 Ultra | Samsung <REGION></title>'
+        rows.append(("HTML", "Meta Title", "title", "fail", as_is,
                      "Add a <title> tag (<= 60 chars) summarizing the page",
                      "<head> -> <title>", "Title shown in search / AI answers",
-                     '<title>Samsung Galaxy S26 Ultra | Samsung <REGION></title>'))
+                     to_be, _code_pair_text(as_is, to_be)))
     elif len(title) > 60:
-        rows.append(("HTML", "Meta Title", "title", "fail",
-                     f"Current title ({len(title)} chars, limit 60): \"{title}\"",
+        as_is = f"Current title ({len(title)} chars, limit 60): \"{title}\""
+        to_be = '<title><... <= 60 chars ...></title>'
+        rows.append(("HTML", "Meta Title", "title", "fail", as_is,
                      "Shorten <title> to <= 60 chars, keeping product name + key value prop",
                      "<head> -> <title>", "Title shown in search / AI answers",
-                     '<title><... <= 60 chars ...></title>'))
+                     to_be, _code_pair_text(as_is, to_be)))
     if not desc:
-        rows.append(("HTML", "Meta Description", "meta_description", "fail",
-                     "(missing) — no meta[name=description] found",
+        as_is = "(missing) — no meta[name=description] found"
+        to_be = '<meta name="description" content="<... <= 160 chars ...>">'
+        rows.append(("HTML", "Meta Description", "meta_description", "fail", as_is,
                      "Add meta[name=description] (<= 160 chars) summarizing the page",
                      "<head> -> meta[name=description]", "Snippet shown in search / AI answers",
-                     '<meta name="description" content="<... <= 160 chars ...>">'))
+                     to_be, _code_pair_text(as_is, to_be)))
     elif len(desc) > 160:
-        rows.append(("HTML", "Meta Description", "meta_description", "fail",
-                     f"Current description ({len(desc)} chars, limit 160): \"{_clip(desc, 200)}\"",
+        as_is = f"Current description ({len(desc)} chars, limit 160): \"{_clip(desc, 200)}\""
+        to_be = '<meta name="description" content="<... <= 160 chars ...>">'
+        rows.append(("HTML", "Meta Description", "meta_description", "fail", as_is,
                      "Shorten meta description to <= 160 chars",
                      "<head> -> meta[name=description]", "Snippet shown in search / AI answers",
-                     '<meta name="description" content="<... <= 160 chars ...>">'))
+                     to_be, _code_pair_text(as_is, to_be)))
     if len(h1s) != 1:
         cur = "(none found)" if not h1s else f"{len(h1s)} H1 tags: " + " | ".join(f"\"{_clip(h, 60)}\"" for h in h1s[:5])
         if not h1s:
@@ -328,19 +380,25 @@ def _html_qa_rows(pr):
                 for i, h in enumerate(h1s[:5]))
         rows.append(("HTML", "H1", "h1", "fail", cur,
                      "Use exactly one <h1> per page (main page heading)",
-                     "Body -> <h1>", "Primary heading signal for search / AEO", fix_c))
+                     "Body -> <h1>", "Primary heading signal for search / AEO", fix_c,
+                     _code_pair_text(cur, fix_c)))
     if len(h2s) == 0:
-        rows.append(("HTML", "H2", "h2", "fail", "(none found) — 0 H2 tags",
+        as_is = "(none found) — 0 H2 tags"
+        to_be = '<h2>Camera</h2>\n<h2>Battery</h2>\n<h2>Display</h2>'
+        rows.append(("HTML", "H2", "h2", "fail", as_is,
                      "Add at least one <h2> section heading",
                      "Body -> <h2>", "Content structure signal for AEO",
-                     '<h2>Camera</h2>\n<h2>Battery</h2>\n<h2>Display</h2>'))
+                     to_be, _code_pair_text(as_is, to_be)))
     return rows
 
 
 def _schema_detail_rows(pr):
     """schema findings를 대시보드 '판정 근거'와 동일 단위(속성 1개 = 1행)로 분해.
     현재값(As-Is) ↔ 기대값(To-Be)을 명시해 작업자가 바로 수정할 수 있게 한다.
-    반환: (area, type, prop_item, status, as_is, to_be, loc, impact, fix_code) 리스트 + 이미 다룬 (type,prop) 집합."""
+    반환: (area, type, prop_item, status, as_is, to_be, loc, impact, fix_code, code_pair) 리스트
+    + 이미 다룬 (type,prop) 집합.
+    [2026-07 신규] code_pair — 페이지에 실제 있는 JSON-LD 블록 전체(raw)를 기준으로 그
+    속성만 고친 전체 블록을 같이 실어서, "이 코드를 어디에 붙이는지" 자체를 없앤다."""
     rows, covered = [], set()
     for f in (pr.get("schema") or {}).get("findings", []):
         if f.get("status") not in ("fail", "warn"):
@@ -351,17 +409,19 @@ def _schema_detail_rows(pr):
         types = "/".join(f.get("types", []) or [])
         idslug = f.get("id_slug", "")
         structured = False
+        node = _parse_raw_node(f)  # AS-IS 전체 블록(dict) — 없으면 None(블록 자체가 없거나 파싱 실패)
 
         code = f.get("code", "")
         if code == "schema.missing":
             structured = True
             cond = " (conditional — add if required for this locale)" if f.get("conditional") else ""
+            new_block = _fix_code_for_block_missing(f, pr)
             rows.append(("Schema", ty, "@type", sev,
                          f"{name} schema not found on the page{cond}",
                          f"Add a {name} JSON-LD block with @type={types or name}" + (f", @id={idslug}" if idslug else ""),
                          "Add new <script type=\"application/ld+json\"> in <head>/<body>",
                          "Block missing — no rich result / AEO signal for this type",
-                         _fix_code_for_block_missing(f, pr)))
+                         new_block, _code_pair_new_block(new_block)))
             # [2026-07 FIX — 리포트 중복] 블록 자체가 없는데 그 블록의 속성 누락
             # (inLanguage/about 등)을 별도 행으로 또 내리면 "FAQPage 없음" + "FAQPage의
             # inLanguage 없음"이 모순처럼 겹친다. 블록 미존재 행의 Fix Code에 전체 템플릿이
@@ -381,41 +441,71 @@ def _schema_detail_rows(pr):
             fix_c = f.get("syntax_hint") or "Fix commas / quotes / braces on this line"
             rows.append(("Schema", ty, "JSON-LD syntax", sev, as_is,
                          f.get("syntax_hint") or "Fix the syntax — check trailing commas / quotes / braces",
-                         loc, "Whole block unparseable — every schema in it is ignored by Google", fix_c))
+                         loc, "Whole block unparseable — every schema in it is ignored by Google", fix_c,
+                         _code_pair_text(as_is, fix_c)))  # 파싱 자체가 안 되어 전체블록 비교 불가 — 텍스트 힌트로 대체
 
         if f.get("id_mismatch"):
             structured = True
             covered.add((ty, "@id"))
             want_id = _fill_placeholders(f.get("rule_id_pattern") or idslug or "", pr)
-            rows.append(("Schema", ty, "@id", sev,
-                         f"Current @id: '{f['id_mismatch']}'",
-                         f"Set @id to match the '{idslug}' pattern" if idslug else "Fix @id to the guide pattern",
+            as_is_txt = f"Current @id: '{f['id_mismatch']}'"
+            to_be_txt = f"Set @id to match the '{idslug}' pattern" if idslug else "Fix @id to the guide pattern"
+            if node is not None:
+                to_be_obj = copy.deepcopy(node); to_be_obj["@id"] = want_id
+                cp = _code_pair_diff(node, to_be_obj)
+            else:
+                cp = _code_pair_text(as_is_txt, to_be_txt)
+            rows.append(("Schema", ty, "@id", sev, as_is_txt, to_be_txt,
                          f"JSON-LD -> {name} -> @id", "@id mismatch breaks node linkage (subjectOf/hasPart)",
-                         _fix_code_for_value("@id", want_id)))
+                         _fix_code_for_value("@id", want_id), cp))
         for prop in (f.get("missing_props") or []):
             structured = True
             covered.add((ty, prop))
             label, where, why = _prop_help(prop, name)
-            rows.append(("Schema", ty, label, sev, "(missing) — property not present",
-                         f"Add '{prop.replace('_', '.')}' to the {name} block", where, why,
-                         _fix_code_for_missing(prop, f, pr)))
+            as_is_txt = "(missing) — property not present"
+            to_be_txt = f"Add '{prop.replace('_', '.')}' to the {name} block"
+            if node is not None:
+                to_be_obj = copy.deepcopy(node)
+                spec = (f.get("rule_expected") or {}).get(prop)
+                val = _fill_placeholders(spec.get("value", ""), pr) if spec else f"<{prop}>"
+                _set_nested(to_be_obj, prop, val)
+                cp = _code_pair_diff(node, to_be_obj)
+            else:
+                cp = _code_pair_text(as_is_txt, to_be_txt)
+            rows.append(("Schema", ty, label, sev, as_is_txt, to_be_txt, where, why,
+                         _fix_code_for_missing(prop, f, pr), cp))
         for hp in (f.get("haspart_missing") or []):
             structured = True
-            rows.append(("Schema", ty, "hasPart", sev,
-                         f"hasPart is missing @id '{hp}'",
-                         f"Add @id '{hp}' to Product.hasPart",
+            as_is_txt = f"hasPart is missing @id '{hp}'"
+            to_be_txt = f"Add @id '{hp}' to Product.hasPart"
+            if node is not None:
+                to_be_obj = copy.deepcopy(node)
+                hp_list = to_be_obj.get("hasPart")
+                if not isinstance(hp_list, list):
+                    hp_list = []; to_be_obj["hasPart"] = hp_list
+                hp_list.append({"@id": hp})
+                cp = _code_pair_diff(node, to_be_obj)
+            else:
+                cp = _code_pair_text(as_is_txt, to_be_txt)
+            rows.append(("Schema", ty, "hasPart", sev, as_is_txt, to_be_txt,
                          "JSON-LD -> Product -> hasPart", "Declares the page's Video/3D/FAQ parts",
-                         f'"hasPart": [ ...existing items..., {{ "@id": "{hp}" }} ]'))
+                         f'"hasPart": [ ...existing items..., {{ "@id": "{hp}" }} ]', cp))
         for vm in (f.get("val_mismatch") or []):
             structured = True
             prop = vm.get("prop", "")
             covered.add((ty, prop))
             label, where, _why = _prop_help(prop, name)
-            rows.append(("Schema", ty, label, sev,
-                         f"Current: '{_clip(vm.get('actual'), 180)}'",
-                         f"Change to: '{_clip(vm.get('expected'), 180)}'",
+            as_is_txt = f"Current: '{_clip(vm.get('actual'), 180)}'"
+            to_be_txt = f"Change to: '{_clip(vm.get('expected'), 180)}'"
+            if node is not None:
+                to_be_obj = copy.deepcopy(node)
+                _set_nested(to_be_obj, prop, vm.get("expected", ""))
+                cp = _code_pair_diff(node, to_be_obj)
+            else:
+                cp = _code_pair_text(as_is_txt, to_be_txt)
+            rows.append(("Schema", ty, label, sev, as_is_txt, to_be_txt,
                          where, "Value differs from the global guide",
-                         _fix_code_for_value(prop, vm.get("expected", ""))))
+                         _fix_code_for_value(prop, vm.get("expected", "")), cp))
         for ni in (f.get("name_issue") or []):
             structured = True
             covered.add((ty, "name"))
@@ -426,38 +516,50 @@ def _schema_detail_rows(pr):
             if bad:
                 issues.append(f"wrong model token '{bad}' present")
             exp_name = _fill_placeholders(((f.get("rule_expected") or {}).get("name") or {}).get("value", ""), pr)
-            rows.append(("Schema", ty, "Product name (name)", sev,
-                         f"Current name: '{_clip(ni.get('actual'), 120)}' — " + " · ".join(issues),
-                         (f"Include '{miss}'" if miss else "") + (" and " if miss and bad else "") +
-                         (f"remove '{bad}'" if bad else "") + " — correct to the official product name",
+            as_is_txt = f"Current name: '{_clip(ni.get('actual'), 120)}' — " + " · ".join(issues)
+            to_be_txt = ((f"Include '{miss}'" if miss else "") + (" and " if miss and bad else "") +
+                         (f"remove '{bad}'" if bad else "") + " — correct to the official product name")
+            new_name = exp_name or "<official product name>"
+            if node is not None:
+                to_be_obj = copy.deepcopy(node); to_be_obj["name"] = new_name
+                cp = _code_pair_diff(node, to_be_obj)
+            else:
+                cp = _code_pair_text(as_is_txt, to_be_txt)
+            rows.append(("Schema", ty, "Product name (name)", sev, as_is_txt, to_be_txt,
                          f"JSON-LD -> {name} -> name", "Wrong product name breaks entity matching",
-                         _fix_code_for_value("name", exp_name or "<official product name>")))
+                         _fix_code_for_value("name", new_name), cp))
         for li in (f.get("lang_issue") or []):
             structured = True
-            rows.append(("Schema", ty, "inLanguage", "warn",
-                         f"inLanguage '{li.get('actual')}' differs from site language '{li.get('expected')}'",
-                         f"OK if intended localization; otherwise set to '{li.get('expected')}'",
+            as_is_txt = f"inLanguage '{li.get('actual')}' differs from site language '{li.get('expected')}'"
+            to_be_txt = f"OK if intended localization; otherwise set to '{li.get('expected')}'"
+            if node is not None:
+                to_be_obj = copy.deepcopy(node); to_be_obj["inLanguage"] = li.get("expected", "")
+                cp = _code_pair_diff(node, to_be_obj)
+            else:
+                cp = _code_pair_text(as_is_txt, to_be_txt)
+            rows.append(("Schema", ty, "inLanguage", "warn", as_is_txt, to_be_txt,
                          f"JSON-LD -> {name} -> inLanguage", "Language signal consistency",
-                         _fix_code_for_value("inLanguage", li.get("expected", ""))))
+                         _fix_code_for_value("inLanguage", li.get("expected", "")), cp))
         for t in (f.get("translate_confirm") or []):
             structured = True
+            as_is_txt = f"Current value: '{_clip(t.get('actual'), 140)}'"
+            to_be_txt = f"Confirm '{t.get('prop', '')}' is correctly localized (not an error)"
             rows.append(("Schema", ty, f"{t.get('prop', '')} (translation check)", "warn",
-                         f"Current value: '{_clip(t.get('actual'), 140)}'",
-                         f"Confirm '{t.get('prop', '')}' is correctly localized (not an error)",
+                         as_is_txt, to_be_txt,
                          f"JSON-LD -> {name} -> {t.get('prop', '')}", "Localization confirmation",
-                         ""))
+                         "", _code_pair_text(as_is_txt, to_be_txt)))
         for prop in (f.get("array_where_object") or []):
             structured = True
-            rows.append(("Schema", ty, prop, "warn",
-                         f"'{prop}' is an array ([…]) — Google allows it, guide recommends a single object",
-                         f"Prefer a single object for '{prop}' (not an error)",
+            as_is_txt = f"'{prop}' is an array ([…]) — Google allows it, guide recommends a single object"
+            to_be_txt = f"Prefer a single object for '{prop}' (not an error)"
+            rows.append(("Schema", ty, prop, "warn", as_is_txt, to_be_txt,
                          f"JSON-LD -> {name} -> {prop}", "Guide-preferred shape",
-                         f'"{prop}": {{ "@id": "..." }}'))
+                         f'"{prop}": {{ "@id": "..." }}', _code_pair_text(as_is_txt, to_be_txt)))
 
         if not structured:  # 구조화 필드가 없는 finding — 카탈로그/원문 영어 문구로 폴백
             a, t = _en(f)
             rows.append(("Schema", ty, str(f.get("block", "")), sev, a, t,
-                         f"JSON-LD -> {name}", "", ""))
+                         f"JSON-LD -> {name}", "", "", _code_pair_text(a, t)))
     return rows, covered
 
 
@@ -473,20 +575,39 @@ def _html_qa_schema_gap_rows(pr, covered):
     per_type = (((pr.get("html_qa") or {}).get("level2")) or {}).get("per_type") or {}
     for ty, v in per_type.items():
         base_f = rule_by_type.get(ty, {})
+        node = _parse_raw_node(base_f) if base_f else None
         for prop in (v.get("missing_required") or []):
             if (ty, prop) in covered:
                 continue
             label, where, why = _prop_help(prop, ty)
-            rows.append(("Schema", ty, label, "fail", "(missing/insufficient) — required property",
-                         f"Add '{prop.replace('_', '.')}' to the {ty} block", where, why,
-                         _fix_code_for_missing(prop, base_f, pr)))
+            as_is_txt = "(missing/insufficient) — required property"
+            to_be_txt = f"Add '{prop.replace('_', '.')}' to the {ty} block"
+            if node is not None:
+                to_be_obj = copy.deepcopy(node)
+                spec = (base_f.get("rule_expected") or {}).get(prop)
+                val = _fill_placeholders(spec.get("value", ""), pr) if spec else f"<{prop}>"
+                _set_nested(to_be_obj, prop, val)
+                cp = _code_pair_diff(node, to_be_obj)
+            else:
+                cp = _code_pair_text(as_is_txt, to_be_txt)
+            rows.append(("Schema", ty, label, "fail", as_is_txt, to_be_txt, where, why,
+                         _fix_code_for_missing(prop, base_f, pr), cp))
         for prop in (v.get("weak_recommended") or []):
             if (ty, prop) in covered:
                 continue
             label, where, why = _prop_help(prop, ty)
-            rows.append(("Schema", ty, label, "warn", "(missing/partial) — recommended property",
-                         f"Consider adding '{prop.replace('_', '.')}' to raise the {ty} AEO score", where, why,
-                         _fix_code_for_missing(prop, base_f, pr)))
+            as_is_txt = "(missing/partial) — recommended property"
+            to_be_txt = f"Consider adding '{prop.replace('_', '.')}' to raise the {ty} AEO score"
+            if node is not None:
+                to_be_obj = copy.deepcopy(node)
+                spec = (base_f.get("rule_expected") or {}).get(prop)
+                val = _fill_placeholders(spec.get("value", ""), pr) if spec else f"<{prop}>"
+                _set_nested(to_be_obj, prop, val)
+                cp = _code_pair_diff(node, to_be_obj)
+            else:
+                cp = _code_pair_text(as_is_txt, to_be_txt)
+            rows.append(("Schema", ty, label, "warn", as_is_txt, to_be_txt, where, why,
+                         _fix_code_for_missing(prop, base_f, pr), cp))
     return rows
 
 
@@ -498,6 +619,8 @@ def build_xlsx(page_results):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
+    from openpyxl.cell.rich_text import CellRichText, TextBlock
+    from openpyxl.cell.text import InlineFont
 
     thin = Side(style="thin", color="E4E7EC"); border = Border(thin, thin, thin, thin)
     hfont = Font(bold=True, color="FFFFFF"); hfill = PatternFill("solid", fgColor="1B2A4A")
@@ -526,9 +649,26 @@ def build_xlsx(page_results):
     sev_rank = {"fail": 0, "warn": 1, "info": 2}
     SEV_LABEL = {"fail": "🔴 Must Fix", "warn": "🟡 Review", "info": "⚪ Dictionary(보조)"}
 
+    # [2026-07 신규] 어떤 제품 건인지 한눈에 보이도록 — 슬러그를 사람이 읽는 이름으로.
+    # qb_routes_manage._v2_label()과 동일한 규칙(최소 버전)을 여기서도 그대로 씀.
+    _PRODUCT_KNOWN = {
+        "galaxy-watch8": "Galaxy Watch8",
+        "galaxy-watch-ultra": "Galaxy Watch Ultra",
+    }
+
+    def _product_label(slug: str) -> str:
+        if not slug:
+            return ""
+        if slug in _PRODUCT_KNOWN:
+            return _PRODUCT_KNOWN[slug]
+        out = slug.replace("galaxy-z-", "Galaxy Z ").replace("galaxy-watch", "Galaxy Watch")
+        out = out.replace("fold", "Fold").replace("flip", "Flip")
+        return out
+
     def _meta(pr):
         return (pr.get("region", ""), pr.get("country", ""), pr.get("sitecode", ""),
-                pr.get("page_type") or _page_type(pr.get("url", "")), pr.get("url", ""))
+                pr.get("page_type") or _page_type(pr.get("url", "")), pr.get("url", ""),
+                _product_label(pr.get("product", "")))
 
     def _site_cell(region, country, site):
         # 'uk · U.K (EHQ)' 형태로 한 셀에 합침 — 컬럼 수 축소
@@ -538,12 +678,69 @@ def build_xlsx(page_results):
 
     mono = Font(name="Consolas", size=10)
 
+    # [2026-07 신규] AS-IS/TO-BE 전체 블록을 나란히 비교 — 실제로 달라지는 줄만 빨간색으로.
+    _RT_RED = InlineFont(rFont="Consolas", sz=1000, color="FFD8362F", b=True)
+    _RT_NORMAL = InlineFont(rFont="Consolas", sz=1000)
+
+    def _rich_lines(lines, changed_flags):
+        if not lines:
+            return CellRichText([TextBlock(_RT_NORMAL, "(빈 블록)")])
+        items = []
+        for i, (line, ch) in enumerate(zip(lines, changed_flags)):
+            items.append(TextBlock(_RT_RED if ch else _RT_NORMAL, line if line != "" else " "))
+            if i < len(lines) - 1:
+                items.append("\n")
+        return CellRichText(items)
+
+    def _diff_pair_richtext(as_is_obj, to_be_obj):
+        a_lines = json.dumps(as_is_obj, ensure_ascii=False, indent=2).splitlines()
+        b_lines = json.dumps(to_be_obj, ensure_ascii=False, indent=2).splitlines()
+        sm = difflib.SequenceMatcher(a=a_lines, b=b_lines, autojunk=False)
+        a_changed = [False] * len(a_lines); b_changed = [False] * len(b_lines)
+        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+            if tag != "equal":
+                for i in range(i1, i2):
+                    a_changed[i] = True
+                for j in range(j1, j2):
+                    b_changed[j] = True
+        return _rich_lines(a_lines, a_changed), _rich_lines(b_lines, b_changed)
+
+    def _write_code_pair(ws, rn, col_as_is, col_to_be, code_pair):
+        """AS-IS/TO-BE 두 컬럼에 code_pair를 그린다.
+        · diff  : 실제 페이지의 전체 JSON-LD 블록 ↔ 그 속성만 고친 전체 블록, 달라진 줄만 빨간색
+        · new_block : 블록 자체가 없음 — TO-BE에 통째로 붙여넣을 새 블록만
+        · text  : JSON 노드가 없는 경우(HTML 레벨/파싱 실패/확인만 필요) 일반 문장 대응"""
+        c_a = ws.cell(row=rn, column=col_as_is)
+        c_b = ws.cell(row=rn, column=col_to_be)
+        mode = (code_pair or {}).get("mode", "text")
+        if mode == "diff":
+            try:
+                a_rt, b_rt = _diff_pair_richtext(code_pair["as_is"], code_pair["to_be"])
+                c_a.value = a_rt; c_b.value = b_rt
+            except Exception:
+                c_a.value = json.dumps(code_pair["as_is"], ensure_ascii=False, indent=2)
+                c_b.value = json.dumps(code_pair["to_be"], ensure_ascii=False, indent=2)
+            c_a.font = mono; c_b.font = mono
+        elif mode == "new_block":
+            c_a.value = "(이 블록 자체가 페이지에 없음 — TO-BE를 통째로 새로 추가)"
+            c_b.value = code_pair.get("code", "")
+            c_a.font = Font(italic=True, size=10, color="98A2B3")
+            c_b.font = mono
+        else:
+            c_a.value = code_pair.get("as_is", "") if code_pair else ""
+            c_b.value = code_pair.get("to_be", "") if code_pair else ""
+            c_a.font = Font(size=10)
+            c_b.font = Font(size=10, color="067647", bold=True)
+        c_a.alignment = Alignment(vertical="top", wrap_text=True)
+        c_b.alignment = Alignment(vertical="top", wrap_text=True)
+
     wb = Workbook()
 
-    # ── Sheet 1 — Data QA (Schema + HTML) — 핵심 컬럼만(가로 스크롤 최소화) ──
-    #   위치(Where) → 무엇이(Issue) → 현재값(Current) → 붙여넣을 코드(Fix Code) → URL
-    HEAD1 = ["#", "Site", "Where", "Severity", "Issue", "Current", "Fix Code (paste this)", "URL"]
-    W1 = [4, 20, 30, 12, 30, 42, 66, 40]
+    # ── Sheet 1 — Data QA (Schema + HTML) ──
+    #   제품 → 위치(Where) → 무엇이(Issue) → AS-IS 전체블록 → TO-BE 전체블록(달라진 줄 빨간색) → URL
+    HEAD1 = ["#", "Product", "Site", "Where", "Severity", "Issue",
+             "AS-IS (현재 전체 블록)", "TO-BE (수정 후 전체 블록)", "URL"]
+    W1 = [4, 16, 20, 26, 12, 26, 55, 55, 38]
     ws = wb.active; ws.title = "Data QA"
     ws.append(HEAD1); _hdr(ws)
     data_rows = []
@@ -553,24 +750,22 @@ def build_xlsx(page_results):
         for r in srows + _html_qa_schema_gap_rows(pr, covered) + _html_qa_rows(pr):
             data_rows.append((meta,) + tuple(r))
     data_rows.sort(key=lambda r: (r[0][1] or "zz", r[0][2] or "", sev_rank.get(r[4], 9), r[1], r[2]))
-    for n, (meta, area, ty, item, sev, a, t, loc, impact, fix_code) in enumerate(data_rows, 1):
-        region, country, site, ptype, url = meta
+    for n, (meta, area, ty, item, sev, a, t, loc, impact, fix_code, code_pair) in enumerate(data_rows, 1):
+        region, country, site, ptype, url, product = meta
         where = loc or ty
-        ws.append([n, _site_cell(region, country, site), where, "", f"{item}", a, fix_code, url])
+        ws.append([n, product, _site_cell(region, country, site), where, "", f"{item}", "", "", url])
         rn = ws.max_row
-        sc = ws.cell(row=rn, column=4); sc.value = SEV_LABEL.get(sev, sev)
+        sc = ws.cell(row=rn, column=5); sc.value = SEV_LABEL.get(sev, sev)
         sc.font = Font(bold=True, color=SEV_COLOR2.get(sev, "000000"))
         sc.alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
-        code_cell = ws.cell(row=rn, column=7)  # Fix Code — 코드처럼 보이게 고정폭 폰트
-        code_cell.font = mono
-        code_cell.alignment = Alignment(vertical="top", wrap_text=True)
+        _write_code_pair(ws, rn, 7, 8, code_pair)
     if not data_rows:
-        ws.append(["—", "", "", "🟢 OK", "No issues found", "", "", ""])
+        ws.append(["—", "", "", "", "🟢 OK", "No issues found", "", "", ""])
     _finish(ws, W1, "A2")
 
     # ── Sheet 2 — Spec QA — 기준값 ↔ 페이지 실제값 (핵심 컬럼만) ──
-    HEAD2 = ["#", "Site", "Where", "Severity", "Spec Item", "Expected (Guide)", "Found on Page", "URL"]
-    W2 = [4, 20, 22, 12, 24, 30, 34, 40]
+    HEAD2 = ["#", "Product", "Site", "Where", "Severity", "Spec Item", "Expected (Guide)", "Found on Page", "URL"]
+    W2 = [4, 16, 20, 22, 12, 22, 30, 32, 38]
     ws2 = wb.create_sheet("Spec QA")
     ws2.append(HEAD2); _hdr(ws2)
     KIND_EN = {"spec": "Spec", "proper_noun": "Proper Noun", "spec_value": "Spec Value"}
@@ -611,15 +806,15 @@ def build_xlsx(page_results):
                 spec_rows.append((meta, kind, item, f.get("status"), expected, found_s, loc))
     spec_rows.sort(key=lambda r: (r[0][1] or "zz", r[0][2] or "", sev_rank.get(r[3], 9)))
     for n, (meta, kind, item, sev, exp, found, loc) in enumerate(spec_rows, 1):
-        region, country, site, ptype, url = meta
-        ws2.append([n, _site_cell(region, country, site), f"{kind} → {loc}", "",
+        region, country, site, ptype, url, product = meta
+        ws2.append([n, product, _site_cell(region, country, site), f"{kind} → {loc}", "",
                     str(item), exp, found, url])
         rn = ws2.max_row
-        sc = ws2.cell(row=rn, column=4); sc.value = SEV_LABEL.get(sev, sev)
+        sc = ws2.cell(row=rn, column=5); sc.value = SEV_LABEL.get(sev, sev)
         sc.font = Font(bold=True, color=SEV_COLOR2.get(sev, "000000"))
         sc.alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
     if not spec_rows:
-        ws2.append(["—", "", "", "🟢 OK", "No issues found", "", "", ""])
+        ws2.append(["—", "", "", "", "🟢 OK", "No issues found", "", "", ""])
     _finish(ws2, W2, "A2")
 
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
