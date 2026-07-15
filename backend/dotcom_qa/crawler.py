@@ -214,6 +214,16 @@ class HybridCrawler:
         return result
 
     # ─────────────────────────────────────────────
+    # FORCE RENDER (선택적 단건 재렌더)
+    # ─────────────────────────────────────────────
+    async def force_render(self, url: str) -> Dict[str, Any]:
+        """[2026-07 신규] httpx 결과의 '비어있음' 판정과 무관하게 이 URL 하나만 강제로
+        Playwright 렌더링한다. 스펙 값이 0개 감지된('JS 미렌더 추정') 페이지를 상위 레이어
+        (qb_routes_run)가 선별적으로 재수집할 때 사용 — crawl()의 기존 판단/속도에는
+        영향을 주지 않는다."""
+        return await self._fetch_playwright(url)
+
+    # ─────────────────────────────────────────────
     # EMPTY CHECK
     # ─────────────────────────────────────────────
     def _looks_empty(self, data: Optional[Dict], strict: bool = False) -> bool:

@@ -78,6 +78,10 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
         sem = asyncio.Semaphore(_RUN_CONCURRENCY)  # 동시 진행 개수를 제한해 '나눠서' 처리
         rules_cache: Dict[str, Any] = {}
         results: List[Optional[Dict[str, Any]]] = [None] * len(targets)
+        # [2026-07 FIX] spec_v2가 "스펙 값 0개 + httpx로만 수집됨"을 진단한 페이지만
+        # 골라 Playwright로 재렌더 후 재검수한다. 전체 크롤 속도 유지를 위해 예산을 둔다.
+        spec_rescue_cap = int(os.getenv("QB_SPEC_RESCUE_CAP", "30"))
+        spec_rescue_state = {"used": 0}
 
         def rules_for(pt, mp):
             key = f"{pt}|{mp}"
@@ -101,6 +105,19 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
                 try:
                     if html:
                         row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt, rendered_by=rendered_by)
+                        # [2026-07 FIX] "스펙 값 0개 + httpx로만 수집됨" 진단이면, 이 페이지만
+                        # Playwright로 재렌더해 재검수한다(Compare 포함 — 룰 자체는 이미 정상
+                        # 적용되지만, JS 미렌더 HTML엔 애초에 스펙 텍스트가 없어 판정 불가했던 경우).
+                        diag = ((row.get("spec_v2") or {}).get("summary") or {}).get("diagnosis")
+                        if diag and diag.get("rendered_by") == "httpx" and spec_rescue_state["used"] < spec_rescue_cap:
+                            spec_rescue_state["used"] += 1
+                            try:
+                                pw = await crawler.force_render(url)
+                            except Exception as e:
+                                pw = {"error": str(e)}
+                            if pw and pw.get("html_content") and not pw.get("error"):
+                                row = runner.run_site(site, pw["html_content"], rules_for(pt, mp),
+                                                       page_type=pt, rendered_by="playwright(spec_rescue)")
                         ok = True
                     else:
                         raise RuntimeError(err or "no html")
