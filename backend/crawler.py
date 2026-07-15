@@ -63,6 +63,15 @@ class HybridCrawler:
             else os.getenv("USE_PLAYWRIGHT", "false").lower() == "true"
         )
 
+        # [JS_RESCUE] 전면 렌더(USE_PLAYWRIGHT)는 그대로 꺼둔 채, httpx가 '빈/차단'
+        # 페이지를 받은 경우에 한해서만 Playwright로 그 페이지만 구제한다.
+        # → 정상 페이지는 렌더하지 않아 전체 크롤 속도는 유지, Meta 같은 소수만 추가 비용.
+        self.js_rescue = os.getenv("JS_RESCUE", "true").lower() == "true"
+        self.js_rescue_cap = int(os.getenv("JS_RESCUE_CAP", "8"))
+        self._rescue_used = 0
+        # 렌더가 실제로 가능한지(전면 렌더 or 구제 중 하나라도 켜짐)
+        self._pw_available = self.enable_playwright or self.js_rescue
+
         self.enable_screenshot = (
             enable_screenshot
             if enable_screenshot is not None
@@ -95,7 +104,7 @@ class HybridCrawler:
     # BROWSER INIT
     # ─────────────────────────────────────────────
     async def _ensure_browser(self):
-        if not self.enable_playwright:
+        if not self._pw_available:
             return None
         if self._browser:
             return self._browser
@@ -164,26 +173,35 @@ class HybridCrawler:
         # 기존: if not requires_js → Samsung/Apple(requires_js=True)에서 HTTP 완전 건너뜀
         #       + USE_PLAYWRIGHT=false(기본) → Playwright도 건너뜀 → "empty result" 100%
         http_data = await self._fetch_http(url)
+        http_bad = (not http_data) or bool(http_data.get("error"))
         if http_data and not http_data.get("error"):
             result.update(http_data)
             result["rendered_by"] = "httpx"
 
-        # Playwright 업그레이드 조건:
-        # [FIX] requires_js=True라고 무조건 JS를 태우지 않는다. 대신 requires_js는
-        # '얼마나 엄격하게 비었다고 볼지'의 기준(strict)으로만 쓴다.
-        # → httpx로 이미 충분한 페이지는 JS 예산을 아끼고, 실제로 빈약한 페이지에
-        #   BROWSER_PAGE_CAP을 우선 배정한다 (URL 등장 순서에 좌우되지 않음).
-        need_js = self._looks_empty(http_data, strict=requires_js)
+        # JS 렌더링을 태울지 결정 — 두 경로 분리:
+        #  1) 전면 렌더(USE_PLAYWRIGHT=true): 기존처럼 '얼마나 비었나' 기준으로 업그레이드
+        #  2) 구제(JS_RESCUE): 평소엔 안 태우고, httpx가 '빈/차단' 페이지를 받은 경우에만
+        #     그 페이지만 별도 예산으로 재렌더 → 정상 페이지는 손대지 않아 속도 유지
+        use_full = self.enable_playwright and self._looks_empty(http_data, strict=requires_js) \
+            and self._browser_used < self.browser_page_cap
+        use_rescue = (not self.enable_playwright) and self.js_rescue and http_bad \
+            and self._rescue_used < self.js_rescue_cap
 
-        if need_js and self.enable_playwright and self._browser_used < self.browser_page_cap:
-            self._browser_used += 1
-
+        if use_full or use_rescue:
+            if use_full:
+                self._browser_used += 1
+            else:
+                self._rescue_used += 1
+                result.setdefault("collection_issues", []).append(
+                    f"js_rescue: httpx 결과 부실({http_data.get('error') or 'near-empty'}) → JS 재렌더 시도")
             pw = await self._fetch_playwright(url)
-
             if pw and not pw.get("error"):
                 result.update(pw)
-                result["rendered_by"] = "playwright"
-            # playwright 실패해도 http_data 결과는 result에 이미 반영됨 (위에서 update)
+                result["rendered_by"] = "playwright" + ("" if use_full else "(rescue)")
+            elif pw and pw.get("error"):
+                # 렌더까지 했는데도 실패 → 정확한 사유를 남긴다(차단/빈페이지/타임아웃 구분)
+                result["error"] = pw.get("error")
+                result.setdefault("collection_issues", []).extend(pw.get("collection_issues") or [])
 
         # HTTP 결과라도 있으면 최종 fallback
         if result.get("html_content") is None and http_data:
@@ -194,6 +212,16 @@ class HybridCrawler:
 
         result["load_time_ms"] = int((datetime.now() - t0).total_seconds() * 1000)
         return result
+
+    # ─────────────────────────────────────────────
+    # FORCE RENDER (선택적 단건 재렌더)
+    # ─────────────────────────────────────────────
+    async def force_render(self, url: str) -> Dict[str, Any]:
+        """[2026-07 신규] httpx 결과의 '비어있음' 판정과 무관하게 이 URL 하나만 강제로
+        Playwright 렌더링한다. 스펙 값이 0개 감지된('JS 미렌더 추정') 페이지를 상위 레이어
+        (qb_routes_run)가 선별적으로 재수집할 때 사용 — crawl()의 기존 판단/속도에는
+        영향을 주지 않는다."""
+        return await self._fetch_playwright(url)
 
     # ─────────────────────────────────────────────
     # EMPTY CHECK
@@ -308,21 +336,68 @@ class HybridCrawler:
                     viewport={"width": 1440, "height": 900},
                     user_agent=self.user_agent,
                     locale="en-US",
+                    timezone_id="America/Los_Angeles",
                 )
+                # [consent] 동의/지역 게이트가 강한 사이트(Meta 등)에 미리 동의 쿠키를 심어
+                # 쿠키월/리다이렉트로 'Error | Meta' 껍데기가 오는 것을 줄인다.
+                try:
+                    host = re.sub(r"^https?://", "", url).split("/")[0]
+                    root = "." + ".".join(host.split(".")[-2:])
+                    await context.add_cookies([
+                        {"name": "dcookie", "value": "1", "domain": root, "path": "/"},
+                        {"name": "cookie_consent", "value": "accepted", "domain": root, "path": "/"},
+                        {"name": "OptanonAlertBoxClosed", "value": "2026-01-01T00:00:00.000Z", "domain": root, "path": "/"},
+                    ])
+                except Exception:
+                    pass
 
                 page = await context.new_page()
-
-                # stealth
-                await page.add_init_script("""
-                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                """)
+                await page.add_init_script(
+                    "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});")
 
                 await page.goto(url, wait_until="domcontentloaded", timeout=self.js_timeout_ms)
+
+                # [consent] 흔한 쿠키 동의 버튼 자동 클릭(있으면). 없으면 조용히 넘어감.
+                for sel in ("button[data-cookiebanner='accept_button']",
+                            "button[data-testid='cookie-policy-manage-dialog-accept-button']",
+                            "[aria-label*='Allow all']", "[title*='Accept']",
+                            "button:has-text('Accept All')", "button:has-text('Accept all')",
+                            "button:has-text('동의')", "button:has-text('모두 허용')"):
+                    try:
+                        el = await page.query_selector(sel)
+                        if el:
+                            await el.click(timeout=1500); await page.wait_for_timeout(400); break
+                    except Exception:
+                        pass
 
                 try:
                     await page.wait_for_load_state("networkidle", timeout=8000)
                 except Exception:
                     await page.wait_for_timeout(2000)
+
+                # [2026-07 FIX] 스펙/Compare 섹션이 스크롤 진입 시에만 그려지는(지연로딩)
+                # 페이지가 많다 — 캡처 전 페이지 끝까지 단계적으로 스크롤해 지연로딩 콘텐츠를
+                # 강제로 화면에 그려지게 한다. 실패해도 기존 캡처 흐름엔 영향 없음.
+                try:
+                    await page.evaluate("""
+                        async () => {
+                            const step = Math.max(400, window.innerHeight);
+                            let last = -1;
+                            for (let i = 0; i < 40; i++) {
+                                window.scrollBy(0, step);
+                                await new Promise(r => setTimeout(r, 250));
+                                const h = document.body ? document.body.scrollHeight : 0;
+                                if (window.scrollY + window.innerHeight >= h) {
+                                    if (h === last) break;
+                                    last = h;
+                                }
+                            }
+                            window.scrollTo(0, 0);
+                        }
+                    """)
+                    await page.wait_for_timeout(500)
+                except Exception:
+                    pass
 
                 html = await page.content()
                 final_url = page.url
@@ -334,7 +409,6 @@ class HybridCrawler:
                 data["final_url"] = final_url
                 data["collection_issues"] = []
 
-                # [S8] 렌더된 전체 페이지 픽셀 높이(page length) 측정
                 try:
                     height = await page.evaluate(
                         "() => Math.max("
@@ -347,12 +421,25 @@ class HybridCrawler:
 
                 bad_reason = self._detect_bad_page(data, final_url)
                 if bad_reason:
-                    data["error"] = bad_reason
-                    data["collection_issues"].append(bad_reason)
+                    # 렌더까지 했는데도 실패 → 사유를 사람이 알아보게 분류
+                    redirected = final_url.rstrip("/") != url.rstrip("/")
+                    if "error page" in bad_reason or "blocked" in bad_reason:
+                        why = f"사이트 차단/에러 페이지(렌더 후에도 '{data.get('title') or '?'}')"
+                    elif "near-empty" in bad_reason:
+                        why = "JS 렌더 후에도 본문 없음 — 동의벽/지역 게이트 추정"
+                    else:
+                        why = bad_reason
+                    if redirected:
+                        why += f" · 리다이렉트: {final_url}"
+                    data["error"] = why
+                    data["collection_issues"].append(why)
                 return data
 
             except Exception as e:
-                return {"error": str(e), "status_code": 0, "collection_issues": [str(e)]}
+                msg = str(e)
+                if "Timeout" in msg or "timeout" in msg:
+                    msg = f"타임아웃({self.js_timeout_ms}ms 초과) — 페이지가 안 뜨거나 차단 추정"
+                return {"error": msg, "status_code": 0, "collection_issues": [msg]}
 
             finally:
                 if context:
@@ -385,11 +472,11 @@ class HybridCrawler:
         d["internal_links"] = self._links(soup)
         d["images"] = self._images(soup, page_url)
 
-        d["body_content"] = self._body_copy_text(soup)
+        d["body_content"] = self._body_copy_text(soup, page_url)
         d["word_count"] = len(d["body_content"].split())
         return d
 
-    def _body_copy_text(self, soup: BeautifulSoup) -> str:
+    def _body_copy_text(self, soup: BeautifulSoup, page_url: str = "") -> str:
         """반복 크롤 안정화를 위한 본문 카피 추출.
 
         기존 body 전체 텍스트는 헤더/푸터/메뉴/쿠키/추천 영역까지 포함해
@@ -401,6 +488,15 @@ class HybridCrawler:
         if not root:
             return ""
 
+        # [FIX 2026-07] "compare"는 원래 PDP 등 다른 페이지에 뜨는 '비교하기' 업셀
+        # 위젯(cross-sell)을 걸러내려던 키워드였는데, 정작 Compare 페이지 자신은
+        # 최상위 컨테이너부터 "compare-..." 클래스/id를 쓰는 경우가 많아, 이 하나의
+        # 키워드가 Compare 페이지의 스펙 그리드 전체를 통째로 지워버리고 있었다
+        # (그래서 Compare 페이지에서 스펙이 "아예" 안 잡히는 현상 발생).
+        # → 지금 크롤 중인 URL 자체가 Compare 페이지면 "compare/비교" 키워드는
+        #   노이즈 필터에서 빼고, 대신 업셀 위젯에만 쓰이는 더 구체적인 패턴으로 대체.
+        is_compare_page = bool(re.search(r"/compare(/|$)", page_url or "", re.IGNORECASE))
+
         # 원본 soup를 훼손하지 않도록 복제한 뒤 노이즈 영역 제거
         clean = BeautifulSoup(str(root), "lxml")
         noisy_tags = [
@@ -410,10 +506,19 @@ class HybridCrawler:
         for t in clean.find_all(noisy_tags):
             t.decompose()
 
+        compare_token = (
+            # Compare 페이지 자신을 크롤할 때: 업셀 위젯만 좁게 매칭(자기 자신의
+            # compare-key-specs / compare-table 같은 본문 컨테이너는 건드리지 않음)
+            r"compare[-_]?(cta|widget|upsell|promo|banner|module)|"
+            r"(you[-_ ]?may|related|recommend)[-_ ]?compare"
+            if is_compare_page
+            # 그 외 페이지(PDP 등)에서는 기존처럼 "compare" 전체를 노이즈로 간주
+            else r"compare"
+        )
         noisy_re = re.compile(
             r"(cookie|consent|privacy|legal|footer|header|nav|menu|gnb|breadcrumb|"
             r"modal|popup|overlay|drawer|tooltip|pagination|carousel-control|"
-            r"recommend|related|recently|compare|support|search|login|account|"
+            rf"recommend|related|recently|{compare_token}|support|search|login|account|"
             r"쿠키|동의|개인정보|약관|푸터|헤더|메뉴|내비|모달|팝업|추천|관련|검색|로그인)",
             re.IGNORECASE,
         )
