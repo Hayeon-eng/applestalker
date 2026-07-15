@@ -375,6 +375,30 @@ class HybridCrawler:
                 except Exception:
                     await page.wait_for_timeout(2000)
 
+                # [2026-07 FIX] 스펙/Compare 섹션이 스크롤 진입 시에만 그려지는(지연로딩)
+                # 페이지가 많다 — 캡처 전 페이지 끝까지 단계적으로 스크롤해 지연로딩 콘텐츠를
+                # 강제로 화면에 그려지게 한다. 실패해도 기존 캡처 흐름엔 영향 없음.
+                try:
+                    await page.evaluate("""
+                        async () => {
+                            const step = Math.max(400, window.innerHeight);
+                            let last = -1;
+                            for (let i = 0; i < 40; i++) {
+                                window.scrollBy(0, step);
+                                await new Promise(r => setTimeout(r, 250));
+                                const h = document.body ? document.body.scrollHeight : 0;
+                                if (window.scrollY + window.innerHeight >= h) {
+                                    if (h === last) break;
+                                    last = h;
+                                }
+                            }
+                            window.scrollTo(0, 0);
+                        }
+                    """)
+                    await page.wait_for_timeout(500)
+                except Exception:
+                    pass
+
                 html = await page.content()
                 final_url = page.url
                 soup = BeautifulSoup(html, "lxml")
