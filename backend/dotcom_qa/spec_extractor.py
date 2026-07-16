@@ -134,6 +134,35 @@ def extract(html: str) -> Dict[str, Any]:
 
     pairs: List[Dict[str, str]] = []
 
+    # ⓪ [2026-07 신규] data-속성 기반 값 — 화면엔 아이콘만 있고 실제 스펙 숫자는
+    #    data-spec-value 같은 속성 안에만 있는 구조(예: Samsung Compare 위젯의
+    #    <p data-spec-type="keyweightsize-2" data-spec-value="218">).
+    #    렌더링/스크롤/동의모달을 아무리 고쳐도 텍스트 기반 추출(①~③)로는 절대 못 잡는
+    #    영역이라 별도 tier로 추가한다. data-spec-type 끝의 "-N"은 비교 대상 제품의
+    #    열 순서(product_hint)로 쓴다(Compare 표의 컬럼별 값 구분과 동일한 목적).
+    _DATA_IDX_RX = re.compile(r"^(.*?)-(\d+)$")
+    for el in soup.find_all(attrs={"data-spec-value": True}):
+        raw_val = _clean(el.get("data-spec-value", ""))
+        raw_type = _clean(el.get("data-spec-type", "") or el.get("data-spec-key", ""))
+        if not raw_val or not raw_type:
+            continue
+        m = _DATA_IDX_RX.match(raw_type)
+        spec_key, col_idx = (m.group(1), m.group(2)) if m else (raw_type, None)
+        # 사람이 읽는 라벨 후보 — aria-label/자체 라벨 속성 → 형제 아이콘의 alt → 안되면 slug 그대로
+        label = _clean(el.get("aria-label") or el.get("data-spec-label") or "")
+        if not label:
+            img = el.find("img")
+            if img is None:
+                img = el.find_previous("img")
+            if img is not None:
+                label = _clean(img.get("alt", ""))
+        if not label:
+            label = spec_key
+        pair = {"label": label, "value": raw_val, "section": _classify(el), "source": "data-attr"}
+        if col_idx:
+            pair["product_hint"] = col_idx
+        pairs.append(pair)
+
     # ① <dl><dt><dd> 구조
     for dl in soup.find_all("dl"):
         sec = _classify(dl)
