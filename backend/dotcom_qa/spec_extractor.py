@@ -144,10 +144,13 @@ def extract(html: str) -> Dict[str, Any]:
     for el in soup.find_all(attrs={"data-spec-value": True}):
         raw_val = _clean(el.get("data-spec-value", ""))
         raw_type = _clean(el.get("data-spec-type", "") or el.get("data-spec-key", ""))
-        if not raw_val or not raw_type:
+        # Samsung Compare 일부 렌더링 DOM은 data-spec-value는 존재하지만
+        # data-spec-type/key가 없는 경우가 있음. 기존 data-attr 추출은 유지하면서
+        # value 자체가 있는 경우 fallback 허용.
+        if not raw_val:
             continue
         m = _DATA_IDX_RX.match(raw_type)
-        spec_key, col_idx = (m.group(1), m.group(2)) if m else (raw_type, None)
+        spec_key, col_idx = (m.group(1), m.group(2)) if m else (raw_type or "unknown_spec", None)
         # 사람이 읽는 라벨 후보 — aria-label/자체 라벨 속성 → 형제 아이콘의 alt → 안되면 slug 그대로
         label = _clean(el.get("aria-label") or el.get("data-spec-label") or "")
         if not label:
