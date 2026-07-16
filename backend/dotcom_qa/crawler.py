@@ -357,6 +357,33 @@ class HybridCrawler:
 
                 await page.goto(url, wait_until="domcontentloaded", timeout=self.js_timeout_ms)
 
+                # [2026-07 FIX] Samsung.com 2단계 게이트(①지역/언어 선택 → ②개인정보 동의)를
+                # 먼저 닫는다. 안 닫으면 Compare/Specs 표의 실제 스펙 값(JS로 채워짐)이 영원히
+                # 비어있는 채로 캡처됨 — 아이콘/열 구조만 있고 숫자는 없는 현상의 유력 원인.
+                # 다른 사이트의 무관한 버튼을 잘못 누르지 않도록, 반드시 해당 모달의 랜드마크
+                # 문구가 같이 있는 컨테이너 안에서만 클릭한다(전역 'Continue' 클릭 금지).
+                try:
+                    loc_btn = await page.query_selector(
+                        "xpath=//*[contains(text(),'Choose your location and language')]"
+                        "/ancestor::*[self::div or self::section or self::form][1]"
+                        "//button[contains(., 'Continue')]")
+                    if loc_btn:
+                        await loc_btn.click(timeout=1500); await page.wait_for_timeout(400)
+                except Exception:
+                    pass
+                try:
+                    proceed_btn = await page.query_selector(
+                        "button:has-text('PROCEED TO SAMSUNG.COM')")
+                    if proceed_btn:
+                        cb = await page.query_selector(
+                            "xpath=//button[contains(., 'PROCEED TO SAMSUNG.COM')]"
+                            "/ancestor::*[self::div or self::form][1]//input[@type='checkbox']")
+                        if cb:
+                            await cb.click(timeout=1500); await page.wait_for_timeout(200)
+                        await proceed_btn.click(timeout=1500); await page.wait_for_timeout(400)
+                except Exception:
+                    pass
+
                 # [consent] 흔한 쿠키 동의 버튼 자동 클릭(있으면). 없으면 조용히 넘어감.
                 for sel in ("button[data-cookiebanner='accept_button']",
                             "button[data-testid='cookie-policy-manage-dialog-accept-button']",
