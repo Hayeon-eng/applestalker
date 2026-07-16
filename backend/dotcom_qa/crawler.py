@@ -452,6 +452,7 @@ class HybridCrawler:
                     pass
 
                 html = await page.content()
+                print("[PW DEBUG]", url, "html_len=", len(html), "data-spec-value=", html.count("data-spec-value"))
                 final_url = page.url
                 soup = BeautifulSoup(html, "lxml")
 
