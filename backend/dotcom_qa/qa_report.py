@@ -686,10 +686,10 @@ def build_xlsx(page_results):
         if not lines:
             return CellRichText([TextBlock(_RT_NORMAL, "(빈 블록)")])
         items = []
+        n = len(lines)
         for i, (line, ch) in enumerate(zip(lines, changed_flags)):
-            items.append(TextBlock(_RT_RED if ch else _RT_NORMAL, line if line != "" else " "))
-            if i < len(lines) - 1:
-                items.append("\n")
+            text = (line if line != "" else " ") + ("\n" if i < n - 1 else "")
+            items.append(TextBlock(_RT_RED if ch else _RT_NORMAL, text))
         return CellRichText(items)
 
     def _diff_pair_richtext(as_is_obj, to_be_obj):
