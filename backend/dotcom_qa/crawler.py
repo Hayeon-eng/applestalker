@@ -15,6 +15,7 @@ import asyncio
 import json
 import os
 import re
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
@@ -84,6 +85,7 @@ class HybridCrawler:
         self._client: Optional[httpx.AsyncClient] = None
         self._browser = None
         self._pw = None
+        self._install_attempted = False  # [2026-07 신규] 런타임 자동설치 재시도 1회 제한용
 
         self._http_sem = asyncio.Semaphore(max_http_concurrent)
         self._browser_sem = asyncio.Semaphore(1)
@@ -128,8 +130,31 @@ class HybridCrawler:
                     ],
                 )
             except Exception as e:
-                print(f"[crawler] playwright failed: {e}")
-                self._browser = None
+                msg = str(e)
+                # [2026-07 FIX] "Executable doesn't exist" — 빌드 때 playwright install이
+                # 안 됐거나 빌드/런타임 캐시 경로가 어긋난 경우. 배포 파이프라인을 다시
+                # 만지지 않아도 되게, 런타임에서 딱 한 번만 자동 설치를 시도하고 재시도한다.
+                if "Executable doesn't exist" in msg and not self._install_attempted:
+                    self._install_attempted = True
+                    print("[crawler] chromium missing — attempting runtime `playwright install chromium`")
+                    try:
+                        proc = await asyncio.create_subprocess_exec(
+                            sys.executable, "-m", "playwright", "install", "chromium",
+                            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+                        out, _ = await proc.communicate()
+                        print(f"[crawler] runtime playwright install exit={proc.returncode}: "
+                              f"{out.decode(errors='ignore')[-800:]}")
+                        if proc.returncode == 0:
+                            self._browser = await self._pw.chromium.launch(
+                                headless=True,
+                                args=["--no-sandbox", "--disable-setuid-sandbox",
+                                      "--disable-dev-shm-usage", "--single-process", "--no-zygote"],
+                            )
+                    except Exception as e2:
+                        print(f"[crawler] runtime playwright install failed: {e2}")
+                if not self._browser:
+                    print(f"[crawler] playwright failed: {e}")
+                    self._browser = None
 
         return self._browser
 
