@@ -96,7 +96,7 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
                 mp = runner.product_from_url(url)
                 html, err, rendered_by = None, None, None
                 try:
-                    res = await crawler.crawl(url, requires_js=True)
+                    res = await crawler.force_render(url) if pt.lower() == "compare" else await crawler.crawl(url, requires_js=True)
                     html = (res or {}).get("html_content")
                     err = (res or {}).get("error")
                     rendered_by = (res or {}).get("rendered_by")
