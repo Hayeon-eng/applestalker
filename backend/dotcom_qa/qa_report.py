@@ -679,8 +679,8 @@ def build_xlsx(page_results):
     mono = Font(name="Consolas", size=10)
 
     # [2026-07 신규] AS-IS/TO-BE 전체 블록을 나란히 비교 — 실제로 달라지는 줄만 빨간색으로.
-    _RT_RED = InlineFont(rFont="Consolas", sz=1000, color="FFD8362F", b=True)
-    _RT_NORMAL = InlineFont(rFont="Consolas", sz=1000)
+    _RT_RED = InlineFont(rFont="Consolas", sz=9, color="FFD8362F", b=True)
+    _RT_NORMAL = InlineFont(rFont="Consolas", sz=9)
 
     def _rich_lines(lines, changed_flags):
         if not lines:
