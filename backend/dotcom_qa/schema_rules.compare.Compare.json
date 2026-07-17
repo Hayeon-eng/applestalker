@@ -1,5 +1,5 @@
 {
-  "source": "PTK_schema_set 크롬확장 2.4.14 (Word)",
+  "source": "PTK_schema_set 크롬확장 2.4.14 (Word) — updated_0707",
   "sitecode_token": "{SITECODE}",
   "page_type": "Compare",
   "set": "compare",
@@ -12,15 +12,19 @@
       ],
       "id_pattern": "",
       "id_slug": "",
-      "required_properties": [
-        "url",
+      "required_properties": [],
+      "optional_properties": [
         "name",
         "description",
+        "url",
+        "inLanguage",
         "primaryImageOfPage",
+        "breadcrumb",
         "mainEntity",
-        "about"
+        "about",
+        "relatedLink",
+        "hasPart"
       ],
-      "optional_properties": [],
       "property_notes": {},
       "haspart_ids": [],
       "expected_values": {},
@@ -32,7 +36,7 @@
         },
         "@type": {
           "type": "required",
-          "format": "string",
+          "format": "array",
           "nested": null
         },
         "@id": {
@@ -40,38 +44,82 @@
           "format": "string",
           "nested": null
         },
-        "url": {
-          "type": "required",
-          "format": "string",
-          "nested": null
-        },
         "name": {
-          "type": "required",
+          "type": "optional",
           "format": "string",
           "nested": null
         },
         "description": {
-          "type": "required",
+          "type": "optional",
+          "format": "string",
+          "nested": null
+        },
+        "url": {
+          "type": "optional",
+          "format": "string",
+          "nested": null
+        },
+        "inLanguage": {
+          "type": "optional",
           "format": "string",
           "nested": null
         },
         "primaryImageOfPage": {
-          "type": "required",
+          "type": "optional",
           "format": "string",
           "nested": null
         },
-        "mainEntity": {
-          "type": "required",
+        "breadcrumb": {
+          "type": "optional",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
+        },
+        "mainEntity": {
+          "type": "optional",
+          "format": "object",
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "about": {
-          "type": "required",
+          "type": "optional",
           "format": "object",
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
+        },
+        "relatedLink": {
+          "type": "optional",
+          "format": "array",
           "nested": null
+        },
+        "hasPart": {
+          "type": "optional",
+          "format": "array",
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         }
       },
-      "source": "word:PTK_2.4.14",
+      "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
     },
     {
@@ -83,7 +131,7 @@
       "id_slug": "",
       "required_properties": [
         "inLanguage",
-        "about",
+        "isPartOf",
         "mainEntity"
       ],
       "optional_properties": [],
@@ -111,18 +159,51 @@
           "format": "string",
           "nested": null
         },
-        "about": {
+        "isPartOf": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "mainEntity": {
           "type": "required",
           "format": "array",
-          "nested": null
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "name": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "acceptedAnswer": {
+              "type": "required",
+              "format": "object",
+              "nested": {
+                "@type": {
+                  "type": "required",
+                  "format": "string",
+                  "nested": null
+                },
+                "text": {
+                  "type": "required",
+                  "format": "string",
+                  "nested": null
+                }
+              }
+            }
+          }
         }
       },
-      "source": "word:PTK_2.4.14",
+      "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
     },
     {
@@ -133,6 +214,7 @@
       "id_pattern": "",
       "id_slug": "",
       "required_properties": [
+        "mainEntityOfPage",
         "numberOfItems",
         "itemListElement"
       ],
@@ -156,105 +238,51 @@
           "format": "string",
           "nested": null
         },
+        "mainEntityOfPage": {
+          "type": "required",
+          "format": "object",
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
+        },
         "numberOfItems": {
           "type": "required",
-          "format": "string",
+          "format": "number",
           "nested": null
         },
         "itemListElement": {
           "type": "required",
           "format": "array",
-          "nested": null
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "position": {
+              "type": "required",
+              "format": "number",
+              "nested": null
+            },
+            "item": {
+              "type": "required",
+              "format": "object",
+              "nested": {
+                "@id": {
+                  "type": "required",
+                  "format": "string",
+                  "nested": null
+                }
+              }
+            }
+          }
         }
       },
-      "source": "word:PTK_2.4.14",
-      "conditional": null
-    },
-    {
-      "name": "Product",
-      "types": [
-        "Product"
-      ],
-      "id_pattern": "",
-      "id_slug": "",
-      "required_properties": [
-        "name",
-        "isPartOf",
-        "color",
-        "weight",
-        "width",
-        "height",
-        "depth",
-        "additionalProperty",
-        "mainEntityOfPage"
-      ],
-      "optional_properties": [],
-      "property_notes": {},
-      "haspart_ids": [],
-      "expected_values": {},
-      "field_formats": {
-        "@context": {
-          "type": "required",
-          "format": "string",
-          "nested": null
-        },
-        "@type": {
-          "type": "required",
-          "format": "string",
-          "nested": null
-        },
-        "@id": {
-          "type": "required",
-          "format": "string",
-          "nested": null
-        },
-        "name": {
-          "type": "required",
-          "format": "string",
-          "nested": null
-        },
-        "isPartOf": {
-          "type": "required",
-          "format": "object",
-          "nested": null
-        },
-        "color": {
-          "type": "required",
-          "format": "array",
-          "nested": null
-        },
-        "weight": {
-          "type": "required",
-          "format": "object",
-          "nested": null
-        },
-        "width": {
-          "type": "required",
-          "format": "object",
-          "nested": null
-        },
-        "height": {
-          "type": "required",
-          "format": "object",
-          "nested": null
-        },
-        "depth": {
-          "type": "required",
-          "format": "object",
-          "nested": null
-        },
-        "additionalProperty": {
-          "type": "required",
-          "format": "array",
-          "nested": null
-        },
-        "mainEntityOfPage": {
-          "type": "required",
-          "format": "object",
-          "nested": null
-        }
-      },
-      "source": "word:PTK_2.4.14",
+      "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
     }
   ]

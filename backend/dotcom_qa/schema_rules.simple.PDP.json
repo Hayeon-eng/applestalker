@@ -1,5 +1,5 @@
 {
-  "source": "PTK_schema_set 크롬확장 2.4.14 (Word)",
+  "source": "PTK_schema_set 크롬확장 2.4.14 (Word) — updated_0707",
   "sitecode_token": "{SITECODE}",
   "page_type": "PDP",
   "set": "simple",
@@ -10,8 +10,8 @@
         "WebPage",
         "ItemPage"
       ],
-      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#webpage",
-      "id_slug": "#webpage",
+      "id_pattern": "",
+      "id_slug": "",
       "required_properties": [
         "url",
         "name",
@@ -22,33 +22,7 @@
       "optional_properties": [],
       "property_notes": {},
       "haspart_ids": [],
-      "expected_values": {
-        "@context": {
-          "value": "https://schema.org",
-          "kind": "url",
-          "nested": null
-        },
-        "url": {
-          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/",
-          "kind": "url",
-          "nested": null
-        },
-        "name": {
-          "value": "Samsung Galaxy S26 | S26+",
-          "kind": "text",
-          "nested": null
-        },
-        "mainEntity": {
-          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "about": {
-          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/buy",
-          "kind": "url",
-          "nested": "@id"
-        }
-      },
+      "expected_values": {},
       "field_formats": {
         "@context": {
           "type": "required",
@@ -88,10 +62,16 @@
         "mainEntity": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         }
       },
-      "source": "word:PTK_2.4.14",
+      "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
     },
     {
@@ -99,8 +79,8 @@
       "types": [
         "Product"
       ],
-      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/",
-      "id_slug": "galaxy-s26",
+      "id_pattern": "",
+      "id_slug": "",
       "required_properties": [
         "description",
         "name",
@@ -117,74 +97,9 @@
       "optional_properties": [
         "aggregateRating"
       ],
-      "property_notes": {
-        "review": "'review' property in 'Product' schema will be added as Hotfix after launch."
-      },
-      "haspart_ids": [
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#faq",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#model3d",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-design-form-factor",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-customized-ap",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-vapor-chamber",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-nightography",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-photo-assist",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-now-nudge-share-photos",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-now-brief",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/buy",
-        "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/compare"
-      ],
-      "expected_values": {
-        "@context": {
-          "value": "https://schema.org",
-          "kind": "url",
-          "nested": null
-        },
-        "name": {
-          "value": "Samsung Galaxy S26 | S26+",
-          "kind": "text",
-          "nested": null
-        },
-        "description": {
-          "value": "Meet Galaxy S26 and S26+, sleek smartphones in two different sizes with a customized processor that delivers smarter Galaxy AI features.",
-          "kind": "text",
-          "nested": null
-        },
-        "brand": {
-          "value": "https://www.samsung.com/{SITECODE}/#brand-galaxy",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "manufacturer": {
-          "value": "https://www.samsung.com/{SITECODE}/#org",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "image": {
-          "value": "https://images.samsung.com/[SITECODE]/smartphones/galaxy-s26/images/galaxy-s26-share-image.jpg, https://www.samsung.com/samsung/resources/global/galaxy-s26/common/images/galaxy-s26-thumbnail-image.jpg",
-          "kind": "url",
-          "nested": null
-        },
-        "potentialAction": {
-          "value": "BuyAction",
-          "kind": "enum",
-          "nested": "@type"
-        },
-        "hasPart": {
-          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#faq",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "mainEntityOfPage": {
-          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#webpage",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "review": {
-          "value": "CriticReview",
-          "kind": "enum",
-          "nested": "@type"
-        }
-      },
+      "property_notes": {},
+      "haspart_ids": [],
+      "expected_values": {},
       "field_formats": {
         "@context": {
           "type": "required",
@@ -214,12 +129,24 @@
         "brand": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "manufacturer": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "image": {
           "type": "required",
@@ -229,27 +156,82 @@
         "potentialAction": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "target": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "mainEntityOfPage": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "additionalProperty": {
           "type": "required",
           "format": "array",
-          "nested": null
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "name": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "value": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "aggregateRating": {
           "type": "optional",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@type": {
+              "type": "optional",
+              "format": "string",
+              "nested": null
+            },
+            "ratingValue": {
+              "type": "optional",
+              "format": "string",
+              "nested": null
+            },
+            "ratingCount": {
+              "type": "optional",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "subjectOf": {
           "type": "required",
           "format": "array",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "sku": {
           "type": "required",
@@ -259,10 +241,36 @@
         "offers": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "url": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "priceCurrency": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "availability": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "price": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         }
       },
-      "source": "word:PTK_2.4.14",
+      "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
     },
     {
@@ -270,8 +278,8 @@
       "types": [
         "FAQPage"
       ],
-      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#faq",
-      "id_slug": "#faq",
+      "id_pattern": "",
+      "id_slug": "",
       "required_properties": [
         "inLanguage",
         "about",
@@ -280,28 +288,7 @@
       "optional_properties": [],
       "property_notes": {},
       "haspart_ids": [],
-      "expected_values": {
-        "@context": {
-          "value": "https://schema.org",
-          "kind": "url",
-          "nested": null
-        },
-        "inLanguage": {
-          "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
-          "kind": "text",
-          "nested": null
-        },
-        "about": {
-          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "mainEntity": {
-          "value": "Question",
-          "kind": "enum",
-          "nested": "@type"
-        }
-      },
+      "expected_values": {},
       "field_formats": {
         "@context": {
           "type": "required",
@@ -326,15 +313,48 @@
         "about": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "mainEntity": {
           "type": "required",
           "format": "array",
-          "nested": null
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "name": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "acceptedAnswer": {
+              "type": "required",
+              "format": "object",
+              "nested": {
+                "@type": {
+                  "type": "required",
+                  "format": "string",
+                  "nested": null
+                },
+                "text": {
+                  "type": "required",
+                  "format": "string",
+                  "nested": null
+                }
+              }
+            }
+          }
         }
       },
-      "source": "word:PTK_2.4.14",
+      "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
     },
     {
@@ -342,8 +362,8 @@
       "types": [
         "VideoObject"
       ],
-      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#video-now-brief",
-      "id_slug": "#video-now-brief",
+      "id_pattern": "",
+      "id_slug": "",
       "required_properties": [
         "name",
         "description",
@@ -360,59 +380,7 @@
       ],
       "property_notes": {},
       "haspart_ids": [],
-      "expected_values": {
-        "@context": {
-          "value": "https://schema.org",
-          "kind": "url",
-          "nested": null
-        },
-        "name": {
-          "value": "Galaxy S26 and S26+'s Now Brief",
-          "kind": "text",
-          "nested": null
-        },
-        "description": {
-          "value": "Now Brief on Galaxy S26 and S26+ sends more personalized updates based on usage habits and routines, such as playlist recommendations, birthday and booking reminders.",
-          "kind": "text",
-          "nested": null
-        },
-        "uploadDate": {
-          "value": "2026-02-25 00:00:00",
-          "kind": "text",
-          "nested": null
-        },
-        "duration": {
-          "value": "PT5S",
-          "kind": "duration_fmt",
-          "check": "영상길이_형식만",
-          "nested": null
-        },
-        "thumbnailUrl": {
-          "value": "{VIDEO_THUMBNAIL_URL}",
-          "kind": "text",
-          "nested": null
-        },
-        "contentUrl": {
-          "value": "{MP4_URL}",
-          "kind": "text",
-          "nested": null
-        },
-        "publisher": {
-          "value": "https://www.samsung.com/{SITECODE}/#org",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "about": {
-          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "inLanguage": {
-          "value": "{BCP47-LANG}      *Refer to the \"inLanguage\" tab and enter the appropriate code for each region",
-          "kind": "text",
-          "nested": null
-        }
-      },
+      "expected_values": {},
       "field_formats": {
         "@context": {
           "type": "required",
@@ -442,12 +410,14 @@
         "uploadDate": {
           "type": "required",
           "format": "string",
-          "nested": null
+          "nested": null,
+          "value_pattern": "Date"
         },
         "duration": {
           "type": "required",
           "format": "string",
-          "nested": null
+          "nested": null,
+          "value_pattern": "Duration"
         },
         "thumbnailUrl": {
           "type": "required",
@@ -467,12 +437,24 @@
         "publisher": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "about": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "inLanguage": {
           "type": "required",
@@ -480,7 +462,7 @@
           "nested": null
         }
       },
-      "source": "word:PTK_2.4.14",
+      "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
     },
     {
@@ -488,8 +470,8 @@
       "types": [
         "3DModel"
       ],
-      "id_pattern": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/#model3d",
-      "id_slug": "#model3d",
+      "id_pattern": "",
+      "id_slug": "",
       "required_properties": [
         "about",
         "encoding"
@@ -497,23 +479,7 @@
       "optional_properties": [],
       "property_notes": {},
       "haspart_ids": [],
-      "expected_values": {
-        "@context": {
-          "value": "https://schema.org",
-          "kind": "url",
-          "nested": null
-        },
-        "about": {
-          "value": "https://www.samsung.com/{SITECODE}/smartphones/galaxy-s26/",
-          "kind": "url",
-          "nested": "@id"
-        },
-        "encoding": {
-          "value": "MediaObject",
-          "kind": "enum",
-          "nested": "@type"
-        }
-      },
+      "expected_values": {},
       "field_formats": {
         "@context": {
           "type": "required",
@@ -533,15 +499,37 @@
         "about": {
           "type": "required",
           "format": "object",
-          "nested": null
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         },
         "encoding": {
           "type": "required",
           "format": "array",
-          "nested": null
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "contentUrl": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "encodingFormat": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
         }
       },
-      "source": "word:PTK_2.4.14",
+      "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
     }
   ]

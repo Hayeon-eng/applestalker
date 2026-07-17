@@ -134,36 +134,62 @@ def extract(html: str) -> Dict[str, Any]:
 
     pairs: List[Dict[str, str]] = []
 
-    # ⓪ [2026-07 신규] data-속성 기반 값 — 화면엔 아이콘만 있고 실제 스펙 숫자는
+    # ⓪ [2026-07 FIX] data-속성 기반 값 — 화면엔 아이콘만 있고 실제 스펙 숫자는
     #    data-spec-value 같은 속성 안에만 있는 구조(예: Samsung Compare 위젯의
-    #    <p data-spec-type="keyweightsize-2" data-spec-value="218">).
-    #    렌더링/스크롤/동의모달을 아무리 고쳐도 텍스트 기반 추출(①~③)로는 절대 못 잡는
-    #    영역이라 별도 tier로 추가한다. data-spec-type 끝의 "-N"은 비교 대상 제품의
-    #    열 순서(product_hint)로 쓴다(Compare 표의 컬럼별 값 구분과 동일한 목적).
-    _DATA_IDX_RX = re.compile(r"^(.*?)-(\d+)$")
+    #    <p data-spec-type="keyCamera-4" data-spec-value="...">). 렌더링/스크롤/동의모달을
+    #    아무리 고쳐도 텍스트 기반 추출(①~③)로는 절대 못 잡는 영역이라 별도 tier로 추가.
+    #
+    #    [정정] data-spec-type 끝의 "-N"은 제품 구분자가 아니라 스펙 "행 번호"였다
+    #    (예: keyCamera-4=Front, keyCamera-5=Zoom — Fold7/6/5 세 <li> 전부 동일 번호).
+    #    실제 제품 구분은 그 값이 속한 <li class="...__item"> 안의 sr-only 텍스트
+    #    ("Galaxy Z Fold6")에 있다. 세부 라벨은 같은 li의 "...__title" 텍스트, 상위
+    #    카테고리는 조상 "...__section"의 headline 텍스트에서 가져와 결합한다.
+    #    이 구조는 Compare 전용이 아니라 PDP에도 숨어있을 수 있어 페이지 종류 구분 없이
+    #    항상 시도한다(사용자 지적사항).
+    def _nearest_by_class(tag, needle, ancestor=False):
+        rx = re.compile(re.escape(needle))
+        finder = tag.find_parent if ancestor else tag.find
+        return finder(class_=rx)
+
     for el in soup.find_all(attrs={"data-spec-value": True}):
         raw_val = _clean(el.get("data-spec-value", ""))
-        raw_type = _clean(el.get("data-spec-type", "") or el.get("data-spec-key", ""))
-        # Samsung Compare 일부 렌더링 DOM은 data-spec-value는 존재하지만
-        # data-spec-type/key가 없는 경우가 있음. 기존 data-attr 추출은 유지하면서
-        # value 자체가 있는 경우 fallback 허용.
         if not raw_val:
             continue
-        m = _DATA_IDX_RX.match(raw_type)
-        spec_key, col_idx = (m.group(1), m.group(2)) if m else (raw_type or "unknown_spec", None)
-        # 사람이 읽는 라벨 후보 — aria-label/자체 라벨 속성 → 형제 아이콘의 alt → 안되면 slug 그대로
-        label = _clean(el.get("aria-label") or el.get("data-spec-label") or "")
+        raw_type = _clean(el.get("data-spec-type", "") or el.get("data-spec-key", ""))
+
+        item_li = el.find_parent("li", class_=re.compile(r"__item\b"))
+        product_hint, sub_label = "", ""
+        if item_li is not None:
+            sr = _nearest_by_class(item_li, "sr-only")
+            if sr is not None:
+                product_hint = _clean(sr.get_text(" ", strip=True))
+            title_el = _nearest_by_class(item_li, "__title")
+            if title_el is not None:
+                sub_label = _clean(title_el.get_text(" ", strip=True))
+
+        section_label = ""
+        section_el = _nearest_by_class(el, "__section", ancestor=True)
+        if section_el is not None:
+            h = _nearest_by_class(section_el, "__headline-text")
+            if h is None:
+                h = section_el.find("h3")
+            if h is not None:
+                section_label = _clean(h.get_text(" ", strip=True))
+
+        # 사람이 읽는 라벨 후보 — 섹션(카테고리)+세부라벨 결합 → 없으면 aria-label/alt → 최후 slug
+        label = " ".join(x for x in (section_label, sub_label) if x)
         if not label:
-            img = el.find("img")
-            if img is None:
-                img = el.find_previous("img")
-            if img is not None:
-                label = _clean(img.get("alt", ""))
+            label = _clean(el.get("aria-label") or el.get("data-spec-label") or "")
+            if not label:
+                img = el.find("img") or el.find_previous("img")
+                if img is not None:
+                    label = _clean(img.get("alt", ""))
         if not label:
-            label = spec_key
+            label = raw_type or "spec"
+
         pair = {"label": label, "value": raw_val, "section": _classify(el), "source": "data-attr"}
-        if col_idx:
-            pair["product_hint"] = col_idx
+        if product_hint:
+            pair["product_hint"] = product_hint
         pairs.append(pair)
 
     # ① <dl><dt><dd> 구조
