@@ -333,6 +333,12 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                 if not re.match(r"^PT(\d+H)?(\d+M)?(\d+S)?$", astr.strip()):
                     translate_confirm.append({"prop": prop, "actual": astr[:40], "note": "duration_fmt"})
                 continue
+            if kind == "date_fmt":
+                # [2026-07 신규] uploadDate 등 — 날짜 자체는 콘텐츠마다 정상적으로 다르므로
+                # 정확한 값이 아니라 ISO 8601 날짜 형식(YYYY-MM-DD, 필요시 시간 포함)만 확인.
+                if not re.match(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:?\d{2})?)?$", astr.strip()):
+                    translate_confirm.append({"prop": prop, "actual": astr[:40], "note": "date_fmt"})
+                continue
             if kind == "inlanguage":
                 if site_lang and astr and site_lang.split("-")[0].lower() != astr.split("-")[0].lower():
                     lang_issue.append({"prop": prop, "actual": astr, "expected": site_lang})

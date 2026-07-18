@@ -1,0 +1,378 @@
+{
+  "galaxy-watch8": {
+    "name_tokens": {
+      "model_any": [
+        "Watch8",
+        "Watch 8"
+      ],
+      "tier_any": [],
+      "forbid_any": [],
+      "model_label": "Watch8",
+      "tier_label": ""
+    },
+    "blocks": {
+      "BreadcrumbList": [
+        {
+          "id_pattern": "{PD_URL}#breadcrumb",
+          "expected_values": {}
+        }
+      ],
+      "WebPage": [
+        {
+          "id_pattern": "{PD_URL}#webpage",
+          "expected_values": {
+            "url": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "name": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "description": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "primaryImageOfPage": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "mainEntity": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            }
+          }
+        }
+      ],
+      "Product": [
+        {
+          "id_pattern": "{PD_URL}",
+          "expected_values": {
+            "description": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "brand": {
+              "value": "https://www.samsung.com/#brand-galaxy",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "manufacturer": {
+              "value": "https://www.samsung.com/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "image": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "mainEntityOfPage": {
+              "value": "{PD_URL}#webpage",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "sku": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        }
+      ],
+      "FAQPage": [
+        {
+          "id_pattern": "{PD_URL}#faq",
+          "expected_values": {
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "언어코드",
+              "nested": null
+            },
+            "about": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            }
+          }
+        }
+      ],
+      "VideoObject": [
+        {
+          "id_pattern": "{PD_URL}#video-1",
+          "expected_values": {
+            "uploadDate": {
+              "value": "",
+              "kind": "date_fmt",
+              "check": "날짜_형식만",
+              "nested": null
+            },
+            "duration": {
+              "value": "",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "언어코드",
+              "nested": null
+            },
+            "name": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "description": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        }
+      ],
+      "3DModel": [
+        {
+          "id_pattern": "{PD_URL}#model3d",
+          "expected_values": {
+            "about": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            }
+          }
+        }
+      ]
+    },
+    "_note": "[2026-07 신규] URL 미확정 템플릿 — PD_URL은 워치 실제 URL(예: .../watches/galaxy-watch/galaxy-watch8-44mm-.../) 확보 시 일괄 치환 필요. 제품 보안 해제 후 최종 URL 전달받으면 이 파일의 {PD_URL}만 실제 URL로 교체."
+  },
+  "galaxy-watch-ultra": {
+    "name_tokens": {
+      "model_any": [
+        "Watch Ultra",
+        "WatchUltra"
+      ],
+      "tier_any": [],
+      "forbid_any": [],
+      "model_label": "Watch Ultra",
+      "tier_label": ""
+    },
+    "blocks": {
+      "BreadcrumbList": [
+        {
+          "id_pattern": "{PD_URL}#breadcrumb",
+          "expected_values": {}
+        }
+      ],
+      "WebPage": [
+        {
+          "id_pattern": "{PD_URL}#webpage",
+          "expected_values": {
+            "url": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": null
+            },
+            "name": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "description": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "primaryImageOfPage": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "mainEntity": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            }
+          }
+        }
+      ],
+      "Product": [
+        {
+          "id_pattern": "{PD_URL}",
+          "expected_values": {
+            "description": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "brand": {
+              "value": "https://www.samsung.com/#brand-galaxy",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "manufacturer": {
+              "value": "https://www.samsung.com/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "image": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "mainEntityOfPage": {
+              "value": "{PD_URL}#webpage",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "sku": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        }
+      ],
+      "FAQPage": [
+        {
+          "id_pattern": "{PD_URL}#faq",
+          "expected_values": {
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "언어코드",
+              "nested": null
+            },
+            "about": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            }
+          }
+        }
+      ],
+      "VideoObject": [
+        {
+          "id_pattern": "{PD_URL}#video-1",
+          "expected_values": {
+            "uploadDate": {
+              "value": "",
+              "kind": "date_fmt",
+              "check": "날짜_형식만",
+              "nested": null
+            },
+            "duration": {
+              "value": "",
+              "kind": "duration_fmt",
+              "check": "영상길이_형식만",
+              "nested": null
+            },
+            "publisher": {
+              "value": "https://www.samsung.com/{SITECODE}/#org",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "about": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            },
+            "inLanguage": {
+              "value": "{BCP47-LANG}",
+              "kind": "inlanguage",
+              "check": "언어코드",
+              "nested": null
+            },
+            "name": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "description": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            },
+            "thumbnailUrl": {
+              "value": "",
+              "kind": "text",
+              "check": "존재만_확인",
+              "nested": null
+            }
+          }
+        }
+      ],
+      "3DModel": [
+        {
+          "id_pattern": "{PD_URL}#model3d",
+          "expected_values": {
+            "about": {
+              "value": "{PD_URL}",
+              "kind": "url",
+              "check": "정확히_일치",
+              "nested": "@id"
+            }
+          }
+        }
+      ]
+    },
+    "_note": "[2026-07 신규] URL 미확정 템플릿 — PD_URL은 워치 실제 URL(예: .../watches/galaxy-watch/galaxy-watch8-44mm-.../) 확보 시 일괄 치환 필요. 제품 보안 해제 후 최종 URL 전달받으면 이 파일의 {PD_URL}만 실제 URL로 교체."
+  }
+}

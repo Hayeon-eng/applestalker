@@ -5,6 +5,66 @@
   "set": "flagship",
   "blocks": [
     {
+      "name": "BreadcrumbList",
+      "types": [
+        "BreadcrumbList"
+      ],
+      "id_pattern": "",
+      "id_slug": "",
+      "required_properties": [
+        "itemListElement"
+      ],
+      "optional_properties": [],
+      "property_notes": {},
+      "haspart_ids": [],
+      "expected_values": {},
+      "field_formats": {
+        "@context": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@type": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@id": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "itemListElement": {
+          "type": "required",
+          "format": "array",
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "name": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "item": {
+              "type": "optional",
+              "format": "string",
+              "nested": null
+            },
+            "position": {
+              "type": "required",
+              "format": "number",
+              "nested": null
+            }
+          }
+        }
+      },
+      "source": "ppt:2H_Online_Content_AI_최적화_가이드_ver4_0715",
+      "conditional": null
+    },
+    {
       "name": "WebPage, ItemPage",
       "types": [
         "WebPage",
@@ -418,6 +478,86 @@
       },
       "source": "word:PTK_2.4.14_updated_0707",
       "conditional": null
+    },
+    {
+      "name": "Quotation",
+      "types": [
+        "Quotation"
+      ],
+      "id_pattern": "",
+      "id_slug": "",
+      "required_properties": [
+        "text",
+        "author",
+        "citation",
+        "about",
+        "inLanguage"
+      ],
+      "optional_properties": [],
+      "property_notes": {},
+      "haspart_ids": [],
+      "expected_values": {},
+      "field_formats": {
+        "@context": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@type": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@id": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "text": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "author": {
+          "type": "required",
+          "format": "object",
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "name": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
+        },
+        "citation": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "about": {
+          "type": "required",
+          "format": "object",
+          "nested": {
+            "@id": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            }
+          }
+        },
+        "inLanguage": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        }
+      },
+      "source": "ppt:2H_Online_Content_AI_최적화_가이드_ver4_0715",
+      "conditional": true
     },
     {
       "name": "FAQPage",

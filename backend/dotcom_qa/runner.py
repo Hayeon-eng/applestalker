@@ -110,11 +110,15 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
     sv = _schema_values().get(market_product)
     if not sv:
         return schema_rules
-    by_type = sv.get("blocks", {})
+    is_compare = (page_type == "Compare")
+    # [2026-07 신규] Compare 페이지는 WebPage.mainEntity가 제품 자신이 아니라 ItemList(#list)를,
+    # hasPart는 FAQ 하나만 가리키는 등 PDP와 참조 대상 자체가 다르다. 기존의 "PDP 값 재활용 +
+    # URL에 /compare/ 접미사만 붙이기(_to_compare)" 방식으로는 이 구조를 표현할 수 없어,
+    # 제품별로 별도의 compare_blocks 덱이 있으면 그걸 우선 사용한다(없으면 기존 방식으로 폴백).
+    by_type = (sv.get("compare_blocks") if is_compare and sv.get("compare_blocks") else None) or sv.get("blocks", {})
     name_tokens = sv.get("name_tokens", {})
     slug = market_product  # 예: galaxy-s26 / galaxy-z-fold7 / galaxy-buds4-pro
     is_phone = slug.startswith(("galaxy-s", "galaxy-z"))
-    is_compare = (page_type == "Compare")
 
     _PAGE_SELF_PROPS = {"about", "url", "mainEntity", "mainEntityOfPage", "isPartOf"}
 
@@ -137,13 +141,14 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
                                     for h in b["haspart_ids"]]
         # 카피덱의 대표(첫) 블록 찾기
         deck = None
+        deck_is_compare_native = by_type is sv.get("compare_blocks")
         for t in types:
             if t in by_type and by_type[t]:
                 deck = by_type[t][0]; break
         if deck:
             import copy as _c
             ev = _c.deepcopy(deck.get("expected_values", {}))
-            if is_compare:
+            if is_compare and not deck_is_compare_native:
                 for prop, spec in ev.items():
                     # @id(페이지 자기참조 URL)일 때만 compare 경로로. @type 값(예: mainEntity=Question)엔 적용 금지
                     if prop in _PAGE_SELF_PROPS and isinstance(spec, dict) and spec.get("kind") == "url" and spec.get("nested") == "@id":
@@ -151,6 +156,13 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
             b["expected_values"] = ev
             if "haspart_ids" in deck:  # 빈 배열 명시 포함 — 페이지 구성 미확정 제품은 []로 구조검사만
                 b["haspart_ids"] = deck["haspart_ids"]
+            if deck.get("id_pattern"):  # [2026-07 FIX] 제품별 @id 패턴도 함께 덮어써야
+                # 블록이 @type만으로 후보를 잡지 않고 실제 이 제품 페이지의 @id로 정확히 매칭된다.
+                # 기존엔 이 줄이 없어 카피덱에 id_pattern을 채워도 조용히 무시되고 있었다.
+                pat = deck["id_pattern"]
+                if is_compare and not deck_is_compare_native:
+                    pat = _to_compare(pat)
+                b["id_pattern"] = pat
         elif ("WebPage" in types or "ItemPage" in types) and is_phone:
             # 카피덱엔 WebPage가 없음 → 기존 세트값의 슬러그를 제품에 맞게 치환(폰만)
             ev = b.get("expected_values", {})

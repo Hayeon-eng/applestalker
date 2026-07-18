@@ -5,6 +5,66 @@
   "set": "compare",
   "blocks": [
     {
+      "name": "BreadcrumbList",
+      "types": [
+        "BreadcrumbList"
+      ],
+      "id_pattern": "",
+      "id_slug": "",
+      "required_properties": [
+        "itemListElement"
+      ],
+      "optional_properties": [],
+      "property_notes": {},
+      "haspart_ids": [],
+      "expected_values": {},
+      "field_formats": {
+        "@context": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@type": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "@id": {
+          "type": "required",
+          "format": "string",
+          "nested": null
+        },
+        "itemListElement": {
+          "type": "required",
+          "format": "array",
+          "nested": {
+            "@type": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "name": {
+              "type": "required",
+              "format": "string",
+              "nested": null
+            },
+            "item": {
+              "type": "optional",
+              "format": "string",
+              "nested": null
+            },
+            "position": {
+              "type": "required",
+              "format": "number",
+              "nested": null
+            }
+          }
+        }
+      },
+      "source": "ppt:2H_Online_Content_AI_최적화_가이드_ver4_0715",
+      "conditional": null
+    },
+    {
       "name": "WebPage, ItemPage",
       "types": [
         "WebPage",
