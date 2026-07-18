@@ -342,17 +342,28 @@ def _html_qa_rows(pr):
     h1s = sig.get("h1_list") or []
     h2s = sig.get("h2_list") or []
 
+    # [2026-07 FIX] 60/160자는 구글의 실제 픽셀폭 절단 기준을 근사한 가이드라인이라, 소폭
+    # 초과(버퍼 이내)까지 스키마 누락과 동일하게 'fail'로 잡으면 실제 기술 오류와 구분이
+    # 안 된다. html_qa_scoring.level1_apply_rate와 동일한 완충 규칙을 적용한다.
+    TITLE_WARN_BUFFER, DESC_WARN_BUFFER = 10, 20
     if not title:
         as_is, to_be = "(missing) — no <title> tag found", '<title>Samsung Galaxy S26 Ultra | Samsung <REGION></title>'
         rows.append(("HTML", "Meta Title", "title", "fail", as_is,
                      "Add a <title> tag (<= 60 chars) summarizing the page",
                      "<head> -> <title>", "Title shown in search / AI answers",
                      to_be, _code_pair_text(as_is, to_be)))
-    elif len(title) > 60:
+    elif len(title) > 60 + TITLE_WARN_BUFFER:
         as_is = f"Current title ({len(title)} chars, limit 60): \"{title}\""
         to_be = '<title><... <= 60 chars ...></title>'
         rows.append(("HTML", "Meta Title", "title", "fail", as_is,
                      "Shorten <title> to <= 60 chars, keeping product name + key value prop",
+                     "<head> -> <title>", "Title shown in search / AI answers",
+                     to_be, _code_pair_text(as_is, to_be)))
+    elif len(title) > 60:
+        as_is = f"Current title ({len(title)} chars, guideline 60): \"{title}\""
+        to_be = '<title><... ~60 chars recommended ...></title>'
+        rows.append(("HTML", "Meta Title", "title", "warn", as_is,
+                     "Consider shortening <title> toward 60 chars (not a hard requirement, may be truncated in display)",
                      "<head> -> <title>", "Title shown in search / AI answers",
                      to_be, _code_pair_text(as_is, to_be)))
     if not desc:
@@ -362,11 +373,18 @@ def _html_qa_rows(pr):
                      "Add meta[name=description] (<= 160 chars) summarizing the page",
                      "<head> -> meta[name=description]", "Snippet shown in search / AI answers",
                      to_be, _code_pair_text(as_is, to_be)))
-    elif len(desc) > 160:
+    elif len(desc) > 160 + DESC_WARN_BUFFER:
         as_is = f"Current description ({len(desc)} chars, limit 160): \"{_clip(desc, 200)}\""
         to_be = '<meta name="description" content="<... <= 160 chars ...>">'
         rows.append(("HTML", "Meta Description", "meta_description", "fail", as_is,
                      "Shorten meta description to <= 160 chars",
+                     "<head> -> meta[name=description]", "Snippet shown in search / AI answers",
+                     to_be, _code_pair_text(as_is, to_be)))
+    elif len(desc) > 160:
+        as_is = f"Current description ({len(desc)} chars, guideline 160): \"{_clip(desc, 200)}\""
+        to_be = '<meta name="description" content="<... ~160 chars recommended ...">'
+        rows.append(("HTML", "Meta Description", "meta_description", "warn", as_is,
+                     "Consider shortening meta description toward 160 chars (not a hard requirement)",
                      "<head> -> meta[name=description]", "Snippet shown in search / AI answers",
                      to_be, _code_pair_text(as_is, to_be)))
     if len(h1s) != 1:

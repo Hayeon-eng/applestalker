@@ -50,6 +50,16 @@ AXIS1_WEIGHTS: Dict[str, Dict[str, Any]] = {
     },
     "WebPage, ItemPage": {
         "type_combo": 4, "name": 3, "url": 3, "description": 1, "primaryImage": 1,
+        # [2026-07 FIX] schema_checker/schema_values는 mainEntity(#list)·hasPart(#faq)·
+        # breadcrumb(#breadcrumb)의 @id 정확 일치를 이미 val_mismatch로 잡아내고 있었지만,
+        # 이 채점표에 항목 자체가 없어 그 결과가 정보 충족률/필수·권장 속성 집계에 전혀
+        # 반영되지 않는 문제가 있었다(화면엔 불일치가 보이는데 상단 %는 100%로 표시).
+        # required_properties가 아니라 optional_properties라 REQUIRED_GATE_PROPS엔 넣지 않고
+        # (즉 없다고 0점 게이트가 발동하진 않음) 정확도를 채점에만 반영한다.
+        # ⚠️ PDP의 WebPage,ItemPage 블록도 같은 optional_properties를 쓰므로, 이 항목들이
+        # 이미 값이 채워져 있는 PDP 페이지에도 채점 대상으로 새로 포함된다. 배포 전 PDP
+        # 몇 개를 먼저 돌려 기존에 숨어있던 mismatch가 없었는지 확인 권장.
+        "mainEntity": 2, "hasPart": 2, "breadcrumb": 1,
     },
     "ItemList": {
         "numberOfItems": 4, "itemListElement": 4, "mainEntityOfPage": 3,
@@ -107,7 +117,8 @@ def extract_html_signals(html: str) -> Dict[str, Any]:
 def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
                        guide_h1_keywords: Optional[List[str]] = None,
                        guide_h2_min_count: Optional[int] = None,
-                       title_max_len: int = 60, desc_max_len: int = 160) -> Dict[str, Any]:
+                       title_max_len: int = 60, desc_max_len: int = 160,
+                       title_warn_buffer: int = 10, desc_warn_buffer: int = 20) -> Dict[str, Any]:
     """가이드 적용율(%) = 실제 적용 항목 수 / 전체 항목 수.
     guide_h1_keywords/guide_h2_min_count는 마케팅 가이드 데이터가 있을 때만 채점(없으면 항목 자체를 건너뜀 — 거짓으로 O/X 매기지 않음)."""
     sig = extract_html_signals(html)
@@ -129,13 +140,27 @@ def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
         items.append({"item": "H2 개수(가이드 대비)", "pass": h2_count >= guide_h2_min_count,
                       "detail": f"h2 {h2_count}개 / 가이드 {guide_h2_min_count}개 이상"})
 
+    def _len_status(length: int, max_len: int, buffer: int) -> str:
+        # 60자/160자는 구글의 실제 픽셀폭 절단 기준(언어·폰트별로 다름)을 근사한 가이드라인일 뿐,
+        # 하드 스펙이 아니다. 소폭 초과(버퍼 이내)는 '확인'으로만 표시하고, 크게 초과할 때만
+        # '오류'로 잡는다 — 스키마 누락 같은 실제 기술 오류와 같은 무게로 다루지 않기 위함.
+        if length <= max_len:
+            return "pass"
+        if length <= max_len + buffer:
+            return "warn"
+        return "fail"
+
     title = sig["title"] or ""
-    items.append({"item": "Meta Title 존재·길이", "pass": bool(title) and len(title) <= title_max_len,
-                  "detail": f"길이 {len(title)}자(기준 ≤{title_max_len})" if title else "누락"})
+    title_status = "fail" if not title else _len_status(len(title), title_max_len, title_warn_buffer)
+    items.append({"item": "Meta Title 존재·길이", "pass": title_status != "fail", "status": title_status,
+                  "detail": (f"길이 {len(title)}자(권장 ≤{title_max_len}자 · {title_max_len}~{title_max_len + title_warn_buffer}자는 확인 권장)"
+                             if title else "누락")})
 
     desc = sig["meta_description"] or ""
-    items.append({"item": "Meta Description 존재·길이", "pass": bool(desc) and len(desc) <= desc_max_len,
-                  "detail": f"길이 {len(desc)}자(기준 ≤{desc_max_len})" if desc else "누락"})
+    desc_status = "fail" if not desc else _len_status(len(desc), desc_max_len, desc_warn_buffer)
+    items.append({"item": "Meta Description 존재·길이", "pass": desc_status != "fail", "status": desc_status,
+                  "detail": (f"길이 {len(desc)}자(권장 ≤{desc_max_len}자 · {desc_max_len}~{desc_max_len + desc_warn_buffer}자는 확인 권장)"
+                             if desc else "누락")})
 
     nodes = schema_checker.extract_jsonld(html)
     found_types = set()
