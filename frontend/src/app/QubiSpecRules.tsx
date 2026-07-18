@@ -98,8 +98,26 @@ export function SpecV2RuleTable({ product, api, flash }:
         이 표가 "정답지"예요. 각 항목이 페이지에 <b>이래야 정상</b>이라는 기준입니다. 값 수정은 엑셀을 고쳐 업로드하세요(화면 직접 편집 안 함 — 이력 관리를 엑셀로 일원화).
       </p>
       <div style={{ fontSize: 10.5, color: "var(--sec)", marginBottom: 8 }}>
-        등급: <span style={{ color: "#D8362F" }}>●</span> 필수(틀리면 즉시 오류) · <span style={{ color: "#B54708" }}>●</span> 중요 · <span style={{ color: "#0A66E0" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고 — 검사 방식·노출 위치는 각 행 아래 작은 글씨로 표시돼요
+        등급: <span style={{ color: "#D8362F" }}>●</span> 필수(틀리면 즉시 오류) · <span style={{ color: "#B54708" }}>●</span> 중요 · <span style={{ color: "#0A66E0" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고
       </div>
+      {/* [2026-07 FIX] 같은 검사 방식(validation)을 쓰는 행마다 똑같은 긴 설명 문단이
+          매번 반복 출력되어 표가 지저분해지는 문제 — 실제 검증 방식은 5종류뿐이라
+          쓰인 것만 골라 표 위에 한 번씩만 보여주는 범례로 옮긴다. 각 행에는 짧은
+          라벨만 남기고(hover 시 title 툴팁으로 같은 설명을 볼 수 있어 "클릭 없이
+          읽힌다"는 기존 취지도 유지). */}
+      {(() => {
+        const usedKeys = Array.from(new Set(rules.map((r: any) => r.validation).filter(Boolean)));
+        if (!usedKeys.length) return null;
+        return (
+          <div style={{ fontSize: 10.5, color: "var(--sec)", marginBottom: 8, lineHeight: 1.6, background: "#F9FAFB", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 10px" }}>
+            <b style={{ color: "#475467" }}>검사 방식</b>
+            {usedKeys.map((k) => {
+              const v = VAL_KO[k];
+              return v ? <span key={k} style={{ display: "block", marginTop: 2 }}><b>{v.label}</b> — {v.desc}</span> : null;
+            })}
+          </div>
+        );
+      })()}
       <div style={{ maxHeight: 340, overflow: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
           <thead><tr style={{ color: "var(--sec)", fontSize: 11, textAlign: "left", position: "sticky", top: 0, background: "#F9FAFB" }}>
@@ -112,7 +130,6 @@ export function SpecV2RuleTable({ product, api, flash }:
               const valDesc = VAL_KO[r.validation]?.desc || r.validation;
               return (
                 <tr key={r.rule_id}>
-                  {/* [2026-07] 기준표 ⓘ 툴팁 전면 삭제 — 클릭 없이 읽히도록 서브텍스트로 상시 노출 */}
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
                     <span style={{ color: pri.c, marginRight: 5 }}>●</span>
                     <b>{r.attribute}</b>
@@ -120,7 +137,7 @@ export function SpecV2RuleTable({ product, api, flash }:
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
                     <b style={{ color: "#067647" }}>{normalText(r)}</b>
-                    <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginTop: 2, lineHeight: 1.5 }}>{VAL_KO[r.validation]?.label || r.validation} — {valDesc}</span>
+                    <span title={valDesc} style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginTop: 2, lineHeight: 1.5, cursor: "help", borderBottom: "1px dotted var(--line)", width: "fit-content" }}>{VAL_KO[r.validation]?.label || r.validation}</span>
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11.5 }}>
                     <b style={{ color: pri.c }}>{pri.ko}</b>
