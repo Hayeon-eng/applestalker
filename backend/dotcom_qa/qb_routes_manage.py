@@ -140,7 +140,7 @@ def qb_sites_add(payload: Dict[str, Any] = Body(...)):
         _registry.update(sc, url=url)
     else:
         _registry.add(sc, url, region=payload.get("region", ""), country=payload.get("country", ""),
-                      lang=payload.get("lang", ""), product=payload.get("product", "galaxy-s26-ultra"))
+                      lang=payload.get("lang", ""), product=payload.get("product", "galaxy-z-fold7"))
     _registry.save()
     return {"ok": True, "sitecode": sc}
 
@@ -179,7 +179,7 @@ def _prod_entry(data, product):
 
 
 @qb_router.get("/specs")
-def qb_specs(product: str = Query("galaxy-s26-ultra")):
+def qb_specs(product: str = Query("galaxy-z-fold7")):
     data = _load_specs().get("products", {})
     e = data.get(product, {})
     if isinstance(e, list):
@@ -203,7 +203,7 @@ _V2_EDIT_BLOCKED = ("이 제품의 기준값은 Rule DB(V2)로 관리됩니다 �
 
 @qb_router.post("/specs/add")
 def qb_specs_add(payload: Dict[str, Any] = Body(...)):
-    product = payload.get("product", "galaxy-s26-ultra")
+    product = payload.get("product", "galaxy-z-fold7")
     if qb_core._v2_managed(product):
         raise HTTPException(409, qb_core._V2_EDIT_BLOCKED)
     # values: 여러 값(국별 variation) 허용 — 콤마/리스트 모두 수용
@@ -227,7 +227,7 @@ def qb_specs_add(payload: Dict[str, Any] = Body(...)):
 
 @qb_router.post("/specs/remove")
 def qb_specs_remove(payload: Dict[str, Any] = Body(...)):
-    product = payload.get("product", "galaxy-s26-ultra")
+    product = payload.get("product", "galaxy-z-fold7")
     if qb_core._v2_managed(product):
         raise HTTPException(409, qb_core._V2_EDIT_BLOCKED)
     idx = payload.get("index")
@@ -312,8 +312,8 @@ def qb_sites_template():
     import io
     wb = Workbook(); ws = wb.active; ws.title = "URLs"
     ws.append(_URL_COLS)
-    ws.append(["sg", "https://www.samsung.com/sg/smartphones/galaxy-s26-ultra/compare/",
-               "APAC", "Singapore", "en-SG", "galaxy-s26-ultra"])  # 예시 1행
+    ws.append(["sg", "https://www.samsung.com/sg/smartphones/galaxy-z-fold7/compare/",
+               "APAC", "Singapore", "en-SG", "galaxy-z-fold7"])  # 예시 1행
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=qubi_url_template.xlsx"})
@@ -351,7 +351,7 @@ def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
             _registry.update(sc, url=url)
         else:
             _registry.add(sc, url, region=g("region"), country=g("country"),
-                          lang=g("lang"), product=g("product") or "galaxy-s26-ultra")
+                          lang=g("lang"), product=g("product") or "galaxy-z-fold7")
         added += 1
     _registry.save()
     return {"ok": True, "added": added, "count": len(_registry.all())}

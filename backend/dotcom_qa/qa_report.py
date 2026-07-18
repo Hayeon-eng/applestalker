@@ -14,6 +14,7 @@ import io
 import json
 import copy
 import difflib
+import re
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -723,6 +724,76 @@ def build_xlsx(page_results):
                     b_changed[j] = True
         return _rich_lines(a_lines, a_changed), _rich_lines(b_lines, b_changed)
 
+    # [2026-07 신규] "달라진 부분만 빨간색" 규칙을 JSON-LD 블록뿐 아니라 일반 문장
+    # (Meta Title/H1 등 HTML 항목의 as-is/to-be)에도 동일하게 적용하기 위한 단어 단위 diff.
+    # 위 _diff_pair_richtext(줄 단위, JSON 블록용)와 같은 색 규칙을 문장에 맞춰 재사용한다.
+    _RT_RED_TXT = InlineFont(sz=10, color="FFD8362F", b=True)
+    _RT_NORMAL_TXT = InlineFont(sz=10)
+    _RT_RED_TXT_TOBE = InlineFont(sz=10, color="FFD8362F", b=True)
+    _RT_NORMAL_TXT_TOBE = InlineFont(sz=10, color="FF067647")
+
+    def _word_tokens(s):
+        return re.split(r"(\s+)", s or "")
+
+    def _rich_words(tokens, changed_flags, normal_font, red_font):
+        if not tokens or not any(t.strip() for t in tokens):
+            return CellRichText([TextBlock(normal_font, "(없음)")])
+        return CellRichText([TextBlock(red_font if ch else normal_font, tok)
+                              for tok, ch in zip(tokens, changed_flags)])
+
+    def _word_diff_richtext(a_str, b_str):
+        a_tok = _word_tokens(a_str); b_tok = _word_tokens(b_str)
+        sm = difflib.SequenceMatcher(a=a_tok, b=b_tok, autojunk=False)
+        a_changed = [False] * len(a_tok); b_changed = [False] * len(b_tok)
+        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+            if tag != "equal":
+                for i in range(i1, i2):
+                    a_changed[i] = True
+                for j in range(j1, j2):
+                    b_changed[j] = True
+        a_rt = _rich_words(a_tok, a_changed, _RT_NORMAL_TXT, _RT_RED_TXT)
+        b_rt = _rich_words(b_tok, b_changed, _RT_NORMAL_TXT_TOBE, _RT_RED_TXT_TOBE)
+        return a_rt, b_rt
+
+    # [2026-07 신규] Spec QA(기준값 ↔ 페이지 실제값)는 "4400 mAh" ↔ "4,400mAh"처럼
+    # 짧은 값 안에서 글자 하나 차이가 관건인 경우가 많아, 단어 단위보다 글자 단위 diff가
+    # 더 정확하다. 색 규칙은 위 문장/블록용과 동일(D8362F).
+    def _rich_chars(s, changed_flags, normal_font, red_font):
+        if not s:
+            return CellRichText([TextBlock(normal_font, "(없음)")])
+        items, buf, cur = [], [], None
+        for ch, flag in zip(s, changed_flags):
+            if flag != cur and buf:
+                items.append(TextBlock(red_font if cur else normal_font, "".join(buf))); buf = []
+            buf.append(ch); cur = flag
+        if buf:
+            items.append(TextBlock(red_font if cur else normal_font, "".join(buf)))
+        return CellRichText(items)
+
+    def _char_diff_richtext(a_str, b_str):
+        a_str = a_str or ""; b_str = b_str or ""
+        sm = difflib.SequenceMatcher(a=a_str, b=b_str, autojunk=False)
+        a_changed = [False] * len(a_str); b_changed = [False] * len(b_str)
+        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+            if tag != "equal":
+                for i in range(i1, i2):
+                    a_changed[i] = True
+                for j in range(j1, j2):
+                    b_changed[j] = True
+        a_rt = _rich_chars(a_str, a_changed, _RT_NORMAL_TXT, _RT_RED_TXT)
+        b_rt = _rich_chars(b_str, b_changed, _RT_NORMAL_TXT_TOBE, _RT_RED_TXT_TOBE)
+        return a_rt, b_rt
+
+    def _write_diff_cells(ws, rn, col_a, col_b, a_str, b_str):
+        c_a = ws.cell(row=rn, column=col_a); c_b = ws.cell(row=rn, column=col_b)
+        try:
+            a_rt, b_rt = _char_diff_richtext(a_str, b_str)
+            c_a.value = a_rt; c_b.value = b_rt
+        except Exception:
+            c_a.value = a_str; c_b.value = b_str
+        c_a.alignment = Alignment(vertical="top", wrap_text=True)
+        c_b.alignment = Alignment(vertical="top", wrap_text=True)
+
     def _write_code_pair(ws, rn, col_as_is, col_to_be, code_pair):
         """AS-IS/TO-BE 두 컬럼에 code_pair를 그린다.
         · diff  : 실제 페이지의 전체 JSON-LD 블록 ↔ 그 속성만 고친 전체 블록, 달라진 줄만 빨간색
@@ -745,10 +816,15 @@ def build_xlsx(page_results):
             c_a.font = Font(italic=True, size=10, color="98A2B3")
             c_b.font = mono
         else:
-            c_a.value = code_pair.get("as_is", "") if code_pair else ""
-            c_b.value = code_pair.get("to_be", "") if code_pair else ""
-            c_a.font = Font(size=10)
-            c_b.font = Font(size=10, color="067647", bold=True)
+            a_str = code_pair.get("as_is", "") if code_pair else ""
+            b_str = code_pair.get("to_be", "") if code_pair else ""
+            try:
+                a_rt, b_rt = _word_diff_richtext(a_str, b_str)
+                c_a.value = a_rt; c_b.value = b_rt
+            except Exception:
+                c_a.value = a_str; c_b.value = b_str
+                c_a.font = Font(size=10)
+                c_b.font = Font(size=10, color="067647", bold=True)
         c_a.alignment = Alignment(vertical="top", wrap_text=True)
         c_b.alignment = Alignment(vertical="top", wrap_text=True)
 
@@ -826,16 +902,41 @@ def build_xlsx(page_results):
     for n, (meta, kind, item, sev, exp, found, loc) in enumerate(spec_rows, 1):
         region, country, site, ptype, url, product = meta
         ws2.append([n, product, _site_cell(region, country, site), f"{kind} → {loc}", "",
-                    str(item), exp, found, url])
+                    str(item), "", "", url])
         rn = ws2.max_row
         sc = ws2.cell(row=rn, column=5); sc.value = SEV_LABEL.get(sev, sev)
         sc.font = Font(bold=True, color=SEV_COLOR2.get(sev, "000000"))
         sc.alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
+        _write_diff_cells(ws2, rn, 7, 8, exp, found)
     if not spec_rows:
         ws2.append(["—", "", "", "", "🟢 OK", "No issues found", "", "", ""])
     _finish(ws2, W2, "A2")
 
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
+
+
+def _word_diff_html(a_str, b_str):
+    """xlsx의 '달라진 부분만 빨간색' 규칙을 메일(HTML)에도 동일하게 적용.
+    단어 단위 diff — 바뀐 단어만 빨간 볼드, 나머지는 그대로."""
+    from html import escape
+    a_tok = re.split(r"(\s+)", a_str or ""); b_tok = re.split(r"(\s+)", b_str or "")
+    sm = difflib.SequenceMatcher(a=a_tok, b=b_tok, autojunk=False)
+    a_changed = [False] * len(a_tok); b_changed = [False] * len(b_tok)
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag != "equal":
+            for i in range(i1, i2):
+                a_changed[i] = True
+            for j in range(j1, j2):
+                b_changed[j] = True
+
+    def _render(tokens, flags):
+        out = []
+        for tok, ch in zip(tokens, flags):
+            e = escape(tok)
+            out.append("<span style='color:#D8362F;font-weight:700'>" + e + "</span>" if ch else e)
+        return "".join(out) or "(없음)"
+
+    return _render(a_tok, a_changed), _render(b_tok, b_changed)
 
 
 def build_email_draft(page_results, when="", tab=None):
@@ -855,12 +956,13 @@ def build_email_draft(page_results, when="", tab=None):
         for it in items[:20]:
             col = "#" + SEV_COLOR.get(it["status"], "000000")
             a = it["f"].get("as_is", ""); t = it["f"].get("to_be", "")  # 메일은 한국어
+            a_html, t_html = _word_diff_html(a, t)
             lis += ("<div style='font-size:12.5px;line-height:1.5;margin-top:6px'>"
                     "<span style='font-size:10.5px;font-weight:700;color:#fff;background:" + col + ";padding:2px 6px;border-radius:5px'>"
                     + SEV_KO.get(it["status"], "") + "</span> "
                     "<b style='color:#101318'>" + escape(it["area"]) + " · " + escape(str(it["item"])[:40]) + "</b>"
-                    "<div style='color:#475467;margin-top:2px'>as-is: " + escape(a) + "</div>"
-                    "<div style='color:#101318'>to-be: " + escape(t) + "</div></div>")
+                    "<div style='color:#475467;margin-top:2px'>as-is: " + a_html + "</div>"
+                    "<div style='color:#101318'>to-be: " + t_html + "</div></div>")
         blocks += ("<div style='border:1px solid #EAECF0;border-radius:10px;padding:12px;margin-top:10px'>"
                    "<div style='font-size:13px;font-weight:800;color:#101318'>" + escape(sc) + " "
                    "<span style='font-weight:400;color:#667085;font-size:11px'>" + escape((meta.get("region") or "") + " · " + (meta.get("country") or "")) + "</span></div>"
