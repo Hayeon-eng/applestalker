@@ -44,22 +44,29 @@ _RUN_STATE: Dict[str, Any] = {"running": False, "run_id": None, "done": 0, "tota
 _RUN_CONCURRENCY = int(os.getenv("QB_RUN_CONCURRENCY", "6"))
 
 
-async def _run_batch(product, sitecodes, run_id, page_types=None, products=None):
-    from crawler import HybridCrawler
+def _filter_targets(sitecodes=None, page_types=None, products=None) -> List[Dict[str, Any]]:
+    """사이트/페이지타입/제품 필터를 그대로 적용한 크롤 대상 목록. /run(총 개수 계산),
+    _run_batch(실제 크롤), /run-estimate(예상 시간 계산)가 동일 로직을 공유한다."""
     targets = _registry.all()
     if sitecodes:
         want = {s.lower() for s in sitecodes}
         targets = [t for t in targets if t["sitecode"] in want]
-    # 페이지타입 필터(PDP/Compare 등 — 선택된 것만)
     if page_types:
-        pset = {p for p in page_types}
+        pset = set(page_types)
         targets = [t for t in targets if (t.get("page_type") or runner.page_type_from_url(t.get("url", ""))) in pset]
-    # 제품 필터(galaxy-s26-ultra 등 — 선택된 것만). URL 슬러그로 판별
     if products:
-        prset = {p for p in products}
+        prset = set(products)
         targets = [t for t in targets if runner.product_from_url(t.get("url", "")) in prset]
+    return targets
 
-    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=__import__("time").time(),
+
+async def _run_batch(product, sitecodes, run_id, page_types=None, products=None):
+    from crawler import HybridCrawler
+    import time as _time
+    targets = _filter_targets(sitecodes, page_types, products)
+
+    start_ts = _time.time()
+    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=start_ts,
                       events=[{"type": "start", "total": len(targets)}], result_run_id=None, summary=None,
                       dictionary_review={})
 
@@ -158,7 +165,8 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
                 sv["dictionary_review"] = dict_review.get(pr.get("product") or "unknown", [])
 
         entry = _history_save(final, summary, product=product,
-                              scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"))
+                              scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"),
+                              duration_seconds=_time.time() - start_ts)
         _RUN_STATE["events"].append({"type": "done", "run_id": entry["run_id"], "summary": summary})
         _RUN_STATE.update(result_run_id=entry["run_id"], summary=summary, dictionary_review=dict_review)
     except Exception as e:
@@ -179,6 +187,50 @@ def qb_run_reset():
     _RUN_STATE.update(running=False)
     return {"ok": True, "running": False}
 
+
+def _historical_seconds_per_page(limit: int = 20) -> Dict[str, Any]:
+    """최근 완료된 run들의 실측 duration_seconds/pages 평균 = 페이지 1개당 평균 소요초.
+    QB_RUN_CONCURRENCY(동시 진행 개수)까지 이미 반영된 실측값이라 이론적 계산보다
+    실제 소요시간에 가깝다. 이력이 아직 없으면(초기 배포 직후) 대략치로 폴백."""
+    default_spp = 8.0  # 이력 0건일 때만 쓰는 대략치(사이트당 1페이지 렌더+검수 초안)
+    db = SessionLocal()
+    try:
+        rows = (db.query(QbHistory)
+                  .filter(QbHistory.duration_seconds.isnot(None), QbHistory.pages > 0)
+                  .order_by(QbHistory.id.desc()).limit(limit).all())
+    except Exception:
+        rows = []
+    finally:
+        db.close()
+
+    samples = [r.duration_seconds / r.pages for r in rows if r.duration_seconds and r.pages]
+    if not samples:
+        return {"seconds_per_page": default_spp, "sample_runs": 0}
+    return {"seconds_per_page": sum(samples) / len(samples), "sample_runs": len(samples)}
+
+
+@qb_router.post("/run-estimate")
+def qb_run_estimate(payload: Dict[str, Any] = Body(default={})):
+    """선택된 사이트/제품/페이지타입 기준 예상 소요시간(초). /run과 동일한 필터 로직을
+    그대로 재사용해 실제 크롤될 페이지 수를 구하고, 최근 이력의 실측 페이지당 평균초를
+    곱해 추정한다 — 실행 전에 프론트에서 미리 보여주는 용도."""
+    sitecodes = payload.get("sitecodes")
+    page_types = payload.get("page_types")
+    products = payload.get("products")
+    total_pages = len(_filter_targets(sitecodes, page_types, products))
+    hist = _historical_seconds_per_page()
+    seconds_per_page = hist["seconds_per_page"]
+    # 동시성(세마포어) 효과가 이미 이력 실측치에 녹아있으므로 단순 곱셈으로 충분하되,
+    # 페이지 수가 극히 적을 때(콜드스타트/브라우저 기동 오버헤드)는 최소치를 보장한다.
+    estimated_seconds = max(seconds_per_page * total_pages, seconds_per_page if total_pages else 0)
+    return {
+        "total_pages": total_pages,
+        "seconds_per_page": round(seconds_per_page, 2),
+        "estimated_seconds": round(estimated_seconds),
+        "sample_runs": hist["sample_runs"],
+    }
+
+
 @qb_router.post("/run")
 async def qb_run(payload: Dict[str, Any] = Body(default={})):
     # stale 가드: '진행 중'인데 마지막 진행이 오래됐으면(크래시로 갇힘) 자동 해제
@@ -195,17 +247,7 @@ async def qb_run(payload: Dict[str, Any] = Body(default={})):
     products = payload.get("products")        # ["galaxy-s26-ultra", ...] (없으면 전체)
     run_id = f"qb_{datetime.now():%Y%m%d_%H%M%S}"
     # total은 실제 필터 적용 후 개수로
-    tgt = _registry.all()
-    if sitecodes:
-        want = {s.lower() for s in sitecodes}
-        tgt = [t for t in tgt if t["sitecode"] in want]
-    if page_types:
-        pset = set(page_types)
-        tgt = [t for t in tgt if (t.get("page_type") or runner.page_type_from_url(t.get("url", ""))) in pset]
-    if products:
-        prset = set(products)
-        tgt = [t for t in tgt if runner.product_from_url(t.get("url", "")) in prset]
-    total = len(tgt)
+    total = len(_filter_targets(sitecodes, page_types, products))
     asyncio.create_task(_run_batch(product, sitecodes, run_id, page_types=page_types, products=products))
     return {"status": "started", "run_id": run_id, "total": total}
 

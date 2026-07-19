@@ -34,21 +34,24 @@ def _history_index() -> List[Dict[str, Any]]:
     try:
         rows = db.query(QbHistory).order_by(QbHistory.id.desc()).limit(100).all()
         return [{"run_id": r.run_id, "at": r.at, "product": r.product, "scope": r.scope,
-                  "pages": r.pages, "fail": r.fail, "warn": r.warn} for r in rows]
+                  "pages": r.pages, "fail": r.fail, "warn": r.warn,
+                  "duration_seconds": r.duration_seconds} for r in rows]
     finally:
         db.close()
 
 
-def _history_save(results, summary, product="M3", scope="") -> Dict[str, Any]:
+def _history_save(results, summary, product="M3", scope="", duration_seconds: Optional[float] = None) -> Dict[str, Any]:
     now = datetime.now()
     run_id = now.strftime("%Y%m%d-%H%M%S")
     entry = {"run_id": run_id, "at": now.strftime("%Y-%m-%d %H:%M:%S"),
              "product": product, "scope": scope, "pages": summary.get("pages", len(results)),
-             "fail": summary.get("fail", 0), "warn": summary.get("warn", 0)}
+             "fail": summary.get("fail", 0), "warn": summary.get("warn", 0),
+             "duration_seconds": duration_seconds}
     db = SessionLocal()
     try:
         db.add(QbHistory(run_id=run_id, at=entry["at"], product=product, scope=scope,
                           pages=entry["pages"], fail=entry["fail"], warn=entry["warn"],
+                          duration_seconds=duration_seconds,
                           results=json.dumps(results, ensure_ascii=False, separators=(",", ":"))))
         db.commit()
         # 최근 100건만 유지 — 초과분 삭제
