@@ -65,6 +65,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   };
   const [selectedSites, setSelectedSites] = useState<Set<string>>(new Set()); // 사이트 개별 다중선택(우선)
   const [progress, setProgress] = useState({ active: false, done: 0, total: 0, label: "" });
+  const [estimate, setEstimate] = useState<{ totalPages: number; estimatedSeconds: number; sampleRuns: number } | null>(null);
+  const runStartRef = useRef<number>(0); // runByRegion 시작 시각(ms) — 진행 중 남은시간 추정용
 
   const [sitesOpen, setSitesOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
@@ -147,9 +149,42 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     return allSites.map((s) => s.sitecode); // 아무것도 안 고르면 전체
   }, [selectedSites, selectedRegions, allSites]);
 
+  // [2026-07 신규] 선택(사이트/제품/페이지타입) 바뀔 때마다 예상 소요시간 조회(디바운스).
+  // 실제 이력 기반 페이지당 평균초 × 대상 페이지수 — /run 실행 전 미리 보여줌.
+  useEffect(() => {
+    if (allSites.length === 0) return; // 사이트 목록 로딩 전 불필요한 호출 방지
+    const t = setTimeout(() => {
+      fetch(api("/api/qb/run-estimate"), J({
+        sitecodes: targetCodes,
+        products: Array.from(selectedProducts),
+        page_types: Array.from(selectedPageTypes),
+      })).then((r) => r.json())
+        .then((d) => setEstimate({ totalPages: d.total_pages || 0, estimatedSeconds: d.estimated_seconds || 0, sampleRuns: d.sample_runs || 0 }))
+        .catch(() => setEstimate(null));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [targetCodes, selectedProducts, selectedPageTypes, allSites.length]);
+
+  const fmtEta = (secs: number) => {
+    if (secs <= 0) return "0초";
+    if (secs < 60) return `${Math.round(secs)}초`;
+    const m = Math.floor(secs / 60), s = Math.round(secs % 60);
+    return s > 0 ? `${m}분 ${s}초` : `${m}분`;
+  };
+
+  // 진행 중일 때 남은시간 = (지금까지 걸린시간 / 완료수) × 남은 페이지수 — 실시간 실측 기반이라
+  // 사전 예상치보다 더 정확해진다(첫 몇 페이지 완료 이후부터).
+  const liveEtaSeconds = useMemo(() => {
+    if (!progress.active || progress.done === 0 || !runStartRef.current) return null;
+    const elapsed = (Date.now() - runStartRef.current) / 1000;
+    const perPage = elapsed / progress.done;
+    return Math.max(0, Math.round(perPage * (progress.total - progress.done)));
+  }, [progress.done, progress.total, progress.active]);
+
   const runByRegion = async () => {
     if (busy) return;
     setBusy(true); setErr(""); setResults([]); setRunId(null);
+    runStartRef.current = Date.now();
     const codes = targetCodes;
     if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); setBusy(false); return; }
     const label = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
@@ -518,10 +553,19 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             {selectedSites.size === 0 && selectedRegions.size === 0 && pageCount > 0 && !busy && (
               <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>사이트당 여러 페이지(PDP·Compare·Buds 등) — 총 {pageCount}개 페이지 검수</span>
             )}
+            {!busy && estimate && estimate.totalPages > 0 && (
+              <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>
+                ⏱ 예상 소요시간 약 {fmtEta(estimate.estimatedSeconds)}
+                {estimate.sampleRuns > 0 ? ` (최근 ${estimate.sampleRuns}회 이력 기준)` : " (이력 없음 — 참고용 기본치)"}
+              </span>
+            )}
             {progress.active && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
-                <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🐝 {progress.label} · {progress.done}/{progress.total} 페이지</div>
+                <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>
+                  🐝 {progress.label} · {progress.done}/{progress.total} 페이지
+                  {liveEtaSeconds != null && ` · 남은 시간 약 ${fmtEta(liveEtaSeconds)}`}
+                </div>
               </div>
             )}
           </div>
