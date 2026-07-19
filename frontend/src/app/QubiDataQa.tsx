@@ -114,14 +114,25 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
   for (const f of findings || []) (findingsByBlock[f.block || "기타"] ||= []).push(f);
 
   // HTML QA 항목(Meta/H태그) — PASS/FAIL 한눈에
+  // [FIX] Title/Description은 백엔드(html_qa_scoring.level1_apply_rate)가 이미 버퍼(±10/±20자)를
+  // 적용해 pass/warn/fail 3단계로 판정해둔 걸 그대로 쓴다. 예전엔 이 컴포넌트가 자체적으로
+  // "<=60자면 OK, 아니면 ❌" 이진 체크를 따로 하고 있어서, 버퍼 안(60~70자)인 62자도 무조건
+  // ❌ 오류로 보였다 — 실제로는 백엔드도 이건 "확인 권장(🟡)"이지 오류가 아니다.
+  const _itemStatus = (name: string, fallbackOk: boolean): "pass" | "warn" | "fail" => {
+    const found = (l1.items || []).find((it: any) => it.item === name);
+    if (found?.status) return found.status;
+    return fallbackOk ? "pass" : "fail";
+  };
   const titleLen = (sig.title || "").length;
   const descLen = (sig.meta_description || "").length;
   const h1n = (sig.h1_list || []).length;
+  const titleStatus = sig.title ? _itemStatus("Meta Title 존재·길이", titleLen <= 60) : "fail";
+  const descStatus = sig.meta_description ? _itemStatus("Meta Description 존재·길이", descLen <= 160) : "fail";
   const htmlItems = [
-    { key: "Meta Title", ok: !!sig.title && titleLen <= 60, val: sig.title, note: sig.title ? `${titleLen}자` : "누락", where: "<head> → <title>" },
-    { key: "Meta Description", ok: !!sig.meta_description && descLen <= 160, val: sig.meta_description, note: sig.meta_description ? `${descLen}자` : "누락", where: "<head> → meta[name=description]" },
-    { key: "H1", ok: h1n === 1, val: (sig.h1_list || []).join(" / "), note: `${h1n}개`, where: "본문 <h1>" },
-    { key: "H2", ok: (sig.h2_list || []).length > 0, val: `${(sig.h2_list || []).length}개`, note: `${(sig.h2_list || []).length}개`, where: "본문 <h2>" },
+    { key: "Meta Title", status: titleStatus, ok: titleStatus !== "fail", val: sig.title, note: sig.title ? `${titleLen}자` : "누락", where: "<head> → <title>" },
+    { key: "Meta Description", status: descStatus, ok: descStatus !== "fail", val: sig.meta_description, note: sig.meta_description ? `${descLen}자` : "누락", where: "<head> → meta[name=description]" },
+    { key: "H1", status: h1n === 1 ? "pass" : "fail" as const, ok: h1n === 1, val: (sig.h1_list || []).join(" / "), note: `${h1n}개`, where: "본문 <h1>" },
+    { key: "H2", status: (sig.h2_list || []).length > 0 ? "pass" : "fail" as const, ok: (sig.h2_list || []).length > 0, val: `${(sig.h2_list || []).length}개`, note: `${(sig.h2_list || []).length}개`, where: "본문 <h2>" },
   ];
 
   return (
@@ -132,12 +143,22 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
           HTML 검수 <span style={{ fontWeight: 400, color: "#5B7BB4", fontSize: 10.5 }}>Meta · 제목 태그</span>
         </div>
         <div style={{ padding: "10px 14px" }}>
-        {/* 문제 먼저 */}
-        {htmlItems.filter((i) => !i.ok).length > 0 && (
+        {/* 문제 먼저 — 진짜 오류(fail)만 빨간 박스. 버퍼 이내 경미한 초과(warn)는 별도로 옅게 표시 */}
+        {htmlItems.filter((i) => i.status === "fail").length > 0 && (
           <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "7px 10px", marginBottom: 8 }}>
-            {htmlItems.filter((i) => !i.ok).map((i) => (
+            {htmlItems.filter((i) => i.status === "fail").map((i) => (
               <div key={i.key} style={{ fontSize: 11.5, padding: "2px 0" }}>
                 <b style={{ color: "#B42318" }}>❌ {i.key}</b> <span style={{ color: "var(--sec)" }}>{i.note}</span>
+                <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 11 }}>· 수정 위치: {i.where}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {htmlItems.filter((i) => i.status === "warn").length > 0 && (
+          <div style={{ background: "#FFFAEB", borderRadius: 8, padding: "7px 10px", marginBottom: 8 }}>
+            {htmlItems.filter((i) => i.status === "warn").map((i) => (
+              <div key={i.key} style={{ fontSize: 11.5, padding: "2px 0" }}>
+                <b style={{ color: "#93540A" }}>🟡 {i.key}</b> <span style={{ color: "var(--sec)" }}>{i.note} — 오류 아님, 확인 권장</span>
                 <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 11 }}>· 수정 위치: {i.where}</span>
               </div>
             ))}
@@ -147,7 +168,7 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
         <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 6, fontSize: 11.5, alignItems: "start" }}>
           {htmlItems.map((i) => (
             <Fragment key={i.key}>
-              <span style={{ color: "var(--sec)" }}>{i.ok ? "✅" : "❌"} {i.key}</span>
+              <span style={{ color: "var(--sec)" }}>{i.status === "pass" ? "✅" : i.status === "warn" ? "🟡" : "❌"} {i.key}</span>
               <span>
                 {i.key === "H2"
                   ? ((sig.h2_list || []).length ? (sig.h2_list || []).map((t: string, k: number) => <span key={k} style={{ display: "inline-block", background: "#F2F4F7", padding: "1px 6px", borderRadius: 5, margin: "1px 4px 1px 0", fontSize: 10.5 }}>{t}</span>) : <i style={{ color: "#B42318" }}>누락</i>)

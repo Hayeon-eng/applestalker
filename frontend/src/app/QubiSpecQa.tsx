@@ -15,6 +15,19 @@ import { useState } from "react";
 import { TL_COLOR, TL_EMOJI, tlSpec } from "./qubiShared";
 import { CompareMatrixPanel } from "./CompareMatrixPanel";
 
+/* Compare 페이지는 PDP 전용 spec_v2가 아니라 compare_v2(제품별 매트릭스 QA)가 실제 판정을
+   갖고 있다 — 배너·리스트 신호등이 항상 spec_v2만 보면 Compare 행은 "값 0개"로 잘못 보인다.
+   이 헬퍼 하나로 페이지 타입에 맞는 요약을 통일해서 돌려준다(모든 집계 지점이 이걸 공유). */
+function _specSummaryOf(r: any): { critical: number; warning: number; pass: number } {
+  if (r?.page_type === "Compare" && r?.compare_v2?.summary?.checked) {
+    const per = r.compare_v2.summary.per_product || [];
+    return per.reduce((a: any, p: any) => {
+      a.critical += p.fail || 0; a.warning += p.warn || 0; a.pass += p.pass || 0; return a;
+    }, { critical: 0, warning: 0, pass: 0 });
+  }
+  return r?.spec_v2?.summary || {};
+}
+
 import { C, MiniDiff, Meter, RuleTrace } from "./specQaShared";
 // [2026-07 분할] 46KB 제한 대응 3분할 — 기존 import 경로("./QubiSpecQa")를 깨지 않도록
 // 사전·기준표 컴포넌트는 여기서 그대로 re-export한다.
@@ -116,7 +129,7 @@ export function SpecOverallBanner({ results }: { results: any[] }) {
   const rows = (results || []).filter((r: any) => r.spec_v2);
   if (!rows.length) return null;
   const agg = rows.reduce((a: any, r: any) => {
-    const s = r.spec_v2.summary || {};
+    const s = _specSummaryOf(r);
     a.crit += s.critical || 0; a.warn += s.warning || 0; a.pass += s.pass || 0;
     return a;
   }, { crit: 0, warn: 0, pass: 0 });
@@ -125,7 +138,7 @@ export function SpecOverallBanner({ results }: { results: any[] }) {
   const overall = tlSpec(agg.crit, agg.warn);
   const order: Record<string, number> = { red: 0, yellow: 1, green: 2 };
   const sites = rows.map((r: any) => {
-    const s = r.spec_v2.summary || {};
+    const s = _specSummaryOf(r);
     const d = (s.pass || 0) + (s.critical || 0);
     return { code: r.sitecode || r.country || "site", tl: tlSpec(s.critical || 0, s.warning || 0),
              pct: d ? Math.round(((s.pass || 0) / d) * 100) : null };
@@ -163,12 +176,12 @@ export function SpecOverallBanner({ results }: { results: any[] }) {
 const PAGE_TYPE_LABEL: Record<string, string> = { PDP: "제품 상세 (PDP)", Compare: "비교 (Compare)" };
 
 const _specScoreOf = (r: any) => {
-  const s = r.spec_v2.summary || {};
+  const s = _specSummaryOf(r);
   const d = (s.pass || 0) + (s.critical || 0);
   return d ? Math.round(((s.pass || 0) / d) * 100) : null;
 };
 const _specAggOf = (rs: any[]) => rs.reduce((a, r) => {
-  const s = r.spec_v2.summary || {};
+  const s = _specSummaryOf(r);
   a.crit += s.critical || 0; a.warn += s.warning || 0; a.pass += s.pass || 0; return a;
 }, { crit: 0, warn: 0, pass: 0 });
 
@@ -235,19 +248,21 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
     return (
       <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
         <SpecOverallBanner results={rows} />
-        <SpecV2Panel row={r0} product={r0.market_product || c.product} api={c.api} flash={c.flash} />
+        {r0.page_type !== "Compare" && (
+          <SpecV2Panel row={r0} product={r0.market_product || c.product} api={c.api} flash={c.flash} />
+        )}
         <CompareMatrixPanel row={r0} />
       </div>
     );
   }
 
   const scoreOf = (r: any) => {
-    const s = r.spec_v2.summary || {};
+    const s = _specSummaryOf(r);
     const d = (s.pass || 0) + (s.critical || 0);
     return d ? Math.round(((s.pass || 0) / d) * 100) : null;
   };
   const critWarnOf = (rs: any[]) => rs.reduce((a, r) => {
-    const s = r.spec_v2.summary || {};
+    const s = _specSummaryOf(r);
     a.crit += s.critical || 0; a.warn += s.warning || 0; return a;
   }, { crit: 0, warn: 0 });
 
@@ -300,7 +315,7 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
                     </span>
                   </div>
                   {pages.map((r: any, i: number) => {
-                    const s = r.spec_v2.summary || {};
+                    const s = _specSummaryOf(r);
                     const tl = tlSpec(s.critical || 0, s.warning || 0);
                     const key = `spec:${pt}|${region}|${r.sitecode}|${i}`;
                     const prod = r.market_product || r.product || "";
@@ -316,7 +331,9 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
                         </div>
                         {expanded === key && (
                           <div className="qbiPopIn" style={{ padding: "0 4px 10px 16px" }}>
-                            <SpecV2Panel row={r} product={prod || c.product} api={c.api} flash={c.flash} />
+                            {pt !== "Compare" && (
+                              <SpecV2Panel row={r} product={prod || c.product} api={c.api} flash={c.flash} />
+                            )}
                             <CompareMatrixPanel row={r} />
                           </div>
                         )}
