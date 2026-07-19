@@ -117,7 +117,7 @@ def extract_html_signals(html: str) -> Dict[str, Any]:
 def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
                        guide_h1_keywords: Optional[List[str]] = None,
                        guide_h2_min_count: Optional[int] = None,
-                       title_max_len: int = 60, desc_max_len: int = 160,
+                       title_max_len: int = 80, desc_max_len: int = 160,
                        title_warn_buffer: int = 10, desc_warn_buffer: int = 20) -> Dict[str, Any]:
     """가이드 적용율(%) = 실제 적용 항목 수 / 전체 항목 수.
     guide_h1_keywords/guide_h2_min_count는 마케팅 가이드 데이터가 있을 때만 채점(없으면 항목 자체를 건너뜀 — 거짓으로 O/X 매기지 않음)."""
