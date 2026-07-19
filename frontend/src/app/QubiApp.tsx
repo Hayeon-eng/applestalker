@@ -51,6 +51,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [online, setOnline] = useState<boolean | null>(null);
 
   const [regionsMap, setRegionsMap] = useState<Record<string, SiteRow[]>>({});
+  // [2026-07 신규] 나라코드(sitecode)당 한 줄로 뭉개지 않은 전체 행 — URL 관리
+  // 목록/삭제는 이걸 써야 한다(한 나라에 제품×페이지타입별로 여러 행이 있으므로).
+  const [entries, setEntries] = useState<SiteRow[]>([]);
   const [pageCount, setPageCount] = useState(0);
   const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set()); // 권역 다중선택(비었으면 전체)
   const [showScore, setShowScore] = useState(false); // 점수 계산 로직 패널
@@ -65,6 +68,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   const [sitesOpen, setSitesOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
+  const [newUrlProduct, setNewUrlProduct] = useState("galaxy-z-fold7");
+  const [newUrlPageType, setNewUrlPageType] = useState("PDP");
   const xlsxFileRef = useRef<HTMLInputElement>(null);
 
   // 스펙 관리
@@ -105,7 +110,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   useEffect(() => { if (!pageTypesFor(product).includes(pageType)) setPageType("PDP"); }, [product]);
   useEffect(() => { loadSpecs(specProduct); }, [specProduct]);
 
-  async function loadSites() { try { const d = await (await fetch(api("/api/qb/sites"))).json(); setRegionsMap(d.regions || {}); setPageCount(d.page_count || 0); } catch { /* */ } }
+  async function loadSites() { try { const d = await (await fetch(api("/api/qb/sites"))).json(); setRegionsMap(d.regions || {}); setEntries(d.entries || []); setPageCount(d.page_count || 0); } catch { /* */ } }
   async function loadCatalog() { try { setCatalog((await (await fetch(api("/api/qb/spec-catalog"))).json()).catalog || []); } catch { /* */ } }
   async function loadProducts() {
     try {
@@ -230,8 +235,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   };
 
   // ── URL 관리 ──
-  const addUrl = async () => { if (!newUrl.trim()) return; await fetch(api("/api/qb/sites/add"), J({ url: newUrl.trim() })); setNewUrl(""); loadSites(); flash("URL 추가"); };
-  const removeUrl = async (sc: string) => { await fetch(api("/api/qb/sites/remove"), J({ sitecode: sc })); loadSites(); };
+  const addUrl = async () => { if (!newUrl.trim()) return; await fetch(api("/api/qb/sites/add"), J({ url: newUrl.trim(), product: newUrlProduct, page_type: newUrlPageType })); setNewUrl(""); loadSites(); flash("URL 추가"); };
+  const removeUrl = async (sc: string, url: string) => { await fetch(api("/api/qb/sites/remove"), J({ sitecode: sc, url })); loadSites(); };
   const downloadTemplate = () => downloadBlob("/api/qb/sites/template.xlsx", null, "qubi_url_template.xlsx");
   const uploadTemplate = async (file: File) => {
     const b64: string = await new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result)); rd.onerror = rej; rd.readAsDataURL(file); });
@@ -371,6 +376,16 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           <div className="sideLabel">URL 관리</div>
           <div style={{ padding: "0 10px", marginBottom: 6 }}>
             <input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://www.samsung.com/…/compare/" style={{ ...inputStyle, width: "100%" }} />
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <select value={newUrlProduct} onChange={(e) => setNewUrlProduct(e.target.value)} style={{ ...inputStyle, flex: 1, fontSize: 11.5 }}>
+                {products.map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
+              </select>
+              <select value={newUrlPageType} onChange={(e) => setNewUrlPageType(e.target.value)} style={{ ...inputStyle, width: 90, fontSize: 11.5 }}>
+                {PAGE_TYPES.map((pt) => <option key={pt} value={pt}>{pt}</option>)}
+              </select>
+            </div>
+            {/* [2026-07] 이제 같은 나라 코드(sitecode)로 여러 제품·페이지타입을 각각 추가할 수 있다 —
+                예전엔 여기서 제품/페이지타입 지정 없이 추가하면 그 나라의 기존 행을 조용히 덮어썼다. */}
             <button onClick={addUrl} style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "#0A66E0", background: "none", border: "none", cursor: "pointer" }}>＋ URL 추가</button>
           </div>
           <div style={{ padding: "0 10px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -378,15 +393,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <button onClick={() => xlsxFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 8px" }}>⬆ 템플릿 업로드</button>
             <input ref={xlsxFileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadTemplate(f); e.currentTarget.value = ""; }} />
           </div>
-          <div className="sideLabel" style={{ cursor: "pointer" }} onClick={() => setSitesOpen((o) => !o)}>{sitesOpen ? "▾" : "▸"} 모니터링 URL 목록 <span style={{ color: "var(--sec)" }}>{allSites.length}개</span></div>
-          {sitesOpen && allSites.map((s) => (
-            <div key={s.sitecode} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 10px", fontSize: 11.5 }}>
+          <div className="sideLabel" style={{ cursor: "pointer" }} onClick={() => setSitesOpen((o) => !o)}>{sitesOpen ? "▾" : "▸"} 모니터링 URL 목록 <span style={{ color: "var(--sec)" }}>{entries.length}개</span></div>
+          {sitesOpen && entries.map((s, i) => (
+            <div key={`${s.sitecode}-${i}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 10px", fontSize: 11.5 }}>
               <span title={s.url}>
                 <span style={{ fontWeight: 600 }}>{s.sitecode}</span>
-                {s.region && <span style={{ fontSize: 10, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 5px", marginLeft: 5 }}>{s.region}</span>}
+                {s.product && <span style={{ fontSize: 10, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 5px", marginLeft: 5 }}>{s.product}{s.page_type ? ` · ${s.page_type}` : ""}</span>}
                 {s.country && <span style={{ color: "var(--sec)", marginLeft: 5 }}>{s.country}</span>}
               </span>
-              <span role="button" onClick={() => removeUrl(s.sitecode)} style={{ cursor: "pointer", color: "var(--high)", fontSize: 11 }}>삭제</span>
+              <span role="button" onClick={() => removeUrl(s.sitecode, s.url)} style={{ cursor: "pointer", color: "var(--high)", fontSize: 11 }}>삭제</span>
             </div>
           ))}
 

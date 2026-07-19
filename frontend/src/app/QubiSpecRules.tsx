@@ -66,27 +66,65 @@ export function SpecV2RuleTable({ product, api, flash }:
     "Disclaimer": { ko: "각주", tip: "페이지 하단 법적 고지·각주 영역" },
     "What's in the box": { ko: "구성품", tip: "박스 구성품 안내 영역" },
   };
+  const [history, setHistory] = useState<any[]>([]);
+  const [histOpen, setHistOpen] = useState(false);
+  const loadHistory = async () => {
+    try { setHistory((await (await fetch(api(`/api/qb/spec-rules/history?product=${encodeURIComponent(product)}`))).json()).history || []); }
+    catch { setHistory([]); }
+  };
+  useEffect(() => { loadHistory(); /* eslint-disable-next-line */ }, [product]);
+  const revertTo = async (snapshot_key: string, label: string) => {
+    if (!window.confirm(`이 버전(${label})으로 되돌릴까요?\n\n지금 상태도 이력에 남으니, 되돌린 뒤에도 다시 이전으로 돌아올 수 있어요.`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch(api("/api/qb/spec-rules/revert"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product, snapshot_key }) });
+      if (!r.ok) throw new Error(String((await r.json().catch(() => ({}))).detail || r.status));
+      flash(`'${label}' 버전으로 되돌림 🐝`); load(); loadHistory();
+    } catch (e: any) { flash(`되돌리기 실패 — ${e.message || e}`); } finally { setBusy(false); }
+  };
+  const downloadBlob = async (path: string, filename: string) => {
+    try {
+      const r = await fetch(api(path));
+      if (!r.ok) throw new Error(String(r.status));
+      const blob = await r.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href; a.download = filename; document.body.appendChild(a); a.click();
+      a.remove(); setTimeout(() => URL.revokeObjectURL(href), 1500);
+    } catch (e: any) { flash(`다운로드 실패 — ${e.message || e}`); }
+  };
   return (
     <div className="card" style={{ marginTop: 18, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <b style={{ fontSize: 14 }}>검수 기준 스펙 — Rule DB</b>
         <span style={{ fontSize: 11, background: "#EEF4FE", color: C.blue, borderRadius: 5, padding: "2px 7px", fontWeight: 700 }}>{product}</span>
         <span style={{ fontSize: 11.5, color: "var(--sec)" }}>룰 {rules.length}개 · 버전 {versionDisplay(data?.version) || "—"}</span>
-        <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6 }}>
+        <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+          {/* [2026-07 신규] 사이트 URL 쪽엔 이미 있던 템플릿 다운로드/내보내기가 Rule DB엔 없었다.
+              template = 신규 제품용 빈 양식, export = 지금 값을 그대로 엑셀로(수정 후 재업로드 가능). */}
+          <button onClick={() => downloadBlob("/api/qb/spec-rules/template.xlsx", "qubi_rule_db_template.xlsx")}
+            className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>⬇ 빈 템플릿</button>
+          <button onClick={() => downloadBlob(`/api/qb/spec-rules/export.xlsx?product=${encodeURIComponent(product)}`, `qubi_rule_db_${product}.xlsx`)}
+            className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>⬇ 현재 값 내보내기</button>
+          <button onClick={() => setHistOpen((o) => !o)} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>
+            🕐 이력 {history.length > 0 ? `(${history.length})` : ""}
+          </button>
           <button onClick={() => fileRef.current?.click()} disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>
             {busy ? "업로드 중…" : "⬆ Rule DB 엑셀 업로드"}
           </button>
           {/* [2026-07 FIX] 모델 DB 삭제 — 신모델 엑셀 업로드 후 구모델(예: Fold7)을 목록에서 내릴 때.
               룰·예외만 삭제되고, 제품 용어사전(Dictionary)은 별도 보관되어 삭제되지 않는다
-              (재업로드 시 자동 복원). 검수 이력·모니터링 URL·Global 사전도 그대로 유지된다. */}
+              (재업로드 시 자동 복원). 검수 이력·모니터링 URL·Global 사전도 그대로 유지된다.
+              [2026-07 신규] 삭제 직전 상태도 이제 버전 이력에 남아, 실수로 지워도 🕐 이력에서
+              되돌릴 수 있다. */}
           <button disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px", color: "#B42318", borderColor: "#FECDCA" }}
             onClick={async () => {
-              if (!window.confirm(`'${product}'의 Rule DB(룰 ${rules.length}개)를 삭제할까요?\n\n제품 용어사전(Dictionary)·검수 이력·모니터링 URL·공통(Global) 사전은 그대로 유지됩니다.\n같은 제품 엑셀을 다시 업로드하면 언제든 복구돼요.`)) return;
+              if (!window.confirm(`'${product}'의 Rule DB(룰 ${rules.length}개)를 삭제할까요?\n\n제품 용어사전(Dictionary)·검수 이력·모니터링 URL·공통(Global) 사전은 그대로 유지됩니다.\n삭제 직전 상태는 🕐 이력에 남아 나중에 되돌릴 수 있어요.`)) return;
               setBusy(true);
               try {
                 const r = await fetch(api("/api/qb/spec-rules/delete"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product }) });
                 if (!r.ok) throw new Error(String((await r.json().catch(() => ({}))).detail || r.status));
-                flash(`'${product}' Rule DB 삭제됨 — 제품 목록은 새로고침 후 반영 🐝`); load();
+                flash(`'${product}' Rule DB 삭제됨 — 제품 목록은 새로고침 후 반영 🐝`); load(); loadHistory();
               } catch (e: any) { flash(`삭제 실패 — ${e.message || e}`); } finally { setBusy(false); }
             }}>
             🗑 모델 삭제
@@ -94,6 +132,18 @@ export function SpecV2RuleTable({ product, api, flash }:
           <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.currentTarget.value = ""; }} />
         </span>
       </div>
+      {histOpen && (
+        <div style={{ margin: "8px 0", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 10px", background: "#F9FAFB" }}>
+          {history.length === 0 && <div style={{ fontSize: 11.5, color: "var(--sec)" }}>아직 이력이 없어요 — 엑셀을 다시 올리거나 삭제하면 그 직전 상태가 여기 쌓여요.</div>}
+          {history.map((h) => (
+            <div key={h.snapshot_key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", fontSize: 11.5 }}>
+              <span><b>{versionDisplay(h.version) || "—"}</b> <span style={{ color: "var(--sec)" }}>· {h.updated_at || ""} · 룰 {h.rules ?? "?"}개</span></span>
+              <span role="button" onClick={() => revertTo(h.snapshot_key, versionDisplay(h.version) || h.updated_at)}
+                style={{ cursor: "pointer", color: C.blue, fontSize: 11, fontWeight: 700 }}>이걸로 되돌리기</span>
+            </div>
+          ))}
+        </div>
+      )}
       <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "6px 0 4px" }}>
         이 표가 "정답지"예요. 각 항목이 페이지에 <b>이래야 정상</b>이라는 기준입니다. 값 수정은 엑셀을 고쳐 업로드하세요(화면 직접 편집 안 함 — 이력 관리를 엑셀로 일원화).
       </p>
