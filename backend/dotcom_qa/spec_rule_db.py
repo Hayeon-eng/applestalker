@@ -240,6 +240,13 @@ def save(product: str, ruleset: Dict[str, Any], version: str = "", merge_diction
     db = SessionLocal()
     try:
         row = db.query(QbSpecRules).filter(QbSpecRules.product == product).first()
+        # [2026-07 신규] 덮어쓰기 전에 "지금까지의 상태"를 이력으로 스냅샷 저장 —
+        # 이게 없으면 엑셀을 잘못 올렸을 때 되돌릴 방법이 전혀 없었다.
+        if row and row.data:
+            try:
+                _snapshot_history(product, row.data, row.version, row.updated_at)
+            except Exception as e:
+                print(f"[spec_rule_db] history snapshot skip: {e}")
         if row and merge_dictionary and row.data:
             try:
                 prev = json.loads(row.data)
@@ -317,8 +324,9 @@ def list_products() -> List[Dict[str, Any]]:
         db = SessionLocal()
         try:
             for row in db.query(QbSpecRules).all():
-                if row.product in _NON_PRODUCT_KEYS or row.product.startswith("__dict_backup__"):
-                    continue  # Global Dictionary/마커/용어사전 백업 행 — 목록 제외
+                if (row.product in _NON_PRODUCT_KEYS or row.product.startswith("__dict_backup__")
+                        or row.product.startswith("__history__")):
+                    continue  # Global Dictionary/마커/용어사전 백업/버전 이력 행 — 목록 제외
                 out.append({"product": row.product, "version": row.version,
                             "updated_at": row.updated_at, "source": "db"})
                 seen.add(row.product)
@@ -427,6 +435,84 @@ def _load_dictionary_backup(product: str) -> Dict[str, List[str]]:
     return {}
 
 
+# ── [2026-07 신규] Rule DB 버전 이력 / 되돌리기 ──────────────────────────
+# 엑셀을 잘못 올렸을 때 "덮어쓰기 직전 상태"로 되돌릴 방법이 없었다. 새 DB 테이블을
+# 만드는 대신, 기존 QbSpecRules 테이블에 product를 "__history__{product}__{ts}" 형태로
+# 네임스페이싱해서 스냅샷 행으로 저장한다(용어사전 백업과 같은 패턴). 제품당 최근
+# _HISTORY_MAX개만 보관 — 그 이상은 오래된 것부터 자동 정리한다.
+_HISTORY_MAX = 10
+
+
+def _history_prefix(product: str) -> str:
+    return f"__history__{product}__"
+
+
+def _snapshot_history(product: str, data: str, version: str, updated_at: str) -> None:
+    """덮어쓰기 직전의 (data, version, updated_at)을 이력 행으로 저장하고, 오래된
+    이력은 _HISTORY_MAX개만 남기고 정리한다."""
+    SessionLocal, QbSpecRules = _db()
+    db = SessionLocal()
+    try:
+        ts = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        key = _history_prefix(product) + ts
+        db.add(QbSpecRules(product=key, data=data,
+                            version=version or "", updated_at=updated_at or ""))
+        db.commit()
+        prefix = _history_prefix(product)
+        rows = (db.query(QbSpecRules)
+                  .filter(QbSpecRules.product.like(prefix + "%"))
+                  .order_by(QbSpecRules.product.desc()).all())
+        for old in rows[_HISTORY_MAX:]:
+            db.delete(old)
+        if len(rows) > _HISTORY_MAX:
+            db.commit()
+    finally:
+        db.close()
+
+
+def list_history(product: str) -> List[Dict[str, Any]]:
+    """이 제품의 저장된 이력 스냅샷 목록(최신 순). snapshot_key로 revert()에 전달."""
+    SessionLocal, QbSpecRules = _db()
+    db = SessionLocal()
+    try:
+        prefix = _history_prefix(product)
+        rows = (db.query(QbSpecRules)
+                  .filter(QbSpecRules.product.like(prefix + "%"))
+                  .order_by(QbSpecRules.product.desc()).all())
+        out = []
+        for row in rows:
+            try:
+                rs = json.loads(row.data) or {}
+                rule_count = len(rs.get("rules", []))
+            except Exception:
+                rule_count = None
+            out.append({"snapshot_key": row.product, "version": row.version,
+                        "updated_at": row.updated_at, "rules": rule_count})
+        return out
+    finally:
+        db.close()
+
+
+def revert(product: str, snapshot_key: str) -> Dict[str, Any]:
+    """snapshot_key(list_history()가 준 값)로 저장된 이력을 현재 룰셋으로 복원한다.
+    save()를 통해서 반영하므로, 되돌리기 직전 상태 역시 자동으로 새 이력 행이 되어
+    남는다 — 즉 되돌리기 자체도 되돌릴 수 있다."""
+    if not snapshot_key.startswith(_history_prefix(product)):
+        raise ValueError("이 제품의 이력이 아닙니다.")
+    SessionLocal, QbSpecRules = _db()
+    db = SessionLocal()
+    try:
+        row = db.query(QbSpecRules).filter(QbSpecRules.product == snapshot_key).first()
+        if not row or not row.data:
+            raise ValueError("해당 이력을 찾을 수 없습니다 — 이미 정리(오래되어 삭제)되었을 수 있어요.")
+        ruleset = json.loads(row.data)
+    finally:
+        db.close()
+    label = (ruleset.get("version") or row.version or "이전 버전")
+    info = save(product, ruleset, version=f"{label} (되돌림)", merge_dictionary=True)
+    return {**info, "reverted_from": snapshot_key}
+
+
 def delete_product(product: str) -> Dict[str, Any]:
     """제품의 Rule DB 삭제(룰·예외·후보 등 제품 데이터만). [2026-07 FIX] 제품 용어사전
     (Dictionary)은 여기서 함께 지우지 않는다 — 삭제 전 별도 보관 행으로 백업해두었다가,
@@ -447,6 +533,10 @@ def delete_product(product: str) -> Dict[str, Any]:
                     _backup_dictionary(product, prev.get("dictionary") or {})
                 except Exception as e:
                     print(f"[spec_rule_db] dictionary backup skip: {e}")
+                try:
+                    _snapshot_history(product, row.data, row.version, row.updated_at)
+                except Exception as e:
+                    print(f"[spec_rule_db] history snapshot (delete) skip: {e}")
             n = db.query(QbSpecRules).filter(QbSpecRules.product == product).delete(synchronize_session=False)
             db.commit()
             removed_db = n > 0
@@ -499,3 +589,84 @@ def add_alias(product: str, representative: str, alias: str) -> Dict[str, Any]:
                         if not (c.get("alias") == alias and c.get("representative") == representative)]
     save(product, rs, version=rs.get("version", ""))
     return {"representative": representative, "aliases": rs["dictionary"][representative]}
+
+
+# ── [2026-07 신규] Rule DB 엑셀 템플릿/내보내기 ────────────────────────
+# 사이트 URL 쪽에는 이미 template.xlsx(빈 양식 다운로드) + upload(일괄 등록)가 있었는데
+# Rule DB는 업로드(import)만 있고 빈 양식 다운로드도, 지금 값을 다시 엑셀로 받아서
+# 수정 후 재업로드하는 내보내기(export)도 없었다. parse_xlsx()가 읽는 시트/헤더와
+# 정확히 대칭되게 만들어 그대로 재업로드해도 깨지지 않게 한다.
+_MASTERSPEC_HEADERS = ["Rule ID", "Category", "Attribute", "Official Value", "Unit",
+                       "Validation", "Qualifier", "Priority", "Page", "Interaction",
+                       "Exception", "Fix Guide", "Notes"]
+
+
+def _new_wb_with_sheets():
+    from openpyxl import Workbook
+    wb = Workbook()
+    wb.remove(wb.active)
+    return wb
+
+
+def _add_sheet(wb, name, headers, rows):
+    ws = wb.create_sheet(name)
+    ws.append(headers)
+    for r in rows:
+        ws.append(r)
+    return ws
+
+
+def build_template_xlsx(product: str = "") -> bytes:
+    """빈 Rule DB 엑셀 양식(신규 제품 등록용) — 헤더 + 예시 1행."""
+    import io as _io
+    wb = _new_wb_with_sheets()
+    _add_sheet(wb, "MasterSpec", _MASTERSPEC_HEADERS, [
+        ["BAT-001", "Battery", "Battery Capacity", "4400", "mAh", "Numeric Exact",
+         "", "Critical", "PDP", "", "", "정확한 배터리 용량(mAh)으로 수정하세요.", "예시 행 — 실제 값으로 교체"],
+    ])
+    _add_sheet(wb, "Dictionary", ["Representative", "Alias"], [["Snapdragon 8 Elite Gen 5", "SD8EG5"]])
+    _add_sheet(wb, "ExceptionRule", ["Rule", "Description"], [["BAT-001", "예: 특정 국가는 배터리 표기 단위가 다름"]])
+    _add_sheet(wb, "InteractionRule", ["Section", "Action"], [["Compare", "탭 클릭 후 스펙 노출"]])
+    _add_sheet(wb, "CountryException", ["Country", "Rule", "Action"], [["IN", "BAT-001", "skip"]])
+    _add_sheet(wb, "UnitSynonym", ["Canonical Unit", "Synonym"], [["nits", "니트"]])
+    _add_sheet(wb, "PreviousModel", ["Model", "Aliases", "Attribute", "Values", "Unit"],
+               [["Galaxy Z Fold6", "Fold6,Z Fold6", "Battery Capacity", "4272", "mAh"]])
+    buf = _io.BytesIO(); wb.save(buf); buf.seek(0)
+    return buf.read()
+
+
+def build_export_xlsx(product: str) -> bytes:
+    """지금 저장된 제품 룰셋을 그대로 엑셀로 내보낸다 — 수정 후 같은 파일을
+    /spec-rules/upload로 재업로드하면 그대로 반영된다(왕복 가능)."""
+    import io as _io
+    rs = load(product)
+    if not rs:
+        raise ValueError(f"룰셋 없음: {product}")
+    wb = _new_wb_with_sheets()
+    ms_rows = [[r.get("rule_id", ""), r.get("category", ""), r.get("attribute", ""),
+                r.get("expected", ""), r.get("unit", ""),
+                {"exact": "Exact", "numeric_exact": "Numeric Exact", "prefix": "Prefix",
+                 "dictionary": "Dictionary", "option_match": "Option Match"}.get(r.get("validation", ""), r.get("validation", "")),
+                r.get("qualifier", ""), r.get("priority", ""), r.get("page", ""),
+                r.get("interaction", ""), r.get("exception", ""), r.get("fix_guide", ""), r.get("notes", "")]
+               for r in rs.get("rules", [])]
+    _add_sheet(wb, "MasterSpec", _MASTERSPEC_HEADERS, ms_rows or [["", "", "", "", "", "", "", "", "", "", "", "", ""]])
+    dict_rows = [[rep, alias] for rep, aliases in (rs.get("dictionary") or {}).items() for alias in aliases]
+    _add_sheet(wb, "Dictionary", ["Representative", "Alias"], dict_rows)
+    _add_sheet(wb, "ExceptionRule", ["Rule", "Description"],
+               [[e.get("rule", ""), e.get("description", "")] for e in rs.get("exceptions", [])])
+    _add_sheet(wb, "InteractionRule", ["Section", "Action"],
+               [[i.get("section", ""), i.get("action", "")] for i in rs.get("interactions", [])])
+    _add_sheet(wb, "CountryException", ["Country", "Rule", "Action"],
+               [[c.get("country", ""), c.get("rule", ""), c.get("action", "")] for c in rs.get("country_exceptions", [])])
+    _add_sheet(wb, "UnitSynonym", ["Canonical Unit", "Synonym"],
+               [[canon, syn] for canon, syns in (rs.get("unit_synonyms") or {}).items() for syn in syns])
+    pm_rows = []
+    for pm in rs.get("previous_models", []):
+        aliases = ",".join(pm.get("aliases", []))
+        for spec in pm.get("specs", []) or [{}]:
+            pm_rows.append([pm.get("model", ""), aliases, spec.get("attribute", ""),
+                             "|".join(spec.get("values", [])), spec.get("unit", "")])
+    _add_sheet(wb, "PreviousModel", ["Model", "Aliases", "Attribute", "Values", "Unit"], pm_rows)
+    buf = _io.BytesIO(); wb.save(buf); buf.seek(0)
+    return buf.read()

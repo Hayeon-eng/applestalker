@@ -33,6 +33,10 @@ def qb_sites():
             "regions": {r: [{"sitecode": s["sitecode"], "country": s["country"],
                              "lang": s["lang"], "url": s["url"]} for s in sites]
                         for r, sites in by.items()},
+            # [2026-07 신규] URL 관리 화면용 — 나라당 한 줄로 뭉개지 않은 전체 행.
+            # 삭제 버튼이 (sitecode, url)로 정확히 그 행 하나만 지울 수 있으려면
+            # 화면에 그 행 자체가 보여야 한다.
+            "entries": _registry.all(),
             "missing_lang": _registry.missing_lang()}
 
 
@@ -132,23 +136,34 @@ def qb_products_add(payload: Dict[str, Any] = Body(...)):
 
 @qb_router.post("/sites/add")
 def qb_sites_add(payload: Dict[str, Any] = Body(...)):
+    """[2026-07 FIX] 이전엔 sitecode가 이미 존재하면(거의 항상 그렇다 — 한 나라에
+    제품×페이지타입별로 여러 행이 있으므로) 새 URL을 추가하는 대신 기존 행 하나를
+    조용히 덮어썼다. '추가'는 항상 새 행을 만든다 — 완전히 같은 (sitecode,url) 조합만
+    거부한다(SiteRegistry.add()가 이미 그렇게 방어함)."""
     url = (payload.get("url") or "").strip()
     if not url:
         raise HTTPException(400, "url이 필요합니다.")
     sc = payload.get("sitecode") or qb_core._sitecode_from_url(url)
-    if _registry.get(sc):
-        _registry.update(sc, url=url)
-    else:
+    try:
         _registry.add(sc, url, region=payload.get("region", ""), country=payload.get("country", ""),
-                      lang=payload.get("lang", ""), product=payload.get("product", "galaxy-z-fold7"))
+                      lang=payload.get("lang", ""), product=payload.get("product", "galaxy-z-fold7"),
+                      page_type=payload.get("page_type", "PDP"))
+    except ValueError as e:
+        raise HTTPException(409, str(e))
     _registry.save()
     return {"ok": True, "sitecode": sc}
 
 
 @qb_router.post("/sites/remove")
 def qb_sites_remove(payload: Dict[str, Any] = Body(...)):
+    """[2026-07 FIX] sitecode만으로는 그 나라의 어떤 행(제품×페이지타입)을 지우는 건지
+    특정할 수 없어, 실제로는 그 나라의 모든 행이 한꺼번에 지워지고 있었다. url을 같이
+    받아 그 행 하나만 지운다."""
     sc = payload.get("sitecode")
-    ok = _registry.remove(sc)
+    url = payload.get("url")
+    if not url:
+        raise HTTPException(400, "url이 필요합니다 — 이 나라의 어떤 행을 지울지 특정해야 합니다.")
+    ok = _registry.remove(sc, url)
     if ok:
         _registry.save()
     return {"ok": ok}
@@ -303,7 +318,7 @@ def qb_rules_schema_add(payload: Dict[str, Any] = Body(...)):
 
 
 # ── URL 엑셀 템플릿 다운로드 / 일괄 업로드 ──
-_URL_COLS = ["sitecode", "url", "region", "country", "lang", "product"]
+_URL_COLS = ["sitecode", "url", "region", "country", "lang", "product", "page_type"]
 
 
 @qb_router.get("/sites/template.xlsx")
@@ -313,7 +328,7 @@ def qb_sites_template():
     wb = Workbook(); ws = wb.active; ws.title = "URLs"
     ws.append(_URL_COLS)
     ws.append(["sg", "https://www.samsung.com/sg/smartphones/galaxy-z-fold7/compare/",
-               "APAC", "Singapore", "en-SG", "galaxy-z-fold7"])  # 예시 1행
+               "APAC", "Singapore", "en-SG", "galaxy-z-fold7", "Compare"])  # 예시 1행
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=qubi_url_template.xlsx"})
@@ -339,6 +354,7 @@ def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
     header = [str(c or "").strip().lower() for c in rows[0]]
     idx = {c: header.index(c) for c in _URL_COLS if c in header}
     added = 0
+    skipped_dupe = 0
     for r in rows[1:]:
         def g(col):
             i = idx.get(col)
@@ -347,13 +363,14 @@ def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
         if not url:
             continue
         sc = g("sitecode") or qb_core._sitecode_from_url(url)
-        if _registry.get(sc):
-            _registry.update(sc, url=url)
-        else:
+        try:
             _registry.add(sc, url, region=g("region"), country=g("country"),
-                          lang=g("lang"), product=g("product") or "galaxy-z-fold7")
-        added += 1
+                          lang=g("lang"), product=g("product") or "galaxy-z-fold7",
+                          page_type=g("page_type") or "PDP")
+            added += 1
+        except ValueError:
+            skipped_dupe += 1  # 이미 (sitecode, url) 그대로 존재 — 새 행을 또 만들지 않음
     _registry.save()
-    return {"ok": True, "added": added, "count": len(_registry.all())}
+    return {"ok": True, "added": added, "skipped_duplicate": skipped_dupe, "count": len(_registry.all())}
 
 

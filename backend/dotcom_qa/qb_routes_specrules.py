@@ -94,6 +94,52 @@ def qb_spec_rules_dictionary_delete(payload: Dict[str, Any] = Body(...)):
     return {"ok": True, **_spec_rule_db.delete_dictionary(product)}
 
 
+@qb_router.get("/spec-rules/history")
+def qb_spec_rules_history(product: str = Query(...)):
+    """[2026-07 신규] 이 제품에 저장된 버전 이력(최신 순) — 되돌리기 후보 목록.
+    엑셀을 재업로드하거나 삭제할 때마다 그 직전 상태가 자동으로 여기 쌓인다."""
+    return {"history": _spec_rule_db.list_history(product)}
+
+
+@qb_router.post("/spec-rules/revert")
+def qb_spec_rules_revert(payload: Dict[str, Any] = Body(...)):
+    """[2026-07 신규] /spec-rules/history가 준 snapshot_key로 그 시점 상태로 되돌린다.
+    되돌리기 자체도 되돌리기 전 상태를 이력에 남기므로 안전하게 여러 번 오가도 된다.
+    body: {product, snapshot_key}"""
+    product = (payload.get("product") or "").strip()
+    snapshot_key = (payload.get("snapshot_key") or "").strip()
+    if not (product and snapshot_key):
+        raise HTTPException(400, "product/snapshot_key가 필요합니다.")
+    try:
+        info = _spec_rule_db.revert(product, snapshot_key)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, **info}
+
+
+@qb_router.get("/spec-rules/template.xlsx")
+def qb_spec_rules_template():
+    """[2026-07 신규] 빈 Rule DB 엑셀 양식 다운로드 — 신규 제품 등록 시 이 양식에
+    맞춰 채운 뒤 /spec-rules/upload로 올리면 된다. (사이트 URL 쪽 template.xlsx와 대칭)"""
+    content = _spec_rule_db.build_template_xlsx()
+    return StreamingResponse(iter([content]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=qubi_rule_db_template.xlsx"})
+
+
+@qb_router.get("/spec-rules/export.xlsx")
+def qb_spec_rules_export(product: str = Query(...)):
+    """[2026-07 신규] 지금 저장된 제품 룰셋을 엑셀로 내보내기 — 수정 후 같은 파일을
+    /spec-rules/upload로 재업로드하면 그대로 반영된다(수정→재업로드 왕복 지원)."""
+    try:
+        content = _spec_rule_db.build_export_xlsx(product)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return StreamingResponse(iter([content]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=qubi_rule_db_{product}.xlsx"})
+
+
 @qb_router.post("/spec-rules/upload")
 def qb_spec_rules_upload(payload: Dict[str, Any] = Body(...)):
     """Rule DB 엑셀 업로드 → 파싱 → DB 저장.

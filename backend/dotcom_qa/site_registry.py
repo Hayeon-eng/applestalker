@@ -106,14 +106,26 @@ class SiteRegistry:
         self.sites.append(row)
         return row
 
-    def remove(self, sitecode: str) -> bool:
+    def remove(self, sitecode: str, url: Optional[str] = None) -> bool:
+        """[2026-07 FIX] 한 sitecode(나라 코드)에 제품×페이지타입별로 여러 행이 존재하므로,
+        url까지 같이 넘겨야 그 행 '하나만' 지운다. url을 안 주면(구버전 호출 호환) 예전처럼
+        그 sitecode의 전체 행을 지우던 방식은 사고 위험이 커서 더 이상 지원하지 않고,
+        명시적으로 실패시켜 잘못된 호출을 조기에 드러낸다."""
         sc = sitecode.lower()
+        if url is None:
+            raise ValueError("remove()는 url이 필요합니다 — sitecode만으로는 어떤 행인지 특정할 수 없습니다.")
         before = len(self.sites)
-        self.sites = [s for s in self.sites if s["sitecode"] != sc]
+        self.sites = [s for s in self.sites if not (s["sitecode"] == sc and s.get("url") == url)]
         return len(self.sites) < before
 
-    def update(self, sitecode: str, **fields) -> Optional[Dict[str, Any]]:
-        row = self.get(sitecode)
+    def update(self, sitecode: str, url: Optional[str] = None, **fields) -> Optional[Dict[str, Any]]:
+        """[2026-07 FIX] sitecode만으로 첫 번째 매칭 행을 고치던 방식은, 이미 존재하는
+        나라 코드로 다른 제품 URL을 추가하려 할 때 엉뚱한 기존 행을 덮어썼다. url까지
+        받아서 정확히 그 행만 수정한다."""
+        sc = sitecode.lower()
+        if url is None:
+            return None
+        row = next((s for s in self.sites if s["sitecode"] == sc and s.get("url") == url), None)
         if row:
             row.update({k: v for k, v in fields.items() if k in row})
         return row
