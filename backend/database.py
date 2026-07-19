@@ -95,6 +95,8 @@ def ensure_schema():
         "ALTER TABLE povs ADD COLUMN IF NOT EXISTS data_analysis TEXT",
         "ALTER TABLE povs ADD COLUMN IF NOT EXISTS copy_analysis TEXT",
         "ALTER TABLE povs ADD COLUMN IF NOT EXISTS visual_analysis TEXT",
+        # qb_history — [2026-07 신규] 실측 소요시간(초) → 예상 크롤 시간 계산용
+        "ALTER TABLE qb_history ADD COLUMN IF NOT EXISTS duration_seconds DOUBLE PRECISION",
     ]
     with engine.connect() as conn:
         for st in stmts:

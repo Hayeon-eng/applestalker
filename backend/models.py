@@ -115,6 +115,8 @@ class QbHistory(Base):
     pages = Column(Integer, default=0)
     fail = Column(Integer, default=0)
     warn = Column(Integer, default=0)
+    # [2026-07 신규] 실제 소요시간(초) — run 시작~완료 실측치. 다음 크롤 예상시간 추정에 사용.
+    duration_seconds = Column(Float, nullable=True)
     results = Column(Text)                     # JSON: 검수 결과 배열 전체
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
