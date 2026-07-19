@@ -13,6 +13,7 @@
    spec_dict_review.py) 빈도순으로 그룹 표시된다 — QubiApp.tsx에서 1회만 렌더한다. */
 import { useState } from "react";
 import { TL_COLOR, TL_EMOJI, tlSpec } from "./qubiShared";
+import { CompareMatrixPanel } from "./CompareMatrixPanel";
 
 import { C, MiniDiff, Meter, RuleTrace } from "./specQaShared";
 // [2026-07 분할] 46KB 제한 대응 3분할 — 기존 import 경로("./QubiSpecQa")를 깨지 않도록
@@ -235,6 +236,7 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
       <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
         <SpecOverallBanner results={rows} />
         <SpecV2Panel row={r0} product={r0.market_product || c.product} api={c.api} flash={c.flash} />
+        <CompareMatrixPanel row={r0} />
       </div>
     );
   }
@@ -315,6 +317,7 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
                         {expanded === key && (
                           <div className="qbiPopIn" style={{ padding: "0 4px 10px 16px" }}>
                             <SpecV2Panel row={r} product={prod || c.product} api={c.api} flash={c.flash} />
+                            <CompareMatrixPanel row={r} />
                           </div>
                         )}
                       </div>
