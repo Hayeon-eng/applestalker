@@ -32,6 +32,6 @@ def run_compare_pipeline(html: str, market_product: Optional[str]) -> Dict[str, 
     market_product이 없거나 해당 Rule DB가 없으면 summary.checked=False로, 매트릭스
     (rows/products)만 반환한다 — 추출 자체는 항상 시도한다."""
     matrix = CompareExtractor().extract(html)
-    if not market_product:
-        return {**matrix, "summary": {"checked": False, "reason": "market_product 판별 불가 — Compare QA 스킵"}}
+    # [2026-07] 컬럼(제품)마다 자기 자신의 Rule DB를 alias로 찾아 채점하므로
+    # market_product 유무와 무관하게 항상 CompareQA를 실행한다(참고용으로만 전달).
     return CompareQA().evaluate(matrix, market_product)
