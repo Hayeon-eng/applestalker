@@ -156,7 +156,7 @@ export function SpecV2RuleTable({ product, api, flash }:
           라벨만 남기고(hover 시 title 툴팁으로 같은 설명을 볼 수 있어 "클릭 없이
           읽힌다"는 기존 취지도 유지). */}
       {(() => {
-        const usedKeys = Array.from(new Set(rules.map((r: any) => r.validation).filter(Boolean)));
+        const usedKeys: string[] = Array.from(new Set(rules.map((r: any) => r.validation as string).filter(Boolean)));
         if (!usedKeys.length) return null;
         return (
           <div style={{ fontSize: 10.5, color: "var(--sec)", marginBottom: 8, lineHeight: 1.6, background: "#F9FAFB", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 10px" }}>
