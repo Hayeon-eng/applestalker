@@ -255,11 +255,24 @@ def check_html(html: str, rules: Dict[str, Any],
                                       rendered_by=rendered_by or "source")
     except Exception as e:  # V2 실패가 기존 검수를 죽이지 않게
         print(f"[runner] spec_v2 skip: {e}")
+
+    # [Compare Pipeline] Compare 페이지 전용 Matrix QA — 기존 schema/copy/html_qa/spec_v2는
+    # 그대로 유지한 채(API Response 호환) compare_v2 필드로만 추가한다. PDP 페이지는
+    # 이 블록을 타지 않으므로 PDP 동작에는 영향이 없다.
+    compare_v2 = None
+    if pt == "Compare":
+        try:
+            import compare_pipeline
+            compare_v2 = compare_pipeline.run_compare_pipeline(html, mp)
+        except Exception as e:  # Compare Pipeline 실패가 기존 검수를 죽이지 않게
+            print(f"[runner] compare_v2 skip: {e}")
+
     return {
         "schema": schema_result,
         "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt),
         "html_qa": html_qa_scoring.score_html_qa(html, rules["schema"], schema_result, rendered_by=rendered_by),
         "spec_v2": spec_v2,
+        "compare_v2": compare_v2,
     }
 
 
@@ -270,7 +283,7 @@ def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any], page_type: 
             "region": site.get("region"), "country": site.get("country"),
             "product": site.get("product", "galaxy-s26-ultra"), "lang": site.get("lang"),
             "page_type": page_type, "schema": res["schema"], "copy": res["copy"], "html_qa": res["html_qa"],
-            "spec_v2": res.get("spec_v2")}
+            "spec_v2": res.get("spec_v2"), "compare_v2": res.get("compare_v2")}
 
 
 def run_all(fetch_html: Callable[[str], Optional[str]],
