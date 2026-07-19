@@ -190,6 +190,13 @@ def extract(html: str) -> Dict[str, Any]:
         pair = {"label": label, "value": raw_val, "section": _classify(el), "source": "data-attr"}
         if product_hint:
             pair["product_hint"] = product_hint
+        # [Compare Pipeline] 기존 병합 label(호환 유지)과 별개로, Compare Matrix가
+        # Category(section_label)/Spec(sub_label)을 분리해서 쓸 수 있도록 원본을
+        # 추가 필드로 함께 보존한다(하위 호환 — 기존 소비처는 label만 계속 사용).
+        if section_label:
+            pair["category"] = section_label
+        if sub_label:
+            pair["spec_label"] = sub_label
         pairs.append(pair)
 
     # ① <dl><dt><dd> 구조
@@ -207,6 +214,14 @@ def extract(html: str) -> Dict[str, Any]:
     #    있게 한다(이웃 제품 컬럼 값을 검수 대상 제품 값으로 오인하는 문제 방지).
     for table in soup.find_all("table"):
         sec = _classify(table)
+        # [Compare Pipeline] Compare 표는 보통 카테고리 제목(Display/Camera/Battery…)이
+        # 표 바로 앞의 heading에 있다 — 있으면 category 힌트로 함께 붙인다(section=="compare"
+        # 인 경우만; PDP 등 다른 표의 기존 동작에는 영향 없음).
+        table_category = ""
+        if sec == "compare":
+            h = table.find_previous(("h1", "h2", "h3", "h4", "h5"))
+            if h is not None:
+                table_category = _clean(h.get_text(" ", strip=True))
         rows_ = table.find_all("tr")
         header_cells: List[str] = []
         if rows_:
@@ -228,12 +243,18 @@ def extract(html: str) -> Dict[str, Any]:
                     value = _clean(cells[ci].get_text(" "))
                     hint = header_cells[ci] if ci < len(header_cells) else ""
                     if value:
-                        pairs.append({"label": label, "value": value, "section": sec,
-                                      "source": "table", "product_hint": hint})
+                        p = {"label": label, "value": value, "section": sec,
+                             "source": "table", "product_hint": hint}
+                        if table_category:
+                            p["category"] = table_category
+                        pairs.append(p)
             else:
                 value = _clean(cells[1].get_text(" "))
                 if value:
-                    pairs.append({"label": label, "value": value, "section": sec, "source": "table"})
+                    p = {"label": label, "value": value, "section": sec, "source": "table"}
+                    if table_category:
+                        p["category"] = table_category
+                    pairs.append(p)
 
     # ③ label/value 형제 페어 — class에 label/name/title vs value/data가 붙는 흔한 패턴
     lab_rx = re.compile(r"label|name|title|key", re.I)
