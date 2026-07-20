@@ -52,7 +52,9 @@ class HybridCrawler:
         js_timeout_ms: int = 30000,
         enable_playwright: Optional[bool] = None,
         enable_screenshot: Optional[bool] = None,
-        max_http_concurrent: int = 4,
+        max_http_concurrent: int = 8,  # [2026-07 과제4] 4→8. httpx만 쓰는 PDP 경로는 브라우저
+        # 메모리와 무관하고 가벼워서, Compare/JS 렌더 쪽 값(QB_BROWSER_CONCURRENCY)은 그대로
+        # 둔 채 이 쪽만 올려도 안전하게 속도를 벌 수 있다.
     ):
         self.user_agent = user_agent or _UA
         self.http_timeout = http_timeout
@@ -87,8 +89,17 @@ class HybridCrawler:
         self._pw = None
         self._install_attempted = False  # [2026-07 신규] 런타임 자동설치 재시도 1회 제한용
 
+        # [2026-07 과제4] 브라우저(Playwright) 동시 렌더링 개수. Compare 페이지는 항상
+        # force_render()로 이 세마포어를 타므로, 기존처럼 1로 고정하면 Compare가 섞인
+        # 배치 전체가 사실상 직렬 처리된다(QB_RUN_CONCURRENCY=6이어도 무의미).
+        # 다만 컨텍스트 하나당 렌더링 피크 메모리가 있어(끝까지 스크롤해서 지연로딩을
+        # 강제로 그려내는 방식이라 특히), 값을 올리면 인스턴스 메모리 한도(예: Render
+        # 512MB 플랜)를 넘겨 재시작될 위험이 있다 — 재배포 없이 조절할 수 있게 환경변수로
+        # 뺐다. 기본값은 기존 동작과 동일하게 1(안전) 유지, 필요 시 배포 환경에서
+        # QB_BROWSER_CONCURRENCY=2 등으로 올려 메모리 모니터링하며 테스트할 것.
+        self.browser_concurrency = max(1, int(os.getenv("QB_BROWSER_CONCURRENCY", "1")))
         self._http_sem = asyncio.Semaphore(max_http_concurrent)
-        self._browser_sem = asyncio.Semaphore(1)
+        self._browser_sem = asyncio.Semaphore(self.browser_concurrency)
         self._browser_lock = asyncio.Lock()
 
     # ─────────────────────────────────────────────

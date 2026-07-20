@@ -155,7 +155,8 @@ DICTIONARY = {
     ],
     "Front Camera": [
         "Selfie Camera", "Front Camera Resolution",
-        "전면 카메라", "셀피 카메라", "フロントカメラ", "前面カメラ", "インカメラ",
+        "전면 카메라", "셀피 카메라", "전면", "셀피",  # [2026-07] 카메라 생략형(바레) 라벨 대응
+        "フロントカメラ", "前面カメラ", "インカメラ",
         "前置摄像头", "前置鏡頭", "自拍鏡頭",
         "Frontkamera", "Caméra avant", "Caméra frontale", "Caméra selfie",
         "Cámara frontal", "Cámara para selfies", "Fotocamera anteriore", "Fotocamera frontale",
@@ -163,6 +164,13 @@ DICTIONARY = {
         "Ön Kamera", "Фронтальная камера", "Селфи-камера",
         "الكاميرا الأمامية", "กล้องหน้า", "Camera trước", "Kamera depan",
     ],
+    # [2026-07] Fold7/Flip7부터 Rear Camera가 Wide/Ultra Wide/Telephoto로 분리 룰이 되면서
+    # (CAM_001/CAM_001B/CAM_001C) 이 대표어들이 신설됨. 'Wide Camera'는 'Ultra Wide Camera'의
+    # 부분어이기도 하지만, compare_qa._find_rule의 Pass1(정확 일치 우선) + 룰 순서(Wide가
+    # Ultra Wide보다 먼저 나옴) 덕분에 "광각"/"초광각" 정확 라벨은 서로 다른 룰로 정확히
+    # 갈린다. 느슨(loose) 매칭은 4자 이상만 적용되므로 2자 별칭끼리는 서로 오매칭되지 않는다.
+    "Wide Camera": ["광각"],
+    "Ultra Wide Camera": ["초광각"],
     "Cover Camera": [
         "Cover Screen Camera", "External Camera",
         "커버 카메라", "커버 스크린 카메라", "カバーカメラ", "外屏摄像头",
