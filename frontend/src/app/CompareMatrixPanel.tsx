@@ -1,14 +1,15 @@
 "use client";
 import { useState } from "react";
+import { MiniDiff } from "./specQaShared";
 
 /* CompareMatrixPanel — Compare 전용 결과 UI.
-   PDP UI(SpecV2Panel)를 재사용하지 않고 독립적으로 렌더링한다.
    row.compare_v2 = { summary, rows: [{category, spec, values:[{product,value,status,message}]}], products }
-   (compare_pipeline.run_compare_pipeline()의 반환 형태 그대로)
+   (compare_pipeline.run_compare_pipeline()의 반환 형태 그대로 — 백엔드 출력은 변경하지 않음)
 
-   [2026-07 개편] "표를 다 보여주는" 대신 "뭐가 틀렸고 뭐가 맞았는지"만 먼저 보이게 바꿨다.
-   기본 화면: 제품별 점수 배지 + 문제 있는 항목만 압축 리스트. 표 전체는 접어두고
-   "전체 표 보기"를 눌러야만 펼쳐진다 — 대부분 맞는 항목까지 매번 스크롤하지 않아도 됨. */
+   [2026-07 과제2] 표시를 PDP Spec QA(SpecV2Panel)와 동일한 형식으로 정렬한다.
+   · 상태 어휘 통일: 🔴 오류 / 🟡 확인 / ✅ 정상 (PDP와 동일)
+   · 문제 항목은 PDP처럼 "현재값 → 기준값" MiniDiff로 표시(기준값은 message에서 파싱)
+   · 전체 매트릭스 표는 기본 접힘 — 필요할 때만 "전체 표 보기"로 펼침 */
 
 const STATUS_EMOJI: Record<string, string> = {
   pass: "✅", fail: "🔴", warn: "🟡", na: "⚪️", unchecked: "❔",
@@ -16,9 +17,17 @@ const STATUS_EMOJI: Record<string, string> = {
 const STATUS_COLOR: Record<string, string> = {
   pass: "#12A150", fail: "#E23434", warn: "#C48A00", na: "#98A2B3", unchecked: "#98A2B3",
 };
+// PDP Spec QA와 동일한 상태 어휘(오류/확인/정상)
 const STATUS_LABEL: Record<string, string> = {
-  fail: "오기재", warn: "확인 필요", unchecked: "DB 미등록", na: "값 없음",
+  fail: "오류", warn: "확인", unchecked: "DB 미등록", na: "값 없음",
 };
+
+// compare_qa 메시지("오기재 — 정답 'X'이 아닌 'Y' 표기")에서 기준값(정답)만 뽑아
+// PDP식 현재값→기준값 diff에 쓴다. 못 뽑으면 null(그땐 메시지 그대로 노출).
+function _expectedFromMessage(msg: string): string | null {
+  const m = (msg || "").match(/정답\s+'([^']*)'/);
+  return m ? m[1] : null;
+}
 
 export function CompareMatrixPanel({ row }: { row: any }) {
   const [showTable, setShowTable] = useState(false);
@@ -90,28 +99,37 @@ export function CompareMatrixPanel({ row }: { row: any }) {
         ))}
       </div>
 
-      {/* 뭐가 틀렸는지 — 문제 있는 항목만 */}
+      {/* 문제 항목 — PDP Spec QA와 동일하게 "🔴 오류 N · 🟡 확인 N · ✅ 정상 N" 요약 + 현재값→기준값 */}
       {problems.length === 0 ? (
         <div style={{ fontSize: 12.5, color: "#12A150", padding: "6px 2px" }}>
-          ✅ 오기재·확인 필요 항목 없음 (정상 {passCount}건{unchCount ? ` · DB 미등록 ${unchCount}건` : ""})
+          ✅ 정상 {passCount}건 · 오류 없음{unchCount ? ` · DB 미등록 ${unchCount}건` : ""}
         </div>
       ) : (
         <div style={{ marginBottom: 4 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: "#B42318" }}>
-            ⚠️ 틀렸거나 확인 필요한 항목 {problems.length}건 (정상 {passCount}건{unchCount ? ` · DB 미등록 ${unchCount}건` : ""})
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+            🔴 오류 {problems.filter((p) => p.status === "fail").length} · 🟡 확인 {problems.filter((p) => p.status === "warn").length} · ✅ 정상 {passCount}
+            {unchCount ? <span style={{ color: "var(--sec)", fontWeight: 400 }}> · ❔ DB 미등록 {unchCount}</span> : null}
           </div>
           <div style={{ display: "grid", rowGap: 5 }}>
-            {problems.map((p, i) => (
-              <div key={i} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6,
-                background: p.status === "fail" ? "#FEF3F2" : "#FFFAEB" }}>
-                <span style={{ color: STATUS_COLOR[p.status] }}>{STATUS_EMOJI[p.status]}</span>{" "}
-                <b>{p.product}</b> · {p.category ? `${p.category} — ` : ""}{p.spec}
-                <span style={{ color: "var(--sec)" }}> = "{p.value}"</span>
-                <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 11 }}>
-                  [{STATUS_LABEL[p.status]}]{p.message ? ` ${p.message}` : ""}
-                </span>
-              </div>
-            ))}
+            {problems.map((p, i) => {
+              const exp = p.status === "fail" ? _expectedFromMessage(p.message) : null;
+              return (
+                <div key={i} style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6,
+                  background: p.status === "fail" ? "#FEF3F2" : "#FFFAEB" }}>
+                  <div>
+                    <span style={{ color: STATUS_COLOR[p.status] }}>{STATUS_EMOJI[p.status]}</span>{" "}
+                    <b>{p.product}</b> · {p.category ? `${p.category} — ` : ""}{p.spec}
+                    <span style={{ color: STATUS_COLOR[p.status], marginLeft: 6, fontSize: 11, fontWeight: 700 }}>[{STATUS_LABEL[p.status]}]</span>
+                  </div>
+                  {/* PDP SpecV2Panel과 동일한 현재값→기준값 표기 */}
+                  <div style={{ marginTop: 3, fontSize: 11.5 }}>
+                    {exp
+                      ? <MiniDiff expected={exp} actual={p.value} />
+                      : <span style={{ color: "var(--sec)" }}>페이지 값 "{p.value}"{p.message ? ` — ${p.message}` : ""}</span>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

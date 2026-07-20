@@ -338,9 +338,24 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
       {(axis3.checks || []).length > 0 && (
         <Accordion title={`Schema 연결성(@id) — ${axis3.id_pct ?? "—"}%${axis3.gate === 0 ? " · 🔴 연결 끊김" : ""}`}>
           {(axis3.checks || []).map((ck: any, i: number) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderTop: "1px solid var(--line)" }}>
-              <span>{ck.item.replace(" ★게이트", "")}</span>
-              <span style={{ color: "var(--sec)" }}>{ck.score === null ? "해당없음" : `${Math.round(ck.score * 100)}%`} · {ck.detail}</span>
+            <div key={i} style={{ borderTop: "1px solid var(--line)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0" }}>
+                <span>{ck.item.replace(" ★게이트", "")}</span>
+                <span style={{ color: "var(--sec)" }}>{ck.score === null ? "해당없음" : `${Math.round(ck.score * 100)}%`} · {ck.detail}</span>
+              </div>
+              {/* [2026-07 과제4] @id 부여율이 100% 미만일 때, 어떤 노드(@type·이름·URL)에 @id가
+                  누락됐는지 프론트 대시보드에서 바로 확인할 수 있게 목록으로 표시한다. */}
+              {Array.isArray(ck.missing_ids) && ck.missing_ids.length > 0 && (
+                <div style={{ margin: "2px 0 6px", padding: "6px 8px", background: "#FEF3F2", border: "1px solid #FECDCA", borderRadius: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#B42318", marginBottom: 3 }}>@id 누락 노드 {ck.missing_ids.length}건</div>
+                  {ck.missing_ids.map((m: any, j: number) => (
+                    <div key={j} style={{ fontSize: 11, color: "#7A271A", lineHeight: 1.5 }}>
+                      • <b>{m.type || "(unknown)"}</b>{m.name ? ` — ${m.name}` : ""}
+                      {m.hint ? <span style={{ color: "#98A2B3", fontFamily: "monospace", marginLeft: 4, wordBreak: "break-all" }}>{m.hint}</span> : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </Accordion>
