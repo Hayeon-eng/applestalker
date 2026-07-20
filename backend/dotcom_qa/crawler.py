@@ -49,7 +49,7 @@ class HybridCrawler:
         self,
         user_agent: Optional[str] = None,
         http_timeout: float = 25.0,
-        js_timeout_ms: int = 50000,
+        js_timeout_ms: int = 30000,
         enable_playwright: Optional[bool] = None,
         enable_screenshot: Optional[bool] = None,
         max_http_concurrent: int = 4,
@@ -452,7 +452,6 @@ class HybridCrawler:
                     pass
 
                 html = await page.content()
-                print("[PW DEBUG]", url, "html_len=", len(html), "data-spec-value=", html.count("data-spec-value"))
                 final_url = page.url
                 soup = BeautifulSoup(html, "lxml")
 
@@ -461,12 +460,6 @@ class HybridCrawler:
                 data["status_code"] = 200
                 data["final_url"] = final_url
                 data["collection_issues"] = []
-                # [2026-07 FIX] 이 값이 없으면 force_render()로 들어온 호출(Compare 페이지는
-                # 항상 이 경로)은 rendered_by가 비어 runner.py에서 "source"로 잘못 표시된다.
-                # 실제로는 Playwright가 정상 렌더링했는데도 "JS 렌더링 전 HTML"로 오인되어
-                # 불필요한 재작업(이미 하고 있는 Playwright 렌더를 또 도입해야 하나 고민)을
-                # 유발하던 표시 버그를 수정.
-                data["rendered_by"] = "playwright"
 
                 try:
                     height = await page.evaluate(
@@ -809,6 +802,4 @@ class HybridCrawler:
                 break
 
         return out[:50]
-
-
 
