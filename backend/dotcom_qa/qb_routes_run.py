@@ -61,7 +61,15 @@ def _filter_targets(sitecodes=None, page_types=None, products=None) -> List[Dict
 
 
 async def _run_batch(product, sitecodes, run_id, page_types=None, products=None, mode="all"):
-    from crawler import HybridCrawler
+    # [2026-07 FIX] 절대 `from crawler import HybridCrawler`(bare import) 쓰지 말 것 —
+    # backend/crawler.py(구버전, js_timeout_ms=30000)와 이름이 겹쳐서, 먼저 로드된
+    # 쪽이 sys.modules에 캐시되면 이후 sys.path를 아무리 바꿔도 그 캐시가 재사용된다.
+    # 실제로 main.py → crawl_service.py가 먼저 "crawler"를 임포트해 구버전이 캐시되고,
+    # 그 결과 Compare 페이지가 dotcom_qa/crawler.py(50초 타임아웃 + 강제 지연로딩
+    # 스크롤 개선판)가 아니라 구버전으로 계속 렌더링되어 30초 타임아웃이 반복됐다.
+    # qb_core._load_qb_crawler_cls()가 파일 경로로 직접 로드해 이 충돌을 피한다.
+    from qb_core import _load_qb_crawler_cls
+    HybridCrawler = _load_qb_crawler_cls()
     import time as _time
     mode = (mode or "all").lower()
     targets = _filter_targets(sitecodes, page_types, products)

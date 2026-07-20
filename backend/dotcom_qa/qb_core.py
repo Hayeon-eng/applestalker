@@ -37,6 +37,37 @@ def set_fetcher(fn: Callable[[str], Optional[str]]):
     _fetcher = fn
 
 
+# [2026-07 FIX] 모듈명 충돌 버그 수정
+# backend/crawler.py(AEO 인텔용, js_timeout_ms 기본 30000 · 구버전 로직)와
+# backend/dotcom_qa/crawler.py(QB/Compare 전용, js_timeout_ms 50000 · 강제
+# 지연로딩 스크롤/rendered_by 버그 수정이 반영된 버전)가 **같은 모듈명
+# "crawler"**를 쓴다. main.py가 먼저 crawl_service.py를 임포트하면서
+# `from crawler import HybridCrawler`를 실행 → sys.modules["crawler"]에
+# 루트(구버전)가 캐시된다. 이후 여기서 아무리 sys.path를 조정해도 bare
+# `import crawler`/`from crawler import ...`는 캐시된 모듈을 그대로
+# 재사용하므로, dotcom_qa 쪽에서 고친 내용(50초 타임아웃 등)이 실제로는
+# 한 번도 적용되지 않고 Compare 크롤이 계속 30초 만에 타임아웃 났다.
+# → 파일 경로 기준으로 명시적 로드해 이름 충돌을 원천 차단한다.
+_QB_CRAWLER_CLS = None
+
+
+def _load_qb_crawler_cls():
+    """dotcom_qa/crawler.py의 HybridCrawler를 파일 경로로 직접 로드(모듈명
+    충돌 회피). qb_core.py / qb_routes_run.py가 함께 이 함수만 사용해야
+    한다 — 절대 bare `from crawler import HybridCrawler`를 쓰지 말 것."""
+    global _QB_CRAWLER_CLS
+    if _QB_CRAWLER_CLS is not None:
+        return _QB_CRAWLER_CLS
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crawler.py")
+    spec = importlib.util.spec_from_file_location("dotcom_qa_crawler_impl", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["dotcom_qa_crawler_impl"] = mod  # 재로드 방지 + 상대 참조 안전
+    spec.loader.exec_module(mod)
+    _QB_CRAWLER_CLS = mod.HybridCrawler
+    return _QB_CRAWLER_CLS
+
+
 def enable_default_crawler(requires_js: bool = True):
     """기존 애플스토커의 HybridCrawler 를 큐비 fetcher 로 자동 연결.
     삼성닷컴은 JS 렌더링 페이지가 많아 requires_js=True 를 기본으로 둔다
@@ -45,7 +76,7 @@ def enable_default_crawler(requires_js: bool = True):
 
     def _fetch(url: str) -> Optional[str]:
         async def _run():
-            from crawler import HybridCrawler
+            HybridCrawler = _load_qb_crawler_cls()
             c = HybridCrawler()
             await c.start()
             try:

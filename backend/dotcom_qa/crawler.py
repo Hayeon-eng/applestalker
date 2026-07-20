@@ -441,24 +441,38 @@ class HybridCrawler:
                 # [2026-07 FIX] 스펙/Compare 섹션이 스크롤 진입 시에만 그려지는(지연로딩)
                 # 페이지가 많다 — 캡처 전 페이지 끝까지 단계적으로 스크롤해 지연로딩 콘텐츠를
                 # 강제로 화면에 그려지게 한다. 실패해도 기존 캡처 흐름엔 영향 없음.
+                # [2026-07 속도 개선] 기존엔 "스크롤이 바닥에 도달한 상태에서 높이 불변"일
+                # 때만 멈춰서, sticky footer 등으로 바닥 판정이 애매한 페이지는 40스텝
+                # (최대 10초)을 항상 다 돌았다 — 바닥 도달 여부와 무관하게 "높이가 2회
+                # 연속 그대로면" 즉시 종료하도록 바꿔 불필요한 대기를 없앤다. 또한 네이티브
+                # `loading="lazy"` 이미지를 스크롤 전에 강제로 eager 전환해, 스크롤 1~2
+                # 스텝만으로도 브라우저가 바로 로드를 시작하게 한다.
                 try:
                     await page.evaluate("""
                         async () => {
-                            const step = Math.max(400, window.innerHeight);
+                            // 네이티브 lazy 이미지를 강제로 즉시 로드되게 전환
+                            document.querySelectorAll('img[loading="lazy"], iframe[loading="lazy"]')
+                                .forEach(el => { el.loading = 'eager'; });
+
+                            const step = Math.max(600, window.innerHeight);
                             let last = -1;
+                            let stable = 0;
                             for (let i = 0; i < 40; i++) {
                                 window.scrollBy(0, step);
-                                await new Promise(r => setTimeout(r, 250));
+                                await new Promise(r => setTimeout(r, 180));
                                 const h = document.body ? document.body.scrollHeight : 0;
-                                if (window.scrollY + window.innerHeight >= h) {
-                                    if (h === last) break;
+                                if (h === last) {
+                                    stable += 1;
+                                    if (stable >= 2) break;
+                                } else {
+                                    stable = 0;
                                     last = h;
                                 }
                             }
                             window.scrollTo(0, 0);
                         }
                     """)
-                    await page.wait_for_timeout(500)
+                    await page.wait_for_timeout(400)
                 except Exception:
                     pass
 
