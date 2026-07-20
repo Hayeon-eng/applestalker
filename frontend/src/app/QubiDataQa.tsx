@@ -149,7 +149,6 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
             {htmlItems.filter((i) => i.status === "fail").map((i) => (
               <div key={i.key} style={{ fontSize: 11.5, padding: "2px 0" }}>
                 <b style={{ color: "#B42318" }}>❌ {i.key}</b> <span style={{ color: "var(--sec)" }}>{i.note}</span>
-                <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 11 }}>· 수정 위치: {i.where}</span>
               </div>
             ))}
           </div>
