@@ -64,6 +64,13 @@ _HEADING_KEYWORDS = [
     ("disclaimer", re.compile(r"disclaimer|legal|각주|고지", re.I)),
 ]
 
+# [2026-07-2 FIX] data-spec-value가 실제 스펙값이 아니라 아이콘/티어 선택용 내부 코드인
+# 경우가 있다(순수 정수 1~3자리, 단위·소수점 없음 — 예: Zoom/Processor/치수처럼 텍스트형
+# 스펙에서 "0" 하나만 들어있고, 진짜 사람이 읽는 값은 같은 <li> 안에 별도 텍스트로 존재).
+# 이런 값은 신뢰도가 낮으므로, 같은 항목 안에 그보다 풍부한 가시 텍스트가 있으면 그걸
+# 우선한다. 소수점이 있는 "200.0" 같은 진짜 수치는 이 패턴에 안 걸려 기존 동작 그대로다.
+_SUSPECT_CODE_RX = re.compile(r"^\d{1,3}$")
+
 # 태그 자체로 UI-chrome이 명확한 경우(클래스명이 없어도 배제)
 _TAG_SECTION = {
     "nav": "nav", "header": "header", "footer": "footer",
@@ -166,6 +173,28 @@ def extract(html: str) -> Dict[str, Any]:
             title_el = _nearest_by_class(item_li, "__title")
             if title_el is not None:
                 sub_label = _clean(title_el.get_text(" ", strip=True))
+
+            # [2026-07-3 FIX] 실제 값이 <span role="listitem">에 그대로 텍스트로 있는
+            # 구조를 우선한다(제보 확인) — data-spec-value는 내부 코드일 수 있어 후순위.
+            value_span_text = ""
+            for cand in item_li.find_all("span", attrs={"role": re.compile(r"^listitem$", re.I)}):
+                if cand.find(class_=re.compile("sr-only")) is not None:
+                    continue  # 제품명(sr-only)만 담은 span은 값이 아니므로 제외
+                txt = _clean(cand.get_text(" ", strip=True))
+                if txt and txt != product_hint:
+                    value_span_text = txt
+                    break
+            if value_span_text:
+                raw_val = value_span_text
+            # [2026-07-2 FIX] span이 없어 못 찾았고, raw_val이 의심스러운 짧은 코드값이면
+            # 같은 <li> 안의 가시 텍스트(제품명/서브라벨 제외) 중 더 풍부한 걸로 대체한다.
+            elif _SUSPECT_CODE_RX.match(raw_val):
+                candidate = _clean(item_li.get_text(" ", strip=True))
+                for strip_txt in (product_hint, sub_label):
+                    if strip_txt:
+                        candidate = _clean(candidate.replace(strip_txt, " "))
+                if candidate and candidate != raw_val and len(candidate) > len(raw_val) + 2:
+                    raw_val = candidate
 
         section_label = ""
         section_el = _nearest_by_class(el, "__section", ancestor=True)

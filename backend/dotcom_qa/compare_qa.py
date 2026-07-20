@@ -89,6 +89,13 @@ def _evaluate_cell(rule: Dict[str, Any], cell_value: str) -> Tuple[str, str]:
     accepted = svm.parse_accepted(expected)
     nv = svm.normalize_text(value)
 
+    # [2026-07 FIX] 페이지에서 실제로 값을 못 찾았을 때(렌더 타이밍/추출 실패 등) '0'을
+    # 그대로 내보내는 경우가 있다 — 프로세서명·치수(HxWxD)처럼 0이 될 수 없는 스펙까지
+    # "정답과 다른 값"으로 fail 처리되던 원인. 기대값 자체가 0인 경우(예: 광학줌 0배처럼
+    # 실제로 0이 맞는 스펙)만 정상 판정을 계속하고, 그 외엔 fail 대신 '확인 필요'로 낮춘다.
+    if nv == "0" and not any(svm.normalize_text(a) == "0" for a in accepted):
+        return "warn", "추출값이 '0'으로 나옴 — 페이지 미렌더/추출 실패 가능성, 원본 확인 필요"
+
     if vtype == "numeric_exact":
         m = re.search(r"-?\d+(?:\.\d+)?", nv)
         if not m:
