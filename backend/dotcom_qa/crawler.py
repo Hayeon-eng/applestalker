@@ -49,7 +49,7 @@ class HybridCrawler:
         self,
         user_agent: Optional[str] = None,
         http_timeout: float = 25.0,
-        js_timeout_ms: int = 30000,
+        js_timeout_ms: int = 50000,
         enable_playwright: Optional[bool] = None,
         enable_screenshot: Optional[bool] = None,
         max_http_concurrent: int = 4,
