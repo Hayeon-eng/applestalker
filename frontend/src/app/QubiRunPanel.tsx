@@ -4,7 +4,8 @@ import { HONEY, sel } from "./qubiShared";
 /* QubiRunPanel — QubiApp에서 분리된 "① 리전별 검수 크롤" 카드.
    [2026-07 분할] QubiApp.tsx 46KB 제한 대응. JSX 본문은 원본 그대로이며,
    참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음).
-   과제3(Data/Spec 독립 실행 버튼)도 이 컴포넌트 안에 포함된다. */
+   [2026-07 재변경] Data QA/Spec QA 독립 실행 버튼을 되돌리고, 항상 둘 다 함께
+   실행("all")하는 버튼 하나로 단순화했다. */
 export function QubiRunPanel(props: any) {
   const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes, isUnlaunched } = props;
   return (
@@ -43,16 +44,12 @@ export function QubiRunPanel(props: any) {
               </div>
             </details>
 
-            {/* [2026-07 과제3] 현재 탭의 QA 축만 독립 실행 — Data QA 탭이면 스키마·검색노출만,
-                Spec QA 탭이면 스펙 정확성만 크롤·검수해 상대 축의 무거운 작업을 건너뛴다. */}
-            <button onClick={() => runByRegion(tab === "schema" ? "data" : "spec")} disabled={busy}
-                    style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-              {busy ? "붕붕 검수 중…" : `${tab === "schema" ? "Data QA" : "Spec QA"} 실행 · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`}
-            </button>
+            {/* [2026-07] 과제3에서 Data QA / Spec QA 독립 실행 버튼으로 나눴다가, 사용성 피드백으로
+                원래 방식(둘이 한 번에 실행)으로 되돌림. runByRegion의 mode 인자 자체는 백엔드/
+                다른 진입점에서 여전히 쓰이므로 그대로 두고, 여기서는 항상 "all"로만 호출한다. */}
             <button onClick={() => runByRegion("all")} disabled={busy}
-                    title="Data QA + Spec QA 를 한 번에 검수(기존 방식)"
-                    style={{ padding: "8px 12px", marginLeft: 8, borderRadius: 8, border: "1px solid var(--line)", background: "#fff", color: "var(--sec)", fontWeight: 600, cursor: "pointer" }}>
-              전체(Data+Spec)
+                    style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+              {busy ? "붕붕 검수 중…" : `검수 실행 · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`}
             </button>
             {selectedSites.size === 0 && selectedRegions.size === 0 && pageCount > 0 && !busy && (
               <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>사이트당 여러 페이지(PDP·Compare·Buds 등) — 총 {pageCount}개 페이지 검수</span>

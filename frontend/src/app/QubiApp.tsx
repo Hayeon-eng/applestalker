@@ -207,14 +207,18 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   //   각각 상대 축의 무거운 작업을 건너뛰어 크롤 시간을 줄인다(기본 all=하위호환).
   const runByRegion = async (mode: "all" | "data" | "spec" = "all") => {
     if (busy) return;
+    const codes = targetCodes;
+    if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); return; }
+    // [2026-07 과제3] 실수로 큰 범위(예: 전체 91개)를 바로 돌리는 것을 막기 위한 확인 팝업.
+    // 취소하면 아무 상태도 건드리지 않고 그대로 반환한다.
+    const modeLabel = mode === "data" ? "Data QA" : mode === "spec" ? "Spec QA" : "Data QA + Spec QA";
+    const scopeLabel = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
+    if (!window.confirm(`${scopeLabel} · ${modeLabel} 검수를 시작할까요?\n\n대상 페이지 ${codes.length}개 — 진행 중에는 다른 검수를 동시에 실행할 수 없어요.`)) return;
+
     setBusy(true); setErr(""); setResults([]); setRunId(null);
     runStartRef.current = Date.now();
     setQaMode(mode);
-    const codes = targetCodes;
-    if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); setBusy(false); return; }
-    const modeLabel = mode === "data" ? "Data QA" : mode === "spec" ? "Spec QA" : "";
-    const baseLabel = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
-    const label = modeLabel ? `${baseLabel} · ${modeLabel}` : baseLabel;
+    const label = modeLabel === "Data QA + Spec QA" ? scopeLabel : `${scopeLabel} · ${modeLabel}`;
     setProgress({ active: true, done: 0, total: codes.length, label });
     try {
       const r = await fetch(api("/api/qb/run"), J({
