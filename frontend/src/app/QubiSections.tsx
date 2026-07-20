@@ -5,7 +5,7 @@ import { SEV, HONEY, tierOf, inputStyle, sel, humanizeTerm } from "./qubiShared"
 
 export function SpecTable({ ctx: c }: { ctx: any }) {
   if (c.tab !== "copy") return null;
-  // [V2] Rule DB 관리 제품(fold7/flip7 등)은 이 표의 편집 대상이 아님 — 드롭다운에서 제외.
+  // [V2] Rule DB 관리 제품(fold8/flip8 등)은 이 표의 편집 대상이 아님 — 드롭다운에서 제외.
   // 기준값 원본을 Rule DB 하나로 유지하기 위함(백엔드 API도 동일하게 차단함).
   const editable = (c.products || []).filter((p: any) => !p.v2 && !(c.v2Products || []).includes(p.code));
   return (

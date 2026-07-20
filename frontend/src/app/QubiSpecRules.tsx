@@ -112,7 +112,7 @@ export function SpecV2RuleTable({ product, api, flash }:
           <button onClick={() => fileRef.current?.click()} disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px" }}>
             {busy ? "업로드 중…" : "⬆ Rule DB 엑셀 업로드"}
           </button>
-          {/* [2026-07 FIX] 모델 DB 삭제 — 신모델 엑셀 업로드 후 구모델(예: Fold7)을 목록에서 내릴 때.
+          {/* [2026-07 FIX] 모델 DB 삭제 — 신모델 엑셀 업로드 후 구모델(예: Fold8 다음 세대 업로드 시 Fold8)을 목록에서 내릴 때.
               룰·예외만 삭제되고, 제품 용어사전(Dictionary)은 별도 보관되어 삭제되지 않는다
               (재업로드 시 자동 복원). 검수 이력·모니터링 URL·Global 사전도 그대로 유지된다.
               [2026-07 신규] 삭제 직전 상태도 이제 버전 이력에 남아, 실수로 지워도 🕐 이력에서

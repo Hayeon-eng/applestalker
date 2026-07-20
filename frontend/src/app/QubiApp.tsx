@@ -16,11 +16,11 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const [tab, setTab] = useState<"schema" | "copy">("schema");
   // [2026-07 과제3] 마지막으로 실행한 QA 축(all/data/spec) — 탭별 독립 실행 표시용
   const [qaMode, setQaMode] = useState<"all" | "data" | "spec">("all");
-  const [product, setProduct] = useState("galaxy-z-fold7");
+  const [product, setProduct] = useState("galaxy-z-fold8");
   const [v2Products, setV2Products] = useState<string[]>([]); // Rule DB(V2)가 있는 제품 — 기준/점수 패널을 V2판으로 게이트
   const isV2 = v2Products.includes(product);
   const [pageType, setPageType] = useState("PDP");
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set(["galaxy-z-fold7"])); // 크롤 대상 제품(제품 버튼과 동기화)
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set(["galaxy-z-fold8"])); // 크롤 대상 제품(제품 버튼과 동기화)
   const [selectedPageTypes, setSelectedPageTypes] = useState<Set<string>>(new Set(["PDP"])); // 배치 크롤용 타입 멀티선택
   const [results, setResults] = useState<PageResult[]>([]);
   const [qaExpandedSite, setQaExpandedSite] = useState<string | null>(null); // HTML QA 일괄검수 드릴다운(사이트별 펼침)
@@ -59,6 +59,9 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   // 목록/삭제는 이걸 써야 한다(한 나라에 제품×페이지타입별로 여러 행이 있으므로).
   const [entries, setEntries] = useState<SiteRow[]>([]);
   const [pageCount, setPageCount] = useState(0);
+  // [2026-07 신규] Z8/Watch9/WatchUltra2 국가별 출시여부 — 미출시 배지용(Task C).
+  // {sitecode: {phone, watch_ultra2, watch9, category}}
+  const [launchStatus, setLaunchStatus] = useState<Record<string, { phone?: string; watch_ultra2?: string; watch9?: string; category?: string }>>({});
   const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set()); // 권역 다중선택(비었으면 전체)
   const [showScore, setShowScore] = useState(false); // 점수 계산 로직 패널
   const scoreRef = useRef<HTMLDivElement>(null);
@@ -74,14 +77,14 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   const [sitesOpen, setSitesOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
-  const [newUrlProduct, setNewUrlProduct] = useState("galaxy-z-fold7");
+  const [newUrlProduct, setNewUrlProduct] = useState("galaxy-z-fold8");
   const [newUrlPageType, setNewUrlPageType] = useState("PDP");
   const xlsxFileRef = useRef<HTMLInputElement>(null);
 
   // 스펙 관리
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [specProduct, setSpecProduct] = useState("galaxy-z-fold7");
+  const [specProduct, setSpecProduct] = useState("galaxy-z-fold8");
   const [specs, setSpecs] = useState<any[]>([]);
   const [newProd, setNewProd] = useState("");
   const [specForm, setSpecForm] = useState({ category: "", value: "", unit: "" });
@@ -105,7 +108,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
   useEffect(() => {
     fetch(api("/api/health")).then((r) => setOnline(r.ok)).catch(() => setOnline(false));
-    loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-z-fold7"); loadHistory(); loadOverview();
+    loadSites(); loadCatalog(); loadProducts(); loadSpecs("galaxy-z-fold8"); loadHistory(); loadOverview();
     fetch(api("/api/qb/spec-rules/products")).then((r) => r.json())
       .then((d) => {
         const codes = (d.products || []).map((p: any) => p.product);
@@ -116,7 +119,21 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   useEffect(() => { if (!pageTypesFor(product).includes(pageType)) setPageType("PDP"); }, [product]);
   useEffect(() => { loadSpecs(specProduct); }, [specProduct]);
 
-  async function loadSites() { try { const d = await (await fetch(api("/api/qb/sites"))).json(); setRegionsMap(d.regions || {}); setEntries(d.entries || []); setPageCount(d.page_count || 0); } catch { /* */ } }
+  async function loadSites() { try { const d = await (await fetch(api("/api/qb/sites"))).json(); setRegionsMap(d.regions || {}); setEntries(d.entries || []); setPageCount(d.page_count || 0); setLaunchStatus(d.launch_status || {}); } catch { /* */ } }
+  // [2026-07 신규] 현재 선택된 제품이 launch_status의 어느 키(phone/watch9/watch_ultra2)에 해당하는지.
+  // 해당 없는 제품(S26, Buds4 등)은 null → 배지 표시 안 함.
+  const launchKeyForProduct = (p: string): "phone" | "watch9" | "watch_ultra2" | null => {
+    if (p.startsWith("galaxy-z-fold8") || p.startsWith("galaxy-z-flip8")) return "phone";
+    if (p === "galaxy-watch9") return "watch9";
+    if (p === "galaxy-watch-ultra2") return "watch_ultra2";
+    return null;
+  };
+  const isUnlaunched = (sitecode: string): boolean => {
+    const key = launchKeyForProduct(product);
+    if (!key) return false;
+    const v = launchStatus[sitecode]?.[key];
+    return v === "미출시";
+  };
   async function loadCatalog() { try { setCatalog((await (await fetch(api("/api/qb/spec-catalog"))).json()).catalog || []); } catch { /* */ } }
   async function loadProducts() {
     try {
@@ -453,10 +470,15 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             {products.filter((p) => !p.spec_only).map((p) => {
               const shown = product === p.code;          // 파란 테두리 = 지금 화면에 보이는 제품
               const inCrawl = selectedProducts.has(p.code); // ✓ = 크롤 대상에 포함
+              // [2026-07 신규] 이 제품이 launch_status상 미출시인 국가가 하나라도 있으면 배지 표시.
+              const lKey = launchKeyForProduct(p.code);
+              const hasUnlaunched = lKey ? Object.values(launchStatus).some((v) => v?.[lKey] === "미출시") : false;
               return <button key={p.code} onClick={() => {
                 setProduct(p.code);  // 화면·검수기준표를 이 제품으로
                 setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? (n.size > 1 && n.delete(p.code)) : n.add(p.code); return n; });
-              }} style={{ ...sel(p.code, inCrawl), ...(shown ? { boxShadow: "0 0 0 2px #0A66E0 inset" } : {}) }}>{inCrawl ? "✓ " : ""}{p.label}</button>;
+              }} style={{ ...sel(p.code, inCrawl), ...(shown ? { boxShadow: "0 0 0 2px #0A66E0 inset" } : {}) }} title={hasUnlaunched ? "일부 국가 미출시" : undefined}>
+                {inCrawl ? "✓ " : ""}{p.label}{hasUnlaunched ? <span style={{ marginLeft: 4, fontSize: 10, color: "#B54708" }}>미출시 있음</span> : null}
+              </button>;
             })}
             <span style={{ fontSize: 12.5, color: "var(--sec)", marginLeft: 10 }}>페이지타입:</span>
             {PAGE_TYPES.map((p) => {
@@ -472,7 +494,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {err && <div style={{ background: "#FEF3F2", color: "#B42318", padding: 10, borderRadius: 8, fontSize: 13, margin: "8px 0", fontWeight: 600 }}>{err}</div>}
 
           {/* ① 리전별 검수 크롤 (91사이트) — 먼저 노출 */}
-          <QubiRunPanel allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} />
+          <QubiRunPanel allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} isUnlaunched={isUnlaunched} />
 
           {/* 스펙 탭은 V2(Rule DB) 전용. V2 제품이면 Rule DB 뷰어+기준+점수, 비V2(seed 미등록)면 준비중 안내.
               스키마 탭에서는 구 CriteriaPanel/ScorePanel이 동작. */}

@@ -224,5 +224,5 @@ export function DictionaryPanel({ product, api }: { product: string; api: (p: st
 
 /* ═══════════════════════════════════════════════════════════════════
    V2 기준/점수 패널 — 기존 SpecTable/CriteriaPanel/ScorePanel의 V2 대체판.
-   V2 룰셋이 있는 제품(fold7/flip7 등)에서만 렌더되고, 없는 제품은 기존 패널 유지.
+   V2 룰셋이 있는 제품(fold8/flip8 등)에서만 렌더되고, 없는 제품은 기존 패널 유지.
    ═══════════════════════════════════════════════════════════════════ */

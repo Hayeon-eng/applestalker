@@ -6,7 +6,7 @@ import { HONEY, sel } from "./qubiShared";
    참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음).
    과제3(Data/Spec 독립 실행 버튼)도 이 컴포넌트 안에 포함된다. */
 export function QubiRunPanel(props: any) {
-  const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes } = props;
+  const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes, isUnlaunched } = props;
   return (
           <div className="card" style={{ marginTop: 12, padding: 14 }}>
             <b style={{ fontSize: 14 }}>① 리전별 검수 크롤</b>
@@ -36,6 +36,7 @@ export function QubiRunPanel(props: any) {
                     <label key={s.sitecode + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px solid var(--line)", borderRadius: 6, padding: "3px 8px", cursor: "pointer", background: on ? "#E8F0FE" : "#fff" }}>
                       <input type="checkbox" checked={on} onChange={() => { setSelectedRegions(new Set()); setSelectedSites((prev) => { const n = new Set(prev); n.has(s.sitecode) ? n.delete(s.sitecode) : n.add(s.sitecode); return n; }); }} />
                       {s.sitecode}<span style={{ color: "var(--sec)" }}>{s.region}</span>
+                      {isUnlaunched?.(s.sitecode) && <span style={{ color: "#B54708", fontWeight: 600 }}>미출시</span>}
                     </label>
                   );
                 })}
