@@ -509,7 +509,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <div className="card" style={{ marginTop: 18, padding: 16, background: "#FFFAEB", border: "1px solid #FEDF89" }}>
               <b style={{ fontSize: 13.5, color: "#93540A" }}>이 제품은 아직 스펙 검수 기준(Rule DB)이 등록되지 않았어요</b>
               <p style={{ fontSize: 12, color: "#93540A", margin: "6px 0 0", lineHeight: 1.6 }}>
-                <b>{product}</b>의 Rule DB가 준비되면 스펙 검수가 활성화됩니다. 스펙 탭의 <b>Rule DB 엑셀 업로드</b>로 등록하거나, 담당자에게 시드 등록을 요청하세요. (스키마 검수는 Data QA 탭에서 정상 이용 가능)
+                <b>{product}</b>의 Rule DB가 준비되면 정상 판정(오류/확인/정상)이 활성화됩니다. 그 전까지는 아래에 페이지에서 읽힌 <b>현재값을 판정 없이 참고용</b>으로 보여드려요.
+                Rule DB는 스펙 탭의 <b>Rule DB 엑셀 업로드</b>로 등록하거나, 담당자에게 시드 등록을 요청하세요. (스키마 검수는 Data QA 탭에서 정상 이용 가능)
               </p>
             </div>
           )}

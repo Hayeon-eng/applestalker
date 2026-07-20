@@ -39,10 +39,45 @@ export function CompareMatrixPanel({ row }: { row: any }) {
   const summary = cv.summary || {};
 
   if (!summary.checked) {
+    if (!rows.length) {
+      return (
+        <div className="card qbiPopIn" style={{ marginTop: 10, padding: 12, fontSize: 12, color: "var(--sec)" }}>
+          Compare 매트릭스: {summary.reason || "QA 대조 대상 아님(추출 결과만 있음)"}
+        </div>
+      );
+    }
+    // [2026-07 신규] Rule DB가 없어 판정은 못 하지만, 페이지에서 실제로 긁힌 매트릭스는
+    // 그대로 있으니 판정 없이 "현재값" 표로 보여준다(기존엔 개수만 표시하고 숨겼음).
     return (
-      <div className="card qbiPopIn" style={{ marginTop: 10, padding: 12, fontSize: 12, color: "var(--sec)" }}>
-        Compare 매트릭스: {summary.reason || "QA 대조 대상 아님(추출 결과만 있음)"}
-        {rows.length > 0 && ` · ${rows.length}개 스펙 행 추출됨`}
+      <div className="card qbiPopIn" style={{ marginTop: 10, padding: 12 }}>
+        <div style={{ fontSize: 12, color: "var(--sec)", marginBottom: 8 }}>
+          Compare 매트릭스: {summary.reason || "검수 기준(Rule DB) 없음"} — 판정 없이 현재값만 참고용으로 표시 ({rows.length}개 항목 × {products.length}개 제품)
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "2px solid var(--line)" }}>Category</th>
+                <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "2px solid var(--line)" }}>Spec</th>
+                {products.map((p) => (
+                  <th key={p} style={{ textAlign: "left", padding: "6px 8px", borderBottom: "2px solid var(--line)" }}>{p}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
+                  <td style={{ padding: "6px 8px", color: "var(--sec)" }}>{r.category || "—"}</td>
+                  <td style={{ padding: "6px 8px", fontWeight: 600 }}>{r.spec}</td>
+                  {products.map((p) => {
+                    const cell = (r.values || []).find((v: any) => v.product === p);
+                    return <td key={p} style={{ padding: "6px 8px" }}>{cell ? cell.value : <span style={{ color: "#C7CCD4" }}>—</span>}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }

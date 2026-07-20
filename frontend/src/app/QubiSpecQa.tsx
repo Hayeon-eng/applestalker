@@ -316,6 +316,7 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
                   </div>
                   {pages.map((r: any, i: number) => {
                     const s = _specSummaryOf(r);
+                    const noRuleset = !!r?.spec_v2?.no_ruleset;
                     const tl = tlSpec(s.critical || 0, s.warning || 0);
                     const key = `spec:${pt}|${region}|${r.sitecode}|${i}`;
                     const prod = r.market_product || r.product || "";
@@ -323,10 +324,12 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
                       <div key={key} style={{ borderBottom: "1px solid var(--line)" }}>
                         <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px 8px 16px", cursor: "pointer", fontSize: 12.5 }}>
-                          <span>{TL_EMOJI[tl]}</span>
+                          <span>{noRuleset ? "⚪️" : TL_EMOJI[tl]}</span>
                           <b style={{ minWidth: 130 }}>{prod || r.sitecode}</b>
                           <span style={{ fontSize: 10.5, color: "var(--sec)" }}>{r.sitecode}</span>
-                          <span style={{ marginLeft: "auto" }}>🔴 오류 {s.critical ?? 0} · 🟡 확인 {s.warning ?? 0} · ✅ 정상 {s.pass ?? 0}</span>
+                          {noRuleset
+                            ? <span style={{ marginLeft: "auto", color: "var(--sec)" }}>기준 없음 — 현재값 참고용</span>
+                            : <span style={{ marginLeft: "auto" }}>🔴 오류 {s.critical ?? 0} · 🟡 확인 {s.warning ?? 0} · ✅ 정상 {s.pass ?? 0}</span>}
                           <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
                         </div>
                         {expanded === key && (
@@ -359,6 +362,36 @@ export function SpecV2Panel({ row, product, api, flash }:
   const sv = row.spec_v2;
   if (!sv) return null;
   const s = sv.summary || {};
+
+  // [2026-07 신규] Rule DB(검수 기준)가 아직 없는 제품 — 판정 대신 실제로 읽힌
+  // 라벨:값 쌍만 참고용으로 보여준다. sv.raw_pairs는 runner.check_html()의
+  // no_ruleset 폴백에서 온다(백엔드 출력 형태는 spec_engine.run()과 다름).
+  if (sv.no_ruleset) {
+    const pairs: any[] = sv.raw_pairs || [];
+    return (
+      <div style={{ border: "1px solid #E4E7EC", borderRadius: 12, overflow: "hidden", marginTop: 14 }}>
+        <div style={{ background: "#F9FAFB", padding: "9px 14px", borderLeft: "3px solid #98A2B3" }}>
+          <b style={{ fontSize: 12.5, color: "var(--label)" }}>현재값 {row.sitecode ? `— ${row.sitecode}` : ""}</b>
+          <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>
+            검수 기준(Rule DB) 없음 — 판정 없이 페이지에서 읽힌 값만 참고용으로 표시 ({s.raw_count ?? pairs.length}개)
+          </span>
+        </div>
+        {pairs.length === 0 ? (
+          <div style={{ padding: "10px 14px", fontSize: 12, color: "var(--sec)" }}>이 페이지에서 라벨:값 형태의 스펙을 찾지 못했어요.</div>
+        ) : (
+          <div style={{ padding: "8px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 14px" }}>
+            {pairs.map((p: any, i: number) => (
+              <div key={i} style={{ fontSize: 12, display: "contents" }}>
+                <span style={{ color: "var(--sec)" }}>{p.label}</span>
+                <span style={{ fontWeight: 600 }}>{p.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const byCat: Record<string, any[]> = {};
   for (const it of sv.items || []) (byCat[it.category] ||= []).push(it);
   return (
