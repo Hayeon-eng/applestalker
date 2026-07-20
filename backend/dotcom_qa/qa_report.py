@@ -19,6 +19,7 @@ Excel 리포트(시트 2개) — QA 관례에 맞춰 전체 영어로 출력.
 """
 from __future__ import annotations
 import re
+import json
 import difflib
 from datetime import datetime
 

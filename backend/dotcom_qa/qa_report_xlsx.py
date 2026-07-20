@@ -5,6 +5,9 @@ Sheet 1 "Data QA" + Sheet 2 "Spec QA" 두 시트를 만드는 실제 openpyxl �
 """
 from __future__ import annotations
 import io
+import json
+import re
+import difflib
 
 from qa_report_helpers import MARK, MARK_COLOR, SEV_COLOR2, _page_type
 from qa_report_rows import _schema_detail_rows, _html_qa_schema_gap_rows, _html_qa_rows
