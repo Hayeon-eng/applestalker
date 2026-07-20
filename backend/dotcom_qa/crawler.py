@@ -98,6 +98,15 @@ class HybridCrawler:
         # 여러 페이지를 동시에 렌더하면 Compare처럼 항상 렌더가 필요한 배치가 크게 빨라진다 —
         # 다만 Chromium 컨텍스트 하나당 메모리를 꽤 쓰므로, 512MB 이하 환경에서는 절대 올리지 말 것.
         self._browser_concurrency = max(1, int(os.getenv("BROWSER_CONCURRENCY", "1")))
+        # [2026-07-4 FIX] force_render()(Compare)는 browser_page_cap 대상이 아니므로,
+        # 렌더가 많이 몰리는 실행에서 Chromium 메모리가 계속 누적되는 걸 막기 위해
+        # 이 횟수마다 브라우저를 예방적으로 재기동한다. Render 512MB 기준 보수적으로 20.
+        self._recycle_after_renders = max(1, int(os.getenv("BROWSER_RECYCLE_AFTER", "20")))
+        # [2026-07-4 FIX] 브라우저가 "죽지는 않았지만(is_connected=true) 응답이 없는" 경우
+        # (Render 512MB 스와핑 등)를 대비한 렌더 1건당 하드 데드라인. 개별 내부 timeout들의
+        # 합보다 넉넉히 잡되(js_timeout_ms + networkidle + scroll + 여유), 무한 대기는 절대
+        # 허용하지 않는다.
+        self._render_hard_timeout_s = int(os.getenv("BROWSER_RENDER_HARD_TIMEOUT_S", "45"))
 
         self._client: Optional[httpx.AsyncClient] = None
         self._browser = None
@@ -122,30 +131,50 @@ class HybridCrawler:
     # ─────────────────────────────────────────────
     # BROWSER INIT
     # ─────────────────────────────────────────────
+    # [2026-07-4 FIX] 근본 원인: Render 512MB에서 Chromium(--single-process)이
+    # 메모리 압박으로 죽어도(OOM) 이 함수는 "self._browser가 set돼 있으니 캐시된 걸
+    # 재사용"이라고 판단해 이미 죽은 브라우저 참조를 그대로 반환해왔다. 그 뒤로는
+    # new_context() 등 모든 호출이 "has been closed" 예외를 내거나 응답 없이 걸려
+    # js_timeout_ms(30초)를 매 페이지마다 다 채우고 실패 — 배치 전체가 "로딩만 느려지다
+    # 뻗는" 것처럼 보이던 현상의 핵심 원인이었다. is_connected()로 죽은 브라우저를
+    # 감지해 재기동한다.
+    async def _launch_chromium(self):
+        from playwright.async_api import async_playwright
+        if not self._pw:
+            self._pw = await async_playwright().start()
+        return await self._pw.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--single-process",
+                "--no-zygote",
+            ],
+        )
+
     async def _ensure_browser(self):
         if not self._pw_available:
             return None
         if self._browser:
-            return self._browser
+            if self._browser.is_connected():
+                return self._browser
+            # 죽은 브라우저 — 참조를 버리고 아래에서 재기동
+            print("[crawler] chromium found disconnected (probably OOM-killed) — relaunching")
+            try:
+                if self._pw:
+                    await self._pw.stop()
+            except Exception:
+                pass
+            self._browser = None
+            self._pw = None
 
         async with self._browser_lock:
-            if self._browser:
+            if self._browser and self._browser.is_connected():
                 return self._browser
 
             try:
-                from playwright.async_api import async_playwright
-
-                self._pw = await async_playwright().start()
-                self._browser = await self._pw.chromium.launch(
-                    headless=True,
-                    args=[
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--single-process",
-                        "--no-zygote",
-                    ],
-                )
+                self._browser = await self._launch_chromium()
             except Exception as e:
                 msg = str(e)
                 # [2026-07 FIX] "Executable doesn't exist" — 빌드 때 playwright install이
@@ -162,11 +191,7 @@ class HybridCrawler:
                         print(f"[crawler] runtime playwright install exit={proc.returncode}: "
                               f"{out.decode(errors='ignore')[-800:]}")
                         if proc.returncode == 0:
-                            self._browser = await self._pw.chromium.launch(
-                                headless=True,
-                                args=["--no-sandbox", "--disable-setuid-sandbox",
-                                      "--disable-dev-shm-usage", "--single-process", "--no-zygote"],
-                            )
+                            self._browser = await self._launch_chromium()
                     except Exception as e2:
                         print(f"[crawler] runtime playwright install failed: {e2}")
                 if not self._browser:
@@ -366,7 +391,53 @@ class HybridCrawler:
     # ─────────────────────────────────────────────
     # PLAYWRIGHT
     # ─────────────────────────────────────────────
+    # ─────────────────────────────────────────────
+    # PLAYWRIGHT (하드 타임아웃 래퍼)
+    # ─────────────────────────────────────────────
+    # [2026-07-4 FIX] 진짜 근본 원인: is_connected()는 브라우저가 "죽었는지"만 감지한다.
+    # 하지만 Render 512MB에서 메모리를 다 써서 스와핑이 시작되면, Chromium은 죽지 않은 채로
+    # (is_connected()=true) 그냥 응답이 몇 분씩 안 오는 상태가 된다. 이 안에서 걸리는 모든
+    # await(new_context/goto/evaluate 등)에 개별 timeout이 있어도, self._browser_sem(=1)을
+    # 쥔 채로 멈춰 있으면 배치의 남은 모든 렌더·다음 배치 실행이 전부 그 세마포어를 기다리며
+    # 무한정 걸린다 — "예전엔 잘 됐는데 크롤러 바꾸고 나서 갑자기(크롤을 안 돌려도) 계속
+    # 느려진다"던 현상의 핵심. 전체 렌더 1건에 하드 데드라인을 걸어, 넘으면 무조건 브라우저를
+    # 통째로 버리고 재기동해 세마포어를 풀어준다.
     async def _fetch_playwright(self, url: str) -> Dict[str, Any]:
+        try:
+            return await asyncio.wait_for(
+                self._fetch_playwright_inner(url), timeout=self._render_hard_timeout_s)
+        except asyncio.TimeoutError:
+            print(f"[crawler] HARD TIMEOUT({self._render_hard_timeout_s}s) — chromium wedged "
+                  f"(alive but unresponsive, likely OOM/swap) — force-killing & relaunching: {url}")
+            async with self._browser_lock:
+                try:
+                    if self._browser:
+                        await self._browser.close()
+                except Exception:
+                    pass
+                self._browser = None
+            msg = f"하드 타임아웃({self._render_hard_timeout_s}s) — 브라우저가 응답 없어 강제 재기동함"
+            return {"error": msg, "status_code": 0, "collection_issues": [msg]}
+
+    async def _fetch_playwright_inner(self, url: str) -> Dict[str, Any]:
+        # [2026-07-4 FIX] force_render()(Compare 페이지는 항상 이 경로)는 browser_page_cap을
+        # 타지 않아 한 번의 배치 실행 안에서 렌더 횟수 제한이 없었다. Chromium은 context를
+        # 매번 close()해도 프로세스 메모리가 서서히 늘어나는 경향이 있어(특히 --single-process),
+        # 렌더가 많이 몰리는 실행(Compare 사이트가 많은 배치)에서는 시간이 지날수록 Render
+        # 512MB를 넘겨 OOM으로 죽을 위험이 커진다. N회(RECYCLE_AFTER_RENDERS)마다 브라우저를
+        # 통째로 재기동해 누적 메모리를 강제로 반납한다 — 캐시 실패가 아니라 예방적 재기동.
+        self._render_count = getattr(self, "_render_count", 0) + 1
+        if self._render_count % self._recycle_after_renders == 0:
+            print(f"[crawler] recycling chromium after {self._render_count} renders "
+                  f"(preventive — avoids Render 512MB OOM creep)")
+            async with self._browser_lock:
+                try:
+                    if self._browser:
+                        await self._browser.close()
+                except Exception:
+                    pass
+                self._browser = None
+
         browser = await self._ensure_browser()
         if not browser:
             return {"error": "playwright unavailable", "collection_issues": ["playwright unavailable"]}
@@ -514,6 +585,26 @@ class HybridCrawler:
 
             except Exception as e:
                 msg = str(e)
+                # [2026-07-4 FIX] 브라우저가 렌더 도중 죽은 경우(OOM 등) — "has been closed"류
+                # 예외를 그냥 실패로 남기면, 배치의 남은 모든 페이지가 죽은 브라우저를 향해
+                # 매번 타임아웃까지 기다리다 실패하는 연쇄가 발생한다. 여기서 딱 1회만 브라우저를
+                # 강제로 재기동하고 같은 URL을 재시도해 배치가 계속 진행되게 한다.
+                closed = ("has been closed" in msg or "Target page" in msg
+                          or "Connection closed" in msg or "Browser closed" in msg)
+                if closed and not getattr(self, "_retrying_after_crash", False):
+                    print(f"[crawler] browser died mid-render ({msg[:120]}) — relaunch + retry once: {url}")
+                    self._retrying_after_crash = True
+                    try:
+                        async with self._browser_lock:
+                            try:
+                                if self._browser:
+                                    await self._browser.close()
+                            except Exception:
+                                pass
+                            self._browser = None
+                        return await self._fetch_playwright(url)
+                    finally:
+                        self._retrying_after_crash = False
                 if "Timeout" in msg or "timeout" in msg:
                     msg = f"타임아웃({self.js_timeout_ms}ms 초과) — 페이지가 안 뜨거나 차단 추정"
                 return {"error": msg, "status_code": 0, "collection_issues": [msg]}
