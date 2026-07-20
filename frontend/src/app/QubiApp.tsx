@@ -9,9 +9,13 @@ import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TY
 import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
 import { SpecSiteOverview, SpecQaDetails, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
+import { QubiSidebar } from "./QubiSidebar";
+import { QubiRunPanel } from "./QubiRunPanel";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
   const [tab, setTab] = useState<"schema" | "copy">("schema");
+  // [2026-07 과제3] 마지막으로 실행한 QA 축(all/data/spec) — 탭별 독립 실행 표시용
+  const [qaMode, setQaMode] = useState<"all" | "data" | "spec">("all");
   const [product, setProduct] = useState("galaxy-z-fold7");
   const [v2Products, setV2Products] = useState<string[]>([]); // Rule DB(V2)가 있는 제품 — 기준/점수 패널을 V2판으로 게이트
   const isV2 = v2Products.includes(product);
@@ -181,19 +185,26 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     return Math.max(0, Math.round(perPage * (progress.total - progress.done)));
   }, [progress.done, progress.total, progress.active]);
 
-  const runByRegion = async () => {
+  // [2026-07 과제3] Data QA / Spec QA 독립 실행. mode ∈ {"all","data","spec"}.
+  //   "data" = Data QA 탭(스키마·검색노출)만, "spec" = Spec QA 탭(스펙 정확성)만 크롤·검수.
+  //   각각 상대 축의 무거운 작업을 건너뛰어 크롤 시간을 줄인다(기본 all=하위호환).
+  const runByRegion = async (mode: "all" | "data" | "spec" = "all") => {
     if (busy) return;
     setBusy(true); setErr(""); setResults([]); setRunId(null);
     runStartRef.current = Date.now();
+    setQaMode(mode);
     const codes = targetCodes;
     if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); setBusy(false); return; }
-    const label = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
+    const modeLabel = mode === "data" ? "Data QA" : mode === "spec" ? "Spec QA" : "";
+    const baseLabel = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
+    const label = modeLabel ? `${baseLabel} · ${modeLabel}` : baseLabel;
     setProgress({ active: true, done: 0, total: codes.length, label });
     try {
       const r = await fetch(api("/api/qb/run"), J({
         product: family(product), market_product: product, sitecodes: codes,
         products: Array.from(selectedProducts),
         page_types: Array.from(selectedPageTypes),
+        mode,
       }));
       if (r.status === 501) throw new Error("크롤러 미연결 — 붙여넣기/파일/링크 검수를 이용하세요.");
       if (r.status === 409) {
@@ -201,7 +212,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         await fetch(api("/api/qb/run-reset"), { method: "POST" }).catch(() => {});
         const retry = await fetch(api("/api/qb/run"), J({
           product: family(product), market_product: product, sitecodes: codes,
-          products: Array.from(selectedProducts), page_types: Array.from(selectedPageTypes),
+          products: Array.from(selectedProducts), page_types: Array.from(selectedPageTypes), mode,
         }));
         if (!retry.ok) throw new Error(retry.status === 409 ? "이미 검수가 진행 중이에요. 잠시 후 다시 시도하세요." : `실행 실패 (${retry.status})`);
       } else if (!r.ok) {
@@ -402,59 +413,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   return (
     <div className="appShell">
       {/* ── 사이드바 ── */}
-      <aside className="sidebar">
-        <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🐝 큐비</div>
-        <div className="brandSub">QA의 사촌, 큐비 — 닷컴을 붕붕 돌며 스펙을 지켜요</div>
-        <div className={`connBadge ${online === true ? "ok" : "bad"}`}><span className="connDot" />{online === null ? "확인 중" : online ? "백엔드 연결됨" : "연결 안 됨"}</div>
-
-        <div className="sideScroll">
-          <div className="sideLabel">URL 관리</div>
-          <div style={{ padding: "0 10px", marginBottom: 6 }}>
-            <input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://www.samsung.com/…/compare/" style={{ ...inputStyle, width: "100%" }} />
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <select value={newUrlProduct} onChange={(e) => setNewUrlProduct(e.target.value)} style={{ ...inputStyle, flex: 1, fontSize: 11.5 }}>
-                {products.map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
-              </select>
-              <select value={newUrlPageType} onChange={(e) => setNewUrlPageType(e.target.value)} style={{ ...inputStyle, width: 90, fontSize: 11.5 }}>
-                {PAGE_TYPES.map((pt) => <option key={pt} value={pt}>{pt}</option>)}
-              </select>
-            </div>
-            {/* [2026-07] 이제 같은 나라 코드(sitecode)로 여러 제품·페이지타입을 각각 추가할 수 있다 —
-                예전엔 여기서 제품/페이지타입 지정 없이 추가하면 그 나라의 기존 행을 조용히 덮어썼다. */}
-            <button onClick={addUrl} style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "#0A66E0", background: "none", border: "none", cursor: "pointer" }}>＋ URL 추가</button>
-          </div>
-          <div style={{ padding: "0 10px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button onClick={downloadTemplate} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 8px" }}>⬇ URL 템플릿</button>
-            <button onClick={() => xlsxFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 8px" }}>⬆ 템플릿 업로드</button>
-            <input ref={xlsxFileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadTemplate(f); e.currentTarget.value = ""; }} />
-          </div>
-          <div className="sideLabel" style={{ cursor: "pointer" }} onClick={() => setSitesOpen((o) => !o)}>{sitesOpen ? "▾" : "▸"} 모니터링 URL 목록 <span style={{ color: "var(--sec)" }}>{entries.length}개</span></div>
-          {sitesOpen && entries.map((s, i) => (
-            <div key={`${s.sitecode}-${i}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 10px", fontSize: 11.5 }}>
-              <span title={s.url}>
-                <span style={{ fontWeight: 600 }}>{s.sitecode}</span>
-                {s.product && <span style={{ fontSize: 10, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 5px", marginLeft: 5 }}>{s.product}{s.page_type ? ` · ${s.page_type}` : ""}</span>}
-                {s.country && <span style={{ color: "var(--sec)", marginLeft: 5 }}>{s.country}</span>}
-              </span>
-              <span role="button" onClick={() => removeUrl(s.sitecode, s.url)} style={{ cursor: "pointer", color: "var(--high)", fontSize: 11 }}>삭제</span>
-            </div>
-          ))}
-
-          {/* 검수 이력 */}
-          <div className="sideLabel" style={{ marginTop: 14 }}>검수 이력 <span style={{ color: "var(--sec)" }}>{history.length}건</span></div>
-          {history.length === 0 && <p style={{ padding: "2px 10px", fontSize: 11.5, color: "var(--sec)" }}>아직 저장된 검수가 없어요</p>}
-          {history.map((h) => (
-            <div key={h.run_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 10px", fontSize: 11.5, cursor: "pointer" }} onClick={() => openHistory(h.run_id)}>
-              <span>
-                <span style={{ fontWeight: 600 }}>{h.at?.slice(5, 16) || h.run_id}</span>
-                <span style={{ color: "var(--sec)" }}> · {h.pages}p</span>
-                {h.fail > 0 && <span style={{ color: "var(--high)" }}> · 오류 {h.fail}</span>}
-              </span>
-              <span role="button" onClick={(e) => { e.stopPropagation(); removeHistory(h.run_id); }} style={{ color: "var(--high)", fontSize: 11 }}>삭제</span>
-            </div>
-          ))}
-        </div>
-      </aside>
+      <QubiSidebar onHome={onHome} online={online} newUrl={newUrl} setNewUrl={setNewUrl} newUrlProduct={newUrlProduct} setNewUrlProduct={setNewUrlProduct} newUrlPageType={newUrlPageType} setNewUrlPageType={setNewUrlPageType} products={products} addUrl={addUrl} downloadTemplate={downloadTemplate} uploadTemplate={uploadTemplate} xlsxFileRef={xlsxFileRef} sitesOpen={sitesOpen} setSitesOpen={setSitesOpen} entries={entries} removeUrl={removeUrl} history={history} openHistory={openHistory} removeHistory={removeHistory} />
 
       {/* ── 메인 ── */}
       <div className="mainArea">
@@ -513,62 +472,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {err && <div style={{ background: "#FEF3F2", color: "#B42318", padding: 10, borderRadius: 8, fontSize: 13, margin: "8px 0", fontWeight: 600 }}>{err}</div>}
 
           {/* ① 리전별 검수 크롤 (91사이트) — 먼저 노출 */}
-          <div className="card" style={{ marginTop: 12, padding: 14 }}>
-            <b style={{ fontSize: 14 }}>① 리전별 검수 크롤</b>
-            <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 8 }}>권역/사이트를 선택해 크롤 (아무것도 안 고르면 전체)</span>
-
-            {/* 권역 다중선택 */}
-            <div style={{ fontSize: 11.5, color: "var(--sec)", margin: "10px 0 4px" }}>권역 (여러 개 선택 가능)</div>
-            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-              {regionNames.map((rg) => {
-                const on = selectedRegions.has(rg);
-                return (
-                  <button key={rg} onClick={() => { setSelectedSites(new Set()); setSelectedRegions((prev) => { const n = new Set(prev); n.has(rg) ? n.delete(rg) : n.add(rg); return n; }); }}
-                    style={sel(rg, on)}>{on ? "✓ " : ""}{rg} {regionsMap[rg]?.length || 0}</button>
-                );
-              })}
-              {(selectedRegions.size > 0 || selectedSites.size > 0) &&
-                <button onClick={() => { setSelectedRegions(new Set()); setSelectedSites(new Set()); }} style={{ fontSize: 11.5, color: "var(--sec)", background: "none", border: "none", cursor: "pointer" }}>선택 해제</button>}
-            </div>
-
-            {/* 사이트 개별 체크박스(접이식) */}
-            <details style={{ marginBottom: 8 }}>
-              <summary style={{ fontSize: 11.5, color: "#0A66E0", cursor: "pointer" }}>사이트 개별 선택 {selectedSites.size > 0 ? `(${selectedSites.size}개 선택됨)` : ""}</summary>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
-                {allSites.map((s, i) => {
-                  const on = selectedSites.has(s.sitecode);
-                  return (
-                    <label key={s.sitecode + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px solid var(--line)", borderRadius: 6, padding: "3px 8px", cursor: "pointer", background: on ? "#E8F0FE" : "#fff" }}>
-                      <input type="checkbox" checked={on} onChange={() => { setSelectedRegions(new Set()); setSelectedSites((prev) => { const n = new Set(prev); n.has(s.sitecode) ? n.delete(s.sitecode) : n.add(s.sitecode); return n; }); }} />
-                      {s.sitecode}<span style={{ color: "var(--sec)" }}>{s.region}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </details>
-
-            <button onClick={runByRegion} disabled={busy} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-              {busy ? "붕붕 검수 중…" : `${targetCodes.length}개 사이트 검수${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`}
-            </button>
-            {selectedSites.size === 0 && selectedRegions.size === 0 && pageCount > 0 && !busy && (
-              <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>사이트당 여러 페이지(PDP·Compare·Buds 등) — 총 {pageCount}개 페이지 검수</span>
-            )}
-            {!busy && estimate && estimate.totalPages > 0 && (
-              <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>
-                ⏱ 예상 소요시간 약 {fmtEta(estimate.estimatedSeconds)}
-                {estimate.sampleRuns > 0 ? ` (최근 ${estimate.sampleRuns}회 이력 기준)` : " (이력 없음 — 참고용 기본치)"}
-              </span>
-            )}
-            {progress.active && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
-                <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>
-                  🐝 {progress.label} · {progress.done}/{progress.total} 페이지
-                  {liveEtaSeconds != null && ` · 남은 시간 약 ${fmtEta(liveEtaSeconds)}`}
-                </div>
-              </div>
-            )}
-          </div>
+          <QubiRunPanel allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} />
 
           {/* 스펙 탭은 V2(Rule DB) 전용. V2 제품이면 Rule DB 뷰어+기준+점수, 비V2(seed 미등록)면 준비중 안내.
               스키마 탭에서는 구 CriteriaPanel/ScorePanel이 동작. */}

@@ -1,0 +1,76 @@
+"use client";
+import { HONEY, sel } from "./qubiShared";
+
+/* QubiRunPanel — QubiApp에서 분리된 "① 리전별 검수 크롤" 카드.
+   [2026-07 분할] QubiApp.tsx 46KB 제한 대응. JSX 본문은 원본 그대로이며,
+   참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음).
+   과제3(Data/Spec 독립 실행 버튼)도 이 컴포넌트 안에 포함된다. */
+export function QubiRunPanel(props: any) {
+  const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes } = props;
+  return (
+          <div className="card" style={{ marginTop: 12, padding: 14 }}>
+            <b style={{ fontSize: 14 }}>① 리전별 검수 크롤</b>
+            <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 8 }}>권역/사이트를 선택해 크롤 (아무것도 안 고르면 전체)</span>
+
+            {/* 권역 다중선택 */}
+            <div style={{ fontSize: 11.5, color: "var(--sec)", margin: "10px 0 4px" }}>권역 (여러 개 선택 가능)</div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+              {regionNames.map((rg) => {
+                const on = selectedRegions.has(rg);
+                return (
+                  <button key={rg} onClick={() => { setSelectedSites(new Set()); setSelectedRegions((prev) => { const n = new Set(prev); n.has(rg) ? n.delete(rg) : n.add(rg); return n; }); }}
+                    style={sel(rg, on)}>{on ? "✓ " : ""}{rg} {regionsMap[rg]?.length || 0}</button>
+                );
+              })}
+              {(selectedRegions.size > 0 || selectedSites.size > 0) &&
+                <button onClick={() => { setSelectedRegions(new Set()); setSelectedSites(new Set()); }} style={{ fontSize: 11.5, color: "var(--sec)", background: "none", border: "none", cursor: "pointer" }}>선택 해제</button>}
+            </div>
+
+            {/* 사이트 개별 체크박스(접이식) */}
+            <details style={{ marginBottom: 8 }}>
+              <summary style={{ fontSize: 11.5, color: "#0A66E0", cursor: "pointer" }}>사이트 개별 선택 {selectedSites.size > 0 ? `(${selectedSites.size}개 선택됨)` : ""}</summary>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
+                {allSites.map((s, i) => {
+                  const on = selectedSites.has(s.sitecode);
+                  return (
+                    <label key={s.sitecode + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px solid var(--line)", borderRadius: 6, padding: "3px 8px", cursor: "pointer", background: on ? "#E8F0FE" : "#fff" }}>
+                      <input type="checkbox" checked={on} onChange={() => { setSelectedRegions(new Set()); setSelectedSites((prev) => { const n = new Set(prev); n.has(s.sitecode) ? n.delete(s.sitecode) : n.add(s.sitecode); return n; }); }} />
+                      {s.sitecode}<span style={{ color: "var(--sec)" }}>{s.region}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </details>
+
+            {/* [2026-07 과제3] 현재 탭의 QA 축만 독립 실행 — Data QA 탭이면 스키마·검색노출만,
+                Spec QA 탭이면 스펙 정확성만 크롤·검수해 상대 축의 무거운 작업을 건너뛴다. */}
+            <button onClick={() => runByRegion(tab === "schema" ? "data" : "spec")} disabled={busy}
+                    style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+              {busy ? "붕붕 검수 중…" : `${tab === "schema" ? "Data QA" : "Spec QA"} 실행 · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`}
+            </button>
+            <button onClick={() => runByRegion("all")} disabled={busy}
+                    title="Data QA + Spec QA 를 한 번에 검수(기존 방식)"
+                    style={{ padding: "8px 12px", marginLeft: 8, borderRadius: 8, border: "1px solid var(--line)", background: "#fff", color: "var(--sec)", fontWeight: 600, cursor: "pointer" }}>
+              전체(Data+Spec)
+            </button>
+            {selectedSites.size === 0 && selectedRegions.size === 0 && pageCount > 0 && !busy && (
+              <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>사이트당 여러 페이지(PDP·Compare·Buds 등) — 총 {pageCount}개 페이지 검수</span>
+            )}
+            {!busy && estimate && estimate.totalPages > 0 && (
+              <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>
+                ⏱ 예상 소요시간 약 {fmtEta(estimate.estimatedSeconds)}
+                {estimate.sampleRuns > 0 ? ` (최근 ${estimate.sampleRuns}회 이력 기준)` : " (이력 없음 — 참고용 기본치)"}
+              </span>
+            )}
+            {progress.active && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
+                <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>
+                  🐝 {progress.label} · {progress.done}/{progress.total} 페이지
+                  {liveEtaSeconds != null && ` · 남은 시간 약 ${fmtEta(liveEtaSeconds)}`}
+                </div>
+              </div>
+            )}
+          </div>
+  );
+}
