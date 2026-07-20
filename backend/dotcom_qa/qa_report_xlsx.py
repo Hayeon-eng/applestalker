@@ -12,6 +12,51 @@ import difflib
 from qa_report_helpers import MARK, MARK_COLOR, SEV_COLOR2, _page_type
 from qa_report_rows import _schema_detail_rows, _html_qa_schema_gap_rows, _html_qa_rows
 
+
+# ──────────────────────────────────────────────────────────────────
+# [2026-07 과제5] 스키마 오류 "주체(PIC)" 판정 — Excel 리포트 전용(프론트 미노출).
+#   근거: 삼성닷컴_스키마_오류_수정_가이드(2026-06)
+#     · D2C : 자동 생성 스키마(페이지/컴포넌트 자동 적용) — 템플릿/구조 오류
+#             → BreadcrumbList, WebPage/ItemPage, Product(구조·@id·hasPart), Organization/Brand
+#     · OC  : html 생성(OC 제작/제일 디지털플랫폼 3팀) — 코드/구조 오류
+#             → Quotation, 3DModel, VideoObject, FAQPage, ItemList, (title/meta/h1/h2 등 HTML)
+#     · WSC : localization(현지화) — 번역/언어/현지어 텍스트 오류(블록 무관, 최우선)
+#             → inLanguage, translation check, name/description 현지어 불일치 등
+# ──────────────────────────────────────────────────────────────────
+_D2C_TYPES = ("breadcrumblist", "webpage", "itempage", "product", "organization", "brand")
+_OC_TYPES = ("quotation", "3dmodel", "videoobject", "faqpage", "itemlist")
+_OC_HTML_ITEMS = ("title", "meta_description", "h1", "h2")
+_LOCALIZATION_ITEMS = ("inlanguage",)
+
+
+def _error_owner(block_type: str, where: str, item: str, issue_type: str) -> str:
+    """(block @type, 수정위치, 속성, 요약 issue_type) → 'D2C' | 'WSC' | 'OC'.
+    판정 불가하면 보수적으로 'OC'(코드 제작 주체)로 폴백한다."""
+    bt = (block_type or "").lower()
+    wh = (where or "").lower()
+    it = (item or "").lower()
+    itype = (issue_type or "").lower()
+    hay = f"{bt} {wh}"
+
+    # 1) 현지화(localization) 오류 → WSC (블록과 무관하게 최우선)
+    if ("translation" in itype or "language mismatch" in itype or "product name mismatch" in itype
+            or it in _LOCALIZATION_ITEMS or "(translation check)" in it
+            or it.startswith("product name") or it in ("name", "description", "headline")):
+        return "WSC"
+
+    # 2) HTML 페이지 메타(제목/디스크립션/헤딩) → OC(HTML 제작)
+    if it in _OC_HTML_ITEMS:
+        return "OC"
+
+    # 3) 스키마 블록 소유 주체
+    if any(t in hay for t in _OC_TYPES):
+        return "OC"
+    if any(t in hay for t in _D2C_TYPES):
+        return "D2C"
+
+    # 4) 판정 불가(알 수 없는 블록/구문오류 등) → OC 폴백
+    return "OC"
+
 def build_xlsx(page_results):
     """Excel 리포트 — 화면 탭과 동일한 2시트(전체 영어), 작업자가 바로 수정 가능한 상세 단위.
       · Sheet 1 "Data QA" : 속성 1개 = 1행. 현재값(As-Is) ↔ 수정 가이드(To-Be) + 수정 위치 + 영향
@@ -249,8 +294,9 @@ def build_xlsx(page_results):
     # ── Sheet 1 — Data QA (Schema + HTML) ──
     #   Product -> Where -> Issue Type(요약) -> Issue(상세) -> AS-IS full block -> TO-BE full block(달라진 줄 빨간색) -> URL
     HEAD1 = ["#", "Product", "Site", "Where", "Issue Type", "Severity", "Issue",
-             "AS-IS (current full block)", "TO-BE (fixed full block)", "URL"]
-    W1 = [4, 16, 20, 26, 20, 12, 26, 55, 55, 38]
+             "AS-IS (current full block)", "TO-BE (fixed full block)", "URL",
+             "오류 주체(PIC)"]  # [과제5] Excel 전용 — 프론트 미노출
+    W1 = [4, 16, 20, 26, 20, 12, 26, 55, 55, 38, 13]
     ws = wb.active; ws.title = "Data QA"
     ws.append(HEAD1); _hdr(ws)
     data_rows = []
@@ -269,18 +315,24 @@ def build_xlsx(page_results):
             data_rows.append((meta, "REPORT", "REPORT", "Report generation error", "fail",
                                f"{type(e).__name__}: {e}", "", "(internal)", "", "", ""))
     data_rows.sort(key=lambda r: (r[0][1] or "zz", r[0][2] or "", sev_rank.get(r[4], 9), r[1], r[2]))
+    _OWNER_COLOR = {"D2C": "1D4ED8", "OC": "B45309", "WSC": "047857"}  # 파랑/주황/초록
     for n, (meta, area, ty, item, sev, a, t, loc, impact, fix_code, code_pair) in enumerate(data_rows, 1):
         region, country, site, ptype, url, product = meta
         where = loc or ty
-        ws.append([n, product, _site_cell(region, country, site), where, _issue_type_of(item, a), "",
-                   f"{item}", "", "", url])
+        issue_type = _issue_type_of(item, a)
+        owner = _error_owner(ty, where, item, issue_type)  # [과제5]
+        ws.append([n, product, _site_cell(region, country, site), where, issue_type, "",
+                   f"{item}", "", "", url, owner])
         rn = ws.max_row
         sc = ws.cell(row=rn, column=6); sc.value = SEV_LABEL.get(sev, sev)
         sc.font = Font(bold=True, color=SEV_COLOR2.get(sev, "000000"))
         sc.alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
+        oc = ws.cell(row=rn, column=11)  # 오류 주체(PIC)
+        oc.font = Font(bold=True, color=_OWNER_COLOR.get(owner, "000000"))
+        oc.alignment = Alignment(horizontal="center", vertical="top")
         _write_code_pair(ws, rn, 8, 9, code_pair)
     if not data_rows:
-        ws.append(["—", "", "", "", "", "🟢 OK", "No issues found", "", "", ""])
+        ws.append(["—", "", "", "", "", "🟢 OK", "No issues found", "", "", "", ""])
     _finish(ws, W1, "A2")
 
     # ── Sheet 2 — Spec QA — 기준값 ↔ 페이지 실제값 (핵심 컬럼만) ──

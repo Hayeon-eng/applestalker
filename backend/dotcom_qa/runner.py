@@ -231,58 +231,80 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
             "market_product": mp, "page_type": page_type, "schema_set": schema_set}
 
 
+# [2026-07 과제3] 크롤 시간 최소화 — Data QA / Spec QA 독립 실행.
+#   mode="data" : schema + copy + html_qa 만 (Data QA 탭). 무거운 Spec 추출/재렌더를 건너뛴다.
+#   mode="spec" : spec_v2 (+ Compare 페이지의 compare_v2) 만 (Spec QA 탭).
+#   mode="all"  : 종전과 동일(둘 다) — 하위호환 기본값.
+DATA_MODES = ("all", "data")
+SPEC_MODES = ("all", "spec")
+
+
 def check_html(html: str, rules: Dict[str, Any],
-               sitecode: str = None, site_lang: str = None, rendered_by: str = None) -> Dict[str, Any]:
-    """단일 페이지 HTML 검수 → {schema, copy, html_qa, spec_v2}.
-    spec_v2: Rule DB(V2) 기반 Spec Validation — 해당 제품 룰셋이 있을 때만 실행.
-    기존 schema/copy/html_qa 결과와 Score는 변경하지 않는다(병행 필드)."""
+               sitecode: str = None, site_lang: str = None, rendered_by: str = None,
+               mode: str = "all") -> Dict[str, Any]:
+    """단일 페이지 HTML 검수 → {schema, copy, html_qa, spec_v2, compare_v2}.
+    mode 로 Data QA(schema/copy/html_qa)와 Spec QA(spec_v2/compare_v2)를 분리 실행한다.
+    실행하지 않은 축은 None 으로 남겨 다운스트림(summary/report/프론트)이 '미실행'으로
+    인식하게 한다(qa_report._flatten 은 None 을 빈 결과로 안전 처리)."""
     pt = rules.get("page_type", "PDP")
     mp = rules.get("market_product")
-    schema_result = schema_checker.check_page(html, rules["schema"],
-                                              sitecode=sitecode, site_lang=site_lang,
-                                              market_product=mp)
-    spec_v2 = None
-    try:
-        import spec_rule_db, spec_engine, spec_dict_global
-        ruleset = spec_rule_db.load(mp) if mp else None
-        if ruleset:
-            # [2026-07] Global Dictionary(제품 공통 번역) ∪ 제품별 dictionary — 신모델이
-            # 나와도 세대 간 재사용 가능한 번역(Weight/Storage/Water Resistance 등)을
-            # 다시 쌓지 않도록 여기서 병합한다. spec_engine 자체는 여전히 결정론적으로,
-            # 병합된 최종 dictionary만 넘겨받아 그대로 사용한다.
-            ruleset = {**ruleset, "dictionary": spec_dict_global.merge_for(ruleset.get("dictionary", {}))}
-            spec_v2 = spec_engine.run(html, ruleset, page_type=pt, sitecode=sitecode or "",
-                                      rendered_by=rendered_by or "source")
-    except Exception as e:  # V2 실패가 기존 검수를 죽이지 않게
-        print(f"[runner] spec_v2 skip: {e}")
+    mode = (mode or "all").lower()
 
-    # [Compare Pipeline] Compare 페이지 전용 Matrix QA — 기존 schema/copy/html_qa/spec_v2는
-    # 그대로 유지한 채(API Response 호환) compare_v2 필드로만 추가한다. PDP 페이지는
-    # 이 블록을 타지 않으므로 PDP 동작에는 영향이 없다.
+    # ── Data QA 축 ──
+    schema_result = None
+    copy_result = None
+    html_qa_result = None
+    if mode in DATA_MODES:
+        schema_result = schema_checker.check_page(html, rules["schema"],
+                                                  sitecode=sitecode, site_lang=site_lang,
+                                                  market_product=mp)
+        copy_result = copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt)
+        html_qa_result = html_qa_scoring.score_html_qa(html, rules["schema"], schema_result, rendered_by=rendered_by)
+
+    # ── Spec QA 축 ──
+    spec_v2 = None
     compare_v2 = None
-    if pt == "Compare":
+    if mode in SPEC_MODES:
         try:
-            import compare_pipeline
-            compare_v2 = compare_pipeline.run_compare_pipeline(html, mp)
-        except Exception as e:  # Compare Pipeline 실패가 기존 검수를 죽이지 않게
-            print(f"[runner] compare_v2 skip: {e}")
+            import spec_rule_db, spec_engine, spec_dict_global
+            ruleset = spec_rule_db.load(mp) if mp else None
+            if ruleset:
+                # [2026-07] Global Dictionary(제품 공통 번역) ∪ 제품별 dictionary — 신모델이
+                # 나와도 세대 간 재사용 가능한 번역(Weight/Storage/Water Resistance 등)을
+                # 다시 쌓지 않도록 여기서 병합한다. spec_engine 자체는 여전히 결정론적으로,
+                # 병합된 최종 dictionary만 넘겨받아 그대로 사용한다.
+                ruleset = {**ruleset, "dictionary": spec_dict_global.merge_for(ruleset.get("dictionary", {}))}
+                spec_v2 = spec_engine.run(html, ruleset, page_type=pt, sitecode=sitecode or "",
+                                          rendered_by=rendered_by or "source")
+        except Exception as e:  # V2 실패가 기존 검수를 죽이지 않게
+            print(f"[runner] spec_v2 skip: {e}")
+
+        # [Compare Pipeline] Compare 페이지 전용 Matrix QA — Spec 축에 속한다.
+        if pt == "Compare":
+            try:
+                import compare_pipeline
+                compare_v2 = compare_pipeline.run_compare_pipeline(html, mp)
+            except Exception as e:  # Compare Pipeline 실패가 기존 검수를 죽이지 않게
+                print(f"[runner] compare_v2 skip: {e}")
 
     return {
         "schema": schema_result,
-        "copy": copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt),
-        "html_qa": html_qa_scoring.score_html_qa(html, rules["schema"], schema_result, rendered_by=rendered_by),
+        "copy": copy_result,
+        "html_qa": html_qa_result,
         "spec_v2": spec_v2,
         "compare_v2": compare_v2,
     }
 
 
 def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any], page_type: str = "PDP",
-             rendered_by: str = None) -> Dict[str, Any]:
-    res = check_html(html, rules, sitecode=site.get("sitecode"), site_lang=site.get("lang"), rendered_by=rendered_by)
+             rendered_by: str = None, mode: str = "all") -> Dict[str, Any]:
+    res = check_html(html, rules, sitecode=site.get("sitecode"), site_lang=site.get("lang"),
+                     rendered_by=rendered_by, mode=mode)
     return {"sitecode": site.get("sitecode"), "url": site.get("url"),
             "region": site.get("region"), "country": site.get("country"),
             "product": site.get("product", "galaxy-s26-ultra"), "lang": site.get("lang"),
-            "page_type": page_type, "schema": res["schema"], "copy": res["copy"], "html_qa": res["html_qa"],
+            "page_type": page_type, "qa_mode": (mode or "all").lower(),
+            "schema": res["schema"], "copy": res["copy"], "html_qa": res["html_qa"],
             "spec_v2": res.get("spec_v2"), "compare_v2": res.get("compare_v2")}
 
 

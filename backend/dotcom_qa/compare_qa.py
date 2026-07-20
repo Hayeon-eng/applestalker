@@ -29,14 +29,26 @@ def _norm_loose(s: str) -> str:
 
 
 def _load_all_rulesets() -> Dict[str, Dict[str, Any]]:
-    """등록된 전체 제품의 룰셋을 {product_key: ruleset} 형태로 로드."""
+    """등록된 전체 제품의 룰셋을 {product_key: ruleset} 형태로 로드.
+
+    [2026-07 과제1] 각 제품 룰셋의 dictionary에 Global Dictionary(제품 공통 번역:
+    Weight/Storage/Refresh Rate 등의 JP/CN/KR alias)를 병합한다. 기존 Compare QA는
+    제품별 dictionary만 참조해, PDP(check_html)에서는 인식되던 현지어 스펙 라벨(예: 일본어
+    'リフレッシュレート', 중국어 '刷新率', 한국어 '주사율')이 Compare에서만 미인식(unchecked)
+    되던 원인이었다. PDP와 동일하게 spec_dict_global.merge_for()를 태워 정합성을 맞춘다."""
+    try:
+        import spec_dict_global
+        _merge = spec_dict_global.merge_for
+    except Exception:  # 전역 사전 모듈이 없어도 Compare QA 자체는 계속 동작
+        _merge = lambda d: d  # noqa: E731
     out: Dict[str, Dict[str, Any]] = {}
     for meta in spec_rule_db.list_products():
         key = meta.get("product")
-        if not key:
+        if not key or key == "__global__":  # 가짜 제품(전역 사전 저장용)은 룰셋 후보에서 제외
             continue
         rs = spec_rule_db.load(key)
         if rs:
+            rs = {**rs, "dictionary": _merge(rs.get("dictionary", {}))}
             out[key] = rs
     return out
 
@@ -80,18 +92,33 @@ def _find_rule(spec_label: str, category: str, specs: List[Dict[str, Any]],
     룰의 dictionary alias까지 함께 비교한다."""
     label_norm = _norm_loose(f"{category} {spec_label}")
     spec_only_norm = _norm_loose(spec_label)
-    for rule in specs:
-        attr = rule.get("attribute", "")
-        if not attr:
-            continue
-        for alias in _aliases_for(attr, dictionary):
+
+    # [2026-07 FIX] exact 우선 2-pass. 기존 단일 패스는 룰을 순회하며 loose 매칭을 먼저
+    # 채택해, 카테고리어(예: "Display")가 엉뚱한 룰(Main Display Size)에 substring-hit되면
+    # 정작 정확히 일치하는 뒤쪽 룰(Refresh Rate)이 무시됐다(현지어 라벨에서 특히 빈발).
+    #   Pass 1: 모든 룰을 훑어 '정확히 일치'(라벨 자체 == alias)를 우선 채택
+    #   Pass 2: 없을 때만 substring loose 매칭으로 폴백(단, 카테고리 접두어가 붙은
+    #           label_norm에는 loose를 적용하지 않아 카테고리어 오매칭을 원천 차단)
+    def _aliases(rule):
+        out = []
+        for alias in _aliases_for(rule.get("attribute", ""), dictionary):
             an = _norm_loose(alias)
-            if not an:
-                continue
+            if an:
+                out.append(an)
+        return out
+
+    for rule in specs:
+        if not rule.get("attribute"):
+            continue
+        for an in _aliases(rule):
             if an == spec_only_norm or an == label_norm:
                 return rule
-            if len(an) >= 4 and (an in spec_only_norm or an in label_norm
-                                  or spec_only_norm in an):
+    for rule in specs:
+        if not rule.get("attribute"):
+            continue
+        for an in _aliases(rule):
+            # loose는 '스펙 라벨 자체'에만 적용(카테고리어 포함 label_norm 제외)
+            if len(an) >= 4 and (an in spec_only_norm or spec_only_norm in an):
                 return rule
     return None
 

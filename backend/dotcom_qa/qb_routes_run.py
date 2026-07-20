@@ -60,15 +60,16 @@ def _filter_targets(sitecodes=None, page_types=None, products=None) -> List[Dict
     return targets
 
 
-async def _run_batch(product, sitecodes, run_id, page_types=None, products=None):
+async def _run_batch(product, sitecodes, run_id, page_types=None, products=None, mode="all"):
     from crawler import HybridCrawler
     import time as _time
+    mode = (mode or "all").lower()
     targets = _filter_targets(sitecodes, page_types, products)
 
     start_ts = _time.time()
-    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=start_ts,
-                      events=[{"type": "start", "total": len(targets)}], result_run_id=None, summary=None,
-                      dictionary_review={})
+    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=start_ts, mode=mode,
+                      events=[{"type": "start", "total": len(targets), "mode": mode}],
+                      result_run_id=None, summary=None, dictionary_review={})
 
     # 필터 결과가 0개면 조용히 끝나지 않고 명확히 알린다(제품/사이트/타입 필터가 서로 안 맞는 흔한 케이스)
     if not targets:
@@ -111,12 +112,16 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
                     err = str(e)
                 try:
                     if html:
-                        row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt, rendered_by=rendered_by)
+                        row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt,
+                                              rendered_by=rendered_by, mode=mode)
                         # [2026-07 FIX] "스펙 값 0개 + httpx로만 수집됨" 진단이면, 이 페이지만
                         # Playwright로 재렌더해 재검수한다(Compare 포함 — 룰 자체는 이미 정상
                         # 적용되지만, JS 미렌더 HTML엔 애초에 스펙 텍스트가 없어 판정 불가했던 경우).
+                        # [2026-07 과제3] Data QA 전용 실행(mode="data")은 Spec 축을 돌리지
+                        # 않으므로 재렌더 예산을 쓸 이유가 없다 → 스킵해 크롤 시간을 줄인다.
                         diag = ((row.get("spec_v2") or {}).get("summary") or {}).get("diagnosis")
-                        if diag and diag.get("rendered_by") == "httpx" and spec_rescue_state["used"] < spec_rescue_cap:
+                        if mode in ("all", "spec") and diag and diag.get("rendered_by") == "httpx" \
+                                and spec_rescue_state["used"] < spec_rescue_cap:
                             spec_rescue_state["used"] += 1
                             try:
                                 pw = await crawler.force_render(url)
@@ -124,7 +129,8 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
                                 pw = {"error": str(e)}
                             if pw and pw.get("html_content") and not pw.get("error"):
                                 row = runner.run_site(site, pw["html_content"], rules_for(pt, mp),
-                                                       page_type=pt, rendered_by="playwright(spec_rescue)")
+                                                       page_type=pt, rendered_by="playwright(spec_rescue)",
+                                                       mode=mode)
                         ok = True
                     else:
                         raise RuntimeError(err or "no html")
@@ -164,10 +170,13 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None)
             if sv is not None:
                 sv["dictionary_review"] = dict_review.get(pr.get("product") or "unknown", [])
 
+        _mode_label = {"data": "Data QA", "spec": "Spec QA"}.get(mode, "")
+        _scope = ("전체" if not sitecodes else f"{len(sitecodes)}개 사이트")
+        if _mode_label:
+            _scope = f"{_scope} · {_mode_label}"
         entry = _history_save(final, summary, product=product,
-                              scope=("전체" if not sitecodes else f"{len(sitecodes)}개 사이트"),
-                              duration_seconds=_time.time() - start_ts)
-        _RUN_STATE["events"].append({"type": "done", "run_id": entry["run_id"], "summary": summary})
+                              scope=_scope, duration_seconds=_time.time() - start_ts)
+        _RUN_STATE["events"].append({"type": "done", "run_id": entry["run_id"], "summary": summary, "mode": mode})
         _RUN_STATE.update(result_run_id=entry["run_id"], summary=summary, dictionary_review=dict_review)
     except Exception as e:
         # 배치 전체가 실패해도 상태는 반드시 풀어준다(안 그러면 이후 /run이 계속 409)
@@ -245,11 +254,16 @@ async def qb_run(payload: Dict[str, Any] = Body(default={})):
     sitecodes = payload.get("sitecodes")
     page_types = payload.get("page_types")   # ["PDP","Compare"] 등 (없으면 전체)
     products = payload.get("products")        # ["galaxy-s26-ultra", ...] (없으면 전체)
+    # [2026-07 과제3] Data QA / Spec QA 독립 실행. mode ∈ {"all","data","spec"} (기본 all=하위호환)
+    mode = (payload.get("mode") or "all").lower()
+    if mode not in ("all", "data", "spec"):
+        raise HTTPException(400, f"알 수 없는 mode: {mode} (all|data|spec 중 하나)")
     run_id = f"qb_{datetime.now():%Y%m%d_%H%M%S}"
     # total은 실제 필터 적용 후 개수로
     total = len(_filter_targets(sitecodes, page_types, products))
-    asyncio.create_task(_run_batch(product, sitecodes, run_id, page_types=page_types, products=products))
-    return {"status": "started", "run_id": run_id, "total": total}
+    asyncio.create_task(_run_batch(product, sitecodes, run_id, page_types=page_types,
+                                   products=products, mode=mode))
+    return {"status": "started", "run_id": run_id, "total": total, "mode": mode}
 
 
 @qb_router.get("/run-status")

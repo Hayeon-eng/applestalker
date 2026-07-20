@@ -306,13 +306,37 @@ def axis3_id_linkage(html: str, required_types: Optional[List[str]] = None) -> D
     core_with_id = [n for n in core_nodes if n.get("@id")]
     node_ids = {str(n.get("@id")) for n in nodes if n.get("@id")}
 
+    # [2026-07 과제4] @id가 없는 핵심 노드를 "무엇이 누락됐는지" 알아볼 수 있게 목록화한다.
+    #   기존엔 'X/Y' 카운트만 있어 프론트에서 어느 노드가 빠졌는지 알 수 없었다.
+    #   각 항목: {"type": 대표 @type, "name": 식별용 name/헤드라인(있으면), "hint": URL 후보}
+    def _id_hint(n: Dict[str, Any]) -> str:
+        for k in ("url", "mainEntityOfPage", "contentUrl", "target"):
+            v = n.get(k)
+            if isinstance(v, str) and v:
+                return v
+            if isinstance(v, dict) and isinstance(v.get("@id"), str):
+                return v["@id"]
+        return ""
+
+    missing_id_nodes = [n for n in core_nodes if not n.get("@id")]
+    missing_ids = [{
+        "type": "/".join(schema_checker._types_of(n)) or "(unknown)",
+        "name": str(n.get("name") or n.get("headline") or "")[:80],
+        "hint": _id_hint(n),
+    } for n in missing_id_nodes]
+
     # @id 부여율 — 핵심 노드가 하나도 없으면 '해당없음'(None), 있으면 그 노드들 기준
     if core_nodes:
         rate_score = 1.0 if len(core_with_id) == len(core_nodes) else (0.5 if core_with_id else 0.0)
+        _detail = f"핵심 노드 {len(core_with_id)}/{len(core_nodes)}에 @id 존재"
+        if missing_ids:
+            _detail += " · 누락: " + ", ".join(
+                (m["type"] + (f'({m["name"]})' if m["name"] else "")) for m in missing_ids)
         checks.append({"item": "@id 부여율", "weight": 3, "score": rate_score,
-                       "detail": f"핵심 노드 {len(core_with_id)}/{len(core_nodes)}에 @id 존재"})
+                       "detail": _detail, "missing_ids": missing_ids})
     else:
-        checks.append({"item": "@id 부여율", "weight": 3, "score": None, "detail": "핵심 스키마 없음(해당없음)"})
+        checks.append({"item": "@id 부여율", "weight": 3, "score": None, "detail": "핵심 스키마 없음(해당없음)",
+                       "missing_ids": []})
 
     core_ids = {str(n.get("@id")) for n in core_with_id}
     invalid_fmt = [i for i in core_ids if not _ABS_URL_RE.match(i)]
@@ -330,7 +354,9 @@ def axis3_id_linkage(html: str, required_types: Optional[List[str]] = None) -> D
     total_w = sum(c["weight"] for c in scored)
     pct = round(100 * sum(c["weight"] * c["score"] for c in scored) / total_w, 1) if total_w else None
 
-    return {"checks": checks, "id_pct": pct, "gate": 1}
+    return {"checks": checks, "id_pct": pct, "gate": 1,
+            "missing_ids": missing_ids,
+            "id_coverage": {"with_id": len(core_with_id), "total": len(core_nodes)}}
 
 
 # ──────────────────────────────────────────────────────────────────
