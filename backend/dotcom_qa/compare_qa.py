@@ -55,19 +55,30 @@ def _load_all_rulesets() -> Dict[str, Dict[str, Any]]:
 
 def _match_ruleset(raw_hint: str, rulesets: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Compare 컬럼의 product_hint(현지어 표기 포함)를 등록된 제품 중 하나의 Rule DB에
-    alias로 매칭한다. 여러 제품 중 "정답 후보 찾기"가 아니라 "내가 이미 아는 제품명 →
-    그 제품 룰셋 불러오기"이므로 가장 긴 alias가 매칭된 제품을 채택한다."""
+    alias로 매칭한다.
+    [2026-07 Phase2 FIX] exact 우선 2-pass. 기존엔 '가장 긴 부분문자열 alias'를 채택해,
+    'Galaxy Z Fold8'이 상위모델 'Galaxy Z Fold8 Ultra'(더 긴 alias, hint를 부분포함)로,
+    'Galaxy Watch Ultra2'가 'Galaxy Watch Ultra'로 잘못 매칭됐다. 이제 정확히 일치하는
+    alias(an == hn)를 전 제품에서 먼저 찾고, 없을 때만 부분문자열(가장 긴 것)로 폴백한다."""
     hn = _norm_loose(raw_hint)
     if not hn:
         return None
+    # Pass 1: 정확 일치 우선 — 가장 긴 exact alias(동률이면 무관)
+    exact, exact_len = None, 0
+    for key, rs in rulesets.items():
+        for alias in (rs.get("product_aliases") or [rs.get("product", key)]):
+            an = _norm_loose(alias)
+            if an and an == hn and len(an) > exact_len:
+                exact, exact_len = rs, len(an)
+    if exact is not None:
+        return exact
+    # Pass 2: 부분문자열 폴백 — 가장 긴 alias
     best, best_len = None, 0
     for key, rs in rulesets.items():
-        aliases = rs.get("product_aliases") or [rs.get("product", key)]
-        for alias in aliases:
+        for alias in (rs.get("product_aliases") or [rs.get("product", key)]):
             an = _norm_loose(alias)
-            if an and (an == hn or an in hn or hn in an):
-                if len(an) > best_len:
-                    best, best_len = rs, len(an)
+            if an and (an in hn or hn in an) and len(an) > best_len:
+                best, best_len = rs, len(an)
     return best
 
 

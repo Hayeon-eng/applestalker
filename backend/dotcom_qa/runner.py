@@ -34,9 +34,26 @@ def page_type_from_url(url: str) -> str:
 
 
 def product_from_url(url: str) -> Optional[str]:
-    """URL 경로에서 마케팅 제품 판별."""
+    """URL 경로에서 마케팅 제품 판별.
+    [2026-07 Phase2] 신모델(Z8/Watch) 추가. 더 구체적인 슬러그(Ultra/Ultra2)를 먼저 검사한다
+    (예: galaxy-z-fold8-ultra 는 galaxy-z-fold8 를 부분문자열로 포함하므로 순서가 중요).
+    URL 변형(galaxy-fold8=z 생략, -samsung-com-only/-exclusive/-enterprise 접미사)도
+    base 슬러그가 부분문자열로 포함되므로 그대로 매칭된다."""
     u = (url or "").lower()
-    # 폴더블 — 더 구체적인 슬러그를 먼저(fold7/flip7). 다음 세대(fold8 등)는 여기 한 줄씩 추가.
+    # ── 신모델 폴더블(Z8) — Ultra 먼저 ──
+    if "galaxy-z-fold8-ultra" in u or "galaxy-fold8-ultra" in u:
+        return "galaxy-z-fold8-ultra"
+    if "galaxy-z-fold8" in u or "galaxy-fold8" in u:
+        return "galaxy-z-fold8"
+    if "galaxy-z-flip8" in u or "galaxy-flip8" in u:
+        return "galaxy-z-flip8"
+    # ── 신모델 워치 — Ultra2 먼저(galaxy-watch-ultra2 ⊃ galaxy-watch-ultra) ──
+    if "galaxy-watch-ultra2" in u:
+        return "galaxy-watch-ultra2"
+    if "galaxy-watch9" in u:
+        return "galaxy-watch9"
+    # ── 구모델(레지스트리에서 미출시국은 크롤하지 않지만, 잔존 URL 안전 검출용으로 유지) ──
+    # 폴더블 — 더 구체적인 슬러그를 먼저(fold7/flip7).
     if "galaxy-z-fold7" in u:
         return "galaxy-z-fold7"
     if "galaxy-z-flip7" in u:
@@ -47,7 +64,7 @@ def product_from_url(url: str) -> Optional[str]:
         return "galaxy-s26-plus"
     if "galaxy-s26" in u:
         return "galaxy-s26"
-    # 워치 — Ultra를 먼저(워치8보다 구체적인 슬러그). 다음 세대(watch9 등)는 여기 한 줄씩 추가.
+    # 워치 — Ultra를 먼저(워치8보다 구체적인 슬러그).
     if "galaxy-watch-ultra" in u:
         return "galaxy-watch-ultra"
     if "galaxy-watch8" in u:
