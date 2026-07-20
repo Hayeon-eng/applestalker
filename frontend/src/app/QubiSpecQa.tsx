@@ -150,10 +150,10 @@ export function SpecOverallBanner({ results }: { results: any[] }) {
       <b style={{ fontSize: 13.5 }}>종합 판단 — 스펙</b>
       <b style={{ fontSize: 20, color: TL_COLOR[overall] }}>{score ?? "—"}{score != null ? "%" : ""}</b>
       <span style={{ fontSize: 11.5, color: "var(--sec)" }}>
-        사이트 {rows.length}곳 · 🔴 오류 {agg.crit} · 🟡 확인 {agg.warn} · ✅ 정상 {agg.pass}
+        사이트 {rows.length}곳{rows.length === 1 ? ` (${rows[0].sitecode || rows[0].country || rows[0].url || "미상"}${rows[0].market_product || rows[0].product ? " · " + (rows[0].market_product || rows[0].product) : ""})` : ""} · 🔴 오류 {agg.crit} · 🟡 확인 {agg.warn} · ✅ 정상 {agg.pass}
         <span style={{ display: "block", fontSize: 10.5, color: "#98A2B3" }}>점수 = 정상 ÷ (정상+오류) — 확인·미노출은 반영하지 않아요</span>
       </span>
-      {rows.length > 1 && (
+      {rows.length >= 1 && (
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
           {sites.slice(0, MAX).map((st: any, i: number) => (
             <span key={st.code + i} style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "3px 9px",

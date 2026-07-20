@@ -31,11 +31,21 @@ export function CompareMatrixPanel({ row }: { row: any }) {
   }
 
   const perProduct: any[] = summary.per_product || [];
+  const siteLabel = row.sitecode || row.country || "";
+  const prodLabel = row.market_product || row.product || "";
 
   return (
     <div className="card qbiPopIn" style={{ marginTop: 10, padding: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
         <b style={{ fontSize: 13 }}>Compare 매트릭스</b>
+        {(siteLabel || prodLabel) && (
+          <span style={{ fontSize: 11, color: "var(--sec)", border: "1px solid var(--line)", borderRadius: 6, padding: "2px 8px" }}>
+            {siteLabel}{siteLabel && prodLabel ? " · " : ""}{prodLabel}
+          </span>
+        )}
+        {row.url && (
+          <a href={row.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#0A66E0" }}>원본 페이지 ↗</a>
+        )}
         {perProduct.map((p) => (
           <span key={p.product} style={{ fontSize: 11.5, border: "1px solid var(--line)", borderRadius: 999,
             padding: "3px 10px", display: "inline-flex", gap: 6, alignItems: "center" }}>
