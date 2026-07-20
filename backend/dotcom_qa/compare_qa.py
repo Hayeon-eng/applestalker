@@ -59,20 +59,40 @@ def _match_ruleset(raw_hint: str, rulesets: Dict[str, Dict[str, Any]]) -> Option
     return best
 
 
-def _find_rule(spec_label: str, category: str, specs: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """(category, spec) 텍스트에 매칭되는 정답 룰을 찾는다."""
+def _aliases_for(attr: str, dictionary: Dict[str, List[str]]) -> List[str]:
+    """룰의 attribute(영문)를 dictionary(대표값→현지어 alias 목록)로 확장한다.
+    spec_engine.py의 PDP용 _aliases_for와 동일한 패턴 — Compare도 같은 dictionary를 쓴다."""
+    na = _norm_loose(attr)
+    out = [attr]
+    for rep, aliases in (dictionary or {}).items():
+        nr = _norm_loose(rep)
+        if nr and (nr == na or nr in na):
+            out.append(rep)
+            out += aliases
+    return list(dict.fromkeys(out))
+
+
+def _find_rule(spec_label: str, category: str, specs: List[Dict[str, Any]],
+                dictionary: Optional[Dict[str, List[str]]] = None) -> Optional[Dict[str, Any]]:
+    """(category, spec) 텍스트에 매칭되는 정답 룰을 찾는다.
+    [2026-07 FIX] attribute 영문명만 비교해서 현지어 페이지(예: 일본어 'カメラ/背面カメラ')에서
+    dictionary에 이미 등록된 alias('背面カメラ' 등)가 있는데도 매칭이 안 되던 버그 — 이제
+    룰의 dictionary alias까지 함께 비교한다."""
     label_norm = _norm_loose(f"{category} {spec_label}")
     spec_only_norm = _norm_loose(spec_label)
     for rule in specs:
         attr = rule.get("attribute", "")
-        an = _norm_loose(attr)
-        if not an:
+        if not attr:
             continue
-        if an == spec_only_norm or an == label_norm:
-            return rule
-        if len(an) >= 4 and (an in spec_only_norm or an in label_norm
-                              or spec_only_norm in an):
-            return rule
+        for alias in _aliases_for(attr, dictionary):
+            an = _norm_loose(alias)
+            if not an:
+                continue
+            if an == spec_only_norm or an == label_norm:
+                return rule
+            if len(an) >= 4 and (an in spec_only_norm or an in label_norm
+                                  or spec_only_norm in an):
+                return rule
     return None
 
 
@@ -162,7 +182,7 @@ class CompareQA:
                     bucket["warn"] += 1
                     continue
 
-                rule = _find_rule(spec, category, rs.get("rules") or [])
+                rule = _find_rule(spec, category, rs.get("rules") or [], rs.get("dictionary") or {})
                 if rule is None:
                     out_values.append({**cell, "status": "unchecked",
                                        "message": "이 스펙 항목이 Rule DB에 없음 — DB 보완 필요(페이지 오류 아님)"})

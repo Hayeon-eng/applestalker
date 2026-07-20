@@ -165,7 +165,14 @@ def qb_history_remove(payload: Dict[str, Any] = Body(...)):
 
 @qb_router.get("/report.xlsx")
 def qb_report_xlsx_get(run_id: str = Query(None)):
-    data = qa_report.build_xlsx(qb_core._resolve_results(run_id=run_id))
+    try:
+        data = qa_report.build_xlsx(qb_core._resolve_results(run_id=run_id))
+    except Exception as e:
+        # [2026-07 FIX] 원인 불명 500 리포트 대응 — 어떤 페이지의 어떤 값 때문에 실패했는지
+        # 서버 로그에 전체 traceback을 남기고, 사용자에게는 원인 파악 가능한 메시지를 준다.
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Excel 리포트 생성 실패: {type(e).__name__}: {e}")
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=qubi_qa_report.xlsx"})
@@ -173,7 +180,12 @@ def qb_report_xlsx_get(run_id: str = Query(None)):
 
 @qb_router.post("/report.xlsx")
 def qb_report_xlsx(payload: Dict[str, Any] = Body(default={})):
-    data = qa_report.build_xlsx(qb_core._resolve_results(payload))
+    try:
+        data = qa_report.build_xlsx(qb_core._resolve_results(payload))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Excel 리포트 생성 실패: {type(e).__name__}: {e}")
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=qubi_qa_report.xlsx"})

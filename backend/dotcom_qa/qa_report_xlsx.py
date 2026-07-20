@@ -252,10 +252,19 @@ def build_xlsx(page_results):
     ws.append(HEAD1); _hdr(ws)
     data_rows = []
     for pr in page_results:
-        meta = _meta(pr)
-        srows, covered = _schema_detail_rows(pr)
-        for r in srows + _html_qa_schema_gap_rows(pr, covered) + _html_qa_rows(pr):
-            data_rows.append((meta,) + tuple(r))
+        try:
+            meta = _meta(pr)
+            srows, covered = _schema_detail_rows(pr)
+            for r in srows + _html_qa_schema_gap_rows(pr, covered) + _html_qa_rows(pr):
+                data_rows.append((meta,) + tuple(r))
+        except Exception as e:
+            # [2026-07 FIX] 페이지 1건의 데이터 구조 문제로 전체 Excel 다운로드가 500 나던
+            # 문제 대응 — 그 페이지만 건너뛰고 어떤 사이트가 문제였는지 눈에 보이게 남긴다.
+            import traceback
+            traceback.print_exc()
+            meta = _meta(pr) if isinstance(pr, dict) else ("", "", pr, "", "", "")
+            data_rows.append((meta, "REPORT", "REPORT", "Report generation error", "fail",
+                               f"{type(e).__name__}: {e}", "", "(internal)", "", "", ""))
     data_rows.sort(key=lambda r: (r[0][1] or "zz", r[0][2] or "", sev_rank.get(r[4], 9), r[1], r[2]))
     for n, (meta, area, ty, item, sev, a, t, loc, impact, fix_code, code_pair) in enumerate(data_rows, 1):
         region, country, site, ptype, url, product = meta
@@ -275,6 +284,8 @@ def build_xlsx(page_results):
     def _issue_type_of2(kind: str, found: str) -> str:
         k = kind or ""
         missing = found == "(not found on page)"
+        if k.startswith("Compare"):
+            return "Compare Spec Mismatch"
         if k.startswith("Rule ·"):
             return "Missing Spec Value" if missing else "Spec Value Mismatch"
         if k == "Dictionary (reference)":
@@ -294,39 +305,62 @@ def build_xlsx(page_results):
     KIND_EN = {"spec": "Spec", "proper_noun": "Proper Noun", "spec_value": "Spec Value"}
     spec_rows = []
     for pr in page_results:
-        meta = _meta(pr)
-        sv = pr.get("spec_v2")
-        if sv:
-            # [V2 정합 — 2026-07 리팩토링] Critical=fail, Warning=warn(재확인 필요,
-            # 추출 신뢰도 낮음). Dictionary(미등록 표현)는 보조 기능이라 severity를
-            # "info"로 분리해 Critical/Warning 집계·정렬 우선순위를 흐리지 않게 한다.
-            for it in sv.get("items", []):
-                if it.get("status") not in ("fail", "warn"):
-                    continue
-                item = it.get("attribute", "")
-                exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
-                found_s = str(it.get("found") or "(not found on page)")
-                loc = f'{it.get("page", "")}' + (f' > {it["section"]}' if it.get("section") else "")
-                if it.get("fix_guide"):
-                    exp = f'{exp}  ·  Fix: {it["fix_guide"]}'
-                label = "Rule · " + it.get("rule_id", "") + (" (review — not a confirmed error)" if it.get("status") == "warn" else "")
-                spec_rows.append((meta, label, item, it["status"], exp, found_s, loc or "PDP"))
-            for c in sv.get("dictionary_review", []) or []:
-                spec_rows.append((meta, "Dictionary (reference)", c.get("alias", ""), "info",
-                                  f'Seen on {c.get("count","?")} pages within this product · confidence={c.get("confidence","")} '
-                                  "· Review translation/wording, then approve by adding to Dictionary (optional)",
-                                  "(unmapped label)", "Spec"))
-        else:
-            for f in (pr.get("copy") or {}).get("findings", []):
-                if f.get("status") not in ("fail", "warn"):
-                    continue
-                kind = KIND_EN.get(f.get("kind", ""), f.get("kind", "") or "Spec")
-                item = f.get("token", "") or f.get("category", "")
-                expected = str(f.get("expected", "") or f.get("token", "") or "")
-                found = f.get("found") or []
-                found_s = ", ".join(map(str, found[:6])) if found else "(not found on page)"
-                loc = "Disclaimer" if f.get("region") == "disclaimer" else "Body"
-                spec_rows.append((meta, kind, item, f.get("status"), expected, found_s, loc))
+        try:
+            meta = _meta(pr)
+            sv = pr.get("spec_v2")
+            cv = pr.get("compare_v2")
+            # [2026-07 FIX] Compare 페이지는 spec_v2가 아니라 compare_v2(제품별 매트릭스 QA)가
+            # 실제 판정을 갖고 있는데, 지금까지 Excel Spec QA 시트는 compare_v2를 전혀 안 읽어서
+            # Compare 페이지의 오기재/확인필요 항목이 화면(UI)에는 보이는데 Excel엔 하나도
+            # 안 나오고 있었다 — 그것부터 채운다(있으면 이걸 우선, spec_v2/copy는 그대로 폴백).
+            if cv and cv.get("summary", {}).get("checked"):
+                for r in cv.get("rows", []):
+                    category, spec = r.get("category", ""), r.get("spec", "")
+                    for cell in r.get("values", []):
+                        st = cell.get("status")
+                        if st not in ("fail", "warn"):
+                            continue
+                        label = "Compare" + (" (review — not a confirmed error)" if st == "warn" else "")
+                        item = f'{cell.get("product", "")} · {category + " — " if category else ""}{spec}'
+                        spec_rows.append((meta, label, item, st, cell.get("message", ""),
+                                          str(cell.get("value", "")), "Compare"))
+            elif sv:
+                # [V2 정합 — 2026-07 리팩토링] Critical=fail, Warning=warn(재확인 필요,
+                # 추출 신뢰도 낮음). Dictionary(미등록 표현)는 보조 기능이라 severity를
+                # "info"로 분리해 Critical/Warning 집계·정렬 우선순위를 흐리지 않게 한다.
+                for it in sv.get("items", []):
+                    if it.get("status") not in ("fail", "warn"):
+                        continue
+                    item = it.get("attribute", "")
+                    exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
+                    found_s = str(it.get("found") or "(not found on page)")
+                    loc = f'{it.get("page", "")}' + (f' > {it["section"]}' if it.get("section") else "")
+                    if it.get("fix_guide"):
+                        exp = f'{exp}  ·  Fix: {it["fix_guide"]}'
+                    label = "Rule · " + it.get("rule_id", "") + (" (review — not a confirmed error)" if it.get("status") == "warn" else "")
+                    spec_rows.append((meta, label, item, it["status"], exp, found_s, loc or "PDP"))
+                for c in sv.get("dictionary_review", []) or []:
+                    spec_rows.append((meta, "Dictionary (reference)", c.get("alias", ""), "info",
+                                      f'Seen on {c.get("count","?")} pages within this product · confidence={c.get("confidence","")} '
+                                      "· Review translation/wording, then approve by adding to Dictionary (optional)",
+                                      "(unmapped label)", "Spec"))
+            else:
+                for f in (pr.get("copy") or {}).get("findings", []):
+                    if f.get("status") not in ("fail", "warn"):
+                        continue
+                    kind = KIND_EN.get(f.get("kind", ""), f.get("kind", "") or "Spec")
+                    item = f.get("token", "") or f.get("category", "")
+                    expected = str(f.get("expected", "") or f.get("token", "") or "")
+                    found = f.get("found") or []
+                    found_s = ", ".join(map(str, found[:6])) if found else "(not found on page)"
+                    loc = "Disclaimer" if f.get("region") == "disclaimer" else "Body"
+                    spec_rows.append((meta, kind, item, f.get("status"), expected, found_s, loc))
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            meta = _meta(pr) if isinstance(pr, dict) else ("", "", pr, "", "", "")
+            spec_rows.append((meta, "REPORT", "Report generation error", "fail",
+                               f"{type(e).__name__}: {e}", "(internal)", "Spec"))
     spec_rows.sort(key=lambda r: (r[0][1] or "zz", r[0][2] or "", sev_rank.get(r[3], 9)))
     for n, (meta, kind, item, sev, exp, found, loc) in enumerate(spec_rows, 1):
         region, country, site, ptype, url, product = meta
