@@ -49,7 +49,7 @@ class HybridCrawler:
         self,
         user_agent: Optional[str] = None,
         http_timeout: float = 25.0,
-        js_timeout_ms: int = 30000,
+        js_timeout_ms: int = 50000,
         enable_playwright: Optional[bool] = None,
         enable_screenshot: Optional[bool] = None,
         max_http_concurrent: int = 8,  # [2026-07 과제4] 4→8. httpx만 쓰는 PDP 경로는 브라우저
