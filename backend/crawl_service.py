@@ -20,9 +20,33 @@ from loguru import logger
 from sqlalchemy import text
 
 from config import SEED_TARGETS, load_active_urls, tier_for_url, target_for_url
-from crawler import HybridCrawler
 from diff_engine import DiffEngine, structural_signature, summarize_events, stable_text
 from intel_engine import IntelEngine, aeo_facts
+
+# [2026-07 FIX] bare `from crawler import HybridCrawler`를 쓰면 backend/crawler.py(구버전 —
+# HTTP 동시성 4, 브라우저 동시성 1 고정, 구식 스크롤 종료 로직)가 sys.modules["crawler"]에
+# 캐시되어, dotcom_qa/crawler.py(2026-07 속도/메모리 개선판: HTTP 동시성 8, QB_BROWSER_CONCURRENCY
+# 환경변수화, 스크롤 조기 종료, lazy 이미지 강제 로드)의 개선이 Apple Stalker 크롤에는 전혀
+# 반영되지 않았다. qb_core.py의 _load_qb_crawler_cls()와 동일하게 파일 경로로 직접 로드해
+# 모듈명 충돌을 원천 차단하고, 개선판을 Apple Stalker에도 적용한다.
+import importlib.util as _importlib_util
+import os as _os
+import sys as _sys
+
+_HYBRID_CRAWLER_CLS = None
+
+
+def _load_hybrid_crawler_cls():
+    global _HYBRID_CRAWLER_CLS
+    if _HYBRID_CRAWLER_CLS is not None:
+        return _HYBRID_CRAWLER_CLS
+    _path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "dotcom_qa", "crawler.py")
+    _spec = _importlib_util.spec_from_file_location("dotcom_qa_crawler_impl", _path)
+    _mod = _importlib_util.module_from_spec(_spec)
+    _sys.modules.setdefault("dotcom_qa_crawler_impl", _mod)  # qb_core.py와 동일 캐시 키 재사용
+    _spec.loader.exec_module(_mod)
+    _HYBRID_CRAWLER_CLS = _mod.HybridCrawler
+    return _HYBRID_CRAWLER_CLS
 
 
 def _s(v) -> str:
@@ -71,6 +95,7 @@ class CrawlServiceV2:
             VALUES (:r,:s,:sid,:t,'running',:n)
         """, r=run_id, s=site_key, sid=session_id, t=datetime.utcnow(), n=len(urls))
 
+        HybridCrawler = _load_hybrid_crawler_cls()
         crawler = HybridCrawler()
         await crawler.start()
 
