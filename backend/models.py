@@ -153,7 +153,7 @@ class QbSpecRules(Base):
     무료 DB 친화: 행 수 최소·마이그레이션 불필요. 엑셀 업로드 → 파싱 → 이 행 갱신."""
     __tablename__ = "qb_spec_rules"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    product = Column(String(60), unique=True, index=True, nullable=False)  # 예: galaxy-z-fold7
+    product = Column(String(60), unique=True, index=True, nullable=False)  # 예: galaxy-z-fold8
     version = Column(String(40))       # 예: V2_Draft / 업로드 파일명
     data = Column(Text)                # 룰셋 전체 JSON
     updated_at = Column(String(30))
