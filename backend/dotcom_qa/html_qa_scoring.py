@@ -106,11 +106,17 @@ def extract_html_signals(html: str) -> Dict[str, Any]:
     md = soup.find("meta", attrs={"name": "description"})
     h1s = [h.get_text(strip=True) for h in soup.find_all("h1")]
     h2s = [h.get_text(strip=True) for h in soup.find_all("h2")]
+    # [신규] H3/H4도 화면(HtmlQaDetail)에 H1/H2 아래 순차 노출 — 채점 로직(apply_rate)에는
+    # 관여하지 않는 표시 전용 시그널이라 여기서는 추출만 해둔다.
+    h3s = [h.get_text(strip=True) for h in soup.find_all("h3")]
+    h4s = [h.get_text(strip=True) for h in soup.find_all("h4")]
     return {
         "title": title_tag.get_text(strip=True) if title_tag else None,
         "meta_description": md.get("content", "").strip() if md else None,
         "h1_list": h1s,
         "h2_list": h2s,
+        "h3_list": h3s,
+        "h4_list": h4s,
     }
 
 
@@ -181,6 +187,7 @@ def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
             "signals": {  # 화면에 실제 태깅된 값을 그대로 보여주기 위한 원본 리스트
                 "title": sig["title"], "meta_description": sig["meta_description"],
                 "h1_list": sig["h1_list"], "h2_list": sig["h2_list"],
+                "h3_list": sig["h3_list"], "h4_list": sig["h4_list"],
             }}
 
 
