@@ -98,8 +98,9 @@ def build_xlsx(page_results):
     # [2026-07 신규] 어떤 제품 건인지 한눈에 보이도록 — 슬러그를 사람이 읽는 이름으로.
     # qb_routes_manage._v2_label()과 동일한 규칙(최소 버전)을 여기서도 그대로 씀.
     _PRODUCT_KNOWN = {
-        "galaxy-watch8": "Galaxy Watch8",
-        "galaxy-watch-ultra": "Galaxy Watch Ultra",
+        "galaxy-watch9": "Galaxy Watch9",
+        "galaxy-watch-ultra2": "Galaxy Watch Ultra2",
+        "galaxy-z-fold8-ultra": "Galaxy Z Fold8 Ultra",
     }
 
     def _product_label(slug: str) -> str:

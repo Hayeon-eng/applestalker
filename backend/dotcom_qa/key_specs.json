@@ -1,12 +1,12 @@
 {
   "source": "samsung.com official + newsroom + wikipedia (2026)",
   "products": {
-    "galaxy-z-fold7": {
-      "label": "Galaxy Z Fold7",
+    "galaxy-z-fold8": {
+      "label": "Galaxy Z Fold8",
       "specs": []
     },
-    "galaxy-z-flip7": {
-      "label": "Galaxy Z Flip7",
+    "galaxy-z-flip8": {
+      "label": "Galaxy Z Flip8",
       "specs": []
     }
   }

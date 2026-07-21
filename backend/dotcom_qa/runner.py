@@ -293,20 +293,6 @@ def check_html(html: str, rules: Dict[str, Any],
                 ruleset = {**ruleset, "dictionary": spec_dict_global.merge_for(ruleset.get("dictionary", {}))}
                 spec_v2 = spec_engine.run(html, ruleset, page_type=pt, sitecode=sitecode or "",
                                           rendered_by=rendered_by or "source")
-            else:
-                # [2026-07 신규] Rule DB(제품 기준)가 아직 없어도 화면이 완전히 비어있지
-                # 않게, 판정 없이 "페이지에서 실제로 읽힌 라벨:값 쌍"만 추출해 보여준다.
-                # 판정(pass/fail)은 하지 않으므로 summary는 전부 0으로 두고
-                # no_ruleset=True로 프론트에 "참고용"임을 알린다.
-                import spec_extractor
-                ex = spec_extractor.extract(html)
-                raw_pairs = [p for p in (ex.get("pairs") or [])
-                            if (p.get("label") or "").strip() and (p.get("value") or "").strip()]
-                spec_v2 = {
-                    "no_ruleset": True,
-                    "raw_pairs": raw_pairs[:80],  # 화면 과부하 방지 상한
-                    "summary": {"critical": 0, "warning": 0, "pass": 0, "raw_count": len(raw_pairs)},
-                }
         except Exception as e:  # V2 실패가 기존 검수를 죽이지 않게
             print(f"[runner] spec_v2 skip: {e}")
 

@@ -62,7 +62,7 @@ def qb_spec_rules_delete(payload: Dict[str, Any] = Body(...)):
     [2026-07 FIX] 제품 용어사전(Dictionary)은 함께 삭제되지 않는다 — 별도 보관해두었다가
     재업로드 시 자동 복원되며, 완전히 지우려면 /spec-rules/dictionary/delete를 따로 호출해야 한다.
     Global(공통) Dictionary와 다른 제품에는 영향이 없다.
-    body: {product: 'galaxy-z-fold7'}"""
+    body: {product: 'galaxy-z-fold8'}"""
     product = (payload.get("product") or "").strip()
     if not product:
         raise HTTPException(400, "product가 필요합니다.")
@@ -87,7 +87,7 @@ def qb_spec_rules_delete(payload: Dict[str, Any] = Body(...)):
 def qb_spec_rules_dictionary_delete(payload: Dict[str, Any] = Body(...)):
     """[2026-07 신규] 제품 용어사전(Dictionary)만 별도로 완전 삭제 — 제품(룰 DB) 삭제와는
     분리된 별도 기능이다. /spec-rules/delete는 이 사전을 건드리지 않는다.
-    body: {product: 'galaxy-z-fold7'}"""
+    body: {product: 'galaxy-z-fold8'}"""
     product = (payload.get("product") or "").strip()
     if not product:
         raise HTTPException(400, "product가 필요합니다.")
@@ -143,7 +143,7 @@ def qb_spec_rules_export(product: str = Query(...)):
 @qb_router.post("/spec-rules/upload")
 def qb_spec_rules_upload(payload: Dict[str, Any] = Body(...)):
     """Rule DB 엑셀 업로드 → 파싱 → DB 저장.
-    body: {b64: dataURL|base64, product: 'galaxy-z-fold7', version?: str}"""
+    body: {b64: dataURL|base64, product: 'galaxy-z-fold8', version?: str}"""
     import base64
     b64 = (payload.get("b64") or "")
     product = (payload.get("product") or "").strip()

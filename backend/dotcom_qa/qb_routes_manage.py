@@ -1,6 +1,6 @@
 """
 qb_routes_manage.py — 사이트·제품·구식 룰 관리 (/sites*, /products*, /specs*, /rules/*/add) [qb_api 분할]
-V2 제품(fold7/flip7 등)의 구식 편집은 여기서 409로 차단된다 — 원본은 Rule DB 하나.
+V2 제품(fold8/flip8 등)의 구식 편집은 여기서 409로 차단된다 — 원본은 Rule DB 하나.
 """
 from __future__ import annotations
 import asyncio
@@ -37,7 +37,11 @@ def qb_sites():
             # 삭제 버튼이 (sitecode, url)로 정확히 그 행 하나만 지울 수 있으려면
             # 화면에 그 행 자체가 보여야 한다.
             "entries": _registry.all(),
-            "missing_lang": _registry.missing_lang()}
+            "missing_lang": _registry.missing_lang(),
+            # [2026-07 신규] Z8/Watch9/WatchUltra2 국가별 출시여부(미출시 배지용).
+            # 원본: site_registry.part1.json 의 launch_status (공유_Z8_및_Watch9_출시관리 엑셀 근거).
+            # 형태: {sitecode: {"phone": "출시"|"미출시", "watch_ultra2": ..., "watch9": ..., "category": "..."}}
+            "launch_status": _registry.data.get("launch_status", {})}
 
 
 # PAGE_TYPES / SCHEMA_TYPES 는 qb_core에서 import (이 모듈의 SPEC_CATALOG 등과 함께 사용)
@@ -94,8 +98,9 @@ def qb_products():
         def _v2_label(code: str) -> str:
             # 슬러그 → 사람이 읽는 제품명. 새 계열이 나오면 여기 한 줄이면 된다.
             KNOWN = {
-                "galaxy-watch8": "Galaxy Watch8",
-                "galaxy-watch-ultra": "Galaxy Watch Ultra",
+                "galaxy-watch9": "Galaxy Watch9",
+                "galaxy-watch-ultra2": "Galaxy Watch Ultra2",
+                "galaxy-z-fold8-ultra": "Galaxy Z Fold8 Ultra",
             }
             if code in KNOWN:
                 return KNOWN[code]
@@ -146,7 +151,7 @@ def qb_sites_add(payload: Dict[str, Any] = Body(...)):
     sc = payload.get("sitecode") or qb_core._sitecode_from_url(url)
     try:
         _registry.add(sc, url, region=payload.get("region", ""), country=payload.get("country", ""),
-                      lang=payload.get("lang", ""), product=payload.get("product", "galaxy-z-fold7"),
+                      lang=payload.get("lang", ""), product=payload.get("product", "galaxy-z-fold8"),
                       page_type=payload.get("page_type", "PDP"))
     except ValueError as e:
         raise HTTPException(409, str(e))
@@ -194,7 +199,7 @@ def _prod_entry(data, product):
 
 
 @qb_router.get("/specs")
-def qb_specs(product: str = Query("galaxy-z-fold7")):
+def qb_specs(product: str = Query("galaxy-z-fold8")):
     data = _load_specs().get("products", {})
     e = data.get(product, {})
     if isinstance(e, list):
@@ -218,7 +223,7 @@ _V2_EDIT_BLOCKED = ("이 제품의 기준값은 Rule DB(V2)로 관리됩니다 �
 
 @qb_router.post("/specs/add")
 def qb_specs_add(payload: Dict[str, Any] = Body(...)):
-    product = payload.get("product", "galaxy-z-fold7")
+    product = payload.get("product", "galaxy-z-fold8")
     if qb_core._v2_managed(product):
         raise HTTPException(409, qb_core._V2_EDIT_BLOCKED)
     # values: 여러 값(국별 variation) 허용 — 콤마/리스트 모두 수용
@@ -242,7 +247,7 @@ def qb_specs_add(payload: Dict[str, Any] = Body(...)):
 
 @qb_router.post("/specs/remove")
 def qb_specs_remove(payload: Dict[str, Any] = Body(...)):
-    product = payload.get("product", "galaxy-z-fold7")
+    product = payload.get("product", "galaxy-z-fold8")
     if qb_core._v2_managed(product):
         raise HTTPException(409, qb_core._V2_EDIT_BLOCKED)
     idx = payload.get("index")
@@ -327,8 +332,8 @@ def qb_sites_template():
     import io
     wb = Workbook(); ws = wb.active; ws.title = "URLs"
     ws.append(_URL_COLS)
-    ws.append(["sg", "https://www.samsung.com/sg/smartphones/galaxy-z-fold7/compare/",
-               "APAC", "Singapore", "en-SG", "galaxy-z-fold7", "Compare"])  # 예시 1행
+    ws.append(["sg", "https://www.samsung.com/sg/smartphones/galaxy-z-fold8/compare/",
+               "APAC", "Singapore", "en-SG", "galaxy-z-fold8", "Compare"])  # 예시 1행
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=qubi_url_template.xlsx"})
@@ -365,7 +370,7 @@ def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
         sc = g("sitecode") or qb_core._sitecode_from_url(url)
         try:
             _registry.add(sc, url, region=g("region"), country=g("country"),
-                          lang=g("lang"), product=g("product") or "galaxy-z-fold7",
+                          lang=g("lang"), product=g("product") or "galaxy-z-fold8",
                           page_type=g("page_type") or "PDP")
             added += 1
         except ValueError:
