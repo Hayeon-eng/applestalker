@@ -280,7 +280,7 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             if not _label_hit(_norm_loose(p["label"]), aliases):
                 continue
             owner = _pair_owner(p, target_tokens, prev_tokens) if p.get("product_hint") else \
-                svm.attribute_block(svm.normalize_text(p["label"] + " " + p["value"]), prev_tokens)
+                svm.attribute_block(svm.normalize_text(p["label"] + " " + p["value"]), prev_tokens, target_tokens)
             if owner == "skip":
                 continue
             v_norm = svm.normalize_text(p["value"])
@@ -450,7 +450,8 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             # 해상도류('NNNN x NNNN') 오답 탐지 — 라벨 동반 시에만 FAIL
             if re.search(r"\d\s*x\s*\d", svm.normalize_text(rule["expected"])):
                 conflict = svm.find_resolution_conflict(blocks, accepted_str, prev_models,
-                                                        label_in_block=label_in_block)
+                                                        label_in_block=label_in_block,
+                                                        target_tokens=target_tokens)
                 if conflict:
                     item.update(status="fail", found=conflict["block"][:120], confidence="high",
                                 message=(f"오기재 — 정답 '{rule['expected']}'이 아닌 "
@@ -478,7 +479,7 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             wrong = None
             if unit:
                 for h in svm.scan_unit_hits(blocks, unit, unit_synonyms):
-                    owner = svm.attribute_block(h["block_norm"], prev_tokens)
+                    owner = svm.attribute_block(h["block_norm"], prev_tokens, target_tokens)
                     if owner:
                         continue
                     if h["value"] not in unit_union.get(unit, set()):

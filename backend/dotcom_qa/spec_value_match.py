@@ -267,11 +267,22 @@ def model_tokens(prev_models: List[Dict[str, Any]]) -> List[Tuple[str, str]]:
     return toks
 
 
-def attribute_block(block_norm: str, tokens: List[Tuple[str, str]]) -> Optional[str]:
-    """블록에 전작 모델 토큰이 있으면 해당 모델키 반환 (없으면 None = 검수 대상 제품)."""
+def attribute_block(block_norm: str, tokens: List[Tuple[str, str]],
+                     target_tokens: Optional[List[str]] = None) -> Optional[str]:
+    """블록에 전작 모델 토큰이 있으면 해당 모델키 반환 (없으면 None = 검수 대상 제품).
+
+    [2026-07 FIX — 이름 포함 관계 오귀속] 'Galaxy Watch Ultra2'처럼 대상 제품명이
+    전작명('Galaxy Watch Ultra')을 부분 문자열로 포함하면, 대상 제품 자신을 언급한
+    블록도 전작 토큰에 매칭돼 '전작 문구'로 오귀속됐다(_pair_owner의 Compare 컬럼
+    귀속과 동일한 문제). target_tokens를 함께 받아 대상/전작 양쪽에서 '가장 긴
+    매칭 토큰'을 찾아 더 구체적인(긴) 쪽으로 귀속한다."""
+    best_target = max((len(t) for t in (target_tokens or []) if t and t in block_norm), default=0)
+    best_prev, best_prev_model = 0, None
     for tok, model in tokens:
-        if tok in block_norm:
-            return model
+        if tok and tok in block_norm and len(tok) > best_prev:
+            best_prev, best_prev_model = len(tok), model
+    if best_target or best_prev:
+        return None if best_target >= best_prev else best_prev_model
     return None
 
 
@@ -338,7 +349,7 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
         if h.get("delta"):
             detail.append(f"델타 표기 {h['text']} ('+/-' 증감량) — 스펙 주장이 아니므로 판정 제외")
             continue
-        owner = attribute_block(h["block_norm"], toks)
+        owner = attribute_block(h["block_norm"], toks, target_tokens)
         if owner:  # ── 전작 소속 숫자 ──
             pv = prev_accepted_for(prev_models, owner, unit)
             if pv is None:
@@ -467,7 +478,8 @@ def find_exact(blocks: List[str], expected_variants: List[str]) -> Optional[str]
 
 def find_resolution_conflict(blocks: List[str], expected_variants: List[str],
                              prev_models: List[Dict[str, Any]],
-                             label_in_block=None) -> Optional[Dict[str, str]]:
+                             label_in_block=None,
+                             target_tokens: Optional[List[str]] = None) -> Optional[Dict[str, str]]:
     """'NNNN x NNNN' 패턴 중 정답 집합·전작 정답에 없는 것이 라벨과 함께 있으면 충돌.
     (해상도류 exact 룰의 오답 탐지 — 라벨 미동반이면 다른 제품/맥락일 수 있어 보류)"""
     evs = {normalize_text(e) for e in expected_variants}
@@ -486,7 +498,7 @@ def find_resolution_conflict(blocks: List[str], expected_variants: List[str],
             token = re.sub(r"\s*x\s*", " x ", m.group(0))
             if any(token == re.sub(r"\s*x\s*", " x ", e) for e in evs):
                 continue
-            owner = attribute_block(nb, toks)
+            owner = attribute_block(nb, toks, target_tokens)
             if owner and token in prev_ok:
                 continue
             if label_in_block and label_in_block(block) and not owner:

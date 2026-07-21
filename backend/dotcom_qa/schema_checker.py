@@ -125,8 +125,17 @@ def _types_of(node: Dict[str, Any]) -> List[str]:
     return out
 
 
-def _id_regex(id_pattern: str) -> re.Pattern:
-    """@id 패턴({SITECODE}/[SITECODE] 포함)을 와일드카드 정규식으로."""
+def _id_regex(id_pattern: str, sitecode: Optional[str] = None) -> re.Pattern:
+    """@id 패턴({SITECODE}/[SITECODE] 포함)을 와일드카드 정규식으로.
+
+    [2026-07 예외] CN은 다른 국가와 달리 URL에 국가 경로 세그먼트가 없고 도메인 자체가
+    다르다 — 타 사이트: samsung.com/{SITECODE}/smartphones/... / CN: samsung.com.cn/smartphones/...
+    (경로에 /cn/ 세그먼트가 끼지 않음). 그대로 두면 'samsung.com/' 뒤에 슬래시가 오는 걸
+    전제한 패턴이 CN 도메인과 영영 매칭되지 않아 @id가 늘 불일치로 잡혔다. sitecode가 'cn'이면
+    'samsung.com/{SITECODE}' 부분만 'samsung.com.cn'으로 바꿔 이 한 사이트만 예외 처리한다."""
+    if sitecode == "cn":
+        id_pattern = re.sub(r"samsung\.com/\{SITECODE\}", "samsung.com.cn", id_pattern)
+        id_pattern = id_pattern.replace("samsung.com/[SITECODE]", "samsung.com.cn")
     esc = re.escape(id_pattern)
     esc = esc.replace(re.escape("{SITECODE}"), r"[^/]+").replace(re.escape("[SITECODE]"), r"[^/]+")
     return re.compile("^" + esc + "$")
@@ -232,7 +241,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         types = block["types"]
         id_pat = block.get("id_pattern")
         conditional = block.get("conditional")
-        rx = _id_regex(id_pat) if id_pat else None
+        rx = _id_regex(id_pat, sitecode) if id_pat else None
 
         # 블록에 해당하는 노드 찾기: @type 교집합 + (@id 패턴 일치 시 가점)
         cand = [n for n in nodes if set(_types_of(n)) & set(types)]
@@ -371,7 +380,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         if block.get("haspart_ids"):
             present = set(_collect_ids(node.get("hasPart")))
             for want in block["haspart_ids"]:
-                wrx = _id_regex(want)
+                wrx = _id_regex(want, sitecode)
                 if not any(wrx.match(pid) for pid in present):
                     f["haspart_missing"].append(_slug(want))
 

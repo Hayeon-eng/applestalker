@@ -70,13 +70,30 @@ def render(code: str, lang: str, f: Dict[str, Any]) -> Dict[str, str]:
                   "missing_comma": "쉼표 누락", "trailing_comma": "후행 쉼표",
                   "unbalanced": "괄호 불균형", "unescaped": "이스케이프 오류",
                   "syntax": "문법 오류"}.get(cat, "문법 오류")
+        # [2026-07 FIX] hint는 schema_checker.py에서 항상 한국어로 채워지는 원본 필드라,
+        # 엑셀(lang=en)에서도 그대로 새어 나갔다 — 엑셀은 카테고리별 영문 문구를 별도로 렌더.
+        cat_en = {"smart_quote": "smart quotes", "invisible_char": "invisible character",
+                  "missing_comma": "missing comma", "trailing_comma": "trailing comma",
+                  "unbalanced": "unbalanced brackets/quotes", "unescaped": "unescaped character",
+                  "syntax": "syntax error"}.get(cat, "syntax error")
+        hint_en = {"smart_quote": "Smart quotes (\u201c \u201d \u2018 \u2019) found in the value "
+                                   "— replace with straight quotes (\").",
+                   "invisible_char": "Invisible characters (NBSP / zero-width space / BOM) found "
+                                      "— remove them.",
+                   "missing_comma": "A comma (,) is missing — check the delimiter between items.",
+                   "trailing_comma": "An extra comma after the last item — remove it.",
+                   "unbalanced": "Bracket or quote count does not match — check the closing "
+                                  "brackets/quotes.",
+                   "unescaped": "An unescaped quote or special character was found.",
+                   "syntax": "JSON syntax error — check the structure."}.get(
+            cat, "JSON syntax error — check the structure.")
         loc = (f"{ln}행 {col}열" if ln else "위치 미상"); loc_en = (f"line {ln}, col {col}" if ln else "unknown position")
         snip = (f" · 문제 줄: {line}" if line else ""); snip_en = (f" · offending line: {line}" if line else "")
         tag = "[Google Rich Result 기준]"
         return {
             "as_is": (f"{tag} JSON-LD {cat_ko} — {loc}에서 {msg}{snip}" if ko
-                      else f"[Google Rich Result] JSON-LD {cat} — {msg} at {loc_en}{snip_en}"),
-            "to_be": (hint or ("해당 줄 문법 수정 — 후행 콤마·따옴표·중괄호 확인" if ko else "Fix syntax — commas/quotes/braces")),
+                      else f"[Google Rich Result] JSON-LD {cat_en} — {msg} at {loc_en}{snip_en}"),
+            "to_be": ((hint or "해당 줄 문법 수정 — 후행 콤마·따옴표·중괄호 확인") if ko else hint_en),
         }
 
     if code == "schema.na":
