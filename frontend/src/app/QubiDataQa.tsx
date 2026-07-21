@@ -133,6 +133,10 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
     { key: "Meta Description", status: descStatus, ok: descStatus !== "fail", val: sig.meta_description, note: sig.meta_description ? `${descLen}자` : "누락", where: "<head> → meta[name=description]" },
     { key: "H1", status: h1n === 1 ? "pass" : "fail" as const, ok: h1n === 1, val: (sig.h1_list || []).join(" / "), note: `${h1n}개`, where: "본문 <h1>" },
     { key: "H2", status: (sig.h2_list || []).length > 0 ? "pass" : "fail" as const, ok: (sig.h2_list || []).length > 0, val: `${(sig.h2_list || []).length}개`, note: `${(sig.h2_list || []).length}개`, where: "본문 <h2>" },
+    // [신규] H3/H4 — H1/H2 아래 순차 노출(표시 전용, PASS/FAIL 판정 없음: H3/H4는 없어도 정상인 페이지가
+    // 많아 H1/H2와 같은 기준으로 ❌ 오류 처리하면 오탐이 된다 — 개수만 참고용으로 보여준다)
+    { key: "H3", status: "pass" as const, ok: true, val: `${(sig.h3_list || []).length}개`, note: `${(sig.h3_list || []).length}개`, where: "본문 <h3>" },
+    { key: "H4", status: "pass" as const, ok: true, val: `${(sig.h4_list || []).length}개`, note: `${(sig.h4_list || []).length}개`, where: "본문 <h4>" },
   ];
 
   return (
@@ -169,8 +173,13 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
             <Fragment key={i.key}>
               <span style={{ color: "var(--sec)" }}>{i.status === "pass" ? "✅" : i.status === "warn" ? "🟡" : "❌"} {i.key}</span>
               <span>
-                {i.key === "H2"
-                  ? ((sig.h2_list || []).length ? (sig.h2_list || []).map((t: string, k: number) => <span key={k} style={{ display: "inline-block", background: "#F2F4F7", padding: "1px 6px", borderRadius: 5, margin: "1px 4px 1px 0", fontSize: 10.5 }}>{t}</span>) : <i style={{ color: "#B42318" }}>누락</i>)
+                {i.key === "H2" || i.key === "H3" || i.key === "H4"
+                  ? (() => {
+                      const list = i.key === "H2" ? (sig.h2_list || []) : i.key === "H3" ? (sig.h3_list || []) : (sig.h4_list || []);
+                      return list.length
+                        ? list.map((t: string, k: number) => <span key={k} style={{ display: "inline-block", background: "#F2F4F7", padding: "1px 6px", borderRadius: 5, margin: "1px 4px 1px 0", fontSize: 10.5 }}>{t}</span>)
+                        : <i style={{ color: i.key === "H2" ? "#B42318" : "var(--sec)" }}>{i.key === "H2" ? "누락" : "없음"}</i>;
+                    })()
                   : (i.val ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word", fontSize: 11 }}>{i.val}</code> : <i style={{ color: "#B42318" }}>누락</i>)}
               </span>
             </Fragment>

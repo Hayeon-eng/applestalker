@@ -469,14 +469,13 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             {products.filter((p) => !p.spec_only).map((p) => {
               const shown = product === p.code;          // 파란 테두리 = 지금 화면에 보이는 제품
               const inCrawl = selectedProducts.has(p.code); // ✓ = 크롤 대상에 포함
-              // [2026-07 신규] 이 제품이 launch_status상 미출시인 국가가 하나라도 있으면 배지 표시.
-              const lKey = launchKeyForProduct(p.code);
-              const hasUnlaunched = lKey ? Object.values(launchStatus).some((v) => v?.[lKey] === "미출시") : false;
+              // [2026-07] '미출시 있음' 배지는 제품 필터에서 제거 — 좌측 URL 대상(① 리전별 검수 크롤)
+              // 아래 '미출시 사이트' 드로어로 이동(QubiRunPanel). 여기서는 순수 제품 선택만.
               return <button key={p.code} onClick={() => {
                 setProduct(p.code);  // 화면·검수기준표를 이 제품으로
                 setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? (n.size > 1 && n.delete(p.code)) : n.add(p.code); return n; });
-              }} style={{ ...sel(p.code, inCrawl), ...(shown ? { boxShadow: "0 0 0 2px #0A66E0 inset" } : {}) }} title={hasUnlaunched ? "일부 국가 미출시" : undefined}>
-                {inCrawl ? "✓ " : ""}{p.label}{hasUnlaunched ? <span style={{ marginLeft: 4, fontSize: 10, color: "#B54708" }}>미출시 있음</span> : null}
+              }} style={{ ...sel(p.code, inCrawl), ...(shown ? { boxShadow: "0 0 0 2px #0A66E0 inset" } : {}) }}>
+                {inCrawl ? "✓ " : ""}{p.label}
               </button>;
             })}
             <span style={{ fontSize: 12.5, color: "var(--sec)", marginLeft: 10 }}>페이지타입:</span>

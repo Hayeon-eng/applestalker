@@ -15,6 +15,9 @@ export function QubiRunPanel(props: any) {
       .map((r: any) => r.sitecode)
       .filter(Boolean)
   ));
+  // [2026-07 신규] '미출시 있음' 배지를 제품 필터에서 이 드로어로 이동 — 현재 선택된 제품(product) 기준
+  // 미출시 사이트만 모아 좌측 URL 대상(사이트 개별 선택) 바로 아래 접힌 상태로 노출.
+  const unlaunchedSites: any[] = (allSites || []).filter((s: any) => isUnlaunched?.(s.sitecode));
   return (
           <div className="card" style={{ marginTop: 12, padding: 14 }}>
             <b style={{ fontSize: 14 }}>① 리전별 검수 크롤</b>
@@ -50,6 +53,23 @@ export function QubiRunPanel(props: any) {
                 })}
               </div>
             </details>
+
+            {/* [2026-07 신규] 미출시 사이트 — 좌측 URL 대상(사이트 개별 선택) 바로 아래, 기본은 접힌 상태.
+                제품 필터 배지 대신 여기서 한 곳에 모아 확인. */}
+            {unlaunchedSites.length > 0 && (
+              <details style={{ marginBottom: 8 }}>
+                <summary style={{ fontSize: 11.5, color: "#B54708", cursor: "pointer" }}>
+                  🚫 미출시 사이트 ({unlaunchedSites.length}개)
+                </summary>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
+                  {unlaunchedSites.map((s, i) => (
+                    <span key={s.sitecode + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px solid #FEDF89", background: "#FFFAEB", borderRadius: 6, padding: "3px 8px" }}>
+                      {s.sitecode}<span style={{ color: "var(--sec)" }}>{s.region}</span>
+                    </span>
+                  ))}
+                </div>
+              </details>
+            )}
 
             {/* [2026-07 재정렬] 기본 동작은 다시 Data+Spec 동시 검수 — 누르면 확인 팝업.
                 과제3(탭별 독립 실행)은 필요할 때만 쓰는 보조 버튼으로 내림. */}
