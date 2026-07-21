@@ -2,837 +2,1558 @@
   "product_key": "multi",
   "note": "s26-ultra/s26 PDP+Compare + Buds4/Buds4 Pro PDP. s26/s26+는 galaxy-s26 단일페이지. Buds는 compare 없음.",
   "part": 3,
-  "of": 5,
-  "count_in_part": 92,
-  "count_total": 367,
+  "of": 4,
+  "count_in_part": 172,
+  "count_total": 610,
   "sites": [
     {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/smartphones/galaxy-z-fold7/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/smartphones/galaxy-z-fold7/compare/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/smartphones/galaxy-z-fold7/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/smartphones/galaxy-z-fold7/compare/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/smartphones/galaxy-z-fold7/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/smartphones/galaxy-z-fold7/compare/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/smartphones/galaxy-z-fold7/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/smartphones/galaxy-z-fold7/compare/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/smartphones/galaxy-z-fold7/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/smartphones/galaxy-z-fold7/compare/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
       "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/smartphones/galaxy-z-fold7/",
+      "url": "https://www.samsung.com/pt/smartphones/galaxy-z-fold8/",
       "region": "EHQ",
       "country": "Portugal",
       "lang": "pt-PT",
-      "product": "galaxy-z-fold7",
+      "product": "galaxy-z-fold8",
       "page_type": "PDP"
     },
     {
       "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/smartphones/galaxy-z-fold7/compare/",
+      "url": "https://www.samsung.com/pt/smartphones/galaxy-z-fold8/compare/",
       "region": "EHQ",
       "country": "Portugal",
       "lang": "pt-PT",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "bg",
-      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-fold7/",
-      "region": "EHQ",
-      "country": "Bulgaria",
-      "lang": "bg-BG",
-      "product": "galaxy-z-fold7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "bg",
-      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-fold7/compare/",
-      "region": "EHQ",
-      "country": "Bulgaria",
-      "lang": "bg-BG",
-      "product": "galaxy-z-fold7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/smartphones/galaxy-z-flip7/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ar",
-      "url": "https://www.samsung.com/ar/smartphones/galaxy-z-flip7/compare/",
-      "region": "NALA",
-      "country": "Argentina",
-      "lang": "es-AR",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/smartphones/galaxy-z-flip7/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "py",
-      "url": "https://www.samsung.com/py/smartphones/galaxy-z-flip7/compare/",
-      "region": "NALA",
-      "country": "Paraguay",
-      "lang": "es-PY",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/smartphones/galaxy-z-flip7/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uy",
-      "url": "https://www.samsung.com/uy/smartphones/galaxy-z-flip7/compare/",
-      "region": "NALA",
-      "country": "Uruguay",
-      "lang": "es-UY",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/smartphones/galaxy-z-flip7/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "cl",
-      "url": "https://www.samsung.com/cl/smartphones/galaxy-z-flip7/compare/",
-      "region": "NALA",
-      "country": "Chile",
-      "lang": "es-CL",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/smartphones/galaxy-z-flip7/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "pe",
-      "url": "https://www.samsung.com/pe/smartphones/galaxy-z-flip7/compare/",
-      "region": "NALA",
-      "country": "Peru",
-      "lang": "es-PE",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "uk",
-      "url": "https://www.samsung.com/uk/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "U.K",
-      "lang": "en-GB",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "ie",
-      "url": "https://www.samsung.com/ie/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Ireland",
-      "lang": "en-IE",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "it",
-      "url": "https://www.samsung.com/it/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Italy",
-      "lang": "it-IT",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "es",
-      "url": "https://www.samsung.com/es/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Spain",
-      "lang": "es-ES",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "hu",
-      "url": "https://www.samsung.com/hu/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Hungary",
-      "lang": "hu-HU",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "de",
-      "url": "https://www.samsung.com/de/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Germany",
-      "lang": "de-DE",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "se",
-      "url": "https://www.samsung.com/se/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Sweden",
-      "lang": "sv-SE",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "dk",
-      "url": "https://www.samsung.com/dk/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Denmark",
-      "lang": "da-DK",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fi",
-      "url": "https://www.samsung.com/fi/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Finland",
-      "lang": "fi-FI",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "no",
-      "url": "https://www.samsung.com/no/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "Norway",
-      "lang": "no-NO",
-      "product": "galaxy-z-flip7",
-      "page_type": "Compare"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/smartphones/galaxy-z-flip7/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-z-flip7",
-      "page_type": "PDP"
-    },
-    {
-      "sitecode": "fr",
-      "url": "https://www.samsung.com/fr/smartphones/galaxy-z-flip7/compare/",
-      "region": "EHQ",
-      "country": "France",
-      "lang": "fr-FR",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-fold8",
       "page_type": "Compare"
     },
     {
       "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/smartphones/galaxy-z-flip7/",
+      "url": "https://www.samsung.com/pt/smartphones/galaxy-z-flip8/",
       "region": "EHQ",
       "country": "Portugal",
       "lang": "pt-PT",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-flip8",
       "page_type": "PDP"
     },
     {
       "sitecode": "pt",
-      "url": "https://www.samsung.com/pt/smartphones/galaxy-z-flip7/compare/",
+      "url": "https://www.samsung.com/pt/smartphones/galaxy-z-flip8/compare/",
       "region": "EHQ",
       "country": "Portugal",
       "lang": "pt-PT",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-flip8",
       "page_type": "Compare"
     },
     {
-      "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-flip7/",
+      "sitecode": "pt",
+      "url": "https://www.samsung.com/pt/watches/galaxy-watch/galaxy-watch-ultra2/",
       "region": "EHQ",
-      "country": "Poland",
-      "lang": "pl-PL",
-      "product": "galaxy-z-flip7",
+      "country": "Portugal",
+      "lang": "pt-PT",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "pt",
+      "url": "https://www.samsung.com/pt/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Portugal",
+      "lang": "pt-PT",
+      "product": "galaxy-watch9",
       "page_type": "PDP"
     },
     {
       "sitecode": "pl",
-      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-flip7/compare/",
+      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-fold8-ultra/",
       "region": "EHQ",
       "country": "Poland",
       "lang": "pl-PL",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "pl",
+      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Poland",
+      "lang": "pl-PL",
+      "product": "galaxy-z-fold8-ultra",
       "page_type": "Compare"
     },
     {
-      "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-flip7/",
+      "sitecode": "pl",
+      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-fold8/",
       "region": "EHQ",
-      "country": "Greece",
-      "lang": "el-GR",
-      "product": "galaxy-z-flip7",
+      "country": "Poland",
+      "lang": "pl-PL",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "pl",
+      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Poland",
+      "lang": "pl-PL",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "pl",
+      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Poland",
+      "lang": "pl-PL",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "pl",
+      "url": "https://www.samsung.com/pl/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Poland",
+      "lang": "pl-PL",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "pl",
+      "url": "https://www.samsung.com/pl/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Poland",
+      "lang": "pl-PL",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "pl",
+      "url": "https://www.samsung.com/pl/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Poland",
+      "lang": "pl-PL",
+      "product": "galaxy-watch9",
       "page_type": "PDP"
     },
     {
       "sitecode": "gr",
-      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-flip7/compare/",
+      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-fold8-ultra/",
       "region": "EHQ",
       "country": "Greece",
       "lang": "el-GR",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "gr",
+      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Greece",
+      "lang": "el-GR",
+      "product": "galaxy-z-fold8-ultra",
       "page_type": "Compare"
     },
     {
-      "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-flip7/",
+      "sitecode": "gr",
+      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-fold8/",
       "region": "EHQ",
-      "country": "Czech",
-      "lang": "cs-CZ",
-      "product": "galaxy-z-flip7",
+      "country": "Greece",
+      "lang": "el-GR",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "gr",
+      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Greece",
+      "lang": "el-GR",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "gr",
+      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Greece",
+      "lang": "el-GR",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "gr",
+      "url": "https://www.samsung.com/gr/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Greece",
+      "lang": "el-GR",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "gr",
+      "url": "https://www.samsung.com/gr/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Greece",
+      "lang": "el-GR",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "gr",
+      "url": "https://www.samsung.com/gr/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Greece",
+      "lang": "el-GR",
+      "product": "galaxy-watch9",
       "page_type": "PDP"
     },
     {
       "sitecode": "cz",
-      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-flip7/compare/",
+      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-fold8-ultra/",
       "region": "EHQ",
       "country": "Czech",
       "lang": "cs-CZ",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "cz",
+      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Czech",
+      "lang": "cs-CZ",
+      "product": "galaxy-z-fold8-ultra",
       "page_type": "Compare"
     },
     {
-      "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-flip7/",
+      "sitecode": "cz",
+      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-fold8/",
       "region": "EHQ",
-      "country": "Slovakia",
-      "lang": "sk-SK",
-      "product": "galaxy-z-flip7",
+      "country": "Czech",
+      "lang": "cs-CZ",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "cz",
+      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Czech",
+      "lang": "cs-CZ",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "cz",
+      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Czech",
+      "lang": "cs-CZ",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "cz",
+      "url": "https://www.samsung.com/cz/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Czech",
+      "lang": "cs-CZ",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "cz",
+      "url": "https://www.samsung.com/cz/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Czech",
+      "lang": "cs-CZ",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "cz",
+      "url": "https://www.samsung.com/cz/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Czech",
+      "lang": "cs-CZ",
+      "product": "galaxy-watch9",
       "page_type": "PDP"
     },
     {
       "sitecode": "sk",
-      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-flip7/compare/",
+      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-fold8-ultra/",
       "region": "EHQ",
       "country": "Slovakia",
       "lang": "sk-SK",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "sk",
+      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Slovakia",
+      "lang": "sk-SK",
+      "product": "galaxy-z-fold8-ultra",
       "page_type": "Compare"
     },
     {
-      "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-flip7/",
+      "sitecode": "sk",
+      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-fold8/",
       "region": "EHQ",
-      "country": "Romania",
-      "lang": "ro-RO",
-      "product": "galaxy-z-flip7",
+      "country": "Slovakia",
+      "lang": "sk-SK",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "sk",
+      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Slovakia",
+      "lang": "sk-SK",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "sk",
+      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Slovakia",
+      "lang": "sk-SK",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "sk",
+      "url": "https://www.samsung.com/sk/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Slovakia",
+      "lang": "sk-SK",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "sk",
+      "url": "https://www.samsung.com/sk/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Slovakia",
+      "lang": "sk-SK",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "sk",
+      "url": "https://www.samsung.com/sk/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Slovakia",
+      "lang": "sk-SK",
+      "product": "galaxy-watch9",
       "page_type": "PDP"
     },
     {
       "sitecode": "ro",
-      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-flip7/compare/",
+      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-fold8-ultra/",
       "region": "EHQ",
       "country": "Romania",
       "lang": "ro-RO",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ro",
+      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Romania",
+      "lang": "ro-RO",
+      "product": "galaxy-z-fold8-ultra",
       "page_type": "Compare"
     },
     {
-      "sitecode": "bg",
-      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-flip7/",
+      "sitecode": "ro",
+      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-fold8/",
       "region": "EHQ",
-      "country": "Bulgaria",
-      "lang": "bg-BG",
-      "product": "galaxy-z-flip7",
+      "country": "Romania",
+      "lang": "ro-RO",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ro",
+      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Romania",
+      "lang": "ro-RO",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ro",
+      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Romania",
+      "lang": "ro-RO",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ro",
+      "url": "https://www.samsung.com/ro/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Romania",
+      "lang": "ro-RO",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ro",
+      "url": "https://www.samsung.com/ro/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Romania",
+      "lang": "ro-RO",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ro",
+      "url": "https://www.samsung.com/ro/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Romania",
+      "lang": "ro-RO",
+      "product": "galaxy-watch9",
       "page_type": "PDP"
     },
     {
       "sitecode": "bg",
-      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-flip7/compare/",
+      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-fold8-ultra/",
       "region": "EHQ",
       "country": "Bulgaria",
       "lang": "bg-BG",
-      "product": "galaxy-z-flip7",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "bg",
+      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Bulgaria",
+      "lang": "bg-BG",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "bg",
+      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Bulgaria",
+      "lang": "bg-BG",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "bg",
+      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Bulgaria",
+      "lang": "bg-BG",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "bg",
+      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Bulgaria",
+      "lang": "bg-BG",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "bg",
+      "url": "https://www.samsung.com/bg/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Bulgaria",
+      "lang": "bg-BG",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "bg",
+      "url": "https://www.samsung.com/bg/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Bulgaria",
+      "lang": "bg-BG",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "bg",
+      "url": "https://www.samsung.com/bg/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Bulgaria",
+      "lang": "bg-BG",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "at",
+      "url": "https://www.samsung.com/at/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Austria",
+      "lang": "de-AT",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch",
+      "url": "https://www.samsung.com/ch/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "de-CH",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ch_fr",
+      "url": "https://www.samsung.com/ch_fr/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Switzerland",
+      "lang": "fr-CH",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be",
+      "url": "https://www.samsung.com/be/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "nl-BE",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "be_fr",
+      "url": "https://www.samsung.com/be_fr/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Belgium",
+      "lang": "fr-BE",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "nl",
+      "url": "https://www.samsung.com/nl/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Netherlands",
+      "lang": "nl-NL",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lv",
+      "url": "https://www.samsung.com/lv/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Latvia",
+      "lang": "lv-LV",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "lt",
+      "url": "https://www.samsung.com/lt/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Lithuania",
+      "lang": "lt-LT",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ee",
+      "url": "https://www.samsung.com/ee/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Estonia",
+      "lang": "et-EE",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "rs",
+      "url": "https://www.samsung.com/rs/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Serbia",
+      "lang": "sr-RS",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "hr",
+      "url": "https://www.samsung.com/hr/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Croatia",
+      "lang": "hr-HR",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "si",
+      "url": "https://www.samsung.com/si/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Slovenia",
+      "lang": "sl-SI",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "mk",
+      "url": "https://www.samsung.com/mk/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Macedonia",
+      "lang": "mk-MK",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-z-flip8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/watches/galaxy-watch/galaxy-watch-ultra2/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-watch-ultra2",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "al",
+      "url": "https://www.samsung.com/al/watches/galaxy-watch/galaxy-watch9/",
+      "region": "EHQ",
+      "country": "Albania",
+      "lang": "sq-AL",
+      "product": "galaxy-watch9",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ba",
+      "url": "https://www.samsung.com/ba/smartphones/galaxy-z-fold8-ultra/",
+      "region": "EHQ",
+      "country": "Bosnia",
+      "lang": "bs-BA",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ba",
+      "url": "https://www.samsung.com/ba/smartphones/galaxy-z-fold8-ultra/compare/",
+      "region": "EHQ",
+      "country": "Bosnia",
+      "lang": "bs-BA",
+      "product": "galaxy-z-fold8-ultra",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ba",
+      "url": "https://www.samsung.com/ba/smartphones/galaxy-z-fold8/",
+      "region": "EHQ",
+      "country": "Bosnia",
+      "lang": "bs-BA",
+      "product": "galaxy-z-fold8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ba",
+      "url": "https://www.samsung.com/ba/smartphones/galaxy-z-fold8/compare/",
+      "region": "EHQ",
+      "country": "Bosnia",
+      "lang": "bs-BA",
+      "product": "galaxy-z-fold8",
+      "page_type": "Compare"
+    },
+    {
+      "sitecode": "ba",
+      "url": "https://www.samsung.com/ba/smartphones/galaxy-z-flip8/",
+      "region": "EHQ",
+      "country": "Bosnia",
+      "lang": "bs-BA",
+      "product": "galaxy-z-flip8",
+      "page_type": "PDP"
+    },
+    {
+      "sitecode": "ba",
+      "url": "https://www.samsung.com/ba/smartphones/galaxy-z-flip8/compare/",
+      "region": "EHQ",
+      "country": "Bosnia",
+      "lang": "bs-BA",
+      "product": "galaxy-z-flip8",
       "page_type": "Compare"
     }
-  ]
+  ],
+  "count": 172
 }
