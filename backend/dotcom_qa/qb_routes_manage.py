@@ -99,6 +99,7 @@ def qb_products():
             # 슬러그 → 사람이 읽는 제품명. 새 계열이 나오면 여기 한 줄이면 된다.
             KNOWN = {
                 "galaxy-watch9": "Galaxy Watch9",
+                "galaxy-watch-ultra": "Galaxy Watch Ultra",
                 "galaxy-watch-ultra2": "Galaxy Watch Ultra2",
                 "galaxy-z-fold8-ultra": "Galaxy Z Fold8 Ultra",
             }

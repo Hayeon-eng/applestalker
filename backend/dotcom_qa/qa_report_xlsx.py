@@ -99,6 +99,7 @@ def build_xlsx(page_results):
     # qb_routes_manage._v2_label()과 동일한 규칙(최소 버전)을 여기서도 그대로 씀.
     _PRODUCT_KNOWN = {
         "galaxy-watch9": "Galaxy Watch9",
+        "galaxy-watch-ultra": "Galaxy Watch Ultra",
         "galaxy-watch-ultra2": "Galaxy Watch Ultra2",
         "galaxy-z-fold8-ultra": "Galaxy Z Fold8 Ultra",
     }
