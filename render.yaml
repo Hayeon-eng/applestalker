@@ -16,6 +16,9 @@ services:
       - { key: USE_PLAYWRIGHT, value: "true" }
       - { key: ENABLE_SCREENSHOT, value: "true" }
       - { key: KEEP_SNAPSHOTS, value: "5" }
+      # [속도 튜닝 — 한 단계씩 상향, collection failed 건수 모니터링하며 조절]
+      - { key: QB_RUN_CONCURRENCY, value: "8" }       # 기본 6 → 8
+      - { key: QB_BROWSER_CONCURRENCY, value: "2" }   # 기본 1 → 2 (512MB 메모리 주의)
       - { key: EMAIL_REPORT_ENABLED, value: "true" }
       - { key: SMTP_SERVER, value: smtp.naver.com }
       - { key: SMTP_PORT, value: "587" }
