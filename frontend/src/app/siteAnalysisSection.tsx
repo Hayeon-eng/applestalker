@@ -95,6 +95,14 @@ function WireframePanel({ page }: { page: PageDetail }) {
         {h2.slice(0, 5).map((x, i) => <div key={i} className="wfBlock"><b>{x}</b><small>H2 section</small></div>)}
         {h2.length === 0 && <div className="wfBlock"><b>H2 없음</b><small>section 구조 점검</small></div>}
       </div>
+      {h3.length > 0 && (
+        <details style={{ marginTop: 6 }}>
+          <summary style={{ fontSize: 11.5, color: "var(--sec)", cursor: "pointer" }}>H3 {h3.length}개 보기</summary>
+          <div className="wfMiniGrid" style={{ marginTop: 6 }}>
+            {h3.map((x, i) => <div key={i} className="wfBlock"><b>{x}</b><small>H3</small></div>)}
+          </div>
+        </details>
+      )}
       <div className="wfPills">
         {ctas.slice(0, 6).map((x, i) => <span key={i}>{x?.text || "CTA"}</span>)}
         {ctas.length === 0 && <span>CTA 없음</span>}

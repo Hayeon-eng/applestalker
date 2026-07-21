@@ -43,16 +43,29 @@ export function QubiRunPanel(props: any) {
               </div>
             </details>
 
-            {/* [2026-07 과제3] 현재 탭의 QA 축만 독립 실행 — Data QA 탭이면 스키마·검색노출만,
-                Spec QA 탭이면 스펙 정확성만 크롤·검수해 상대 축의 무거운 작업을 건너뛴다. */}
-            <button onClick={() => runByRegion(tab === "schema" ? "data" : "spec")} disabled={busy}
-                    style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-              {busy ? "붕붕 검수 중…" : `${tab === "schema" ? "Data QA" : "Spec QA"} 실행 · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`}
+            {/* [2026-07 재정렬] 기본 동작은 다시 Data+Spec 동시 검수 — 누르면 확인 팝업.
+                과제3(탭별 독립 실행)은 필요할 때만 쓰는 보조 버튼으로 내림. */}
+            <button
+              onClick={() => {
+                if (window.confirm(`Data QA + Spec QA 검수를 시작할까요? · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`)) {
+                  runByRegion("all");
+                }
+              }}
+              disabled={busy}
+              style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+              {busy ? "붕붕 검수 중…" : `검수 실행 · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`}
             </button>
-            <button onClick={() => runByRegion("all")} disabled={busy}
-                    title="Data QA + Spec QA 를 한 번에 검수(기존 방식)"
-                    style={{ padding: "8px 12px", marginLeft: 8, borderRadius: 8, border: "1px solid var(--line)", background: "#fff", color: "var(--sec)", fontWeight: 600, cursor: "pointer" }}>
-              전체(Data+Spec)
+            <button
+              onClick={() => {
+                const label = tab === "schema" ? "Data QA" : "Spec QA";
+                if (window.confirm(`${label}만 따로 검수를 시작할까요? (상대 축은 건너뜁니다)`)) {
+                  runByRegion(tab === "schema" ? "data" : "spec");
+                }
+              }}
+              disabled={busy}
+              title="현재 탭(Data 또는 Spec)만 독립 실행 — 상대 축의 무거운 작업을 건너뜀"
+              style={{ padding: "8px 12px", marginLeft: 8, borderRadius: 8, border: "1px solid var(--line)", background: "#fff", color: "var(--sec)", fontWeight: 600, cursor: "pointer" }}>
+              {tab === "schema" ? "Data QA만" : "Spec QA만"}
             </button>
             {selectedSites.size === 0 && selectedRegions.size === 0 && pageCount > 0 && !busy && (
               <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>사이트당 여러 페이지(PDP·Compare·Buds 등) — 총 {pageCount}개 페이지 검수</span>
