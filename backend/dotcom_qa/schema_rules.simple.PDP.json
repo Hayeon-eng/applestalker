@@ -155,7 +155,8 @@
         "offers"
       ],
       "optional_properties": [
-        "aggregateRating"
+        "aggregateRating",
+        "additionalProperty"
       ],
       "property_notes": {},
       "haspart_ids": [],
@@ -241,7 +242,7 @@
           }
         },
         "additionalProperty": {
-          "type": "required",
+          "type": "optional",
           "format": "array",
           "nested": {
             "@type": {
