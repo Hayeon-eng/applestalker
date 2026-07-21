@@ -207,18 +207,14 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   //   각각 상대 축의 무거운 작업을 건너뛰어 크롤 시간을 줄인다(기본 all=하위호환).
   const runByRegion = async (mode: "all" | "data" | "spec" = "all") => {
     if (busy) return;
-    const codes = targetCodes;
-    if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); return; }
-    // [2026-07 과제3] 실수로 큰 범위(예: 전체 91개)를 바로 돌리는 것을 막기 위한 확인 팝업.
-    // 취소하면 아무 상태도 건드리지 않고 그대로 반환한다.
-    const modeLabel = mode === "data" ? "Data QA" : mode === "spec" ? "Spec QA" : "Data QA + Spec QA";
-    const scopeLabel = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
-    if (!window.confirm(`${scopeLabel} · ${modeLabel} 검수를 시작할까요?\n\n대상 페이지 ${codes.length}개 — 진행 중에는 다른 검수를 동시에 실행할 수 없어요.`)) return;
-
     setBusy(true); setErr(""); setResults([]); setRunId(null);
     runStartRef.current = Date.now();
     setQaMode(mode);
-    const label = modeLabel === "Data QA + Spec QA" ? scopeLabel : `${scopeLabel} · ${modeLabel}`;
+    const codes = targetCodes;
+    if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); setBusy(false); return; }
+    const modeLabel = mode === "data" ? "Data QA" : mode === "spec" ? "Spec QA" : "";
+    const baseLabel = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
+    const label = modeLabel ? `${baseLabel} · ${modeLabel}` : baseLabel;
     setProgress({ active: true, done: 0, total: codes.length, label });
     try {
       const r = await fetch(api("/api/qb/run"), J({
@@ -509,8 +505,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <div className="card" style={{ marginTop: 18, padding: 16, background: "#FFFAEB", border: "1px solid #FEDF89" }}>
               <b style={{ fontSize: 13.5, color: "#93540A" }}>이 제품은 아직 스펙 검수 기준(Rule DB)이 등록되지 않았어요</b>
               <p style={{ fontSize: 12, color: "#93540A", margin: "6px 0 0", lineHeight: 1.6 }}>
-                <b>{product}</b>의 Rule DB가 준비되면 정상 판정(오류/확인/정상)이 활성화됩니다. 그 전까지는 아래에 페이지에서 읽힌 <b>현재값을 판정 없이 참고용</b>으로 보여드려요.
-                Rule DB는 스펙 탭의 <b>Rule DB 엑셀 업로드</b>로 등록하거나, 담당자에게 시드 등록을 요청하세요. (스키마 검수는 Data QA 탭에서 정상 이용 가능)
+                <b>{product}</b>의 Rule DB가 준비되면 스펙 검수가 활성화됩니다. 스펙 탭의 <b>Rule DB 엑셀 업로드</b>로 등록하거나, 담당자에게 시드 등록을 요청하세요. (스키마 검수는 Data QA 탭에서 정상 이용 가능)
               </p>
             </div>
           )}
