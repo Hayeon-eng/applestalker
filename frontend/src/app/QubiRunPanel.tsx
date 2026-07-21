@@ -6,7 +6,15 @@ import { HONEY, sel } from "./qubiShared";
    참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음).
    과제3(Data/Spec 독립 실행 버튼)도 이 컴포넌트 안에 포함된다. */
 export function QubiRunPanel(props: any) {
-  const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes, isUnlaunched } = props;
+  const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes, isUnlaunched, results } = props;
+  // [2026-07 신규] 방금 크롤에서 "(collection failed)" 진단이 붙은 페이지들의 sitecode만 모음
+  // — 차단/타임아웃 등으로 수집 자체가 실패한 경우만 대상, QA 판정상의 fail(스펙/스키마 불일치)은 제외.
+  const failedSitecodes: string[] = Array.from(new Set(
+    (results || [])
+      .filter((r: any) => (r.schema?.findings || []).some((f: any) => f.block === "(collection failed)"))
+      .map((r: any) => r.sitecode)
+      .filter(Boolean)
+  ));
   return (
           <div className="card" style={{ marginTop: 12, padding: 14 }}>
             <b style={{ fontSize: 14 }}>① 리전별 검수 크롤</b>
@@ -75,6 +83,22 @@ export function QubiRunPanel(props: any) {
                 ⏱ 예상 소요시간 약 {fmtEta(estimate.estimatedSeconds)}
                 {estimate.sampleRuns > 0 ? ` (최근 ${estimate.sampleRuns}회 이력 기준)` : " (이력 없음 — 참고용 기본치)"}
               </span>
+            )}
+            {!busy && failedSitecodes.length > 0 && (
+              <div style={{ marginTop: 10, padding: "8px 10px", background: "#FEF3F2", border: "1px solid #FDA29B", borderRadius: 8 }}>
+                <span style={{ fontSize: 12, color: "#B42318" }}>❗ 수집 실패 {failedSitecodes.length}개 사이트: {failedSitecodes.slice(0, 8).join(", ")}{failedSitecodes.length > 8 ? ` 외 ${failedSitecodes.length - 8}개` : ""}</span>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`수집 실패한 ${failedSitecodes.length}개 사이트만 재시도할까요? (동시성 낮춰서 재시도하는 걸 권장 — QB_BROWSER_CONCURRENCY 값 확인)`)) {
+                      setSelectedRegions(new Set());
+                      setSelectedSites(new Set(failedSitecodes));
+                      runByRegion("all", failedSitecodes);
+                    }
+                  }}
+                  style={{ marginLeft: 10, padding: "4px 10px", borderRadius: 6, border: "1px solid #B42318", background: "#fff", color: "#B42318", fontWeight: 600, fontSize: 11.5, cursor: "pointer" }}>
+                  🔄 실패한 사이트만 재시도
+                </button>
+              </div>
             )}
             {progress.active && (
               <div style={{ marginTop: 10 }}>

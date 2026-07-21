@@ -1,11 +1,10 @@
 "use client";
-import { inputStyle, PAGE_TYPES } from "./qubiShared";
 
 /* QubiSidebar — QubiApp에서 분리된 좌측 사이드바(URL 관리·검수 이력).
    [2026-07 분할] QubiApp.tsx 46KB 제한 대응. JSX 본문은 원본 그대로이며,
    참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음). */
 export function QubiSidebar(props: any) {
-  const { onHome, online, newUrl, setNewUrl, newUrlProduct, setNewUrlProduct, newUrlPageType, setNewUrlPageType, products, addUrl, downloadTemplate, uploadTemplate, xlsxFileRef, sitesOpen, setSitesOpen, entries, removeUrl, history, openHistory, removeHistory } = props;
+  const { onHome, online, downloadTemplate, uploadTemplate, xlsxFileRef, sitesOpen, setSitesOpen, entries, removeUrl, history, openHistory, removeHistory } = props;
   return (
       <aside className="sidebar">
         <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🐝 큐비</div>
@@ -14,20 +13,7 @@ export function QubiSidebar(props: any) {
 
         <div className="sideScroll">
           <div className="sideLabel">URL 관리</div>
-          <div style={{ padding: "0 10px", marginBottom: 6 }}>
-            <input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://www.samsung.com/…/compare/" style={{ ...inputStyle, width: "100%" }} />
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <select value={newUrlProduct} onChange={(e) => setNewUrlProduct(e.target.value)} style={{ ...inputStyle, flex: 1, fontSize: 11.5 }}>
-                {products.map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
-              </select>
-              <select value={newUrlPageType} onChange={(e) => setNewUrlPageType(e.target.value)} style={{ ...inputStyle, width: 90, fontSize: 11.5 }}>
-                {PAGE_TYPES.map((pt) => <option key={pt} value={pt}>{pt}</option>)}
-              </select>
-            </div>
-            {/* [2026-07] 이제 같은 나라 코드(sitecode)로 여러 제품·페이지타입을 각각 추가할 수 있다 —
-                예전엔 여기서 제품/페이지타입 지정 없이 추가하면 그 나라의 기존 행을 조용히 덮어썼다. */}
-            <button onClick={addUrl} style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: "#0A66E0", background: "none", border: "none", cursor: "pointer" }}>＋ URL 추가</button>
-          </div>
+          {/* [2026-07] 개별 URL 추가 UI 제거 — site_registry.part*.json 갱신으로 일원화 */}
           <div style={{ padding: "0 10px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button onClick={downloadTemplate} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 8px" }}>⬇ URL 템플릿</button>
             <button onClick={() => xlsxFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 8px" }}>⬆ 템플릿 업로드</button>

@@ -76,9 +76,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const runStartRef = useRef<number>(0); // runByRegion 시작 시각(ms) — 진행 중 남은시간 추정용
 
   const [sitesOpen, setSitesOpen] = useState(false);
-  const [newUrl, setNewUrl] = useState("");
-  const [newUrlProduct, setNewUrlProduct] = useState("galaxy-z-fold8");
-  const [newUrlPageType, setNewUrlPageType] = useState("PDP");
   const xlsxFileRef = useRef<HTMLInputElement>(null);
 
   // 스펙 관리
@@ -205,15 +202,18 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   // [2026-07 과제3] Data QA / Spec QA 독립 실행. mode ∈ {"all","data","spec"}.
   //   "data" = Data QA 탭(스키마·검색노출)만, "spec" = Spec QA 탭(스펙 정확성)만 크롤·검수.
   //   각각 상대 축의 무거운 작업을 건너뛰어 크롤 시간을 줄인다(기본 all=하위호환).
-  const runByRegion = async (mode: "all" | "data" | "spec" = "all") => {
+  // [2026-07 신규] overrideCodes: "실패한 사이트만 재시도" 버튼용. setSelectedSites() 직후 바로
+  // runByRegion을 호출하면 targetCodes(useMemo)가 아직 리렌더 전 값이라 예전 선택 상태로 나갈
+  // 위험이 있어, 재시도 시엔 계산된 sitecode 목록을 state 갱신과 무관하게 직접 넘긴다.
+  const runByRegion = async (mode: "all" | "data" | "spec" = "all", overrideCodes?: string[]) => {
     if (busy) return;
     setBusy(true); setErr(""); setResults([]); setRunId(null);
     runStartRef.current = Date.now();
     setQaMode(mode);
-    const codes = targetCodes;
+    const codes = overrideCodes && overrideCodes.length ? overrideCodes : targetCodes;
     if (codes.length === 0) { setErr("검수할 사이트를 하나 이상 선택하세요."); setBusy(false); return; }
     const modeLabel = mode === "data" ? "Data QA" : mode === "spec" ? "Spec QA" : "";
-    const baseLabel = selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체");
+    const baseLabel = overrideCodes ? `재시도 ${codes.length}개` : (selectedSites.size ? `사이트 ${codes.length}개` : (selectedRegions.size ? Array.from(selectedRegions).join(", ") : "전체"));
     const label = modeLabel ? `${baseLabel} · ${modeLabel}` : baseLabel;
     setProgress({ active: true, done: 0, total: codes.length, label });
     try {
@@ -298,7 +298,6 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   };
 
   // ── URL 관리 ──
-  const addUrl = async () => { if (!newUrl.trim()) return; await fetch(api("/api/qb/sites/add"), J({ url: newUrl.trim(), product: newUrlProduct, page_type: newUrlPageType })); setNewUrl(""); loadSites(); flash("URL 추가"); };
   const removeUrl = async (sc: string, url: string) => { await fetch(api("/api/qb/sites/remove"), J({ sitecode: sc, url })); loadSites(); };
   const downloadTemplate = () => downloadBlob("/api/qb/sites/template.xlsx", null, "qubi_url_template.xlsx");
   const uploadTemplate = async (file: File) => {
@@ -430,7 +429,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   return (
     <div className="appShell">
       {/* ── 사이드바 ── */}
-      <QubiSidebar onHome={onHome} online={online} newUrl={newUrl} setNewUrl={setNewUrl} newUrlProduct={newUrlProduct} setNewUrlProduct={setNewUrlProduct} newUrlPageType={newUrlPageType} setNewUrlPageType={setNewUrlPageType} products={products} addUrl={addUrl} downloadTemplate={downloadTemplate} uploadTemplate={uploadTemplate} xlsxFileRef={xlsxFileRef} sitesOpen={sitesOpen} setSitesOpen={setSitesOpen} entries={entries} removeUrl={removeUrl} history={history} openHistory={openHistory} removeHistory={removeHistory} />
+      <QubiSidebar onHome={onHome} online={online} downloadTemplate={downloadTemplate} uploadTemplate={uploadTemplate} xlsxFileRef={xlsxFileRef} sitesOpen={sitesOpen} setSitesOpen={setSitesOpen} entries={entries} removeUrl={removeUrl} history={history} openHistory={openHistory} removeHistory={removeHistory} />
 
       {/* ── 메인 ── */}
       <div className="mainArea">
@@ -494,7 +493,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {err && <div style={{ background: "#FEF3F2", color: "#B42318", padding: 10, borderRadius: 8, fontSize: 13, margin: "8px 0", fontWeight: 600 }}>{err}</div>}
 
           {/* ① 리전별 검수 크롤 (91사이트) — 먼저 노출 */}
-          <QubiRunPanel allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} isUnlaunched={isUnlaunched} />
+          <QubiRunPanel allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} isUnlaunched={isUnlaunched} results={results} />
 
           {/* 스펙 탭은 V2(Rule DB) 전용. V2 제품이면 Rule DB 뷰어+기준+점수, 비V2(seed 미등록)면 준비중 안내.
               스키마 탭에서는 구 CriteriaPanel/ScorePanel이 동작. */}
