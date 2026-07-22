@@ -125,12 +125,22 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     if (p === "galaxy-watch-ultra2") return "watch_ultra2";
     return null;
   };
-  const isUnlaunched = (sitecode: string): boolean => {
-    const key = launchKeyForProduct(product);
-    if (!key) return false;
-    const v = launchStatus[sitecode]?.[key];
-    return v === "미출시";
+  // [2026-07 신규] 사이트 하나가 '이번 크롤 대상에서 제외돼야 하는지' 판단.
+  // 기준: 화면에 보이는 제품(product) 하나가 아니라 실제 크롤에 포함된 제품들(selectedProducts) —
+  // 그 제품들이 전부 이 사이트에서 미출시일 때만 제외한다.
+  // - 추적 대상 아닌 제품(S26, Buds 등 launchKeyForProduct==null)은 출시로 간주 → 제외 근거가 되지 않음.
+  // - 선택된 제품이 하나도 없으면(엣지 케이스) 제외하지 않음.
+  const isUnlaunchedForProducts = (sitecode: string, products: Set<string>): boolean => {
+    if (products.size === 0) return false;
+    return Array.from(products).every((p) => {
+      const key = launchKeyForProduct(p);
+      if (!key) return false;
+      return launchStatus[sitecode]?.[key] === "미출시";
+    });
   };
+  // 사이트 개별 선택 리스트의 '미출시' 태그·미출시 사이트 드로어에서 사용 — 지금 크롤에 포함된
+  // 제품 조합 기준으로 통일(뷰에 보이는 product 하나만 보던 이전 버전보다 실제 크롤 대상과 일치).
+  const isUnlaunched = (sitecode: string): boolean => isUnlaunchedForProducts(sitecode, selectedProducts);
   async function loadCatalog() { try { setCatalog((await (await fetch(api("/api/qb/spec-catalog"))).json()).catalog || []); } catch { /* */ } }
   async function loadProducts() {
     try {
@@ -162,10 +172,11 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   // '나눠서' 진행된다. 프론트는 SSE로 진행률만 구독하다가 done 이벤트에서 결과를 받아온다.
   // → 91개를 한 요청에 다 물지 않으므로 'Failed to fetch'(게이트웨이 타임아웃)가 사라진다.
   const targetCodes = useMemo(() => {
-    if (selectedSites.size > 0) return Array.from(selectedSites);
-    if (selectedRegions.size > 0) return allSites.filter((s) => selectedRegions.has(s.region || "")).map((s) => s.sitecode);
-    return allSites.map((s) => s.sitecode); // 아무것도 안 고르면 전체
-  }, [selectedSites, selectedRegions, allSites]);
+    if (selectedSites.size > 0) return Array.from(selectedSites); // 수동으로 콕 집은 사이트는 그대로 존중(필터 안 함)
+    const base = selectedRegions.size > 0 ? allSites.filter((s) => selectedRegions.has(s.region || "")) : allSites; // 아무것도 안 고르면 전체
+    // [2026-07 신규] 선택된 제품이 전부 미출시인 사이트는 크롤 대상·카운트에서 제외
+    return base.filter((s) => !isUnlaunchedForProducts(s.sitecode, selectedProducts)).map((s) => s.sitecode);
+  }, [selectedSites, selectedRegions, allSites, selectedProducts, launchStatus]);
 
   // [2026-07 신규] 선택(사이트/제품/페이지타입) 바뀔 때마다 예상 소요시간 조회(디바운스).
   // 실제 이력 기반 페이지당 평균초 × 대상 페이지수 — /run 실행 전 미리 보여줌.
@@ -492,7 +503,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {err && <div style={{ background: "#FEF3F2", color: "#B42318", padding: 10, borderRadius: 8, fontSize: 13, margin: "8px 0", fontWeight: 600 }}>{err}</div>}
 
           {/* ① 리전별 검수 크롤 (91사이트) — 먼저 노출 */}
-          <QubiRunPanel allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} isUnlaunched={isUnlaunched} results={results} />
+          <QubiRunPanel allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} isUnlaunched={isUnlaunched} launchStatus={launchStatus} results={results} />
 
           {/* 스펙 탭은 V2(Rule DB) 전용. V2 제품이면 Rule DB 뷰어+기준+점수, 비V2(seed 미등록)면 준비중 안내.
               스키마 탭에서는 구 CriteriaPanel/ScorePanel이 동작. */}

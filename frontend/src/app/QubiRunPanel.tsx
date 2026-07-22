@@ -6,7 +6,7 @@ import { HONEY, sel } from "./qubiShared";
    참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음).
    과제3(Data/Spec 독립 실행 버튼)도 이 컴포넌트 안에 포함된다. */
 export function QubiRunPanel(props: any) {
-  const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes, isUnlaunched, results } = props;
+  const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes, isUnlaunched, launchStatus, results } = props;
   // [2026-07 신규] 방금 크롤에서 "(collection failed)" 진단이 붙은 페이지들의 sitecode만 모음
   // — 차단/타임아웃 등으로 수집 자체가 실패한 경우만 대상, QA 판정상의 fail(스펙/스키마 불일치)은 제외.
   const failedSitecodes: string[] = Array.from(new Set(
@@ -18,6 +18,11 @@ export function QubiRunPanel(props: any) {
   // [2026-07 신규] '미출시 있음' 배지를 제품 필터에서 이 드로어로 이동 — 현재 선택된 제품(product) 기준
   // 미출시 사이트만 모아 좌측 URL 대상(사이트 개별 선택) 바로 아래 접힌 상태로 노출.
   const unlaunchedSites: any[] = (allSites || []).filter((s: any) => isUnlaunched?.(s.sitecode));
+  // [2026-07 신규] launch_status(출시관리 표)엔 이름이 있지만 실제 크롤 URL이 하나도 등록 안 된 나라들.
+  // URL을 임의로 지어내지 않기로 했으므로 크롤 대상엔 못 넣지만, "미출시로 관리는 되고 있다"는 사실은
+  // 이 드로어에 같이 보여준다 — 실제 사이트와 헷갈리지 않게 별도 그룹(URL 미등록)으로 구분.
+  const registeredCodes = new Set((allSites || []).map((s: any) => s.sitecode));
+  const unregisteredLaunchCodes: string[] = Object.keys(launchStatus || {}).filter((c) => !registeredCodes.has(c)).sort();
   return (
           <div className="card" style={{ marginTop: 12, padding: 14 }}>
             <b style={{ fontSize: 14 }}>① 리전별 검수 크롤</b>
@@ -56,18 +61,34 @@ export function QubiRunPanel(props: any) {
 
             {/* [2026-07 신규] 미출시 사이트 — 좌측 URL 대상(사이트 개별 선택) 바로 아래, 기본은 접힌 상태.
                 제품 필터 배지 대신 여기서 한 곳에 모아 확인. */}
-            {unlaunchedSites.length > 0 && (
+            {(unlaunchedSites.length > 0 || unregisteredLaunchCodes.length > 0) && (
               <details style={{ marginBottom: 8 }}>
                 <summary style={{ fontSize: 11.5, color: "#B54708", cursor: "pointer" }}>
-                  🚫 미출시 사이트 ({unlaunchedSites.length}개)
+                  🚫 미출시 사이트 ({unlaunchedSites.length + unregisteredLaunchCodes.length}개)
                 </summary>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
-                  {unlaunchedSites.map((s, i) => (
-                    <span key={s.sitecode + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px solid #FEDF89", background: "#FFFAEB", borderRadius: 6, padding: "3px 8px" }}>
-                      {s.sitecode}<span style={{ color: "var(--sec)" }}>{s.region}</span>
-                    </span>
-                  ))}
-                </div>
+                {unlaunchedSites.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
+                    {unlaunchedSites.map((s, i) => (
+                      <span key={s.sitecode + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px solid #FEDF89", background: "#FFFAEB", borderRadius: 6, padding: "3px 8px" }}>
+                        {s.sitecode}<span style={{ color: "var(--sec)" }}>{s.region}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {unregisteredLaunchCodes.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 10.5, color: "var(--sec)", marginTop: unlaunchedSites.length > 0 ? 8 : 8 }}>
+                      URL 미등록 — 출시관리 표엔 있지만 크롤 대상 URL이 없어 검수엔 포함되지 않음
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, maxHeight: 180, overflowY: "auto" }}>
+                      {unregisteredLaunchCodes.map((c) => (
+                        <span key={c} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px dashed #D0D5DD", background: "#F9FAFB", color: "var(--sec)", borderRadius: 6, padding: "3px 8px" }}>
+                          {c}<span style={{ fontSize: 10 }}>URL 미등록</span>
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
               </details>
             )}
 
