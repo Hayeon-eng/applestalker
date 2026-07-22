@@ -1,0 +1,721 @@
+{
+  "product": "galaxy-watch9",
+  "version": "seed-phase2",
+  "rules": [
+    {
+      "rule_id": "DEVICE_001",
+      "category": "Device",
+      "attribute": "Product Name",
+      "expected": "Galaxy Watch9",
+      "unit": "",
+      "validation": "exact",
+      "priority": "Critical",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "제품명 'Galaxy Watch9'",
+      "notes": "Phase2 식별(url_list)"
+    },
+    {
+      "rule_id": "DEVICE_002",
+      "category": "Device",
+      "attribute": "Model Code",
+      "expected": "SM-L340",
+      "unit": "",
+      "validation": "prefix",
+      "priority": "Critical",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "모델코드 'SM-L340' 접두어",
+      "notes": "Phase2 식별(url_list)"
+    },
+    {
+      "rule_id": "BODY_001",
+      "category": "Body",
+      "attribute": "Case Size",
+      "expected": "40 / 44",
+      "unit": "mm",
+      "validation": "option_match",
+      "priority": "High",
+      "page": "Buy Box",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Case Size 정답값 '40 / 44 mm'",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "BODY_002",
+      "category": "Body",
+      "attribute": "Case Material",
+      "expected": "Aluminum",
+      "unit": "",
+      "validation": "exact",
+      "priority": "Medium",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Case Material 정답값 'Aluminum '",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "BODY_003",
+      "category": "Body",
+      "attribute": "Colors",
+      "expected": "Cream / Graphite",
+      "unit": "",
+      "validation": "option_match",
+      "priority": "High",
+      "page": "Buy Box",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Colors 정답값 'Cream / Graphite '",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "PROCESSOR_001",
+      "category": "Processor",
+      "attribute": "Processor",
+      "expected": "3 nm Processor, 5 Core",
+      "unit": "",
+      "validation": "exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Processor 정답값 '3 nm Processor, 5 Core '",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "CONNECT_001",
+      "category": "Connectivity",
+      "attribute": "Connectivity",
+      "expected": "Bluetooth / Bluetooth + LTE",
+      "unit": "",
+      "validation": "option_match",
+      "priority": "Medium",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Connectivity 정답값 'Bluetooth / Bluetooth + LTE '",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "CONNECT_002",
+      "category": "Connectivity",
+      "attribute": "GPS",
+      "expected": "L1+L5 Dual-Frequency GPS",
+      "unit": "",
+      "validation": "exact",
+      "priority": "Medium",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "GPS 정답값 'L1+L5 Dual-Frequency GPS '",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "MEMORY_001",
+      "category": "Memory",
+      "attribute": "RAM",
+      "expected": "2",
+      "unit": "GB",
+      "validation": "numeric_exact",
+      "priority": "Medium",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "RAM 정답값 '2 GB'",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "MEMORY_002",
+      "category": "Storage",
+      "attribute": "Storage",
+      "expected": "32",
+      "unit": "GB",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Storage 정답값 '32 GB'",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "DISPLAY_001",
+      "category": "Display",
+      "attribute": "Peak Brightness",
+      "expected": "3000",
+      "unit": "nits",
+      "validation": "numeric_exact",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Peak Brightness 정답값 '3000 nits'",
+      "notes": "Phase3 카피덱 근거(F9/V2 Compare 시트, 260702~260709)"
+    },
+    {
+      "rule_id": "DURABILITY_001",
+      "category": "Durability",
+      "attribute": "Water Resistance",
+      "expected": "5 ATM + IP68",
+      "unit": "",
+      "validation": "exact",
+      "priority": "Critical",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Water Resistance 정답값 '5 ATM + IP68 '",
+      "notes": "Phase3 카피덱 근거 — MIL-STD-810H 인증 보유"
+    },
+    {
+      "rule_id": "BATTERY_001",
+      "category": "Battery",
+      "attribute": "Battery Capacity",
+      "expected": "390|445",
+      "unit": "mAh",
+      "validation": "numeric_exact",
+      "priority": "Critical",
+      "page": "Disclaimer",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Battery Capacity 정답값 '390|445 mAh'",
+      "notes": "Phase3 카피덱 근거 — 40mm=390mAh / 44mm=445mAh (케이스 사이즈별 상이)"
+    },
+    {
+      "rule_id": "BATTERY_002",
+      "category": "Battery",
+      "attribute": "Battery Usage Time",
+      "expected": "30",
+      "unit": "hours",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Battery Usage Time 정답값 '30 hours'",
+      "notes": "Phase3 카피덱 근거 — 'Up to 30 hrs (AOD On)' 조건부 수치"
+    }
+  ],
+  "dictionary": {
+    "Resolution": [
+      "解像度",
+      "해상도"
+    ],
+    "GPS": [
+      "デュアル周波数GPS",
+      "듀얼 주파수 GPS",
+      "GPS (L1+L5)"
+    ],
+    "NFC": [
+      "NFC対応",
+      "NFC 지원"
+    ],
+    "Durability Standard": [
+      "耐久規格",
+      "내구 규격",
+      "MIL規格",
+      "군사 표준"
+    ],
+    "Case Material": [
+      "ケース素材",
+      "케이스 소재",
+      "本体素材"
+    ],
+    "Glass Type": [
+      "ガラスタイプ",
+      "글래스 종류",
+      "保護ガラス"
+    ],
+    "Dimensions": [
+      "サイズ(縦x横x厚さ)",
+      "크기(가로x세로x두께)",
+      "本体サイズ"
+    ],
+    "BioActive Sensor": [
+      "バイオアクティブセンサー",
+      "바이오액티브 센서"
+    ],
+    "Case Size": [
+      "ケースサイズ",
+      "케이스 사이즈",
+      "ウォッチサイズ"
+    ],
+    "In The Box": [
+      "同梱物",
+      "구성품",
+      "박스 구성"
+    ],
+    "RAM": [
+      "Memory",
+      "Memory (RAM)",
+      "RAM Size",
+      "메모리",
+      "램",
+      "メモリ",
+      "RAM容量",
+      "内存",
+      "運行內存",
+      "記憶體",
+      "Arbeitsspeicher",
+      "Mémoire",
+      "Mémoire vive",
+      "Memoria RAM",
+      "Memória RAM",
+      "Geheugen",
+      "Pamięć RAM",
+      "Operační paměť",
+      "Bellek",
+      "Оперативная память",
+      "Оперативна пам'ять",
+      "ذاكرة الوصول العشوائي",
+      "الذاكرة العشوائية",
+      "หน่วยความจำ",
+      "Bộ nhớ RAM",
+      "Memori"
+    ],
+    "Storage": [
+      "Internal Storage",
+      "Internal Memory",
+      "Storage Option",
+      "Storage Options",
+      "ROM",
+      "저장 용량",
+      "저장공간",
+      "내장 메모리",
+      "ストレージ",
+      "内蔵ストレージ",
+      "存储",
+      "存储容量",
+      "儲存空間",
+      "內置存儲",
+      "Speicher",
+      "Interner Speicher",
+      "Speicherplatz",
+      "Stockage",
+      "Mémoire de stockage",
+      "Almacenamiento",
+      "Memoria interna",
+      "Archiviazione",
+      "Armazenamento",
+      "Memória interna",
+      "Opslag",
+      "Opslagruimte",
+      "Pamięć wewnętrzna",
+      "Vnitřní paměť",
+      "Depolama",
+      "Dahili Depolama",
+      "Встроенная память",
+      "Память",
+      "Вбудована пам'ять",
+      "التخزين",
+      "سعة التخزين",
+      "الذاكرة الداخلية",
+      "ที่เก็บข้อมูล",
+      "หน่วยความจำภายใน",
+      "Bộ nhớ trong",
+      "Penyimpanan",
+      "Memori internal"
+    ],
+    "Water Resistance": [
+      "Durability",
+      "방수/방진",
+      "내수성",
+      "耐水性",
+      "防水",
+      "耐水",
+      "IP 등급",
+      "耐水規格"
+    ],
+    "Battery Capacity": [
+      "Battery",
+      "배터리 용량",
+      "電池容量",
+      "バッテリー容量",
+      "电池容量"
+    ],
+    "Battery Usage Time": [
+      "Usage Time",
+      "사용 시간",
+      "使用時間",
+      "사용시간",
+      "使用可能时间"
+    ],
+    "Colors": [
+      "Color",
+      "색상",
+      "カラー",
+      "颜色"
+    ],
+    "Processor": [
+      "AP",
+      "프로세서",
+      "칩셋",
+      "プロセッサ",
+      "处理器"
+    ],
+    "Connectivity": [
+      "연결성",
+      "接続性",
+      "连接性"
+    ]
+  },
+  "exceptions": [
+    {
+      "rule": "BATTERY",
+      "description": "Typical and Rated battery capacities are different attributes — never compared to each other"
+    },
+    {
+      "rule": "DISCLAIMER",
+      "description": "Promotion/offer/banner sections are excluded from spec validation"
+    },
+    {
+      "rule": "SIZE_VARIANT",
+      "description": "40mm/44mm(Watch8), 47mm(Watch Ultra) size variants have different Display/Battery/Weight/Dimensions values — base rules reference the primary/default size shown on PDP load; size-specific overrides should be added via country_exceptions or a dedicated variant rule as the team scales this out"
+    }
+  ],
+  "interactions": [
+    {
+      "section": "Buy Box",
+      "action": "Iterate color/size variants"
+    },
+    {
+      "section": "Disclaimer",
+      "action": "Expand footnotes for battery typical/rated values"
+    }
+  ],
+  "country_exceptions": [],
+  "candidates": [],
+  "unit_synonyms": {},
+  "previous_models": [
+    {
+      "model": "Galaxy Watch8",
+      "aliases": [
+        "Galaxy Watch8",
+        "Galaxy Watch 8",
+        "Watch8",
+        "Watch 8",
+        "갤럭시 워치8",
+        "워치8",
+        "Galaxy Watch8 40mm",
+        "Galaxy Watch8 44mm"
+      ],
+      "seed_source": "Phase1 시드(구모델 spec_rules.seed) 이관 — 2026-07 마이그레이션 시 보존",
+      "specs": [
+        {
+          "attribute": "Main Display Size",
+          "values": [
+            "1.47"
+          ],
+          "unit": "inch"
+        },
+        {
+          "attribute": "Resolution",
+          "values": [
+            "480 x 480"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "3000"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "Processor",
+          "values": [
+            "Exynos W1000"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "RAM",
+          "values": [
+            "2"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Storage",
+          "values": [
+            "32"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Typical Battery Capacity",
+          "values": [
+            "325",
+            "435"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Bluetooth Version",
+          "values": [
+            "5.3"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Wi-Fi",
+          "values": [
+            "2.4GHz, 5GHz"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Water Resistance",
+          "values": [
+            "5ATM+IP68"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Case Material",
+          "values": [
+            "Armor Aluminum"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Glass Type",
+          "values": [
+            "Sapphire Crystal"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "30",
+            "34"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Dimensions",
+          "values": [
+            "40.4 x 42.7 x 8.6",
+            "43.7 x 46.0 x 8.6"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Colors",
+          "values": [
+            "Graphite",
+            "Silver"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Case Size",
+          "values": [
+            "40mm",
+            "44mm"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Battery Usage Time",
+          "values": [
+            "30"
+          ],
+          "unit": "hours"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Watch7",
+      "aliases": [
+        "Watch7",
+        "Watch 7",
+        "갤럭시 워치7",
+        "워치7"
+      ],
+      "specs": [
+        {
+          "attribute": "Typical Battery Capacity",
+          "values": [
+            "300",
+            "425"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "2000"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "Storage",
+          "values": [
+            "32"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "RAM",
+          "values": [
+            "2"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Battery Usage Time",
+          "values": [
+            "30"
+          ],
+          "unit": "hours"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Watch6",
+      "aliases": [
+        "Watch6",
+        "Watch 6",
+        "갤럭시 워치6",
+        "워치6"
+      ],
+      "specs": [
+        {
+          "attribute": "Typical Battery Capacity",
+          "values": [
+            "300",
+            "425"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "2000"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "Storage",
+          "values": [
+            "16"
+          ],
+          "unit": "GB"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Watch6 Classic",
+      "aliases": [
+        "Watch6 Classic",
+        "갤럭시 워치6 클래식"
+      ],
+      "specs": [
+        {
+          "attribute": "Typical Battery Capacity",
+          "values": [
+            "300",
+            "425"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "2000"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "Storage",
+          "values": [
+            "16"
+          ],
+          "unit": "GB"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Watch5 Pro",
+      "aliases": [
+        "Watch5 Pro",
+        "갤럭시 워치5 프로"
+      ],
+      "specs": [
+        {
+          "attribute": "Typical Battery Capacity",
+          "values": [
+            "590"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "1000"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "RAM",
+          "values": [
+            "1.5"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Storage",
+          "values": [
+            "16"
+          ],
+          "unit": "GB"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Watch8 Classic",
+      "aliases": [
+        "Watch8 Classic",
+        "갤럭시 워치8 클래식"
+      ],
+      "specs": [
+        {
+          "attribute": "Typical Battery Capacity",
+          "values": [
+            "445"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "3000"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "Storage",
+          "values": [
+            "64"
+          ],
+          "unit": "GB"
+        }
+      ]
+    }
+  ],
+  "product_aliases": [
+    "Galaxy Watch9",
+    "Galaxy Watch 9",
+    "Watch9",
+    "갤럭시 워치9",
+    "워치9",
+    "Galaxy Watch9"
+  ],
+  "_note": "Phase2 신제품 시드. 식별(Product Name/Model Code)+핵심 스펙(카피덱 Compare Spec chart 근거)+dictionary+aliases. 카피덱 Key Specs 외 추가 스펙은 필요시 보강. | 2026-07-20: previous_models에 구모델 데이터 이관 완료. 단, Watch9/WatchUltra2 자체 스펙 확장(Rule DB)은 Watch 카피덱 업로드 후 진행 예정 (현재는 Phase2 baseline 3개 규칙만 존재). | 2026-07-20 B과제 확장(Watch): F9/V2 Features Copydeck의 Compare 시트 근거로 14개 규칙으로 확장. Weight(무게)/정확한 칩셋 모델명/Wi-Fi 규격/Bluetooth 버전 숫자는 이번 카피덱에 값이 없어 미포함(수동 확인 필요)."
+}

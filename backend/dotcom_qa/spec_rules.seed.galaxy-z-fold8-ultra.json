@@ -1,0 +1,1677 @@
+{
+  "product": "galaxy-z-fold8-ultra",
+  "version": "seed-phase2",
+  "rules": [
+    {
+      "rule_id": "DEVICE_001",
+      "category": "Device",
+      "attribute": "Product Name",
+      "expected": "Galaxy Z Fold8 Ultra",
+      "unit": "",
+      "validation": "exact",
+      "priority": "Critical",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "제품명 'Galaxy Z Fold8 Ultra'",
+      "notes": "Phase2 식별(url_list)"
+    },
+    {
+      "rule_id": "DEVICE_002",
+      "category": "Device",
+      "attribute": "Model Code",
+      "expected": "SM-F976",
+      "unit": "",
+      "validation": "prefix",
+      "priority": "Critical",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "모델코드 'SM-F976' 접두어",
+      "notes": "Phase2 식별(url_list)"
+    },
+    {
+      "rule_id": "DISPLAY_001",
+      "category": "Display",
+      "attribute": "Main Display Size",
+      "expected": "8.0",
+      "unit": "inch",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Main Display Size 정답값 '8.0 inch'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DISPLAY_002",
+      "category": "Display",
+      "attribute": "Main Resolution",
+      "expected": "2504 x 2256",
+      "unit": "px",
+      "validation": "exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Main Resolution 정답값 '2504 x 2256 px'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DISPLAY_003",
+      "category": "Display",
+      "attribute": "Cover Display Size",
+      "expected": "6.5",
+      "unit": "inch",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Cover Display Size 정답값 '6.5 inch'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DISPLAY_004",
+      "category": "Display",
+      "attribute": "Cover Resolution",
+      "expected": "2520 x 1080",
+      "unit": "px",
+      "validation": "exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Cover Resolution 정답값 '2520 x 1080 px'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DISPLAY_005",
+      "category": "Display",
+      "attribute": "Refresh Rate",
+      "expected": "1~120 (Adaptive)",
+      "unit": "Hz",
+      "validation": "exact",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Refresh Rate 정답값 '1~120 (Adaptive) Hz'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DISPLAY_006",
+      "category": "Display",
+      "attribute": "Peak Brightness",
+      "expected": "3000",
+      "unit": "nits",
+      "validation": "numeric_exact",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Peak Brightness 정답값 '3000 nits'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "CPU_001",
+      "category": "Processor",
+      "attribute": "Processor",
+      "expected": "Snapdragon 8 Elite Gen 5 for Galaxy",
+      "unit": "",
+      "validation": "dictionary",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Processor 정답값 'Snapdragon 8 Elite Gen 5 for Galaxy '",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "MEMORY_001",
+      "category": "Memory",
+      "attribute": "RAM",
+      "expected": "12 / 16",
+      "unit": "GB",
+      "validation": "option_match",
+      "priority": "Critical",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "RAM 정답값 '12 / 16 GB'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "MEMORY_002",
+      "category": "Storage",
+      "attribute": "Storage Option",
+      "expected": "256 / 512 / 1TB",
+      "unit": "GB",
+      "validation": "option_match",
+      "priority": "Critical",
+      "page": "Buy Box",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Storage Option 정답값 '256 / 512 / 1TB GB'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "CAM_001",
+      "category": "Camera",
+      "attribute": "Wide Camera",
+      "expected": "200",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "priority": "Critical",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Wide Camera 정답값 '200 MP'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "CAM_001B",
+      "category": "Camera",
+      "attribute": "Ultra Wide Camera",
+      "expected": "50",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Ultra Wide Camera 정답값 '50 MP'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "CAM_001C",
+      "category": "Camera",
+      "attribute": "Telephoto Camera",
+      "expected": "10",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Telephoto Camera 정답값 '10 MP'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "CAM_002",
+      "category": "Camera",
+      "attribute": "Front Camera",
+      "expected": "10",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Front Camera 정답값 '10 MP'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "CAM_003",
+      "category": "Camera",
+      "attribute": "Cover Camera",
+      "expected": "10",
+      "unit": "MP",
+      "validation": "numeric_exact",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Cover Camera 정답값 '10 MP'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "CAM_004",
+      "category": "Camera",
+      "attribute": "Optical Zoom",
+      "expected": "3",
+      "unit": "x",
+      "validation": "numeric_exact",
+      "priority": "Low",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Optical Zoom 정답값 '3 x'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "BATTERY_001",
+      "category": "Battery",
+      "attribute": "Battery Capacity",
+      "expected": "5000|4854",
+      "unit": "mAh",
+      "validation": "numeric_exact",
+      "priority": "Critical",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Battery Capacity 정답값 '5000|4854 mAh'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "BATTERY_004",
+      "category": "Battery",
+      "attribute": "Video Playback",
+      "expected": "27",
+      "unit": "hours",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Video Playback 정답값 '27 hours'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DIM_001",
+      "category": "Dimension",
+      "attribute": "Weight",
+      "expected": "215",
+      "unit": "g",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Weight 정답값 '215 g'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DIM_002",
+      "category": "Dimension",
+      "attribute": "Thickness (Folded)",
+      "expected": "8.9",
+      "unit": "mm",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Thickness (Folded) 정답값 '8.9 mm'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DIM_003",
+      "category": "Dimension",
+      "attribute": "Thickness (Unfolded)",
+      "expected": "4.1",
+      "unit": "mm",
+      "validation": "numeric_exact",
+      "priority": "High",
+      "page": "PDP/Compare",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Thickness (Unfolded) 정답값 '4.1 mm'",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    },
+    {
+      "rule_id": "DUR_001",
+      "category": "Durability",
+      "attribute": "Water Resistance",
+      "expected": "IP48",
+      "unit": "",
+      "validation": "exact",
+      "priority": "Medium",
+      "page": "PDP",
+      "interaction": "",
+      "exception": "",
+      "fix_guide": "Water Resistance 정답값 'IP48 '",
+      "notes": "Phase2 카피덱 근거(Compare Spec chart, Q8H8B8_Compare_Copydeck_260624)"
+    }
+  ],
+  "dictionary": {
+    "Weight": [
+      "Device Weight",
+      "Weight (g)",
+      "무게",
+      "중량",
+      "重量",
+      "本体重量",
+      "重量 (g)",
+      "机身重量",
+      "Gewicht",
+      "Poids",
+      "Peso",
+      "Waga",
+      "Hmotnost",
+      "Súly",
+      "Greutate",
+      "Βάρος",
+      "Ağırlık",
+      "Вес",
+      "Вага",
+      "الوزن",
+      "משקל",
+      "น้ำหนัก",
+      "Trọng lượng",
+      "Berat",
+      "वज़न",
+      "वजन",
+      "Vikt",
+      "Vægt",
+      "Vekt",
+      "Paino"
+    ],
+    "Main Display Size": [
+      "Main Screen Size",
+      "Main Display",
+      "Main Screen",
+      "Screen Size",
+      "Display Size",
+      "메인 디스플레이 크기",
+      "메인 화면 크기",
+      "화면 크기",
+      "メインディスプレイサイズ",
+      "メイン画面サイズ",
+      "画面サイズ",
+      "主屏尺寸",
+      "主屏幕尺寸",
+      "螢幕尺寸",
+      "主螢幕尺寸",
+      "Hauptdisplay-Größe",
+      "Größe des Hauptdisplays",
+      "Displaygröße",
+      "Bildschirmgröße",
+      "Taille de l'écran principal",
+      "Taille de l'écran",
+      "Tamaño de pantalla principal",
+      "Tamaño de pantalla",
+      "Dimensioni schermo principale",
+      "Dimensioni display",
+      "Tamanho da tela principal",
+      "Tamanho do ecrã",
+      "Schermgrootte",
+      "Rozmiar ekranu głównego",
+      "Rozmiar wyświetlacza",
+      "Ana Ekran Boyutu",
+      "Ekran Boyutu",
+      "Размер основного экрана",
+      "Размер экрана",
+      "حجم الشاشة الرئيسية",
+      "حجم الشاشة",
+      "ขนาดหน้าจอหลัก",
+      "ขนาดหน้าจอ",
+      "Kích thước màn hình chính",
+      "Kích thước màn hình",
+      "Ukuran layar utama",
+      "Ukuran layar"
+    ],
+    "Cover Display Size": [
+      "Cover Screen Size",
+      "Cover Screen",
+      "Cover Display",
+      "FlexWindow",
+      "커버 디스플레이 크기",
+      "커버 화면",
+      "カバーディスプレイサイズ",
+      "カバー画面",
+      "外屏尺寸",
+      "封面螢幕尺寸",
+      "Cover-Display-Größe",
+      "Frontdisplay",
+      "Taille de l'écran extérieur",
+      "Écran extérieur",
+      "Pantalla frontal",
+      "Pantalla externa",
+      "Schermo esterno",
+      "Tela externa",
+      "Ecrã exterior",
+      "Dış Ekran",
+      "Внешний экран",
+      "الشاشة الخارجية",
+      "หน้าจอด้านนอก",
+      "Màn hình ngoài",
+      "Layar luar"
+    ],
+    "Resolution": [
+      "Main Resolution",
+      "Display Resolution",
+      "Screen Resolution",
+      "해상도",
+      "解像度",
+      "分辨率",
+      "解析度",
+      "Auflösung",
+      "Résolution",
+      "Resolución",
+      "Risoluzione",
+      "Resolução",
+      "Resolutie",
+      "Rozdzielczość",
+      "Rozlišení",
+      "Felbontás",
+      "Rezoluție",
+      "Ανάλυση",
+      "Çözünürlük",
+      "Разрешение",
+      "Роздільна здатність",
+      "الدقة",
+      "دقة الشاشة",
+      "רזולוציה",
+      "ความละเอียด",
+      "Độ phân giải",
+      "Resolusi",
+      "Upplösning",
+      "Opløsning",
+      "Oppløsning",
+      "Tarkkuus"
+    ],
+    "Refresh Rate": [
+      "주사율",
+      "리프레시 레이트",
+      "リフレッシュレート",
+      "刷新率",
+      "更新率",
+      "更新頻率",
+      "Bildwiederholrate",
+      "Bildwiederholfrequenz",
+      "Taux de rafraîchissement",
+      "Frecuencia de actualización",
+      "Tasa de refresco",
+      "Frequenza di aggiornamento",
+      "Taxa de atualização",
+      "Verversingssnelheid",
+      "Częstotliwość odświeżania",
+      "Obnovovací frekvence",
+      "Yenileme Hızı",
+      "Частота обновления",
+      "Частота оновлення",
+      "معدل التحديث",
+      "อัตรารีเฟรช",
+      "Tần số quét",
+      "Kecepatan refresh"
+    ],
+    "Peak Brightness": [
+      "Max Brightness",
+      "Brightness",
+      "Maximum Brightness",
+      "최대 밝기",
+      "밝기",
+      "ピーク輝度",
+      "輝度",
+      "峰值亮度",
+      "亮度",
+      "最大亮度",
+      "Maximale Helligkeit",
+      "Helligkeit",
+      "Luminosité maximale",
+      "Luminosité",
+      "Brillo máximo",
+      "Brillo",
+      "Luminosità di picco",
+      "Luminosità",
+      "Brilho máximo",
+      "Brilho",
+      "Maksymalna jasność",
+      "Jasność",
+      "Maksimum Parlaklık",
+      "Parlaklık",
+      "Пиковая яркость",
+      "Яркость",
+      "السطوع",
+      "ความสว่างสูงสุด",
+      "Độ sáng tối đa",
+      "Kecerahan puncak"
+    ],
+    "Processor": [
+      "Chipset",
+      "CPU",
+      "AP",
+      "Mobile Processor",
+      "SoC",
+      "프로세서",
+      "칩셋",
+      "プロセッサ",
+      "チップセット",
+      "处理器",
+      "處理器",
+      "芯片",
+      "Prozessor",
+      "Processeur",
+      "Procesador",
+      "Processore",
+      "Processador",
+      "Processor",
+      "Procesor",
+      "İşlemci",
+      "Процессор",
+      "Процесор",
+      "المعالج",
+      "מעבד",
+      "โปรเซสเซอร์",
+      "หน่วยประมวลผล",
+      "Bộ xử lý",
+      "Prosesor"
+    ],
+    "RAM": [
+      "Memory",
+      "Memory (RAM)",
+      "RAM Size",
+      "메모리",
+      "램",
+      "メモリ",
+      "RAM容量",
+      "内存",
+      "運行內存",
+      "記憶體",
+      "Arbeitsspeicher",
+      "Mémoire",
+      "Mémoire vive",
+      "Memoria RAM",
+      "Memória RAM",
+      "Geheugen",
+      "Pamięć RAM",
+      "Operační paměť",
+      "Bellek",
+      "Оперативная память",
+      "Оперативна пам'ять",
+      "ذاكرة الوصول العشوائي",
+      "الذاكرة العشوائية",
+      "หน่วยความจำ",
+      "Bộ nhớ RAM",
+      "Memori"
+    ],
+    "Storage": [
+      "Internal Storage",
+      "Internal Memory",
+      "Storage Option",
+      "Storage Options",
+      "ROM",
+      "저장 용량",
+      "저장공간",
+      "내장 메모리",
+      "ストレージ",
+      "内蔵ストレージ",
+      "存储",
+      "存储容量",
+      "儲存空間",
+      "內置存儲",
+      "Speicher",
+      "Interner Speicher",
+      "Speicherplatz",
+      "Stockage",
+      "Mémoire de stockage",
+      "Almacenamiento",
+      "Memoria interna",
+      "Archiviazione",
+      "Armazenamento",
+      "Memória interna",
+      "Opslag",
+      "Opslagruimte",
+      "Pamięć wewnętrzna",
+      "Vnitřní paměť",
+      "Depolama",
+      "Dahili Depolama",
+      "Встроенная память",
+      "Память",
+      "Вбудована пам'ять",
+      "التخزين",
+      "سعة التخزين",
+      "الذاكرة الداخلية",
+      "ที่เก็บข้อมูล",
+      "หน่วยความจำภายใน",
+      "Bộ nhớ trong",
+      "Penyimpanan",
+      "Memori internal"
+    ],
+    "Rear Camera": [
+      "Main Camera",
+      "Back Camera",
+      "Rear Camera Resolution",
+      "Camera",
+      "후면 카메라",
+      "메인 카메라",
+      "背面カメラ",
+      "リアカメラ",
+      "メインカメラ",
+      "后置摄像头",
+      "主摄像头",
+      "後置鏡頭",
+      "主鏡頭",
+      "Rückkamera",
+      "Hauptkamera",
+      "Caméra arrière",
+      "Caméra principale",
+      "Cámara trasera",
+      "Cámara principal",
+      "Fotocamera posteriore",
+      "Fotocamera principale",
+      "Câmera traseira",
+      "Câmera principal",
+      "Câmara traseira",
+      "Achtercamera",
+      "Hoofdcamera",
+      "Aparat tylny",
+      "Aparat główny",
+      "Zadní fotoaparát",
+      "Arka Kamera",
+      "Ana Kamera",
+      "Основная камера",
+      "Задняя камера",
+      "الكاميرا الخلفية",
+      "الكاميرا الرئيسية",
+      "กล้องหลัง",
+      "Camera sau",
+      "Kamera belakang",
+      "Kamera utama"
+    ],
+    "Front Camera": [
+      "Selfie Camera",
+      "Front Camera Resolution",
+      "전면 카메라",
+      "셀피 카메라",
+      "フロントカメラ",
+      "前面カメラ",
+      "インカメラ",
+      "前置摄像头",
+      "前置鏡頭",
+      "自拍鏡頭",
+      "Frontkamera",
+      "Caméra avant",
+      "Caméra frontale",
+      "Caméra selfie",
+      "Cámara frontal",
+      "Cámara para selfies",
+      "Fotocamera anteriore",
+      "Fotocamera frontale",
+      "Câmera frontal",
+      "Câmara frontal",
+      "Voorcamera",
+      "Aparat przedni",
+      "Přední fotoaparát",
+      "Ön Kamera",
+      "Фронтальная камера",
+      "Селфи-камера",
+      "الكاميرا الأمامية",
+      "กล้องหน้า",
+      "Camera trước",
+      "Kamera depan"
+    ],
+    "Cover Camera": [
+      "Cover Screen Camera",
+      "External Camera",
+      "커버 카메라",
+      "커버 스크린 카메라",
+      "カバーカメラ",
+      "外屏摄像头",
+      "Cover-Kamera",
+      "Caméra écran extérieur",
+      "Cámara de pantalla frontal",
+      "Fotocamera schermo esterno",
+      "Câmera da tela externa",
+      "Dış Ekran Kamerası",
+      "Камера внешнего экрана",
+      "กล้องหน้าจอด้านนอก"
+    ],
+    "Typical Battery Capacity": [
+      "Typical Capacity",
+      "Battery Capacity (Typical)",
+      "Battery (Typical)",
+      "Battery Capacity",
+      "Battery",
+      "배터리 용량(일반)",
+      "배터리 용량 (일반)",
+      "배터리 용량",
+      "일반 배터리 용량",
+      "バッテリー容量(標準)",
+      "バッテリー容量（標準）",
+      "バッテリー容量",
+      "標準容量",
+      "电池容量(典型值)",
+      "电池容量（典型值）",
+      "电池容量",
+      "典型容量",
+      "典型值",
+      "電池容量(典型值)",
+      "電池容量",
+      "Akkukapazität (typisch)",
+      "Typische Akkukapazität",
+      "Typische Batteriekapazität",
+      "Akkukapazität",
+      "Batteriekapazität",
+      "Capacité de la batterie (typique)",
+      "Capacité typique",
+      "Capacité de la batterie",
+      "Capacidad de batería (típica)",
+      "Capacidad típica",
+      "Capacidad de la batería",
+      "Capacità della batteria (tipica)",
+      "Capacità tipica",
+      "Capacità della batteria",
+      "Capacidade da bateria (típica)",
+      "Capacidade típica",
+      "Capacidade da bateria",
+      "Batterijcapaciteit (typisch)",
+      "Typische batterijcapaciteit",
+      "Batterijcapaciteit",
+      "Pojemność baterii (typowa)",
+      "Typowa pojemność baterii",
+      "Pojemność baterii",
+      "Kapacita baterie (typická)",
+      "Typická kapacita",
+      "Pil Kapasitesi (Tipik)",
+      "Tipik Pil Kapasitesi",
+      "Pil Kapasitesi",
+      "Batarya Kapasitesi",
+      "Ёмкость аккумулятора (типовая)",
+      "Типовая ёмкость",
+      "Ёмкость аккумулятора",
+      "سعة البطارية (النموذجية)",
+      "السعة النموذجية",
+      "سعة البطارية",
+      "ความจุแบตเตอรี่ (ทั่วไป)",
+      "ความจุแบตเตอรี่",
+      "Dung lượng pin (điển hình)",
+      "Dung lượng pin",
+      "Kapasitas baterai (tipikal)",
+      "Kapasitas baterai"
+    ],
+    "Rated Battery Capacity": [
+      "Rated Capacity",
+      "Battery Capacity (Rated)",
+      "Rated Value",
+      "정격 용량",
+      "배터리 용량(정격)",
+      "定格容量",
+      "定格値",
+      "额定容量",
+      "額定容量",
+      "额定值",
+      "Nennkapazität",
+      "Nominale Kapazität",
+      "Capacité nominale",
+      "Capacidad nominal",
+      "Capacità nominale",
+      "Capacidade nominal",
+      "Nominale capaciteit",
+      "Pojemność znamionowa",
+      "Jmenovitá kapacita",
+      "Nominal Kapasite",
+      "Anma Kapasitesi",
+      "Номинальная ёмкость",
+      "Номінальна ємність",
+      "السعة المقدرة",
+      "السعة الاسمية",
+      "ความจุที่กำหนด",
+      "Dung lượng định mức",
+      "Kapasitas terukur"
+    ],
+    "Wired Charging": [
+      "Fast Charging",
+      "Wired Charging Speed",
+      "Charging",
+      "유선 충전",
+      "고속 충전",
+      "有線充電",
+      "急速充電",
+      "有线充电",
+      "快充",
+      "Kabelgebundenes Laden",
+      "Schnellladen",
+      "Charge filaire",
+      "Charge rapide",
+      "Carga con cable",
+      "Carga rápida",
+      "Ricarica via cavo",
+      "Ricarica rapida",
+      "Carregamento com fio",
+      "Carregamento rápido",
+      "Bedraad opladen",
+      "Snel opladen",
+      "Ładowanie przewodowe",
+      "Szybkie ładowanie",
+      "Kablolu Şarj",
+      "Hızlı Şarj",
+      "Проводная зарядка",
+      "Быстрая зарядка",
+      "الشحن السلكي",
+      "الشحن السريع",
+      "ชาร์จแบบมีสาย",
+      "Sạc có dây",
+      "Pengisian daya kabel"
+    ],
+    "Video Playback": [
+      "Video Playback Time",
+      "Video Playback (Hours)",
+      "동영상 재생",
+      "동영상 재생 시간",
+      "ビデオ再生",
+      "ビデオ再生時間",
+      "视频播放",
+      "視頻播放",
+      "影片播放時間",
+      "Videowiedergabe",
+      "Videowiedergabezeit",
+      "Lecture vidéo",
+      "Durée de lecture vidéo",
+      "Reproducción de video",
+      "Riproduzione video",
+      "Reprodução de vídeo",
+      "Video afspelen",
+      "Odtwarzanie wideo",
+      "Video Oynatma",
+      "Воспроизведение видео",
+      "تشغيل الفيديو",
+      "การเล่นวิดีโอ",
+      "Phát video",
+      "Pemutaran video"
+    ],
+    "Wi-Fi": [
+      "WiFi",
+      "Wi Fi",
+      "Wireless LAN",
+      "WLAN",
+      "Wi-Fi Version",
+      "와이파이",
+      "무선랜",
+      "無線LAN",
+      "无线局域网"
+    ],
+    "Bluetooth": [
+      "Bluetooth Version",
+      "BT",
+      "블루투스",
+      "ブルートゥース",
+      "蓝牙",
+      "藍牙"
+    ],
+    "Thickness (Folded)": [
+      "Folded Thickness",
+      "Thickness Folded",
+      "Dimensions (Folded)",
+      "Folded",
+      "두께(접었을 때)",
+      "접었을 때",
+      "厚さ(折りたたみ時)",
+      "折りたたみ時",
+      "厚度(折叠)",
+      "折叠时厚度",
+      "摺疊時",
+      "Dicke (gefaltet)",
+      "Zusammengeklappt",
+      "Épaisseur (plié)",
+      "Plié",
+      "Grosor (plegado)",
+      "Plegado",
+      "Spessore (piegato)",
+      "Da piegato",
+      "Espessura (dobrado)",
+      "Dobrado",
+      "Grubość (złożony)",
+      "Kalınlık (Katlı)",
+      "Толщина (в сложенном виде)",
+      "السماكة (مطوي)",
+      "ความหนา (พับ)",
+      "Độ dày (gập)",
+      "Ketebalan (terlipat)"
+    ],
+    "Thickness (Unfolded)": [
+      "Unfolded Thickness",
+      "Thickness Unfolded",
+      "Dimensions (Unfolded)",
+      "Unfolded",
+      "두께(펼쳤을 때)",
+      "펼쳤을 때",
+      "厚さ(展開時)",
+      "展開時",
+      "厚度(展开)",
+      "展开时厚度",
+      "Dicke (aufgeklappt)",
+      "Aufgeklappt",
+      "Épaisseur (déplié)",
+      "Déplié",
+      "Grosor (desplegado)",
+      "Desplegado",
+      "Spessore (aperto)",
+      "Da aperto",
+      "Espessura (desdobrado)",
+      "Desdobrado",
+      "Grubość (rozłożony)",
+      "Kalınlık (Açık)",
+      "Толщина (в разложенном виде)",
+      "السماكة (مفتوح)",
+      "ความหนา (กาง)",
+      "Độ dày (mở)",
+      "Ketebalan (terbuka)"
+    ],
+    "Operating System": [
+      "OS",
+      "OS Version",
+      "운영체제",
+      "OS(운영체제)",
+      "オペレーティングシステム",
+      "操作系统",
+      "作業系統",
+      "Betriebssystem",
+      "Système d'exploitation",
+      "Sistema operativo",
+      "Sistema operacional",
+      "Besturingssysteem",
+      "System operacyjny",
+      "Operační systém",
+      "İşletim Sistemi",
+      "Операционная система",
+      "Операційна система",
+      "نظام التشغيل",
+      "ระบบปฏิบัติการ",
+      "Hệ điều hành",
+      "Sistem operasi"
+    ],
+    "Water Resistance": [
+      "IP Rating",
+      "Water and Dust Resistance",
+      "Dust and Water Resistance",
+      "IP48",
+      "방수",
+      "방수·방진",
+      "防水",
+      "防水防塵",
+      "防水防尘",
+      "Wasserbeständigkeit",
+      "Wasser- und Staubschutz",
+      "Résistance à l'eau",
+      "Résistance à l'eau et à la poussière",
+      "Resistencia al agua",
+      "Resistenza all'acqua",
+      "Resistência à água",
+      "Waterbestendigheid",
+      "Wodoodporność",
+      "Suya Dayanıklılık",
+      "Водонепроницаемость",
+      "Защита от воды и пыли",
+      "مقاومة الماء",
+      "กันน้ำ",
+      "Kháng nước",
+      "Tahan air"
+    ],
+    "Optical Zoom": [
+      "Optical Quality Zoom",
+      "Telephoto Zoom",
+      "Zoom",
+      "광학 줌",
+      "光学ズーム",
+      "光学变焦",
+      "光學變焦",
+      "Optischer Zoom",
+      "Zoom optique",
+      "Zoom óptico",
+      "Zoom ottico",
+      "Optik Yakınlaştırma",
+      "Оптический зум",
+      "زوم بصري",
+      "ซูมออปติคอล",
+      "Zoom quang học",
+      "Zoom optik"
+    ]
+  },
+  "exceptions": [
+    {
+      "rule": "DISCLAIMER",
+      "description": "Promotion/offer/banner sections are excluded from spec validation"
+    },
+    {
+      "rule": "ADAPTIVE_REFRESH",
+      "description": "Adaptive refresh (1-120Hz) — validate the maximum value only"
+    },
+    {
+      "rule": "MISSING",
+      "description": "[V3] Missing value is NOT an error — FAIL requires positive evidence of a wrong value"
+    }
+  ],
+  "interactions": [
+    {
+      "section": "Buy Box",
+      "action": "Iterate storage/color variants"
+    },
+    {
+      "section": "Compare",
+      "action": "Iterate model dropdown"
+    },
+    {
+      "section": "Accordion",
+      "action": "Expand all (What's in the box, spec groups)"
+    },
+    {
+      "section": "Spec",
+      "action": "Click 'See all specs' / expand full spec table"
+    },
+    {
+      "section": "Disclaimer",
+      "action": "Expand footnotes / legal text"
+    }
+  ],
+  "country_exceptions": [
+    {
+      "country": "sg",
+      "rule": "DISC_001",
+      "action": "allow-different-wording"
+    },
+    {
+      "country": "eu",
+      "rule": "Energy Label",
+      "action": "skip"
+    },
+    {
+      "country": "#",
+      "rule": "Example policy rows — confirm actual per-country policy before enforcing",
+      "action": ""
+    }
+  ],
+  "candidates": [],
+  "unit_synonyms": {},
+  "previous_models": [
+    {
+      "model": "Galaxy Z Fold7",
+      "aliases": [
+        "Galaxy Z Fold7",
+        "Galaxy Z Fold 7",
+        "Z Fold7",
+        "Fold7",
+        "갤럭시 Z 폴드7",
+        "갤럭시 폴드7",
+        "폴드7",
+        "Galaxy Z フォールド7",
+        "折叠屏 Fold7"
+      ],
+      "seed_source": "Phase1 시드(구모델 spec_rules.seed) 이관 — 2026-07 마이그레이션 시 보존",
+      "specs": [
+        {
+          "attribute": "Main Display Size",
+          "values": [
+            "8.0"
+          ],
+          "unit": "inch"
+        },
+        {
+          "attribute": "Main Resolution",
+          "values": [
+            "2184 x 1968"
+          ],
+          "unit": "px"
+        },
+        {
+          "attribute": "Cover Display Size",
+          "values": [
+            "6.5"
+          ],
+          "unit": "inch"
+        },
+        {
+          "attribute": "Cover Resolution",
+          "values": [
+            "2520 x 1080"
+          ],
+          "unit": "px"
+        },
+        {
+          "attribute": "Refresh Rate",
+          "values": [
+            "120"
+          ],
+          "unit": "Hz"
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "2600"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "Processor",
+          "values": [
+            "Snapdragon 8 Elite"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "RAM",
+          "values": [
+            "12",
+            "16"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Storage Option",
+          "values": [
+            "256",
+            "512",
+            "1TB"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "200"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Ultra Wide Camera",
+          "values": [
+            "12"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Telephoto Camera",
+          "values": [
+            "10"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Front Camera",
+          "values": [
+            "10"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Cover Camera",
+          "values": [
+            "10"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Optical Zoom",
+          "values": [
+            "3"
+          ],
+          "unit": "x"
+        },
+        {
+          "attribute": "Battery Capacity",
+          "values": [
+            "4400",
+            "4272"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Wired Charging",
+          "values": [
+            "25"
+          ],
+          "unit": "W"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "24"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Wi-Fi",
+          "values": [
+            "Wi-Fi 7"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Bluetooth",
+          "values": [
+            "5.4"
+          ],
+          "unit": ""
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "215"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "8.9"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Thickness (Unfolded)",
+          "values": [
+            "4.2"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Water Resistance",
+          "values": [
+            "IP48"
+          ],
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Fold6",
+      "aliases": [
+        "Galaxy Z Fold 6",
+        "Z Fold6",
+        "Z Fold 6",
+        "Fold6",
+        "Fold 6",
+        "갤럭시 Z 폴드6",
+        "갤럭시 폴드6",
+        "폴드6",
+        "Galaxy Z フォールド6"
+      ],
+      "seed_source": "2026-07 seed: samsung.com/uk 공식 + GSMArena/HotHardware 교차 검증 — 운영자 검수 후 확정",
+      "specs": [
+        {
+          "attribute": "Main Display Size",
+          "values": [
+            "7.6"
+          ],
+          "unit": "inch"
+        },
+        {
+          "attribute": "Cover Display Size",
+          "values": [
+            "6.3"
+          ],
+          "unit": "inch"
+        },
+        {
+          "attribute": "Main Resolution",
+          "values": [
+            "2160 x 1856"
+          ],
+          "unit": "px"
+        },
+        {
+          "attribute": "Cover Resolution",
+          "values": [
+            "2376 x 968"
+          ],
+          "unit": "px"
+        },
+        {
+          "attribute": "Refresh Rate",
+          "values": [
+            "120"
+          ],
+          "unit": "Hz"
+        },
+        {
+          "attribute": "Peak Brightness",
+          "values": [
+            "2600"
+          ],
+          "unit": "nits"
+        },
+        {
+          "attribute": "RAM",
+          "values": [
+            "12"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Storage Option",
+          "values": [
+            "256",
+            "512"
+          ],
+          "unit": "GB"
+        },
+        {
+          "attribute": "Storage Option TB",
+          "values": [
+            "1"
+          ],
+          "unit": "TB"
+        },
+        {
+          "attribute": "Rear Camera",
+          "values": [
+            "50",
+            "12",
+            "10"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Cover Camera",
+          "values": [
+            "10"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Under Display Camera",
+          "values": [
+            "4"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Optical Zoom",
+          "values": [
+            "3"
+          ],
+          "unit": "x"
+        },
+        {
+          "attribute": "Battery Capacity",
+          "values": [
+            "4400",
+            "4273"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Wired Charging",
+          "values": [
+            "25"
+          ],
+          "unit": "W"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "23"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "239"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "12.1"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Thickness (Unfolded)",
+          "values": [
+            "5.6"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Processor",
+          "values": [
+            "Snapdragon 8 Gen 3"
+          ],
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Fold5",
+      "aliases": [
+        "Z Fold5",
+        "Fold5",
+        "Fold 5",
+        "갤럭시 Z 폴드5",
+        "폴드5"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "13.4"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "253"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "21"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Rear Camera",
+          "values": [
+            "50",
+            "12",
+            "10"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Fold4",
+      "aliases": [
+        "Z Fold4",
+        "Fold4",
+        "Fold 4",
+        "갤럭시 Z 폴드4",
+        "폴드4"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "14.2"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "263"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "20"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Rear Camera",
+          "values": [
+            "50",
+            "12",
+            "10"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Fold3",
+      "aliases": [
+        "Z Fold3",
+        "Fold3",
+        "Fold 3",
+        "갤럭시 Z 폴드3",
+        "폴드3"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness (Folded)",
+          "values": [
+            "14.4"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "271"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Video Playback",
+          "values": [
+            "18"
+          ],
+          "unit": "hours"
+        },
+        {
+          "attribute": "Rear Camera",
+          "values": [
+            "12"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S25 Ultra",
+      "aliases": [
+        "S25 Ultra",
+        "갤럭시 S25 울트라"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness",
+          "values": [
+            "8.2"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "218"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "200"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S24 Ultra",
+      "aliases": [
+        "S24 Ultra",
+        "갤럭시 S24 울트라"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness",
+          "values": [
+            "8.6"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "232",
+            "233"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "200"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S23 Ultra",
+      "aliases": [
+        "S23 Ultra",
+        "갤럭시 S23 울트라"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness",
+          "values": [
+            "8.9"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "233",
+            "234"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "200"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy S22 Ultra",
+      "aliases": [
+        "S22 Ultra",
+        "갤럭시 S22 울트라"
+      ],
+      "specs": [
+        {
+          "attribute": "Thickness",
+          "values": [
+            "8.9"
+          ],
+          "unit": "mm"
+        },
+        {
+          "attribute": "Weight",
+          "values": [
+            "228",
+            "229"
+          ],
+          "unit": "g"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "108"
+          ],
+          "unit": "MP"
+        }
+      ]
+    }
+  ],
+  "product_aliases": [
+    "Galaxy Z Fold8 Ultra",
+    "Galaxy Z Fold 8 Ultra",
+    "Z Fold8 Ultra",
+    "Fold8 Ultra",
+    "갤럭시 Z 폴드8 울트라",
+    "갤럭시 폴드8 울트라",
+    "폴드8 울트라"
+  ],
+  "_note": "Phase2 신제품 시드. 식별(Product Name/Model Code)+핵심 스펙(카피덱 Compare Spec chart 근거)+dictionary+aliases. 카피덱 Key Specs 외 추가 스펙은 필요시 보강. | 2026-07-20 B과제 확장: Q8H8B8_Compare_Copydeck_260624 Spec chart 근거로 23개 규칙으로 확장, previous_models에 구모델 데이터 이관. Wi-Fi/Bluetooth/Wired Charging은 해당 카피덱에 값이 없어 미포함(수동 확인 필요). | 2026-07-20 B과제 확장: Q8H8B8_Compare_Copydeck_260624 Spec chart 근거로 23개 규칙으로 확장, previous_models에 구모델 데이터 이관. Wi-Fi/Bluetooth/Wired Charging은 해당 카피덱에 값이 없어 미포함(수동 확인 필요)."
+}
