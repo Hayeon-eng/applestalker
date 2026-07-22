@@ -106,7 +106,12 @@ RICH_RESULT_STATUS = {
 # ──────────────────────────────────────────────────────────────────
 def extract_html_signals(html: str) -> Dict[str, Any]:
     """붙여넣기/파일/URL 어느 입력이든 raw HTML만 있으면 동일하게 동작(크롤러 의존 없음)."""
-    soup = BeautifulSoup(html or "", "html.parser")
+    # [2026-07 FIX] 이 모듈만 표준 html.parser를 쓰고 있었다 — crawler.py/copy_checker.py/
+    # compare_extractor.py/spec_extractor.py는 전부 lxml. html.parser는 lxml보다 엄격해서
+    # 페이지 앞쪽의 사소한 마크업 오류(태그 안 닫힘 등) 하나로 그 뒤 파싱이 틀어지면 h3/h4처럼
+    # 문서 하단부 태그를 통째로 못 찾을 수 있다 — 페이지소스엔 분명히 있는데 "없음"으로 뜨는 원인.
+    # lxml은 그런 오류를 복구하고 계속 파싱하므로 나머지 모듈과 동일하게 맞춘다.
+    soup = BeautifulSoup(html or "", "lxml")
     title_tag = soup.find("title")
     md = soup.find("meta", attrs={"name": "description"})
     h1s = [h.get_text(strip=True) for h in soup.find_all("h1")]
