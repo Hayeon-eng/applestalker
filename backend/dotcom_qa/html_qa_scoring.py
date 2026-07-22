@@ -37,7 +37,12 @@ AXIS1_WEIGHTS: Dict[str, Dict[str, Any]] = {
         "offers": 4, "sku": 3,
     },
     "3DModel": {
-        "encoding_contentUrl": 4, "encoding_encodingFormat": 3,
+        # [2026-07 FIX] schema_rules(*.json)엔 isPartOf/about이 필수 속성으로 정의돼 있고
+        # schema_checker도 "필수 속성 누락"으로 정상 리포트하고 있었지만, 이 채점표엔 두 키가
+        # 아예 없어서(가중치 0) 정보 충족률·필수 속성 카운트에 전혀 반영되지 않았다 — 화면엔
+        # 빨간 "필수 속성 누락" 경고가 뜨는데 바로 아래 정보 충족률은 100%로 뜨는 모순의 원인.
+        # (WebPage,ItemPage에서 mainEntity/hasPart/breadcrumb을 추가한 것과 동일한 종류의 fix.)
+        "encoding_contentUrl": 4, "encoding_encodingFormat": 3, "isPartOf": 3, "about": 2,
         "gltf": 4, "usdz": 4, "subjectOf": 3, "name": 1, "image": 1,
     },
     "VideoObject": {
@@ -70,7 +75,7 @@ AXIS1_WEIGHTS: Dict[str, Dict[str, Any]] = {
 # 필수(Google 등급) 속성 — 0점이면 해당 블록 "필수 게이트" 발동(자격 소멸, 정보적합성 0%)
 REQUIRED_GATE_PROPS: Dict[str, List[str]] = {
     "Product": ["name", "image"],
-    "3DModel": ["encoding_contentUrl", "encoding_encodingFormat"],
+    "3DModel": ["encoding_contentUrl", "encoding_encodingFormat", "isPartOf", "about"],
     "VideoObject": ["name", "thumbnailUrl", "uploadDate", "contentUrlOrEmbedUrl"],
     "FAQPage": ["structure_valid"],
     "WebPage, ItemPage": ["type_combo", "name", "url"],
