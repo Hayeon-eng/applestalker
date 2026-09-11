@@ -165,7 +165,7 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
 
 
 # ── 실행(수집 포함) ──────────────────────────────────────────────────────
-STATE: Dict[str, Any] = {"running": False, "done": 0, "total": 0, "run_id": None, "started": None}
+STATE: Dict[str, Any] = {"running": False, "done": 0, "total": 0, "run_id": None, "started": None, "cancel": False, "current": None, "recent": []}
 LAST: Dict[str, Any] = {}
 
 
@@ -177,7 +177,7 @@ async def run_all(sites: Optional[List[Dict[str, Any]]] = None, pages: Optional[
     pdefs = [p for p in STATIC_PAGES if not pages or p["key"] in pages]
     cache = load_urlcache()
     run_id = f"static_{datetime.now():%Y%m%d_%H%M%S}"
-    STATE.update(running=True, done=0, total=len(sites) * len(pdefs), run_id=run_id, started=time.time())
+    STATE.update(running=True, done=0, total=len(sites) * len(pdefs), run_id=run_id, started=time.time(), cancel=False, current=None, recent=[])
     sem = asyncio.Semaphore(concurrency)
     results: List[Dict[str, Any]] = []
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -193,6 +193,9 @@ async def run_all(sites: Optional[List[Dict[str, Any]]] = None, pages: Optional[
 
     async def one(site: Dict[str, Any], page: Dict[str, Any]):
         async with sem:
+            if STATE.get("cancel"):  # 멈춤 — 남은 페이지 건너뜀
+                STATE["done"] += 1; return
+            STATE["current"] = f"{site['sitecode']} · {page['label']}"
             key = f"{site['sitecode']}|{page['key']}"
             cands = ([cache[key]] if key in cache else []) + [u for u in candidate_urls(site, page) if u != cache.get(key)]
             row = None
@@ -217,6 +220,7 @@ async def run_all(sites: Optional[List[Dict[str, Any]]] = None, pages: Optional[
                                             "soft 404(안내 페이지)" if (soft or brand_only) else ("리다이렉트로 슬러그 유실 → " + final if slug_lost else None))
             row.update(page=page["key"], page_label=page["label"], country=site["country"], subs=site["subs"], confirmed_path=page["confirmed"])
             results.append(row); STATE["done"] += 1
+            STATE["recent"] = ([{"sitecode": site["sitecode"], "page": page["label"], "status": row["status"]}] + STATE["recent"])[:8]
 
     await asyncio.gather(*(one(s, p) for s in sites for p in pdefs), return_exceptions=True)
     save_urlcache(cache)
@@ -224,7 +228,7 @@ async def run_all(sites: Optional[List[Dict[str, Any]]] = None, pages: Optional[
                "by_status": {s: sum(1 for r in results if r["status"] == s) for s in STATUS_ORDER},
                "by_page": {p["key"]: {s: sum(1 for r in results if r["page"] == p["key"] and r["status"] == s) for s in STATUS_ORDER} for p in pdefs}}
     out = {"run_id": run_id, "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "summary": summary, "results": results,
-           "duration_seconds": round(time.time() - STATE["started"], 1)}
+           "duration_seconds": round(time.time() - STATE["started"], 1), "cancelled": bool(STATE.get("cancel"))}
     LAST.clear(); LAST.update(out)
     STATE.update(running=False)
     return out

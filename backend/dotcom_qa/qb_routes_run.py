@@ -88,7 +88,7 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
     targets = _filter_targets(sitecodes, page_types, products)
 
     start_ts = _time.time()
-    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=start_ts, mode=mode,
+    _RUN_STATE.update(running=True, run_id=run_id, done=0, total=len(targets), ts=start_ts, mode=mode, cancel=False,
                       events=[{"type": "start", "total": len(targets), "mode": mode}],
                       result_run_id=None, summary=None, dictionary_review={})
 
@@ -121,6 +121,11 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
 
         async def one(i: int, site: Dict[str, Any]):
             async with sem:
+                if _RUN_STATE.get("cancel"):  # [2026-09-11] 멈춤 버튼 — 남은 페이지는 건너뛰고 지금까지 결과로 마감
+                    _RUN_STATE["done"] = _RUN_STATE.get("done", 0) + 1
+                    _RUN_STATE["events"].append({"type": "page_done", "sitecode": site.get("sitecode"), "ok": False, "skipped": True,
+                                                 "done": _RUN_STATE["done"], "total": _RUN_STATE["total"]})
+                    return None
                 url = site.get("url", "")
                 pt = site.get("page_type") or runner.page_type_from_url(url)
                 mp = runner.product_from_url(url)
@@ -228,6 +233,15 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
         _RUN_STATE.update(running=False)  # 성공/실패 무관 — 항상 해제
 
 
+@qb_router.post("/run-cancel")
+def qb_run_cancel():
+    """[2026-09-11] 멈춤 — 진행 중인 검수를 중단한다. 이미 끝난 페이지는 결과로 저장되고 나머지는 건너뛴다."""
+    if not _RUN_STATE.get("running"):
+        return {"ok": True, "running": False, "note": "실행 중인 검수가 없음"}
+    _RUN_STATE["cancel"] = True
+    return {"ok": True, "cancelling": True, "done": _RUN_STATE.get("done", 0), "total": _RUN_STATE.get("total", 0)}
+
+
 @qb_router.post("/run-reset")
 def qb_run_reset():
     """검수 상태를 강제로 해제(멈춘 상태에서 409가 계속 날 때 수동 복구용)."""
@@ -306,7 +320,7 @@ async def qb_run(payload: Dict[str, Any] = Body(default={})):
 
 @qb_router.get("/run-status")
 def qb_run_status():
-    return {"running": _RUN_STATE.get("running", False), "done": _RUN_STATE.get("done", 0),
+    return {"running": _RUN_STATE.get("running", False), "done": _RUN_STATE.get("done", 0), "cancel": _RUN_STATE.get("cancel", False),
             "total": _RUN_STATE.get("total", 0), "result_run_id": _RUN_STATE.get("result_run_id")}
 
 

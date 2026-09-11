@@ -1,5 +1,5 @@
 """
-qb_routes_static.py — 스태틱 페이지 Schema 라이트 검수 API [2026-09 신규]  prefix /api/qb/static
+qb_routes_static.py — 공통페이지 QA API [2026-09 신규]  prefix /api/qb/static
 
   GET  /pages            페이지 정의(7종) + 사이트 수
   POST /run              전체(90 자동 사이트 × 7 페이지) 수집·판정 시작(백그라운드) — body {pages?: [...], sitecodes?: [...]}
@@ -79,6 +79,15 @@ async def static_run(payload: Dict[str, Any] = Body(default={})):
 @qb_router.get("/static/status")
 def static_status():
     return static_qa.STATE
+
+
+@qb_router.post("/static/cancel")
+def static_cancel():
+    """멈춤 — 진행 중 검수 중단(끝난 페이지는 저장, 나머지는 건너뜀)."""
+    if not static_qa.STATE.get("running"):
+        return {"ok": True, "running": False}
+    static_qa.STATE["cancel"] = True
+    return {"ok": True, "cancelling": True}
 
 
 @qb_router.get("/static/runs")
