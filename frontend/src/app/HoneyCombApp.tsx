@@ -139,12 +139,14 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
           <p style={{ padding: "0 10px 8px", fontSize: 11.5, color: "var(--sec)", lineHeight: 1.5 }}>1위 = position 1 · 상단 = position ≤ {cfg.top_n}(둘째 줄까지) · gl/hl 지정 · 비로그인 데스크톱. 속성은 검색 결과 카드·제품 상세 창에서 보이는 것만 판정하고, 검색 결과에 아예 나오지 않는 속성은 '확인 불가'로 표시해요.</p>
         </div>
         <div className="sideFoot">
+          {runState && <button className="btnSecondary" style={{ color: "#B42318", border: "1px solid #B42318", background: "#fff" }} onClick={async () => { if (window.confirm("수집을 멈출까요? 지금까지 조회한 결과는 저장됩니다.")) await fetch(api("/api/hc/run/cancel"), J({})); }}>■ 멈춤</button>}
           <button className="btnPrimary" style={{ background: HONEY_DARK }} disabled={cfg.provider !== "serpapi" || !!runState}
             title={cfg.provider !== "serpapi" ? "설정(/desktop/settings)에 SerpApi 키를 넣으면 활성화" : "국가×제품×사용 중 키워드 전체를 Google Shopping 에서 조회"}
             onClick={async () => {
               if (!window.confirm(`Google Shopping 조회를 시작합니다.\n예상 API 호출: 검색 ${estimate?.searches ?? "?"}회${withDetail ? ` + 상세 최대 ${estimate?.detail_max}회` : ""} (월 한도에서 차감)\n계속할까요?`)) return;
               const r = await fetch(api("/api/hc/run"), J({ detail: withDetail }));
               if (!r.ok) { setMsg((await r.json()).detail || "실행 실패"); return; }
+              setRunState({ running: true, done: 0, total: 0, cells: [] });
               const t = setInterval(async () => {
                 const st = await (await fetch(api("/api/hc/run-status"))).json(); setRunState(st);
                 if (!st.running) { clearInterval(t); setRunState(null); if (st.error) setMsg(`수집 실패: ${st.error}`);
@@ -175,6 +177,20 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
 
         <div className="contentScroll">
           <div className="panelStack">
+            {runState && (
+              <div className="card" style={{ padding: "12px 16px" }}>
+                <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${runState.total ? (runState.done / runState.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
+                <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🍯 Google Shopping 조회 중 · {runState.done}/{runState.total} 키워드×국가{runState.cancel ? " · 멈추는 중…" : ""} · SerpApi 호출이 실제로 발생하고 있습니다</div>
+                {runState.cells?.length > 0 && (
+                  <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
+                    <thead><tr><th style={th}>국가</th><th style={th}>제품</th><th style={th}>키워드</th><th style={th}>상태</th><th style={th}>position</th><th style={th}>1위 판매처</th></tr></thead>
+                    <tbody>{[...runState.cells].reverse().slice(0, 12).map((c: any, i: number) => (
+                      <tr key={i}><td style={td}>{c.country}</td><td style={td}>{cfg.products.find((p: any) => p.slug === c.product)?.label || c.product}</td><td style={td}>{c.keyword}</td>
+                        <td style={td}>{c.status === "조회 중" ? <span style={{ color: HONEY_DARK, fontWeight: 700 }}>조회 중…</span> : c.status === "error" ? <span style={{ color: "#B42318" }}>실패 · {c.error}</span> : <Badge st={c.status} />}</td>
+                        <td style={td}>{c.position != null ? `#${c.position}` : "—"}</td><td style={td}>{c.first_store || "—"}</td></tr>))}</tbody>
+                  </table>)}
+              </div>
+            )}
             {tab === "grid" && (<>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
                 {[[checked.length ? `${Math.round((100 * top1) / checked.length)}%` : "—", `1위 비율 · ${top1}/${checked.length}칸`, prevTop1 == null ? "" : `지난주 대비 ${prevTop1 > top1 ? "▼" : prevTop1 < top1 ? "▲" : "="} ${Math.abs(top1 - prevTop1)}`],

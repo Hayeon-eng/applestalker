@@ -10,7 +10,7 @@ import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
 import { SpecSiteOverview, SpecQaDetails, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 import { QubiSidebar } from "./QubiSidebar";
-import { QubiStaticQa } from "./QubiStaticQa"; // [2026-09] 스태틱 페이지 Schema 라이트
+import { QubiStaticQa } from "./QubiStaticQa"; // [2026-09] 공통페이지 QA
 import { QubiRunPanel } from "./QubiRunPanel";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
@@ -450,7 +450,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <div className="tabGroup">
               <button className={`tabBtn ${tab === "schema" ? "on" : ""}`} onClick={() => setTab("schema")}>DATA QA</button>
               <button className={`tabBtn ${tab === "copy" ? "on" : ""}`} onClick={() => setTab("copy")}>스펙 QA</button>
-              <button className={`tabBtn ${tab === "static" ? "on" : ""}`} onClick={() => setTab("static")}>스태틱 QA</button>
+              <button className={`tabBtn ${tab === "static" ? "on" : ""}`} onClick={() => setTab("static")}>공통페이지 QA</button>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               <button className="toolBtn" onClick={() => (showRules ? setShowRules(false) : openCriteria())}>
@@ -467,7 +467,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
 
         <div className="contentScroll" style={{ padding: "20px 28px 80px" }}>
           {tab === "static" ? (<>
-            <h2 style={{ fontSize: 18, margin: "0 0 12px" }}>스태틱 QA <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>공통 페이지 7종 × 91 사이트 — 스키마 O/X · JSON-LD 파싱 · 리치결과 전형적 오류(매일)</span></h2>
+            <h2 style={{ fontSize: 18, margin: "0 0 12px" }}>공통페이지 QA <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>Home · Switch to Galaxy 등 공통 페이지 7종 × 91 국가 — 스키마가 있는지, 제대로 읽히는지, Google 리치결과 기본 요건을 갖췼는지(매일)</span></h2>
             <QubiStaticQa apiBase={apiBase} />
           </>) : (<>
           <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>
@@ -509,7 +509,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {err && <div style={{ background: "#FEF3F2", color: "#B42318", padding: 10, borderRadius: 8, fontSize: 13, margin: "8px 0", fontWeight: 600 }}>{err}</div>}
 
           {/* ① 리전별 검수 크롤 (91사이트) — 먼저 노출 */}
-          <QubiRunPanel allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} isUnlaunched={isUnlaunched} launchStatus={launchStatus} results={results} />
+          <QubiRunPanel apiBase={apiBase} allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} isUnlaunched={isUnlaunched} launchStatus={launchStatus} results={results} />
 
           {/* 스펙 탭은 V2(Rule DB) 전용. V2 제품이면 Rule DB 뷰어+기준+점수, 비V2(seed 미등록)면 준비중 안내.
               스키마 탭에서는 구 CriteriaPanel/ScorePanel이 동작. */}

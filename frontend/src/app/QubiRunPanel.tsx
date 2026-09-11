@@ -6,7 +6,7 @@ import { HONEY, sel } from "./qubiShared";
    참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음).
    과제3(Data/Spec 독립 실행 버튼)도 이 컴포넌트 안에 포함된다. */
 export function QubiRunPanel(props: any) {
-  const { allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes, isUnlaunched, launchStatus, results } = props;
+  const { apiBase, allSites, busy, estimate, fmtEta, liveEtaSeconds, pageCount, progress, regionNames, regionsMap, runByRegion, selectedRegions, selectedSites, setSelectedRegions, setSelectedSites, tab, targetCodes, isUnlaunched, launchStatus, results } = props;
   // [2026-07 신규] 방금 크롤에서 "(collection failed)" 진단이 붙은 페이지들의 sitecode만 모음
   // — 차단/타임아웃 등으로 수집 자체가 실패한 경우만 대상, QA 판정상의 fail(스펙/스키마 불일치)은 제외.
   const failedSitecodes: string[] = Array.from(new Set(
@@ -94,28 +94,31 @@ export function QubiRunPanel(props: any) {
 
             {/* [2026-07 재정렬] 기본 동작은 다시 Data+Spec 동시 검수 — 누르면 확인 팝업.
                 과제3(탭별 독립 실행)은 필요할 때만 쓰는 보조 버튼으로 내림. */}
-            <button
-              onClick={() => {
-                if (window.confirm(`Data QA + Spec QA 검수를 시작할까요? · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`)) {
-                  runByRegion("all");
-                }
-              }}
-              disabled={busy}
-              style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-              {busy ? "붕붕 검수 중…" : `검수 실행 · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`}
-            </button>
-            <button
-              onClick={() => {
-                const label = tab === "schema" ? "Data QA" : "Spec QA";
-                if (window.confirm(`${label}만 따로 검수를 시작할까요? (상대 축은 건너뜁니다)`)) {
-                  runByRegion(tab === "schema" ? "data" : "spec");
-                }
-              }}
-              disabled={busy}
-              title="현재 탭(Data 또는 Spec)만 독립 실행 — 상대 축의 무거운 작업을 건너뜀"
-              style={{ padding: "8px 12px", marginLeft: 8, borderRadius: 8, border: "1px solid var(--line)", background: "#fff", color: "var(--sec)", fontWeight: 600, cursor: "pointer" }}>
-              {tab === "schema" ? "Data QA만" : "Spec QA만"}
-            </button>
+            {/* [2026-09-11] 기본 = 현재 탭만 실행(쨍한 색). 둘을 함께 돌리는 건 회색 보조 버튼. 실행 중엔 멈춤 버튼. */}
+            {!busy ? (<>
+              <button
+                onClick={() => {
+                  const label = tab === "schema" ? "Data QA" : "Spec QA";
+                  if (window.confirm(`${label} 검수를 시작할까요? · ${targetCodes.length}개 사이트${selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}`)) {
+                    runByRegion(tab === "schema" ? "data" : "spec");
+                  }
+                }}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: tab === "schema" ? "#1B4FD8" : HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                {tab === "schema" ? "▶ Data QA 검수 실행" : "▶ Spec QA 검수 실행"} · {targetCodes.length}개 사이트{selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}
+              </button>
+              <button
+                onClick={() => { if (window.confirm(`Data QA + Spec QA 를 함께 검수할까요? (시간이 더 걸립니다)`)) runByRegion("all"); }}
+                title="두 축을 한 번에 — 시간이 더 걸림"
+                style={{ padding: "8px 12px", marginLeft: 8, borderRadius: 8, border: "1px solid var(--line)", background: "#F3F4F6", color: "var(--sec)", fontWeight: 600, cursor: "pointer" }}>
+                Data + Spec 함께
+              </button>
+            </>) : (
+              <button
+                onClick={async () => { if (window.confirm("검수를 멈출까요? 끝난 페이지까지는 결과로 저장됩니다.")) { await fetch(`${props.apiBase || ""}/api/qb/run-cancel`, { method: "POST" }); } }}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #B42318", background: "#fff", color: "#B42318", fontWeight: 700, cursor: "pointer" }}>
+                ■ 멈춤 {progress.active ? `(${progress.done}/${progress.total})` : ""}
+              </button>
+            )}
             {selectedSites.size === 0 && selectedRegions.size === 0 && pageCount > 0 && !busy && (
               <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>사이트당 여러 페이지(PDP·Compare·Buds 등) — 총 {pageCount}개 페이지 검수</span>
             )}
@@ -143,7 +146,7 @@ export function QubiRunPanel(props: any) {
             )}
             {progress.active && (
               <div style={{ marginTop: 10 }}>
-                <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
+                <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: tab === "schema" ? "#1B4FD8" : HONEY, transition: "width .3s" }} /></div>
                 <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>
                   🐝 {progress.label} · {progress.done}/{progress.total} 페이지
                   {liveEtaSeconds != null && ` · 남은 시간 약 ${fmtEta(liveEtaSeconds)}`}

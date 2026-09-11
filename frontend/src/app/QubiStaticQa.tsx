@@ -44,7 +44,7 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
     const body = page === "all" ? {} : { pages: [page] };
     const r = await fetch(api("/api/qb/static/run"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (r.status === 409) { alert("이미 검수 중입니다"); return; }
-    const t = setInterval(async () => { const st = await (await fetch(api("/api/qb/static/status"))).json(); setStatus(st); if (!st.running) { clearInterval(t); setStatus(null); load(); } }, 1500);
+    setStatus({ done: 0, total: 0 }); const t = setInterval(async () => { const st = await (await fetch(api("/api/qb/static/status"))).json(); setStatus(st); if (!st.running) { clearInterval(t); setStatus(null); load(); } }, 1500);
   };
   const openRun = async (id: string) => { setRun(await (await fetch(api(`/api/qb/static/runs/${id}`))).json()); setSel(null); };
 
@@ -64,15 +64,23 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: "var(--sec)", marginRight: 4 }}>페이지</span>
         <span style={chip(page === "all")} onClick={() => { setPage("all"); setSel(null); }}>전체 {pages.length}종</span>
-        {pages.map((p) => <span key={p.key} style={chip(page === p.key)} onClick={() => { setPage(p.key); setSel(null); }} title={p.confirmed ? "주소 확정" : "주소 미확정 — 후보 주소를 순서대로 시도"}>{p.label}{!p.confirmed ? " ?" : ""}</span>)}
+        {pages.map((p) => <span key={p.key} style={chip(page === p.key)} onClick={() => { setPage(p.key); setSel(null); }} >{p.label}</span>)}
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
           {runs.length > 0 && <select value={run?.run_id || ""} onChange={(e) => openRun(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }}>
             {runs.map((r) => <option key={r.run_id} value={r.run_id}>{r.at}</option>)}</select>}
-          <button className="btnPrimary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={start} disabled={!!status}>{status ? `검수 중 ${status.done}/${status.total}` : `▶ 지금 검수${page !== "all" ? " (선택한 페이지만)" : ""}`}</button>
+          {!status ? <button className="btnPrimary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={start}>{`▶ 지금 검수${page !== "all" ? " (선택한 페이지만)" : ""}`}</button>
+            : <button style={{ padding: "6px 12px", fontSize: 12, borderRadius: 8, border: "1px solid #B42318", background: "#fff", color: "#B42318", fontWeight: 700, cursor: "pointer" }} onClick={async () => { if (window.confirm("검수를 멈출까요? 끝난 페이지까지는 저장됩니다.")) await fetch(api("/api/qb/static/cancel"), { method: "POST" }); }}>■ 멈춤</button>}
           {run && <a className="btnSecondary" style={{ padding: "6px 12px", fontSize: 12 }} href={api(`/api/qb/static/report.xlsx?run_id=${run.run_id}`)}>Excel</a>}
         </span>
       </div>
 
+      {status && (
+        <div className="card" style={{ padding: "12px 16px" }}>
+          <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${status.total ? (status.done / status.total) * 100 : 0}%`, background: "#1B4FD8", transition: "width .3s" }} /></div>
+          <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🐝 공통페이지 검수 중 · {status.done}/{status.total} 페이지{status.current ? ` · 지금: ${status.current}` : ""}{status.cancel ? " · 멈추는 중…" : ""}</div>
+          {status.recent?.length > 0 && <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>{status.recent.map((r: any, i: number) => <span key={i} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: COLOR[r.status] || "#eee", color: INK[r.status] || "#333" }}>{r.sitecode} {r.page} · {r.status}</span>)}</div>}
+        </div>
+      )}
       {/* 종합 — 상태 칩(클릭하면 필터) */}
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -84,7 +92,7 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
           {ORDER.map((s) => <Pill key={s} s={s} n={count(s)} on={stFilter === s} onClick={() => setStFilter(stFilter === s ? "all" : s)} />)}
           {!run && <span style={{ fontSize: 12, color: "var(--sec)" }}>"지금 검수"를 누르면 약 {est}분 걸립니다(페이지당 1~2초).</span>}
         </div>
-        {!run && <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "8px 0 0" }}>주소가 확정된 페이지는 Home · All about Galaxy · Switch to Galaxy · Find your Galaxy 입니다. 나머지 3종(?)은 관행 주소를 순서대로 시도해서 되는 것을 기억합니다 — 전부 실패하면 '페이지 없음'으로 뜨니 첫 검수 뒤 실제 주소를 알려주세요.</p>}
+
       </div>
 
       {/* 매트릭스 — 국가 × 페이지 */}
