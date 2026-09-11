@@ -1,38 +1,41 @@
 "use client";
+import { useRef } from "react";
+import { QubiTargets } from "./QubiTargets";
 
 /* QubiSidebar — QubiApp에서 분리된 좌측 사이드바(URL 관리·검수 이력).
    [2026-07 분할] QubiApp.tsx 46KB 제한 대응. JSX 본문은 원본 그대로이며,
    참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음). */
 export function QubiSidebar(props: any) {
-  const { onHome, online, downloadTemplate, uploadTemplate, xlsxFileRef, sitesOpen, setSitesOpen, entries, removeUrl, history, openHistory, removeHistory } = props;
+  const { onHome, online, apiBase, downloadTemplate, uploadTemplate, xlsxFileRef, history, openHistory, removeHistory, onHistoryChanged } = props;
+  const histFileRef = useRef<HTMLInputElement>(null);
   return (
       <aside className="sidebar">
         <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🐝 큐비</div>
-        <div className="brandSub">QA의 사촌, 큐비 — 닷컴을 붕붕 돌며 스펙을 지켜요</div>
+        <div className="brandSub">닷컴을 붕붕 날아다니며, 스키마와 스펙이 제대로 올라갔는지 콕콕 검수해요</div>
         <div className={`connBadge ${online === true ? "ok" : "bad"}`}><span className="connDot" />{online === null ? "확인 중" : online ? "백엔드 연결됨" : "연결 안 됨"}</div>
 
         <div className="sideScroll">
-          <div className="sideLabel">URL 관리</div>
-          {/* [2026-07] 개별 URL 추가 UI 제거 — site_registry.part*.json 갱신으로 일원화 */}
+          {/* [2026-09] "URL 관리" → "대상 관리": URL 은 삼성 검색 API 로 자동 해석. 여기서는 해석 결과 보기·예외 등록·제외만.
+              기존 템플릿 업로드는 '예외 일괄 등록' 용도로만 남긴다. */}
+          <QubiTargets apiBase={apiBase} />
           <div style={{ padding: "0 10px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button onClick={downloadTemplate} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 8px" }}>⬇ URL 템플릿</button>
-            <button onClick={() => xlsxFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 8px" }}>⬆ 템플릿 업로드</button>
+            <button onClick={downloadTemplate} className="btnSecondary" style={{ fontSize: 11, padding: "4px 8px" }}>⬇ 예외 템플릿</button>
+            <button onClick={() => xlsxFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 11, padding: "4px 8px" }}>⬆ 예외 일괄 업로드</button>
             <input ref={xlsxFileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadTemplate(f); e.currentTarget.value = ""; }} />
           </div>
-          <div className="sideLabel" style={{ cursor: "pointer" }} onClick={() => setSitesOpen((o) => !o)}>{sitesOpen ? "▾" : "▸"} 모니터링 URL 목록 <span style={{ color: "var(--sec)" }}>{entries.length}개</span></div>
-          {sitesOpen && entries.map((s, i) => (
-            <div key={`${s.sitecode}-${i}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 10px", fontSize: 11.5 }}>
-              <span title={s.url}>
-                <span style={{ fontWeight: 600 }}>{s.sitecode}</span>
-                {s.product && <span style={{ fontSize: 10, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 5px", marginLeft: 5 }}>{s.product}{s.page_type ? ` · ${s.page_type}` : ""}</span>}
-                {s.country && <span style={{ color: "var(--sec)", marginLeft: 5 }}>{s.country}</span>}
-              </span>
-              <span role="button" onClick={() => removeUrl(s.sitecode, s.url)} style={{ cursor: "pointer", color: "var(--high)", fontSize: 11 }}>삭제</span>
-            </div>
-          ))}
 
           {/* 검수 이력 */}
           <div className="sideLabel" style={{ marginTop: 14 }}>검수 이력 <span style={{ color: "var(--sec)" }}>{history.length}건</span></div>
+          {/* [2026-09] 이력 공유 — 공용 DB 대신 JSON 파일로 내보내기/가져오기(사내망 DB 포트 차단 대응) */}
+          <div style={{ padding: "0 10px 6px", display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <a className="btnSecondary" style={{ fontSize: 11, padding: "4px 8px" }} href={`${apiBase}/api/qb/history/export`} title="최근 이력 전체를 JSON 파일로 저장 — 다른 사람에게 전달">⬇ 이력 내보내기</a>
+            <button className="btnSecondary" style={{ fontSize: 11, padding: "4px 8px" }} onClick={() => histFileRef.current?.click()} title="받은 이력 JSON 을 내 화면에 추가">⬆ 이력 가져오기</button>
+            <input ref={histFileRef} type="file" accept=".json" hidden onChange={async (e) => {
+              const f = e.target.files?.[0]; if (!f) return;
+              try { const txt = await f.text(); const r = await (await fetch(`${apiBase}/api/qb/history/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: txt })).json();
+                alert(`이력 가져오기: 추가 ${r.added} · 이미 있음 ${r.skipped}`); onHistoryChanged?.(); } catch { alert("가져오기 실패 — 큐비 이력 JSON 인지 확인"); }
+              e.currentTarget.value = ""; }} />
+          </div>
           {history.length === 0 && <p style={{ padding: "2px 10px", fontSize: 11.5, color: "var(--sec)" }}>아직 저장된 검수가 없어요</p>}
           {history.map((h) => (
             <div key={h.run_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 10px", fontSize: 11.5, cursor: "pointer" }} onClick={() => openHistory(h.run_id)}>

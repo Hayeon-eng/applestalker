@@ -10,10 +10,11 @@ import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
 import { SpecSiteOverview, SpecQaDetails, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 import { QubiSidebar } from "./QubiSidebar";
+import { QubiStaticQa } from "./QubiStaticQa"; // [2026-09] 스태틱 페이지 Schema 라이트
 import { QubiRunPanel } from "./QubiRunPanel";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
-  const [tab, setTab] = useState<"schema" | "copy">("schema");
+  const [tab, setTab] = useState<"schema" | "copy" | "static">("schema");
   // [2026-07 과제3] 마지막으로 실행한 QA 축(all/data/spec) — 탭별 독립 실행 표시용
   const [qaMode, setQaMode] = useState<"all" | "data" | "spec">("all");
   const [product, setProduct] = useState("galaxy-z-fold8");
@@ -440,7 +441,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   return (
     <div className="appShell">
       {/* ── 사이드바 ── */}
-      <QubiSidebar onHome={onHome} online={online} downloadTemplate={downloadTemplate} uploadTemplate={uploadTemplate} xlsxFileRef={xlsxFileRef} sitesOpen={sitesOpen} setSitesOpen={setSitesOpen} entries={entries} removeUrl={removeUrl} history={history} openHistory={openHistory} removeHistory={removeHistory} />
+      <QubiSidebar onHome={onHome} online={online} apiBase={apiBase} onHistoryChanged={() => { loadHistory(); loadOverview(); }} downloadTemplate={downloadTemplate} uploadTemplate={uploadTemplate} xlsxFileRef={xlsxFileRef} sitesOpen={sitesOpen} setSitesOpen={setSitesOpen} entries={entries} removeUrl={removeUrl} history={history} openHistory={openHistory} removeHistory={removeHistory} />
 
       {/* ── 메인 ── */}
       <div className="mainArea">
@@ -449,6 +450,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             <div className="tabGroup">
               <button className={`tabBtn ${tab === "schema" ? "on" : ""}`} onClick={() => setTab("schema")}>DATA QA</button>
               <button className={`tabBtn ${tab === "copy" ? "on" : ""}`} onClick={() => setTab("copy")}>스펙 QA</button>
+              <button className={`tabBtn ${tab === "static" ? "on" : ""}`} onClick={() => setTab("static")}>스태틱 QA</button>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               <button className="toolBtn" onClick={() => (showRules ? setShowRules(false) : openCriteria())}>
@@ -464,6 +466,10 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         </header>
 
         <div className="contentScroll" style={{ padding: "20px 28px 80px" }}>
+          {tab === "static" ? (<>
+            <h2 style={{ fontSize: 18, margin: "0 0 12px" }}>스태틱 QA <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>공통 페이지 7종 × 91 사이트 — 스키마 O/X · JSON-LD 파싱 · 리치결과 전형적 오류(매일)</span></h2>
+            <QubiStaticQa apiBase={apiBase} />
+          </>) : (<>
           <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>
             {tab === "schema" ? "DATA QA" : "스펙 QA"} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>
               {tab === "schema" ? "스키마 · H태그 · Meta title/description — GEO 관점 종합 검수" : "스펙 값·고유명사 정확성 (번역 대응)"}</span>
@@ -585,6 +591,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             </>
           )}
           {tab === "copy" && !results.some((r: any) => r.spec_v2) && results.length > 0 && rows.length === 0 && <p style={{ color: "#1F9E5C", marginTop: 16 }}>이 탭(스펙)에서 발견된 오류가 없어요 🐝</p>}
+          </>)}
         </div>
       </div>
 
