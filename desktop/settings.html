@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>ABC Tool 설정</title>
+<style>body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:#F8F9FB;color:#111318;margin:0;padding:24px}
+.card{background:#fff;border-radius:16px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.08);max-width:760px;margin:0 auto 14px}
+h1{font-size:18px;margin:0 0 4px}h2{font-size:14px;margin:0 0 10px;color:#374151}label{display:block;font-size:12px;color:#6B7280;margin:8px 0 3px}
+input,select{font:inherit;font-size:13px;padding:7px 9px;border:1px solid #E5E7EB;border-radius:8px;width:100%;box-sizing:border-box}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hint{font-size:11.5px;color:#6B7280;margin-top:4px}
+button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600}.p{background:#1B4FD8;color:#fff}.s{background:rgba(0,0,0,.06)}
+.msg{font-size:12.5px;color:#166534;margin-top:8px}.warn{background:#FEF3E2;color:#B45309;border-radius:8px;padding:8px 10px;font-size:12px}</style></head>
+<body>
+<div class="card"><h1>⚙ ABC Tool 설정</h1><div class="hint">이 PC 에서 돌아가는 프로그램의 설정입니다. 저장하면 바로 적용되고(포트·DB 는 재시작 후), 파일로는 <code id="cfgPath"></code> 에 저장됩니다.</div></div>
+<div class="card"><h2>자동 실행</h2>
+  <label>실행 방식</label><select id="mode"><option value="manual">수동 — 화면에서 '수집 실행'을 눌러야 돌아감</option><option value="auto">자동 — 아래 요일·시각에 프로그램이 스스로 실행</option></select>
+  <div class="row"><div><label>요일</label><select id="weekday"><option value="0">월</option><option value="1">화</option><option value="2">수</option><option value="3">목</option><option value="4">금</option><option value="5">토</option><option value="6">일</option></select></div>
+  <div><label>시각</label><div class="row"><input id="hour" type="number" min="0" max="23"><input id="minute" type="number" min="0" max="59"></div></div></div>
+  <div class="row"><label><input type="checkbox" id="runA" style="width:auto"> 🍎 Apple Stalker 크롤 포함</label><label><input type="checkbox" id="runB" style="width:auto"> 🐝 큐비 검수 포함</label></div>
+  <div class="row"><label><input type="checkbox" id="staticDaily" style="width:auto"> 🐝 스태틱 페이지 Schema 라이트 — <b>매일</b> 실행</label><div><label>매일 실행 시각(시)</label><input id="staticHour" type="number" min="0" max="23"></div></div>
+  <div class="hint">자동 실행은 프로그램(exe)이 켜져 있어야 동작합니다. PC 가 꺼져 있으면 그 주는 건너뜁니다. 지금 바로 한 번 돌리려면 → <button class="s" onclick="runNow()">지금 실행</button></div>
+</div>
+<div class="card"><h2>이메일</h2>
+  <label><input type="checkbox" id="emEnabled" style="width:auto"> 이메일 기능 사용(SMTP)</label>
+  <label><input type="checkbox" id="emAuto" style="width:auto"> 자동 실행이 끝나면 리포트 메일 자동 발송</label>
+  <div class="hint">꺼 두면 화면의 '메일 본문 복사'로 수동 발송만 가능합니다(SMTP 없이도 동작).</div>
+  <div class="row"><div><label>SMTP 서버</label><input id="smtp"></div><div><label>포트</label><input id="port" type="number"></div></div>
+  <div class="row"><div><label>보내는 주소</label><input id="sender"></div><div><label>비밀번호(앱 비밀번호)</label><input id="pw" type="password"></div></div>
+  <label>받는 주소(콤마 구분)</label><input id="rcpt">
+</div>
+<div class="card"><h2>접속·키</h2>
+  <div class="row"><div><label>화면 비밀번호(비우면 게이트 없음)</label><input id="site"></div><div><label>관리자 비밀번호(URL 추가/삭제)</label><input id="admin"></div></div>
+  <label>Gemini API 키(Apple Stalker AI 요약, 선택)</label><input id="gemini">
+  <label>공용 DB 주소(선택 — 비우면 이 PC 파일에 저장)</label><input id="db" placeholder="postgresql://…  (사내망은 5432 차단으로 대개 사용 불가)">
+  <div class="hint">현재 DB: <span id="dbNow"></span> · 이력 공유는 큐비 사이드바 '이력 내보내기/가져오기'(JSON)로 하세요.</div>
+  <div style="margin-top:14px;display:flex;gap:8px"><button class="p" onclick="save()">저장</button><a class="s" style="padding:9px 14px;border-radius:10px;text-decoration:none;color:#374151" href="/">← 도구로 돌아가기</a></div>
+  <div class="msg" id="msg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id); let C=null;
+fetch('/api/settings').then(r=>r.json()).then(d=>{C=d.config;$('cfgPath').textContent=d.config_path;$('dbNow').textContent=d.database||'(sqlite)';
+ const s=C.schedule,e=C.email;$('mode').value=s.mode;$('weekday').value=s.weekday;$('hour').value=s.hour;$('minute').value=s.minute;$('runA').checked=!!s.run_apple_stalker;$('runB').checked=!!s.run_qubi;$('staticDaily').checked=s.static_daily!==false;$('staticHour').value=s.static_hour??8;
+ $('emEnabled').checked=!!e.enabled;$('emAuto').checked=!!e.auto_send_after_run;$('smtp').value=e.smtp_server||'';$('port').value=e.smtp_port||'';$('sender').value=e.sender||'';$('pw').value=e.password||'';$('rcpt').value=e.recipients||'';
+ $('site').value=C.site_password||'';$('admin').value=C.admin_password||'';$('gemini').value=C.gemini_api_key||'';$('db').value=C.database_url||''});
+async function save(){const body={schedule:{mode:$('mode').value,weekday:+$('weekday').value,hour:+$('hour').value,minute:+$('minute').value,run_apple_stalker:$('runA').checked,run_qubi:$('runB').checked,static_daily:$('staticDaily').checked,static_hour:+$('staticHour').value||8},
+ email:{enabled:$('emEnabled').checked,auto_send_after_run:$('emAuto').checked,smtp_server:$('smtp').value,smtp_port:+$('port').value||587,sender:$('sender').value,password:$('pw').value,recipients:$('rcpt').value},
+ site_password:$('site').value,admin_password:$('admin').value,gemini_api_key:$('gemini').value,database_url:$('db').value};
+ const r=await (await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();$('msg').textContent=r.ok?'저장됨 — '+(r.note||''):'저장 실패'}
+async function runNow(){await fetch('/api/settings/run-now',{method:'POST'});$('msg').textContent='실행을 시작했습니다 — 각 도구 화면에서 진행률을 확인하세요'}
+</script></body></html>
