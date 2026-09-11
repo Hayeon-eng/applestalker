@@ -1,0 +1,27 @@
+name: build-exe
+# ABC_Tool.exe 자동 빌드 — main 에 push 되거나 수동 실행하면 Windows 러너가 빌드해 아티팩트로 올린다.
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**', 'frontend/**', 'desktop/**', 'requirements.txt', '.github/workflows/build-exe.yml']
+  workflow_dispatch: {}
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Build exe
+        shell: pwsh
+        run: .\desktop\build.ps1
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path desktop\dist\ABC_Tool\* -DestinationPath ABC_Tool_win_${{ github.run_number }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ABC_Tool_win
+          path: ABC_Tool_win_*.zip
+          retention-days: 30
