@@ -39,26 +39,49 @@ DEFAULT_CONFIG = {
               "sender": "", "password": "", "recipients": ""},
     "schedule": {"mode": "manual", "weekday": 0, "hour": 9, "minute": 0, "run_apple_stalker": True, "run_qubi": True,
                  "qubi_payload": {"product": "M3", "page_types": ["PDP", "Compare"], "mode": "all"},
-                 "static_daily": True, "static_hour": 8,    # 스태틱 페이지 Schema 라이트 — 매일 08:00 (mode 가 auto 일 때)
+                 "static_daily": True, "static_hour": 8,    # 공통페이지 QA — 매일 08:00 (mode 가 auto 일 때)
                  "run_honeycomb": False, "honeycomb_detail": False},  # honeyComb(SerpApi 호출 발생) 은 기본 수동 — 켜면 주간 실행에 포함
     "open_browser": True,
 }
 
 
+# [2026-09-11] 팀 공통 설정 임베드 — exe 안에 desktop/config.default.json 이 들어가 있으면(빌드 시 GitHub Secrets 로 채움)
+# 누구 PC 에서 켜도 비밀번호·API 키·자동 실행 설정이 같다. 이메일(email)은 각자 PC 의 config.json 에서만 정한다.
+SHARED_KEYS = ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "schedule", "database_url", "port")
+
+
+def _bundled_default() -> dict:
+    for cand in (RES_DIR / "desktop" / "config.default.json", BASE_DIR / "desktop" / "config.default.json", BASE_DIR / "config.default.json"):
+        if cand.exists():
+            try:
+                return json.loads(cand.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+    return {}
+
+
+def _deep_merge(base: dict, over: dict) -> dict:
+    out = json.loads(json.dumps(base))
+    for k, v in (over or {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k].update(v)
+        elif v not in (None, ""):
+            out[k] = v
+    return out
+
+
 def load_config() -> dict:
+    bundled = _bundled_default()
+    shared = {k: v for k, v in bundled.items() if k in SHARED_KEYS}
     if not CONFIG_PATH.exists():
-        CONFIG_PATH.write_text(json.dumps(DEFAULT_CONFIG, ensure_ascii=False, indent=2), encoding="utf-8")
+        # 첫 실행: 임베드된 공통값으로 config.json 생성(이메일은 비움)
+        CONFIG_PATH.write_text(json.dumps(_deep_merge(DEFAULT_CONFIG, shared), ensure_ascii=False, indent=2), encoding="utf-8")
     try:
-        cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        local = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     except Exception:
-        cfg = {}
-    merged = json.loads(json.dumps(DEFAULT_CONFIG))
-    for k, v in cfg.items():
-        if isinstance(v, dict) and isinstance(merged.get(k), dict):
-            merged[k].update(v)
-        else:
-            merged[k] = v
-    return merged
+        local = {}
+    # 우선순위: 기본값 < 임베드 공통값 < 이 PC 의 config.json (사람이 화면에서 바꾼 값이 최우선)
+    return _deep_merge(_deep_merge(DEFAULT_CONFIG, shared), local)
 
 
 def save_config(cfg: dict):
@@ -86,7 +109,7 @@ def apply_env(cfg: dict):
     # 렌더 기본 OFF(큐비 v5 결정) — exe 에는 chromium 을 넣지 않는다
     os.environ.setdefault("USE_PLAYWRIGHT", "false"); os.environ.setdefault("JS_RESCUE", "false"); os.environ.setdefault("QB_SPEC_API", "true")
     os.environ.setdefault("KEEP_SNAPSHOTS", "10")
-    os.environ.setdefault("QB_STATIC_DIR", str(DATA_DIR / "static_runs"))  # 스태틱 QA 결과(매일) 저장
+    os.environ.setdefault("QB_STATIC_DIR", str(DATA_DIR / "static_runs"))  # 공통페이지 QA 결과(매일) 저장
 
 
 def apply_windows_proxy():
@@ -228,7 +251,7 @@ def static_job(cfg: dict):
     try:
         with httpx.Client(timeout=60, trust_env=False) as c:
             r = c.post(f"http://127.0.0.1:{cfg.get('port', 8765)}/api/qb/static/run", json={})
-            print("[scheduler] static qa:", r.status_code, r.text[:80])
+            print("[scheduler] 공통페이지 QA:", r.status_code, r.text[:80])
     except Exception as e:
         print("[scheduler] static qa fail:", e)
 
@@ -246,7 +269,7 @@ def scheduler_loop():
                and now.minute >= int(sch.get("minute", 0)) and last_key != key:
                 last_key = key
                 scheduled_job(cfg)
-            # 스태틱 페이지 Schema 라이트 — 매일(auto 모드일 때)
+            # 공통페이지 QA — 매일(auto 모드일 때)
             if sch.get("mode") == "auto" and sch.get("static_daily", True) and now.hour == int(sch.get("static_hour", 8)) and last_static != key:
                 last_static = key
                 static_job(cfg)

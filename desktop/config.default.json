@@ -1,0 +1,7 @@
+{
+  "_note": "팀 공통 설정 — exe 에 임베드됩니다. 비밀번호·API 키는 여기 적지 말고 GitHub Settings → Secrets 에 (SITE_PASSWORD, ADMIN_PASSWORD, GEMINI_API_KEY, SERPAPI_KEY) 넣으면 빌드 때 자동으로 채워집니다. 이메일은 각자 PC 의 config.json 에서 설정.",
+  "port": 8765,
+  "schedule": { "mode": "manual", "weekday": 0, "hour": 9, "minute": 0, "run_apple_stalker": true, "run_qubi": true,
+                "qubi_payload": { "product": "M3", "page_types": ["PDP", "Compare"], "mode": "all" },
+                "static_daily": true, "static_hour": 8, "run_honeycomb": false, "honeycomb_detail": false }
+}

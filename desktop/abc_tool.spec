@@ -11,6 +11,8 @@ datas = []
 # 프론트 정적 파일
 datas.append((os.path.join(here, 'frontend_out'), 'frontend_out'))
 datas.append((os.path.join(here, 'settings.html'), 'desktop'))
+if os.path.exists(os.path.join(here, 'config.default.json')):
+    datas.append((os.path.join(here, 'config.default.json'), 'desktop'))  # 팀 공통 설정(빌드 시 Secrets 로 채움)
 # 백엔드 데이터(JSON 룰·레지스트리·시드) — 코드 옆 상대경로로 읽으므로 같은 구조로 복사
 for pattern in ('backend/dotcom_qa/*.json', 'backend/honeycomb/*.json', 'backend/*.json'):
     for f in glob.glob(os.path.join(root, pattern)):
