@@ -13,10 +13,15 @@ export type Product = { code: string; label: string; spec_only?: boolean };
 
 export const SEV = { fail: { ko: "오류", c: "#D8362F" }, warn: { ko: "확인", c: "#E0A008" }, pass: { ko: "정상", c: "#1F9E5C" }, na: { ko: "해당없음", c: "#98A2B3" } } as const;
 export const HONEY = "#E0A008";
-export const PAGE_TYPES = ["PDP", "Compare"];
-// 버즈는 Compare 페이지가 없음 → PDP만. 폰은 PDP·Compare. (Buying은 검사 제외라 노출 안 함)
+export const PAGE_TYPES = ["PDP", "Compare", "Specs", "Buying"];
+// [2026-09 D1] 사람 검수 범위(PDP·compare·specs·buy)에 맞춰 Specs/Buying 추가 — 폰(갤럭시 S/Z)만.
+// Specs/Buying 은 스키마 검사 없이 HTML/SEO 검사만 수행(백엔드 runner.schema_set_for → None).
+// 레지스트리에 없으면 백엔드가 PDP URL 에서 {pdp}specs/ · {pdp}buy/ 를 파생해 크롤한다(404 → Not Checked).
+// 버즈는 Compare 페이지가 없음 → PDP만. 워치는 PDP·Compare.
 export const pageTypesFor = (product: string) =>
-  product.startsWith("galaxy-buds") ? ["PDP"] : PAGE_TYPES;
+  product.startsWith("galaxy-buds") ? ["PDP"]
+  : (product.startsWith("galaxy-s") || product.startsWith("galaxy-z")) ? PAGE_TYPES
+  : ["PDP", "Compare"];
 // 마케팅 제품 → 스키마 룰 패밀리(M3=폰 계열 / M12=버즈 계열)
 export const family = (code: string) => (code || "").includes("buds") ? "M12" : "M3";
 
