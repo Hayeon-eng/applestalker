@@ -102,7 +102,9 @@ function MiniDiff({ expected, actual }: { expected: string; actual: string }) {
   );
 }
 
-export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] }) {
+// [2026-09] seo — 백엔드 seo_checker 결과(row.seo). 사람 검수 항목(Canonical/robots/Title 구성/Meta/Breadcrumb)을
+// 화면에도 노출한다(그동안 엑셀에만 반영되어 화면 기준이 최신이 아니었음).
+export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: any[]; seo?: any }) {
   const l1 = hq.level1_apply_rate || {};
   const axis2 = hq.level2?.axis2_parsing_rich_result || {};
   const axis3 = hq.level2?.axis3_id_linkage || {};
@@ -132,7 +134,8 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
     { key: "Meta Title", status: titleStatus, ok: titleStatus !== "fail", val: sig.title, note: sig.title ? `${titleLen}자` : "누락", where: "<head> → <title>" },
     { key: "Meta Description", status: descStatus, ok: descStatus !== "fail", val: sig.meta_description, note: sig.meta_description ? `${descLen}자` : "누락", where: "<head> → meta[name=description]" },
     { key: "H1", status: h1n === 1 ? "pass" : "fail" as const, ok: h1n === 1, val: (sig.h1_list || []).join(" / "), note: `${h1n}개`, where: "본문 <h1>" },
-    { key: "H2", status: (sig.h2_list || []).length > 0 ? "pass" : "fail" as const, ok: (sig.h2_list || []).length > 0, val: `${(sig.h2_list || []).length}개`, note: `${(sig.h2_list || []).length}개`, where: "본문 <h2>" },
+    // [2026-09] H2 개수는 사람 검수 기준에 없는 항목 — 없어도 ❌(fail)가 아닌 🟡(확인)으로. 백엔드 qa_report_rows 와 동일.
+    { key: "H2", status: (sig.h2_list || []).length > 0 ? "pass" : "warn" as const, ok: true, val: `${(sig.h2_list || []).length}개`, note: `${(sig.h2_list || []).length}개`, where: "본문 <h2>" },
     // [신규] H3/H4 — H1/H2 아래 순차 노출. H3/H4는 없어도 정상인 페이지가 많아 H1/H2와 같은
     // 기준으로 ❌ 오류(fail) 처리하면 오탐이 된다 — 그렇다고 비어있는데 ✅(pass)를 띄우면 그것대로
     // 앞뒤가 안 맞아 보이므로(있는데 없다고 뜨는 것처럼 오해), 비어있을 땐 🟡(확인 권장)으로 표시.
@@ -188,6 +191,30 @@ export function HtmlQaDetail({ hq, findings = [] }: { hq: any; findings?: any[] 
         </div>
         </div>
       </div>
+
+      {/* ═══ [2026-09] SEO 요소 검수 (사람 검수 항목: Canonical · robots · Title 구성 · Meta · Breadcrumb) ═══ */}
+      {seo && Array.isArray(seo.items) && (
+        <div style={{ border: "1px solid #D9EEE3", borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ background: "#EEF8F2", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#067647", borderLeft: "3px solid #067647" }}>
+            SEO 요소 검수 <span style={{ fontWeight: 400, color: "#3B8F63", fontSize: 10.5 }}>Canonical · robots · Title 구성 · Meta Description · Breadcrumb — 사람 검수와 동일 항목</span>
+            <span style={{ marginLeft: 8, fontSize: 10.5, color: "var(--sec)" }}>❌ {seo.summary?.fail ?? 0} · 🟡 {seo.summary?.warn ?? 0} · ✅ {seo.summary?.pass ?? 0}</span>
+          </div>
+          <div style={{ padding: "10px 14px", display: "grid", gridTemplateColumns: "150px 1fr", rowGap: 6, fontSize: 11.5, alignItems: "start" }}>
+            {seo.items.map((it: any, k: number) => (
+              <Fragment key={k}>
+                <span style={{ color: it.status === "fail" ? "#B42318" : it.status === "warn" ? "#93540A" : "var(--sec)", fontWeight: it.status === "pass" ? 400 : 700 }}>
+                  {it.status === "pass" ? "✅" : it.status === "warn" ? "🟡" : "❌"} {it.element}
+                </span>
+                <span>
+                  {it.status !== "pass" && <b style={{ marginRight: 6 }}>{it.issue}</b>}
+                  {it.value ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word", fontSize: 11 }}>{String(it.value).slice(0, 160)}</code> : <i style={{ color: "var(--sec)" }}>(없음)</i>}
+                  {it.detail && <span style={{ color: "var(--sec)", marginLeft: 6, fontSize: 10.5 }}>{it.detail}</span>}
+                </span>
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ═══ Schema 검수 (앰버 계열) ═══ */}
       <div style={{ border: "1px solid #F5E6C8", borderRadius: 12, overflow: "hidden" }}>
@@ -414,7 +441,7 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
     return (
       <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
         <OverallBanner hq={hq} row={r0} />
-        <HtmlQaDetail hq={hq} findings={findings} />
+        <HtmlQaDetail hq={hq} findings={findings} seo={r0.seo} />
       </div>
     );
   }
@@ -479,7 +506,7 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
                       <span style={{ marginLeft: "auto" }}>데이터 {hq.overall?.prop_total ? Math.round((hq.overall.prop_ok / hq.overall.prop_total) * 100) : "—"}% · AEO {hq.overall?.final_pct ?? "—"}%</span>
                       <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
                     </div>
-                    {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px 16px" }}><HtmlQaDetail hq={hq} findings={r.schema?.findings || []} /></div>}
+                    {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px 16px" }}><HtmlQaDetail hq={hq} findings={r.schema?.findings || []} seo={r.seo} /></div>}
                   </div>
                 );
               })}
