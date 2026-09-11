@@ -7,28 +7,8 @@
    "type": "brand",
    "countries": [],
    "enabled": true,
-   "note": "초안(hc_import)",
+   "note": "",
    "subtype": "A1"
-  },
-  {
-   "id": "galaxy-z-fold8-ultra:longtail:Samsung Fold8 Ultra 512GB price",
-   "product": "galaxy-z-fold8-ultra",
-   "text": "Samsung Fold8 Ultra 512GB price",
-   "type": "brand",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "A3"
-  },
-  {
-   "id": "galaxy-z-fold8-ultra:longtail:best foldable phone for multitasking",
-   "product": "galaxy-z-fold8-ultra",
-   "text": "best foldable phone for multitasking",
-   "type": "longtail",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "B2"
   },
   {
    "id": "galaxy-z-fold8:brand:Galaxy Z Fold8",
@@ -37,28 +17,8 @@
    "type": "brand",
    "countries": [],
    "enabled": true,
-   "note": "초안(hc_import)",
+   "note": "",
    "subtype": "A1"
-  },
-  {
-   "id": "galaxy-z-fold8:longtail:Samsung Galaxy Z Fold8 256GB",
-   "product": "galaxy-z-fold8",
-   "text": "Samsung Galaxy Z Fold8 256GB",
-   "type": "brand",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "A2"
-  },
-  {
-   "id": "galaxy-z-fold8:longtail:lightest foldable phone 2026",
-   "product": "galaxy-z-fold8",
-   "text": "lightest foldable phone 2026",
-   "type": "longtail",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "B1"
   },
   {
    "id": "galaxy-z-flip8:brand:Galaxy Z Flip8",
@@ -67,28 +27,8 @@
    "type": "brand",
    "countries": [],
    "enabled": true,
-   "note": "초안(hc_import)",
+   "note": "",
    "subtype": "A1"
-  },
-  {
-   "id": "galaxy-z-flip8:longtail:Samsung Flip8 pink",
-   "product": "galaxy-z-flip8",
-   "text": "Samsung Flip8 pink",
-   "type": "brand",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "A2"
-  },
-  {
-   "id": "galaxy-z-flip8:longtail:compact flip phone with good camera",
-   "product": "galaxy-z-flip8",
-   "text": "compact flip phone with good camera",
-   "type": "longtail",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "B2"
   },
   {
    "id": "galaxy-watch-ultra2:brand:Galaxy Watch Ultra2",
@@ -97,28 +37,8 @@
    "type": "brand",
    "countries": [],
    "enabled": true,
-   "note": "초안(hc_import)",
+   "note": "",
    "subtype": "A1"
-  },
-  {
-   "id": "galaxy-watch-ultra2:longtail:Samsung Watch Ultra 2 titanium",
-   "product": "galaxy-watch-ultra2",
-   "text": "Samsung Watch Ultra 2 titanium",
-   "type": "brand",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "A2"
-  },
-  {
-   "id": "galaxy-watch-ultra2:longtail:rugged smartwatch for diving",
-   "product": "galaxy-watch-ultra2",
-   "text": "rugged smartwatch for diving",
-   "type": "longtail",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "B1"
   },
   {
    "id": "galaxy-watch9:brand:Galaxy Watch9",
@@ -127,35 +47,15 @@
    "type": "brand",
    "countries": [],
    "enabled": true,
-   "note": "초안(hc_import)",
+   "note": "",
    "subtype": "A1"
-  },
-  {
-   "id": "galaxy-watch9:longtail:Samsung Galaxy Watch9 40mm",
-   "product": "galaxy-watch9",
-   "text": "Samsung Galaxy Watch9 40mm",
-   "type": "brand",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "A2"
-  },
-  {
-   "id": "galaxy-watch9:longtail:best health tracking smartwatch",
-   "product": "galaxy-watch9",
-   "text": "best health tracking smartwatch",
-   "type": "longtail",
-   "countries": [],
-   "enabled": true,
-   "note": "초안(hc_import)",
-   "subtype": "B1"
   }
  ],
- "note": "type: brand(제품명·KPI=1순위 비율) | longtail(자연어·KPI=상단 노출 비율). subtype: A1~A3 / B1~B4 — taxonomy 참조. countries=[] 이면 전 국가.",
+ "note": "운영 결정(2026-09-11): 제품명 키워드(A)만 사용, 제품당 1~2개. 자연어(long-tail) 키워드는 사용하지 않음.",
  "taxonomy": {
   "brand": {
    "label": "제품명 키워드",
-   "goal": "우리 제품이 반드시 1순위여야 하는 검색어 — KPI: 1순위 비율",
+   "goal": "우리 제품이 반드시 1순위여야 하는 검색어 — KPI: 1위 비율. 호출 수 절감을 위해 제품당 1~2개",
    "rule": "공식 제품명이 포함되고, 검색자가 이미 그 제품을 찾고 있음",
    "subtypes": {
     "A1": {
@@ -175,39 +75,11 @@
     }
    }
   },
-  "longtail": {
-   "label": "자연어 long-tail",
-   "goal": "브랜드를 모르는 검색자에게도 상단(≤8)에 뜨는지, 어떤 판매처·속성이 보이는지 — KPI: 상단 노출 비율(1순위 요구 X)",
-   "rule": "실제 사람이 치는 문장형 표현, 제품명이 없거나 비교 의도",
-   "subtypes": {
-    "B1": {
-     "label": "카테고리 탐색",
-     "desc": "제품명 없이 카테고리·특성으로 찾음",
-     "ex": "best foldable phone 2026 · rugged smartwatch for diving"
-    },
-    "B2": {
-     "label": "상황·문제 해결",
-     "desc": "용도·상황을 문장으로",
-     "ex": "phone for multitasking with big screen · smartwatch with longest battery"
-    },
-    "B3": {
-     "label": "비교",
-     "desc": "자사·경쟁 제품을 나란히",
-     "ex": "Galaxy Z Fold8 vs iPhone Fold · Fold8 or Flip8"
-    },
-    "B4": {
-     "label": "현지어 자연어",
-     "desc": "해당 국가 언어(hl)로 쓴 문장",
-     "ex": "접었을 때 얇은 폴더블폰 · faltbares Handy mit großem Display"
-    }
-   }
-  },
   "writing_rules": [
-   "검색자가 실제로 칠 표현으로(내부 용어·카피덱 문구 X)",
-   "제품명이 들어가면 A(brand), 없거나 비교면 B(longtail)",
-   "5~8단어 이내, 국가 언어는 hl과 맞춤(영어권은 영어, DE는 독어)",
-   "제품당 A 2~3개 + B 3~5개 권장, 대소문자·공백만 다른 중복은 등록하지 않음",
-   "국가를 비우면 전 국가 적용 — 현지어(B4)는 해당 국가만 지정"
+   "공식 제품명 그대로(현지어 표기 포함) — 검색자가 이미 그 제품을 찾고 있는 검색어",
+   "제품당 1~2개까지(1개 추가 = 국가 수만큼 호출 증가)",
+   "대소문자·공백만 다른 중복은 등록하지 않음",
+   "국가를 비우면 전 국가 적용"
   ]
  }
 }

@@ -17,7 +17,7 @@ hc_engine.py — honeyComb 판정 엔진 [2026-09]
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
-STATUS_ORDER = ["top1", "topn", "low", "absent", "unranked", "unchecked"]
+STATUS_ORDER = ["top1", "topn", "low", "absent", "unranked", "unchecked", "error"]
 
 
 def judge_position(items: List[Dict[str, Any]], top_n: int) -> Dict[str, Any]:
@@ -104,3 +104,54 @@ def diff_runs(prev: Dict[str, Any], cur: Dict[str, Any]) -> List[Dict[str, Any]]
         if ch:
             out.append({"country": c["country"], "product": c["product"], "keyword": c["keyword"], "changes": ch})
     return out
+
+
+# ── [2026-09 수집 확정] SERP API 실수집 실행 ────────────────────────────────
+def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any]], keywords: List[Dict[str, Any]],
+                countries: Optional[List[str]] = None, products: Optional[List[str]] = None,
+                detail_for_samsung: bool = True, progress=None) -> Dict[str, Any]:
+    """국가 × 제품 × 활성 키워드마다 provider 로 Google Shopping 을 조회해 cell 을 만든다.
+    · 우리 리스팅이 있으면(가장 높은 position) 그 카드의 product_id 로 상세를 1회 더 조회해 속성을 역추적한다.
+    · 실패한 조회는 status='error' 로 남기고 계속 진행(한 키워드 실패가 전체를 죽이지 않게)."""
+    from datetime import datetime
+    top_n = int(config.get("top_n", 8))
+    cts = [c for c in config["countries"] if not countries or c["code"] in countries]
+    prs = [p for p in config["products"] if not products or p["slug"] in products]
+    run_id = f"hc_{datetime.now():%Y%m%d_%H%M%S}"
+    cells: List[Dict[str, Any]] = []
+    errors: List[Dict[str, Any]] = []
+    total = sum(1 for c in cts for p in prs for k in keywords if k.get("enabled", True) and k["product"] == p["slug"]
+                and (not k.get("countries") or c["code"] in k["countries"]))
+    done = 0
+    for c in cts:
+        for p in prs:
+            for k in keywords:
+                if not k.get("enabled", True) or k["product"] != p["slug"] or (k.get("countries") and c["code"] not in k["countries"]):
+                    continue
+                cell = {"country": c["code"], "product": p["slug"], "keyword": k["text"], "keyword_type": k.get("type", "brand"),
+                        "keyword_subtype": k.get("subtype"), "position": None, "top_n": top_n, "scom_exposed": None,
+                        "first_store": None, "status": "unchecked", "attrs": {}, "feed": {}, "evidence": None, "items_top": []}
+                try:
+                    res = provider.fetch_shopping(c, k["text"])
+                    items = res.get("items") or []
+                    j = judge_position(items, top_n)
+                    cell.update(position=j["position"], first_store=j["first_store"], status=j["status"],
+                                scom_exposed="O" if j["position"] is not None else "X" if items else None,
+                                evidence=res.get("raw_ref"), fetched_at=res.get("fetched_at"),
+                                items_top=[{k2: it.get(k2) for k2 in ("position", "title", "merchant", "price", "is_samsung_store", "link")}
+                                           for it in items[:top_n]])
+                    ours = [it for it in items if it.get("is_samsung_store")]
+                    if ours:
+                        best = min(ours, key=lambda it: it["position"])
+                        detail = provider.fetch_product_detail(c, best) if detail_for_samsung else {}
+                        cell["attrs"] = trace_attributes(best, detail, attributes)
+                        cell["our_item"] = {k2: best.get(k2) for k2 in ("position", "title", "merchant", "price", "link", "product_id")}
+                except Exception as e:
+                    cell["status"] = "error"; cell["error"] = str(e)[:200]
+                    errors.append({"country": c["code"], "product": p["slug"], "keyword": k["text"], "error": str(e)[:200]})
+                cells.append(cell); done += 1
+                if progress:
+                    progress(done, total)
+    return {"run_id": run_id, "week": datetime.now().strftime("W%V"), "at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "source": f"live:{getattr(provider, 'name', 'provider')}", "cells": cells, "errors": errors,
+            "api_calls": getattr(provider, "calls", None)}
