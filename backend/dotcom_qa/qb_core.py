@@ -137,7 +137,7 @@ _V2_EDIT_BLOCKED = ("이 제품의 기준값은 Rule DB(V2)로 관리됩니다 �
 # [분할 버그 수정] qb_api.py를 라우트 모듈로 쪼갤 때 PAGE_TYPES/SCHEMA_TYPES가
 # qb_routes_manage.py에만 들어가 /rules(check 모듈)가 NameError로 500이 났음.
 # 두 상수를 여기(core)로 올려 모든 라우트 모듈이 공유한다.
-PAGE_TYPES = ["PDP", "Compare", "Buying"]
+PAGE_TYPES = ["PDP", "Compare", "Specs", "Buying"]  # [2026-09 D1] Specs 추가
 SCHEMA_TYPES = [
     "WebPage", "ItemPage", "WebSite", "BreadcrumbList", "ItemList", "ListItem", "CollectionPage",
     "Product", "ProductGroup", "Offer", "AggregateOffer", "Brand", "Organization",

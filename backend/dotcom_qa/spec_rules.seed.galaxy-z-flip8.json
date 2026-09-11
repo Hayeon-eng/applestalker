@@ -1575,5 +1575,72 @@
     "Galaxy Z フリップ8",
     "折叠屏 Flip8"
   ],
-  "_note": "Phase2 신제품 시드. 식별(Product Name/Model Code)+핵심 스펙(카피덱 Compare Spec chart 근거)+dictionary+aliases. 카피덱 Key Specs 외 추가 스펙은 필요시 보강. | 2026-07-20 B과제 확장: Q8H8B8_Compare_Copydeck_260624 Spec chart 근거로 20개 규칙으로 확장, previous_models에 구모델 데이터 이관. Wi-Fi/Bluetooth/Wired Charging은 해당 카피덱에 값이 없어 미포함(수동 확인 필요). | 2026-07-20 B과제 확장: Q8H8B8_Compare_Copydeck_260624 Spec chart 근거로 20개 규칙으로 확장, previous_models에 구모델 데이터 이관. Wi-Fi/Bluetooth/Wired Charging은 해당 카피덱에 값이 없어 미포함(수동 확인 필요)."
+  "_note": "Phase2 신제품 시드. 식별(Product Name/Model Code)+핵심 스펙(카피덱 Compare Spec chart 근거)+dictionary+aliases. 카피덱 Key Specs 외 추가 스펙은 필요시 보강. | 2026-07-20 B과제 확장: Q8H8B8_Compare_Copydeck_260624 Spec chart 근거로 20개 규칙으로 확장, previous_models에 구모델 데이터 이관. Wi-Fi/Bluetooth/Wired Charging은 해당 카피덱에 값이 없어 미포함(수동 확인 필요). | 2026-07-20 B과제 확장: Q8H8B8_Compare_Copydeck_260624 Spec chart 근거로 20개 규칙으로 확장, previous_models에 구모델 데이터 이관. Wi-Fi/Bluetooth/Wired Charging은 해당 카피덱에 값이 없어 미포함(수동 확인 필요). | 2026-09 S3: sibling_models(동세대 형제 모델) 추가 — 귀속용 토큰. specs 값은 근거(SG PDP FAQ 문구)가 있는 항목만 기재, 나머지는 Rule DB SiblingModel 시트로 보강.",
+  "sibling_models": [
+    {
+      "model": "Galaxy Z Fold8",
+      "aliases": [
+        "Galaxy Z Fold8",
+        "Galaxy Z Fold 8",
+        "Z Fold8",
+        "Fold8",
+        "Fold 8",
+        "갤럭시 Z 폴드8",
+        "폴드8"
+      ],
+      "seed_source": "2026-09 SG Fold8 PDP FAQ 문구 실측(4800 mAh / 50 MP Wide·Ultra Wide)",
+      "specs": [
+        {
+          "attribute": "Battery Capacity",
+          "values": [
+            "4800"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "50"
+          ],
+          "unit": "MP"
+        }
+      ]
+    },
+    {
+      "model": "Galaxy Z Fold8 Ultra",
+      "aliases": [
+        "Galaxy Z Fold8 Ultra",
+        "Galaxy Z Fold 8 Ultra",
+        "Z Fold8 Ultra",
+        "Fold8 Ultra",
+        "Fold 8 Ultra",
+        "갤럭시 Z 폴드8 울트라",
+        "폴드8 울트라"
+      ],
+      "seed_source": "2026-09 SG Fold8 PDP FAQ 문구 실측(5000 mAh / 200 MP Wide / 10 MP Telephoto)",
+      "specs": [
+        {
+          "attribute": "Battery Capacity",
+          "values": [
+            "5000"
+          ],
+          "unit": "mAh"
+        },
+        {
+          "attribute": "Wide Camera",
+          "values": [
+            "200"
+          ],
+          "unit": "MP"
+        },
+        {
+          "attribute": "Telephoto Camera",
+          "values": [
+            "10"
+          ],
+          "unit": "MP"
+        }
+      ]
+    }
+  ]
 }

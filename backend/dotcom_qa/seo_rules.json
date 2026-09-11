@@ -1,0 +1,19 @@
+{
+  "_note": "[2026-09 D2~D7] seo_checker.py 설정. 코드 수정 없이 여기만 고치면 기준이 바뀐다. 사람 검수 리포트(Flagship SEO QA Report Dictionary 시트)의 Issue Name 과 1:1 대응.",
+  "brand_words": ["samsung", "삼성", "サムスン", "三星", "سامسونج", "самсунг", "ซัมซุง", "סמסונג"],
+  "country_tail_regex": "\\|\\s*(samsung|삼성|サムスン|三星|سامسونج|самсунг|ซัมซุง|סמסונג)[^|]*$",
+  "spec_keywords": ["spec", "specs", "specification", "specifications", "tech specs",
+                    "사양", "제품 사양", "스펙", "仕様", "スペック", "规格", "規格", "產品規格", "参数",
+                    "technische daten", "spezifikationen", "caractéristiques", "spécifications", "fiche technique",
+                    "especificaciones", "especificações", "specifiche", "specificaties", "specyfikacja",
+                    "specifikace", "specifikácie", "specifikationer", "spesifikasjoner", "tekniset tiedot",
+                    "технические характеристики", "характеристики", "المواصفات", "מפרט", "özellikler",
+                    "teknik özellikler", "spesifikasi", "thông số", "สเปค", "ข้อมูลจำเพาะ", "műszaki adatok",
+                    "specificații", "спецификации", "specifikacije", "tehnilised andmed", "specifikācijas",
+                    "specifikacijos"],
+  "robots_required_directive": "max-image-preview:large",
+  "meta_description_min_chars": 50,
+  "title_guideline_chars": 60,
+  "breadcrumb_min_items": 3,
+  "breadcrumb_dom_selectors": ["nav[aria-label*='readcrumb']", "nav.breadcrumb", ".breadcrumb", "ol.breadcrumb", "[class*='breadcrumb']"]
+}

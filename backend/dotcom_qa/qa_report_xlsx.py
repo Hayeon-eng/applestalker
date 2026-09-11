@@ -10,7 +10,7 @@ import re
 import difflib
 
 from qa_report_helpers import MARK, MARK_COLOR, SEV_COLOR2, _page_type
-from qa_report_rows import _schema_detail_rows, _html_qa_schema_gap_rows, _html_qa_rows
+from qa_report_rows import _schema_detail_rows, _html_qa_schema_gap_rows, _html_qa_rows, _seo_rows
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -46,6 +46,12 @@ def _error_owner(block_type: str, where: str, item: str, issue_type: str) -> str
 
     # 2) HTML 페이지 메타(제목/디스크립션/헤딩) → OC(HTML 제작)
     if it in _OC_HTML_ITEMS:
+        return "OC"
+    # [2026-09 D2~D7] SEO 요소: 템플릿/PIM 자동 생성 영역(canonical·robots·breadcrumb) → D2C,
+    # 콘텐츠 텍스트(Title/Meta Description) → OC
+    if bt in ("canonical tag", "google discover opt.", "breadcrumb"):
+        return "D2C"
+    if bt in ("title tag", "meta description"):
         return "OC"
 
     # 3) 스키마 블록 소유 주체
@@ -259,7 +265,27 @@ def build_xlsx(page_results):
 
     wb = Workbook()
 
+    _SEO_ISSUE_NAMES = {
+        "No canonical link present", "Should be canonicalized", "Title tag missing", "Model name missing",
+        "Model name incomplete", "Wrong model name in tag", "Country tail missing", "Country tail duplicate",
+        "Samsung keyword missing", "Spec keyword missing", "Title length over guideline",
+        "Meta description missing", "Insufficient Description", "Duplicate", "No robots meta tag",
+        "Robots directive missing", "No breadcrumb", "Wrong breadcrumb structure", "Wrong breadcrumb label",
+        "Breadcrumb link missing", "Wrong breadcrumb link inserted", "Breadcrumb label unverifiable",
+    }
+
+    def _is_not_checked(pr) -> bool:
+        """HTML 수집 실패(404/차단/타임아웃) 페이지 — qb_routes_run 이 not_checked 플래그를 붙이거나,
+        구버전 결과는 findings 가 '(collection failed)' 1건뿐인 경우."""
+        if pr.get("not_checked"):
+            return True
+        sch = (pr.get("schema") or {}).get("findings") or []
+        return bool(sch) and all(f.get("block") in ("(collection failed)", "(수집 실패)") for f in sch) \
+            and pr.get("html_qa") is None
+
     def _issue_type_of(item: str, as_is: str) -> str:
+        if item in _SEO_ISSUE_NAMES:
+            return item  # [D2~D7] 사람 리포트 Dictionary 의 Issue Name 그대로
         """작업자가 위에서 훑어보고 바로 종류를 알 수 있게 — Issue 텍스트/AS-IS 패턴에서
         요약 카테고리를 뽑는다(기존 항목 구성 방식은 그대로 두고, 순수 표시용 파생값만 추가)."""
         it = (item or "")
@@ -302,11 +328,15 @@ def build_xlsx(page_results):
     ws = wb.active; ws.title = "Data QA"
     ws.append(HEAD1); _hdr(ws)
     data_rows = []
+    not_checked = []  # [D8] 수집 실패/미검수 페이지 — 별도 시트(사람 리포트 'Not Checked')
     for pr in page_results:
         try:
             meta = _meta(pr)
+            if _is_not_checked(pr):
+                not_checked.append((meta, pr))
+                continue
             srows, covered = _schema_detail_rows(pr)
-            for r in srows + _html_qa_schema_gap_rows(pr, covered) + _html_qa_rows(pr):
+            for r in srows + _html_qa_schema_gap_rows(pr, covered) + _html_qa_rows(pr) + _seo_rows(pr):
                 data_rows.append((meta,) + tuple(r))
         except Exception as e:
             # [2026-07 FIX] 페이지 1건의 데이터 구조 문제로 전체 Excel 다운로드가 500 나던
@@ -336,6 +366,20 @@ def build_xlsx(page_results):
     if not data_rows:
         ws.append(["—", "", "", "", "", "🟢 OK", "No issues found", "", "", "", ""])
     _finish(ws, W1, "A2")
+
+    # ── Sheet "Not Checked" — [D8] 수집 실패 페이지(사람 리포트 시트4와 동일 취지) ──
+    if not_checked:
+        wsn = wb.create_sheet("Not Checked")
+        wsn.append(["#", "Product", "Site", "Page Type", "URL", "HTTP Status", "Final URL", "Reason"]); _hdr(wsn)
+        for n, (meta, pr) in enumerate(not_checked, 1):
+            region, country, site, ptype, url, product = meta
+            reason = ""
+            for f in (pr.get("schema") or {}).get("findings") or []:
+                if f.get("as_is"):
+                    reason = f["as_is"]; break
+            wsn.append([n, product, _site_cell(region, country, site), ptype, url,
+                        pr.get("http_status") or "", pr.get("final_url") or "", reason])
+        _finish(wsn, [4, 16, 20, 10, 48, 10, 48, 60], "A2")
 
     # ── Sheet 2 — Spec QA — 기준값 ↔ 페이지 실제값 (핵심 컬럼만) ──
     def _issue_type_of2(kind: str, found: str) -> str:

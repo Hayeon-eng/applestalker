@@ -37,14 +37,7 @@ def _html_qa_rows(pr):
                      "Add a <title> tag (<= 60 chars) summarizing the page",
                      "<head> -> <title>", "Title shown in search / AI answers",
                      to_be, _code_pair_text(as_is, to_be)))
-    elif len(title) > 60 + TITLE_WARN_BUFFER:
-        as_is = f"Current title ({len(title)} chars, limit 60): \"{title}\""
-        to_be = '<title><... <= 60 chars ...></title>'
-        rows.append(("HTML", "Meta Title", "title", "fail", as_is,
-                     "Shorten <title> to <= 60 chars, keeping product name + key value prop",
-                     "<head> -> <title>", "Title shown in search / AI answers",
-                     to_be, _code_pair_text(as_is, to_be)))
-    elif len(title) > 60:
+    elif len(title) > 60:  # [D11] 길이 초과는 warn 까지만(사람 검수 항목에 길이 기준 없음)
         as_is = f"Current title ({len(title)} chars, guideline 60): \"{title}\""
         to_be = '<title><... ~60 chars recommended ...></title>'
         rows.append(("HTML", "Meta Title", "title", "warn", as_is,
@@ -58,14 +51,7 @@ def _html_qa_rows(pr):
                      "Add meta[name=description] (<= 160 chars) summarizing the page",
                      "<head> -> meta[name=description]", "Snippet shown in search / AI answers",
                      to_be, _code_pair_text(as_is, to_be)))
-    elif len(desc) > 160 + DESC_WARN_BUFFER:
-        as_is = f"Current description ({len(desc)} chars, limit 160): \"{_clip(desc, 200)}\""
-        to_be = '<meta name="description" content="<... <= 160 chars ...>">'
-        rows.append(("HTML", "Meta Description", "meta_description", "fail", as_is,
-                     "Shorten meta description to <= 160 chars",
-                     "<head> -> meta[name=description]", "Snippet shown in search / AI answers",
-                     to_be, _code_pair_text(as_is, to_be)))
-    elif len(desc) > 160:
+    elif len(desc) > 160:  # [D11] warn 까지만
         as_is = f"Current description ({len(desc)} chars, guideline 160): \"{_clip(desc, 200)}\""
         to_be = '<meta name="description" content="<... ~160 chars recommended ...">'
         rows.append(("HTML", "Meta Description", "meta_description", "warn", as_is,
@@ -92,6 +78,40 @@ def _html_qa_rows(pr):
                      "Add at least one <h2> section heading",
                      "Body -> <h2>", "Content structure signal for AEO",
                      to_be, _code_pair_text(as_is, to_be)))
+    return rows
+
+
+_SEO_LOC = {
+    "Canonical Tag": "<head> -> link[rel=canonical]",
+    "Title Tag": "<head> -> <title>",
+    "Meta Description": "<head> -> meta[name=description]",
+    "Google Discover Opt.": "<head> -> meta[name=robots]",
+    "Breadcrumb": "JSON-LD BreadcrumbList / <nav> breadcrumb",
+}
+_SEO_IMPACT = {
+    "Canonical Tag": "Duplicate/canonical signal to search engines",
+    "Title Tag": "Title shown in search / AI answers",
+    "Meta Description": "Snippet shown in search / AI answers",
+    "Google Discover Opt.": "Google Discover large image preview eligibility",
+    "Breadcrumb": "Site hierarchy signal / breadcrumb rich result",
+}
+
+
+def _seo_rows(pr):
+    """[2026-09 D2~D7] seo_checker 결과 → 작업자용 영어 행. 사람 리포트의 Issue Name 을 그대로 item 에
+    쓰고, To-Be 는 Dictionary 의 Fix Guideline 을 사용한다. pass 항목은 행을 만들지 않는다."""
+    seo = pr.get("seo") or {}
+    rows = []
+    for it in seo.get("items") or []:
+        if it.get("status") not in ("fail", "warn"):
+            continue
+        el, issue = it.get("element", ""), it.get("issue", "")
+        as_is = (f"Current: \"{_clip(it.get('value') or '', 200)}\"" if it.get("value") else "(missing)")
+        if it.get("detail"):
+            as_is += f" · {_clip(it['detail'], 160)}"
+        fix = it.get("fix") or issue
+        rows.append(("HTML", el, issue, it["status"], as_is, fix,
+                     _SEO_LOC.get(el, "<head>"), _SEO_IMPACT.get(el, ""), fix, _code_pair_text(as_is, fix)))
     return rows
 
 
@@ -136,7 +156,11 @@ def _schema_detail_rows(pr):
         if code == "schema.parse_error":
             structured = True
             ln, col = f.get("parse_lineno"), f.get("parse_colno")
-            loc = f"JSON-LD script — line {ln}, col {col}" if ln else "JSON-LD script (position unknown)"
+            blk = f.get("block_label") or ""  # [D9] "#N Type" — 사람 리포트 Block 열 형식
+            loc = (f"{blk} — line {ln}, col {col}" if ln else f"{blk} (position unknown)") if blk else \
+                (f"JSON-LD script — line {ln}, col {col}" if ln else "JSON-LD script (position unknown)")
+            if f.get("type_guess"):
+                ty = f["type_guess"]
             line = f.get("parse_line", "")
             as_is = f"[Google Rich Result] JSON-LD {f.get('syntax_category', 'syntax')} error — {f.get('parse_msg', '')}"
             if line:

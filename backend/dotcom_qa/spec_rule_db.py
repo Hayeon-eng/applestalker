@@ -77,6 +77,7 @@ def parse_xlsx(content: bytes, product: str, version: str = "") -> Dict[str, Any
         "interactions": [], "country_exceptions": [], "candidates": [],
         # [V3] 단위 동의어(운영자 관리 시트) · 전작 정답지(전작 비교 문구 판정용)
         "unit_synonyms": {}, "previous_models": [],
+        "sibling_models": [],  # [2026-09 S3] 동세대 형제 모델(SiblingModel 시트)
     }
 
     # ── MasterSpec ──
@@ -216,6 +217,30 @@ def parse_xlsx(content: bytes, product: str, version: str = "") -> Dict[str, Any
             if attribute and values:
                 pm["specs"].append({"attribute": attribute, "values": values, "unit": unit})
         ruleset["previous_models"] = list(by_model.values())
+
+    # ── SiblingModel(선택) — [2026-09 S3] 동세대 형제 모델(Ultra/FE 등) 시트 ──
+    #    컬럼은 PreviousModel 과 동일. PDP FAQ/비교 문장에서 형제 제품 값이 대상 제품 오기재로
+    #    판정되지 않게 귀속에 쓴다. Attribute/Values 는 선택(있으면 형제 값 불일치를 '확인'으로 표시).
+    ws = _find_sheet("siblingmodel", "sibling model", "형제")
+    if ws is not None:
+        rows = ws.iter_rows(values_only=True)
+        next(rows, None)
+        by_model = {}
+        for row in rows:
+            if not row or not _cell(row[0]):
+                continue
+            model = _cell(row[0])
+            aliases = [a.strip() for a in _cell(row[1] if len(row) > 1 else "").split(",") if a.strip()]
+            attribute = _cell(row[2] if len(row) > 2 else "")
+            values = [v.strip() for v in _cell(row[3] if len(row) > 3 else "").split("|") if v.strip()]
+            unit = _cell(row[4] if len(row) > 4 else "")
+            sm = by_model.setdefault(model, {"model": model, "aliases": aliases, "specs": []})
+            for a in aliases:
+                if a not in sm["aliases"]:
+                    sm["aliases"].append(a)
+            if attribute and values:
+                sm["specs"].append({"attribute": attribute, "values": values, "unit": unit})
+        ruleset["sibling_models"] = list(by_model.values())
 
     return ruleset
 

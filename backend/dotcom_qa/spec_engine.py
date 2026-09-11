@@ -114,8 +114,17 @@ def _applicable(rule_page: str, page_type: str) -> bool:
 
 
 def _sections_for(rule_page: str) -> Tuple[str, ...]:
-    first = re.split(r"[/,]", (rule_page or "PDP"))[0].strip().lower()
-    return spec_extractor.PAGE_TO_SECTIONS.get(first, ("spec", "body"))
+    """Page 열의 모든 토큰(PDP/Compare …)에 해당하는 섹션의 합집합.
+    [2026-09 FIX] 기존엔 첫 토큰(PDP)만 봐서 'PDP/Compare' 룰이 PDP 안에 임베드된 Compare
+    위젯(section=compare)을 검사 대상에서 빼버렸다 — SG Fold8 의 5.5"/7.6" 키스펙이 그 위젯에
+    있어 Display Size 가 '값 없음'으로 끝났다."""
+    out: List[str] = []
+    for tok in re.split(r"[/,]", (rule_page or "PDP")):
+        t = tok.strip().lower()
+        for sec in spec_extractor.PAGE_TO_SECTIONS.get(t, ("spec", "body") if t else ()):
+            if sec not in out:
+                out.append(sec)
+    return tuple(out) if out else ("spec", "body")
 
 
 def _candidate_worthy(label: str) -> bool:
@@ -207,9 +216,14 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                          if r.get("validation") != "exists"]  # (결정 1) exists 전면 제외
     dictionary: Dict[str, List[str]] = ruleset.get("dictionary", {})
     prev_models: List[Dict] = ruleset.get("previous_models", []) or []
+    # [2026-09 S3] 형제 모델(동세대 라인업: Fold8 ↔ Fold8 Ultra 등). PDP FAQ/비교 문장에 함께
+    # 등장하는 형제 값이 대상 제품 오기재로 오판되지 않게 귀속용 토큰으로 쓴다.
+    sibling_models: List[Dict] = ruleset.get("sibling_models", []) or []
     unit_synonyms = svm.build_unit_synonyms(ruleset)
     unit_union = _unit_accepted_union(rules, prev_models)
     prev_tokens = svm.model_tokens(prev_models)
+    # 구조 페어(Compare 표 컬럼) 귀속에도 형제 토큰을 포함 — 형제 컬럼 값이 대상 값으로 오인되지 않게
+    owner_tokens = svm.model_tokens(prev_models + sibling_models)
     target_tokens = [svm.normalize_text(ruleset.get("product", ""))]
     # [V3.3] Compare 헤더는 현지어 제품명("갤럭시 Z 폴드7")이 흔하다 — 시드/엑셀의
     # product_aliases(다국어 제품명)를 대상 토큰에 포함해 컬럼 귀속이 끊기지 않게 한다.
@@ -279,8 +293,8 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                 continue
             if not _label_hit(_norm_loose(p["label"]), aliases):
                 continue
-            owner = _pair_owner(p, target_tokens, prev_tokens) if p.get("product_hint") else \
-                svm.attribute_block(svm.normalize_text(p["label"] + " " + p["value"]), prev_tokens, target_tokens)
+            owner = _pair_owner(p, target_tokens, owner_tokens) if p.get("product_hint") else \
+                svm.attribute_block(svm.normalize_text(p["label"] + " " + p["value"]), owner_tokens, target_tokens)
             if owner == "skip":
                 continue
             v_norm = svm.normalize_text(p["value"])
@@ -391,7 +405,7 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
         if vtype == "numeric_exact":
             res = svm.evaluate_numeric(rule, blocks, unit_synonyms, prev_models,
                                        unit_union, label_in_block=label_in_block,
-                                       target_tokens=target_tokens)
+                                       target_tokens=target_tokens, sibling_models=sibling_models)
             for d in res.get("detail", []):
                 trace.append({"step": "value-scan", "detail": d})
             if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
@@ -421,7 +435,7 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                                   f"exact '{rule['expected']}' → 숫자+단위({cu})로 재해석해 다국어 numeric 판정"})
                     res = svm.evaluate_numeric(num_rule, blocks, unit_synonyms, prev_models,
                                                unit_union, label_in_block=label_in_block,
-                                               target_tokens=target_tokens)
+                                               target_tokens=target_tokens, sibling_models=sibling_models)
                     for d in res.get("detail", []):
                         trace.append({"step": "value-scan", "detail": d})
                     if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
@@ -473,7 +487,11 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             opts = [o.strip() for o in re.split(r"[/|,]", rule["expected"]) if o.strip()]
             found_opts, unit = [], svm.canon_unit(rule.get("unit", ""))
             for o in opts:
-                token_variants = [o, o + (rule.get("unit") or "")]
+                u_ = (rule.get("unit") or "")
+                # [2026-09 S4] '1 TB' 처럼 숫자-단위 사이 공백 표기 허용(SG 실측: 1TB 미인식)
+                token_variants = [o, o + u_, f"{o} {u_}".strip()]
+                if re.fullmatch(r"\d+\s*[A-Za-z]+", o):  # '1TB' 형태 옵션 → '1 TB' 도 정답
+                    token_variants.append(re.sub(r"(\d+)\s*([A-Za-z]+)", r"\1 \2", o))
                 if svm.find_exact(blocks, token_variants):
                     found_opts.append(o)
             wrong = None

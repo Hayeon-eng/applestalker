@@ -36,6 +36,8 @@ _UNICODE_MAP = {
     "\u2011": "-", "\u2010": "-", "\u2012": "-", "\u2013": "-", "\u2014": "-",
     "\u00d7": "x", "\u2715": "x", "\u2716": "x",           # × ✕ ✖
     "\u00a0": " ", "\u202f": " ", "\u2009": " ",           # 공백류
+    # [2026-09] 인치 기호 변형 → 직선 따옴표(inch 동의어) — 5.5” / 7.6″ / ７.６＂ (SG 실측: 각주의 ” 미인식)
+    "\u201d": '"', "\u201c": '"', "\u2033": '"', "\uff02": '"',
 }
 # 아랍-인도(٠١٢٣٤٥٦٧٨٩) · 동아랍/페르시아(۰-۹) · 전각(０-９) 숫자 → ASCII
 _DIGIT_TRANS = {}
@@ -155,7 +157,8 @@ def scan_unit_hits(blocks: List[str], unit: str,
     # 범용 단위 'x'(줌 배율)는 '숫자 x 숫자'(해상도 2184 x 1968) 패턴을 제외해야 한다 —
     # 그렇지 않으면 해상도의 x가 줌 배율로 오인된다(회귀 테스트 L 고정).
     tail_guard = r"(?![a-z])" if cu != "x" else r"(?![a-z])(?!\s*\d)"
-    rx = re.compile(r"(\d+(?:\.\d+)?)\s*(" + alt + r")" + tail_guard)
+    # [2026-09] 숫자-단위 사이 하이픈 허용: "7.6-inch main screen", "50-MP" (SG 실측: FAQ 문장 미인식)
+    rx = re.compile(r"(\d+(?:\.\d+)?)(?:\s*-\s*|\s*)(" + alt + r")" + tail_guard)
     out: List[Dict[str, Any]] = []
     for block in blocks:
         nb = normalize_text(block)
@@ -286,6 +289,51 @@ def attribute_block(block_norm: str, tokens: List[Tuple[str, str]],
     return None
 
 
+def attribute_hit(hit: Dict[str, Any], prev_tokens: List[Tuple[str, str]],
+                  sibling_tokens: List[Tuple[str, str]],
+                  target_tokens: Optional[List[str]] = None) -> Tuple[str, Optional[str]]:
+    """[2026-09 S3] 숫자 hit 하나를 '가장 가까운 모델 언급'에 귀속한다.
+    반환 (kind, model) — kind ∈ {"target", "prev", "sibling"}; model 은 prev/sibling 의 모델키.
+
+    attribute_block 은 블록 전체에 전작 토큰이 하나라도 있으면 블록 전체를 전작으로 귀속한다.
+    그러나 FAQ 답변처럼 한 블록 안에 두 모델의 값이 함께 오는 문장
+      "Galaxy Z Fold8 Ultra features a 5000 mAh battery, while Galaxy Z Fold8 comes with a 4800 mAh"
+    에서는 숫자마다 소속이 다르다(SG Fold8 실측 오탐 3건). 그래서
+      · 블록 안 모든 모델 토큰(대상/전작/형제)의 위치를 찾고, 겹치는 구간은 더 긴 토큰만 남긴다
+        ('galaxy z fold8' ⊂ 'galaxy z fold8 ultra' → Ultra 로 귀속)
+      · 숫자 위치 직전의 가장 가까운 언급에 귀속, 앞에 없으면 뒤의 가장 가까운 언급
+      · 언급이 전혀 없으면 target
+    """
+    bn = hit.get("block_norm") or ""
+    pos = hit.get("pos", 0) or 0
+    mentions: List[Tuple[int, int, str, Optional[str]]] = []  # (start, end, kind, model)
+    for t in (target_tokens or []):
+        if not t:
+            continue
+        for m in re.finditer(re.escape(t), bn):
+            mentions.append((m.start(), m.end(), "target", None))
+    for toks, kind in ((prev_tokens or [], "prev"), (sibling_tokens or [], "sibling")):
+        for tok, model in toks:
+            if not tok:
+                continue
+            for m in re.finditer(re.escape(tok), bn):
+                mentions.append((m.start(), m.end(), kind, model))
+    if not mentions:
+        return ("target", None)
+    # 겹치는 언급은 가장 긴 것만 남긴다
+    mentions.sort(key=lambda x: (x[0], -(x[1] - x[0])))
+    kept: List[Tuple[int, int, str, Optional[str]]] = []
+    for mnt in mentions:
+        if any(not (mnt[1] <= k[0] or mnt[0] >= k[1]) and (k[1] - k[0]) >= (mnt[1] - mnt[0]) for k in kept):
+            continue
+        kept = [k for k in kept if (mnt[1] <= k[0] or mnt[0] >= k[1]) or (k[1] - k[0]) > (mnt[1] - mnt[0])]
+        kept.append(mnt)
+    before = [k for k in kept if k[0] <= pos]
+    after = [k for k in kept if k[0] > pos]
+    pick = max(before, key=lambda k: k[0]) if before else min(after, key=lambda k: k[0])
+    return (pick[2], pick[3])
+
+
 def prev_accepted_for(prev_models: List[Dict[str, Any]], model: Optional[str],
                       unit: str, any_model: bool = False) -> Optional[List[float]]:
     """전작 모델의 해당 단위 정답 숫자 합집합. 스펙 정보가 없으면 None(판정 불가).
@@ -313,8 +361,13 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                      prev_models: List[Dict[str, Any]],
                      unit_accepted_union: Dict[str, set],
                      label_in_block=None,
-                     target_tokens: Optional[List[str]] = None) -> Dict[str, Any]:
+                     target_tokens: Optional[List[str]] = None,
+                     sibling_models: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """numeric_exact 룰의 V3 판정.
+    [2026-09 S2/S3] · 숫자 귀속을 블록 단위(attribute_block)에서 숫자별 최근접 모델 언급
+    (attribute_hit)으로 바꿈 · 형제 모델(sibling_models: 동세대 Ultra/FE 등) 문장의 숫자는
+    FAIL 근거로 쓰지 않음 · '현 제품 다른 스펙 정답(union)' 검사를 '전작 값 혼입' 검사보다
+    먼저 수행(Front Camera 10MP 룰이 자기 Wide 50MP 를 전작 혼입으로 판정하던 오탐 수정).
     반환: {status: pass|fail|warn|na, found, message, detail[], confidence}
       · pass — 정답 집합 값이 (한정어 모순 없이) 발견됨
       · fail — 틀린 값의 적극적 증거: 한정어 오짝 / 라벨 동반 불일치 / 전작 스펙과 불일치
@@ -338,6 +391,7 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
     hits = scan_unit_hits(blocks, unit, unit_synonyms)
     conv = scan_conversion_hits(blocks, unit, accepted, unit_synonyms) if accepted else []
     toks = model_tokens(prev_models)
+    sib_toks = model_tokens(sibling_models or [])
 
     exact_pass_hit = None
     qualifier_fail = None
@@ -349,8 +403,16 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
         if h.get("delta"):
             detail.append(f"델타 표기 {h['text']} ('+/-' 증감량) — 스펙 주장이 아니므로 판정 제외")
             continue
-        owner = attribute_block(h["block_norm"], toks, target_tokens)
-        if owner:  # ── 전작 소속 숫자 ──
+        kind, owner = attribute_hit(h, toks, sib_toks, target_tokens)
+        if kind == "sibling":  # ── 형제 모델(동세대) 문장의 숫자 — 대상 제품 판정 근거 아님 ──
+            sv = prev_accepted_for(sibling_models or [], owner, unit)
+            if sv is not None and h["value"] not in sv and h["value"] not in union:
+                detail.append(f"형제 모델 '{owner}' 문구의 {_fmt_num(h['value'])}{unit} — 등록된 형제 스펙과 불일치(확인 권장)")
+                lone_mismatch = lone_mismatch or h
+            else:
+                detail.append(f"형제 모델 '{owner}' 문구의 {_fmt_num(h['value'])}{unit} — 대상 제품 값 아님, 판정 제외")
+            continue
+        if kind == "prev" and owner:  # ── 전작 소속 숫자 ──
             pv = prev_accepted_for(prev_models, owner, unit)
             if pv is None:
                 detail.append(f"'{owner}' 문장의 {_fmt_num(h['value'])}{unit} — 전작 스펙 미등록, 판정 보류")
@@ -375,12 +437,12 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                 exact_pass_hit = exact_pass_hit or h
                 if h["approx"]:
                     detail.append(f"근사 표기('{h['text']}' 주변)지만 값이 정답 집합 안 — 정상 처리")
+        elif h["value"] in union:
+            continue  # [S2] 같은 단위 다른 스펙의 '현 제품' 정답(Wide 50MP vs Front 10MP) — 전작 검사보다 우선
         elif h["value"] in prev_all and label_in_block and label_in_block(h["block"]):
             # [V3.2] 모델명 없이도 전작 정답값이 이 항목 라벨과 함께 적혀 있으면
             # 전작 값 혼입(예: Fold7 페이지에 "무게 239g") — 오기재로 승격
             label_fail = label_fail or h
-        elif h["value"] in union:
-            continue  # 같은 단위 다른 스펙의 정답(RAM 12 vs Storage 256 등) — 무관
         else:
             other_model = mentions_other_galaxy_model(h["block_norm"], target_tokens or [])
             if label_in_block and label_in_block(h["block"]) and not other_model:

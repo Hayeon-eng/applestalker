@@ -14,6 +14,7 @@ runner.py — 큐비 — Dotcom QA 체커 [오케스트레이터 / Phase E 어�
 from __future__ import annotations
 import json
 import os
+import re
 from typing import Any, Callable, Dict, List, Optional
 
 import schema_checker
@@ -25,12 +26,27 @@ _HERE = os.path.dirname(__file__)
 
 
 def page_type_from_url(url: str) -> str:
+    """URL 경로 → 페이지타입. [2026-09 D1] /specs/ 를 'Specs'로 분리한다 — 기존엔 PDP로
+    오분류되어 flagship 스키마 세트가 적용됐다(사람 검수는 PDP·compare·specs·buy 4종)."""
     u = (url or "").lower()
-    if "/compare" in u:
+    if re.search(r"/compare(/|$|\?)", u):
         return "Compare"
-    if "/buy" in u:
+    if re.search(r"/buy(/|$|\?)", u):
         return "Buying"
+    if re.search(r"/specs?(/|$|\?)", u):
+        return "Specs"
     return "PDP"
+
+
+DERIVED_PAGE_TYPES = ("Specs", "Buying")
+
+
+def derive_page_url(pdp_url: str, page_type: str) -> str:
+    """PDP URL → 파생 페이지 URL(specs/buy). 레지스트리에 없는 페이지타입을 요청받았을 때
+    PDP 엔트리에서 생성한다(존재 여부는 크롤 결과 status로 확인 — 404면 Not Checked)."""
+    base = (pdp_url or "").split("?")[0].rstrip("/") + "/"
+    seg = {"Specs": "specs/", "Buying": "buy/"}.get(page_type)
+    return base + seg if seg else pdp_url
 
 
 def product_from_url(url: str) -> Optional[str]:
@@ -92,8 +108,8 @@ def schema_set_for(page_type: str, market_product: Optional[str], url: str = "")
     - Compare         → compare
     - Buying          → None (스키마 검사 제외)
     """
-    if page_type == "Buying":
-        return None
+    if page_type in ("Buying", "Specs"):
+        return None  # [D1] Specs 는 별도 Word 세트가 없어 스키마 검사 제외(HTML/SEO 검사만)
     if page_type == "Compare":
         return "compare"
     return "flagship" if is_smartphone(market_product, url) else "simple"
@@ -258,7 +274,7 @@ SPEC_MODES = ("all", "spec")
 
 def check_html(html: str, rules: Dict[str, Any],
                sitecode: str = None, site_lang: str = None, rendered_by: str = None,
-               mode: str = "all") -> Dict[str, Any]:
+               mode: str = "all", page_url: str = "", final_url: str = None) -> Dict[str, Any]:
     """단일 페이지 HTML 검수 → {schema, copy, html_qa, spec_v2, compare_v2}.
     mode 로 Data QA(schema/copy/html_qa)와 Spec QA(spec_v2/compare_v2)를 분리 실행한다.
     실행하지 않은 축은 None 으로 남겨 다운스트림(summary/report/프론트)이 '미실행'으로
@@ -271,12 +287,33 @@ def check_html(html: str, rules: Dict[str, Any],
     schema_result = None
     copy_result = None
     html_qa_result = None
+    seo_result = None
     if mode in DATA_MODES:
         schema_result = schema_checker.check_page(html, rules["schema"],
                                                   sitecode=sitecode, site_lang=site_lang,
                                                   market_product=mp)
         copy_result = copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt)
         html_qa_result = html_qa_scoring.score_html_qa(html, rules["schema"], schema_result, rendered_by=rendered_by)
+        # [2026-09 D2~D7] 사람 검수 항목(Canonical/robots/Title 구성/Meta/Breadcrumb) — 소스 HTML 기준
+        try:
+            import seo_checker
+            sv = _schema_values()
+            nt = dict((sv.get(mp) or {}).get("name_tokens") or {}) if mp else {}
+            # Spec Rule DB 시드의 다국어 제품명(product_aliases: '갤럭시 Z 폴드8' 등)을 모델 토큰에 합쳐
+            # 현지어 Title/Meta 에서 '모델명 누락' 오탐을 줄인다.
+            try:
+                seed_p = os.path.join(_HERE, f"spec_rules.seed.{mp}.json")
+                if mp and os.path.exists(seed_p):
+                    aliases = json.load(open(seed_p, encoding="utf-8")).get("product_aliases") or []
+                    nt["model_any"] = list(dict.fromkeys(list(nt.get("model_any") or []) + aliases))
+            except Exception:
+                pass
+            seo_result = seo_checker.check_seo(html, page_url or "", page_type=pt, name_tokens=nt,
+                                               other_model_tokens=seo_checker.other_model_tokens_for(mp, sv),
+                                               final_url=final_url)
+        except Exception as e:  # SEO 검사 실패가 기존 검수를 죽이지 않게
+            print(f"[runner] seo skip: {e}")
+            seo_result = None
 
     # ── Spec QA 축 ──
     spec_v2 = None
@@ -308,20 +345,25 @@ def check_html(html: str, rules: Dict[str, Any],
         "schema": schema_result,
         "copy": copy_result,
         "html_qa": html_qa_result,
+        "seo": seo_result,
         "spec_v2": spec_v2,
         "compare_v2": compare_v2,
     }
 
 
 def run_site(site: Dict[str, Any], html: str, rules: Dict[str, Any], page_type: str = "PDP",
-             rendered_by: str = None, mode: str = "all") -> Dict[str, Any]:
+             rendered_by: str = None, mode: str = "all",
+             http_status: int = None, final_url: str = None) -> Dict[str, Any]:
     res = check_html(html, rules, sitecode=site.get("sitecode"), site_lang=site.get("lang"),
-                     rendered_by=rendered_by, mode=mode)
+                     rendered_by=rendered_by, mode=mode, page_url=site.get("url", ""), final_url=final_url)
     return {"sitecode": site.get("sitecode"), "url": site.get("url"),
             "region": site.get("region"), "country": site.get("country"),
             "product": site.get("product", "galaxy-s26-ultra"), "lang": site.get("lang"),
             "page_type": page_type, "qa_mode": (mode or "all").lower(),
+            # [2026-09 D8] 상태코드/최종 URL 기록(리포트 Status Code 열·Not Checked 시트용)
+            "http_status": http_status, "final_url": final_url, "rendered_by": rendered_by,
             "schema": res["schema"], "copy": res["copy"], "html_qa": res["html_qa"],
+            "seo": res.get("seo"),
             "spec_v2": res.get("spec_v2"), "compare_v2": res.get("compare_v2")}
 
 

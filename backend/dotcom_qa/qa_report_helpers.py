@@ -46,6 +46,8 @@ def _page_type(url):
         return "Compare"
     if "/buy" in u:
         return "Buying"
+    if re.search(r"/specs?(/|$)", u):
+        return "Specs"
     return "PDP"
 
 

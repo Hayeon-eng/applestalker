@@ -61,10 +61,16 @@ def extract_jsonld(html: str, parse_errors: Optional[List[str]] = None) -> List[
     """HTML 안의 모든 ld+json 블록을 파싱해 노드 리스트로 평탄화(@graph 전개).
     파싱 실패한 블록은 parse_errors(전달 시)에 원인 메시지를 담는다(Q2=a)."""
     nodes: List[Dict[str, Any]] = []
+    # [2026-09 D9] 사람 리포트의 Block 표기("#N SchemaType" — N은 소스 내 ld+json 순번)를
+    # 그대로 낼 수 있게, 파싱에 실패해도 원문 정규식으로 @type 을 추정해 함께 기록한다.
+    block_no = 0
     for m in _LD_RE.finditer(html or ""):
         raw = m.group(1).strip()
         if not raw:
             continue
+        block_no += 1
+        type_guess = _guess_type(raw)
+        _n = len(parse_errors) if parse_errors is not None else 0
         # Google 기준: 파싱은 되더라도 스마트쿼트/비표시문자가 있으면 SEO 위험으로 경고
         if parse_errors is not None and re.search(r"[“”‘’\u00a0\u200b\ufeff]", raw):
             smart = bool(re.search(r"[“”‘’]", raw))
@@ -89,9 +95,31 @@ def extract_jsonld(html: str, parse_errors: Optional[List[str]] = None) -> List[
             except Exception as e2:
                 if parse_errors is not None:
                     parse_errors.append(_classify_syntax(raw, e2))
+                _tag_block(parse_errors, _n, block_no, type_guess)
                 continue
+        _tag_block(parse_errors, _n, block_no, type_guess)
         _collect(data, nodes)
     return nodes
+
+
+_TYPE_GUESS_RE = re.compile(r'"@type"\s*:\s*"([^"]+)"')
+
+
+def _guess_type(raw: str) -> str:
+    """깨진 JSON-LD 원문에서 첫 @type 문자열을 정규식으로 추정(파싱 없이)."""
+    m = _TYPE_GUESS_RE.search(raw or "")
+    return m.group(1).strip() if m else ""
+
+
+def _tag_block(parse_errors, start_idx: int, block_no: int, type_guess: str):
+    """이번 블록에서 새로 추가된 parse_errors 항목에 블록 번호/타입 추정을 부착."""
+    if parse_errors is None:
+        return
+    for pe in parse_errors[start_idx:]:
+        if isinstance(pe, dict):
+            pe.setdefault("block_no", block_no)
+            pe.setdefault("type_guess", type_guess)
+            pe.setdefault("block_label", f"#{block_no} {type_guess or 'Unknown'}")
 
 
 def _collect(obj: Any, out: List[Dict[str, Any]]):
@@ -228,13 +256,21 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
              "parse_msg": pe.get("msg", ""), "parse_lineno": pe.get("lineno"),
              "parse_colno": pe.get("colno"), "parse_line": pe.get("line_text", ""),
              "syntax_category": pe.get("category", "syntax"), "syntax_hint": pe.get("hint", ""),
-             "engine": pe.get("engine", "")}
+             "engine": pe.get("engine", ""),
+             # [D9] "#N Type" — 사람 리포트 Block 열과 동일 형식
+             "block_no": pe.get("block_no"), "type_guess": pe.get("type_guess", ""),
+             "block_label": pe.get("block_label", "")}
         _apply(f, "schema.parse_error")
         if sev == "warn":
             warn += 1
         else:
             fail += 1
         findings.append(f)
+
+    # [D9] 파싱 실패(하드 오류)한 블록의 @type 집합 — 그 타입의 '블록 누락(fail)'은 이중 보고이므로
+    # 별도 코드(schema.broken)로만 남긴다(사람 리포트는 파싱 오류 1건만 기록).
+    broken_types = {pe.get("type_guess") for pe in parse_errors
+                    if isinstance(pe, dict) and pe.get("severity", "fail") == "fail" and pe.get("type_guess")}
 
     for block in product_rules.get("blocks", []):
         name = block["name"]
@@ -267,6 +303,14 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                              "rule_haspart_ids": block.get("haspart_ids", [])}
 
         if node is None:
+            if set(types) & broken_types:
+                # 파싱 실패 블록 때문에 노드가 없는 것 — 원인은 위 JSON-LD 파싱 오류 1건에 이미 기록
+                f["status"] = "warn"; f["broken_by_parse_error"] = True
+                _apply(f, "schema.missing"); warn += 1
+                f["as_is"] = f"블록이 JSON-LD 문법 오류로 파싱되지 않음(위 'JSON-LD' 항목 참조)"
+                f["to_be"] = "문법 오류 수정 후 재검수"
+                findings.append(f)
+                continue
             # 없음 → 조건부면 경고, 아니면 실패
             if conditional:
                 f["status"] = "warn"; _apply(f, "schema.missing"); warn += 1

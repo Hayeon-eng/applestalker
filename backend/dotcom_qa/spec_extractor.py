@@ -45,6 +45,9 @@ from typing import Any, Dict, List, Tuple
 # UI-chrome(제외 대상)을 스펙류보다 먼저 검사한다 — "spec-menu-btn" 같은 모호한
 # class명이 있어도 chrome으로 분류되어 검수/사전 후보 양쪽에서 제외되게 한다.
 _SECTION_KEYWORDS = [
+    # [2026-09 S1] 고객 리뷰/UGC(Bazaarvoice 등) — 삼성 카피가 아니므로 검수·사전 후보 모두 제외.
+    #   SG Fold8 실측: 리뷰 "8.0 inch screen… 5000 mah"가 body 로 분류돼 디스플레이 크기 FAIL 오탐.
+    ("review",     re.compile(r"\breview|bv-|bazaarvoice|\brating|\bugc\b|customer-?feedback|testimonial", re.I)),
     ("header",     re.compile(r"\bheader\b|gnb|global-?nav|site-?header|masthead|top-?bar", re.I)),
     ("footer",     re.compile(r"\bfooter\b|site-?footer|bottom-?bar", re.I)),
     ("nav",        re.compile(r"\bnav\b|navigation|breadcrumb|\block?[-_]?nav\b|side-?menu|tab-?menu|gnb|lnb", re.I)),
@@ -91,7 +94,7 @@ PAGE_TO_SECTIONS = {
 SPEC_LIKE_SECTIONS = {"spec", "compare", "buybox", "box"}
 
 # UI-chrome으로 분류된 section — 후보 생성뿐 아니라 항상 검수 대상에서도 제외
-CHROME_SECTIONS = {"header", "footer", "nav", "menu", "button", "popup"}
+CHROME_SECTIONS = {"header", "footer", "nav", "menu", "button", "popup", "review"}  # [S1] review 추가
 
 # 블록 경계로 취급하는(하위에 있으면 leaf가 아님) block-level 태그
 _BLOCK_TAGS = ("p", "li", "div", "dt", "dd", "td", "th",

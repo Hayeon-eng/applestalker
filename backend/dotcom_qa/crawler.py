@@ -304,12 +304,18 @@ class HybridCrawler:
         schema_count = len(data.get("structured_data") or [])
         combined = " ".join([title, h1, body[:500]]).lower()
 
-        hard_error_patterns = (
-            "error | meta", "access denied", "permission denied", "not found", "page not found",
-            "404", "403", "429", "captcha", "verify you are human", "just a moment",
+        # [2026-09 D10 FIX] 기존엔 "404"/"403"/"429"를 부분문자열로 검사해 본문 앞 500자에
+        # "4290mAh", "4040 mAh" 같은 스펙 숫자가 있는 정상 PDP가 'error page detected'로
+        # 분류됐다(테스트로 확인). 숫자 코드는 title/h1에서만, 그리고 단어 경계로만 본다.
+        text_error_patterns = (
+            "error | meta", "access denied", "permission denied", "page not found",
+            "captcha", "verify you are human", "just a moment",
             "temporarily unavailable", "something went wrong", "unsupported browser",
         )
-        if any(p in combined for p in hard_error_patterns):
+        if any(p in combined for p in text_error_patterns):
+            return f"error page detected: {title or 'unknown title'}"
+        head = f"{title} {h1}".lower()
+        if re.search(r"(?<!\d)(404|403|429)(?!\d)", head) or re.search(r"\bnot found\b", head):
             return f"error page detected: {title or 'unknown title'}"
 
         # title/h1은 있으나 실제 분석 근거가 거의 없는 케이스. Meta 에러 페이지처럼

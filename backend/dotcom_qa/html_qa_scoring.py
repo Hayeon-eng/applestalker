@@ -133,7 +133,7 @@ def extract_html_signals(html: str) -> Dict[str, Any]:
 def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
                        guide_h1_keywords: Optional[List[str]] = None,
                        guide_h2_min_count: Optional[int] = None,
-                       title_max_len: int = 80, desc_max_len: int = 160,
+                       title_max_len: int = 60, desc_max_len: int = 160,
                        title_warn_buffer: int = 10, desc_warn_buffer: int = 20) -> Dict[str, Any]:
     """가이드 적용율(%) = 실제 적용 항목 수 / 전체 항목 수.
     guide_h1_keywords/guide_h2_min_count는 마케팅 가이드 데이터가 있을 때만 채점(없으면 항목 자체를 건너뜀 — 거짓으로 O/X 매기지 않음)."""
@@ -157,14 +157,12 @@ def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
                       "detail": f"h2 {h2_count}개 / 가이드 {guide_h2_min_count}개 이상"})
 
     def _len_status(length: int, max_len: int, buffer: int) -> str:
-        # 60자/160자는 구글의 실제 픽셀폭 절단 기준(언어·폰트별로 다름)을 근사한 가이드라인일 뿐,
-        # 하드 스펙이 아니다. 소폭 초과(버퍼 이내)는 '확인'으로만 표시하고, 크게 초과할 때만
-        # '오류'로 잡는다 — 스키마 누락 같은 실제 기술 오류와 같은 무게로 다루지 않기 위함.
+        # [2026-09 D11] 길이는 가이드라인(구글 픽셀폭 근사)이며 사람 검수 항목에도 없다 →
+        # 초과는 'warn'까지만, 'fail'은 태그 부재에만 쓴다. 기준값도 리포트(qa_report_rows)와
+        # 동일하게 60/160 으로 통일(기존: 채점 80 vs 리포트 60 불일치).
         if length <= max_len:
             return "pass"
-        if length <= max_len + buffer:
-            return "warn"
-        return "fail"
+        return "warn"
 
     title = sig["title"] or ""
     title_status = "fail" if not title else _len_status(len(title), title_max_len, title_warn_buffer)

@@ -53,6 +53,19 @@ def _filter_targets(sitecodes=None, page_types=None, products=None) -> List[Dict
         targets = [t for t in targets if t["sitecode"] in want]
     if page_types:
         pset = set(page_types)
+        # [2026-09 D1] 레지스트리에 없는 파생 페이지타입(Specs/Buying)을 요청하면 PDP 엔트리에서 URL 을
+        # 생성해 추가한다(존재 여부는 크롤 status 로 확인 — 404 는 Not Checked 시트로).
+        have = {(t.get("page_type") or runner.page_type_from_url(t.get("url", ""))) for t in targets}
+        derived = []
+        for want in pset & set(runner.DERIVED_PAGE_TYPES):
+            if want in have:
+                continue
+            for t in targets:
+                if (t.get("page_type") or runner.page_type_from_url(t.get("url", ""))) != "PDP":
+                    continue
+                d = dict(t); d["url"] = runner.derive_page_url(t["url"], want); d["page_type"] = want; d["derived"] = True
+                derived.append(d)
+        targets = targets + derived
         targets = [t for t in targets if (t.get("page_type") or runner.page_type_from_url(t.get("url", ""))) in pset]
     if products:
         prset = set(products)
@@ -110,18 +123,21 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
                 url = site.get("url", "")
                 pt = site.get("page_type") or runner.page_type_from_url(url)
                 mp = runner.product_from_url(url)
-                html, err, rendered_by = None, None, None
+                html, err, rendered_by, http_status, final_url = None, None, None, None, None
                 try:
                     res = await crawler.force_render(url) if pt.lower() == "compare" else await crawler.crawl(url, requires_js=True)
                     html = (res or {}).get("html_content")
                     err = (res or {}).get("error")
                     rendered_by = (res or {}).get("rendered_by")
+                    http_status = (res or {}).get("status_code")   # [D8]
+                    final_url = (res or {}).get("final_url")
                 except Exception as e:
                     err = str(e)
                 try:
                     if html:
                         row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt,
-                                              rendered_by=rendered_by, mode=mode)
+                                              rendered_by=rendered_by, mode=mode,
+                                              http_status=http_status, final_url=final_url)
                         # [2026-07 FIX] "스펙 값 0개 + httpx로만 수집됨" 진단이면, 이 페이지만
                         # Playwright로 재렌더해 재검수한다(Compare 포함 — 룰 자체는 이미 정상
                         # 적용되지만, JS 미렌더 HTML엔 애초에 스펙 텍스트가 없어 판정 불가했던 경우).
@@ -138,13 +154,15 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
                             if pw and pw.get("html_content") and not pw.get("error"):
                                 row = runner.run_site(site, pw["html_content"], rules_for(pt, mp),
                                                        page_type=pt, rendered_by="playwright(spec_rescue)",
-                                                       mode=mode)
+                                                       mode=mode, http_status=pw.get("status_code") or http_status,
+                                                       final_url=pw.get("final_url") or final_url)
                         ok = True
                     else:
                         raise RuntimeError(err or "no html")
                 except Exception as e:
                     row = {"sitecode": site.get("sitecode"), "url": url, "region": site.get("region"),
-                           "country": site.get("country"), "page_type": pt,
+                           "country": site.get("country"), "page_type": pt, "product": mp,
+                           "http_status": http_status, "final_url": final_url, "not_checked": True,  # [D8]
                            "schema": {"summary": {}, "findings": [
                                {"block": "(collection failed)", "status": "fail",
                                 "as_is": f"HTML collection failed{(' — ' + str(e)) if str(e) else ''}",
@@ -162,6 +180,12 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
         await asyncio.gather(*(one(i, s) for i, s in enumerate(targets)), return_exceptions=True)
 
         final = [r for r in results if r]
+        # [2026-09 D6] Meta Description 중복 — 같은 사이트 내 페이지 간 비교(런 단위)
+        try:
+            import seo_checker
+            seo_checker.mark_duplicates(final)
+        except Exception as e:
+            print(f"[qb_routes_run] seo duplicate check skip: {e}")
         qb_core.LAST_RESULTS = final
         summary = qa_report.summary_counts(final)
 
