@@ -108,7 +108,7 @@ class SerpApiProvider(Provider):
         wait = self.min_interval - (time.time() - self._last)
         if wait > 0:
             time.sleep(wait)
-        r = httpx.get(self.BASE, params={**params, "api_key": self.api_key, "output": "json"}, timeout=60)
+        r = httpx.get(self.BASE, params={**params, "api_key": self.api_key, "output": "json"}, timeout=60, verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false"))
         self._last = time.time(); self.calls += 1
         r.raise_for_status()
         data = r.json()
