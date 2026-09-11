@@ -109,7 +109,7 @@ def diff_runs(prev: Dict[str, Any], cur: Dict[str, Any]) -> List[Dict[str, Any]]
 # ── [2026-09 수집 확정] SERP API 실수집 실행 ────────────────────────────────
 def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any]], keywords: List[Dict[str, Any]],
                 countries: Optional[List[str]] = None, products: Optional[List[str]] = None,
-                detail_for_samsung: bool = True, progress=None) -> Dict[str, Any]:
+                detail_for_samsung: bool = True, progress=None, should_cancel=None) -> Dict[str, Any]:
     """국가 × 제품 × 활성 키워드마다 provider 로 Google Shopping 을 조회해 cell 을 만든다.
     · 우리 리스팅이 있으면(가장 높은 position) 그 카드의 product_id 로 상세를 1회 더 조회해 속성을 역추적한다.
     · 실패한 조회는 status='error' 로 남기고 계속 진행(한 키워드 실패가 전체를 죽이지 않게)."""
@@ -128,6 +128,10 @@ def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any
             for k in keywords:
                 if not k.get("enabled", True) or k["product"] != p["slug"] or (k.get("countries") and c["code"] not in k["countries"]):
                     continue
+                if should_cancel and should_cancel():
+                    break
+                if progress:
+                    progress(done, total, {"country": c["code"], "product": p["slug"], "keyword": k["text"], "status": "조회 중"})
                 cell = {"country": c["code"], "product": p["slug"], "keyword": k["text"], "keyword_type": k.get("type", "brand"),
                         "keyword_subtype": k.get("subtype"), "position": None, "top_n": top_n, "scom_exposed": None,
                         "first_store": None, "status": "unchecked", "attrs": {}, "feed": {}, "evidence": None, "items_top": []}
@@ -151,7 +155,8 @@ def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any
                     errors.append({"country": c["code"], "product": p["slug"], "keyword": k["text"], "error": str(e)[:200]})
                 cells.append(cell); done += 1
                 if progress:
-                    progress(done, total)
+                    progress(done, total, {"country": c["code"], "product": p["slug"], "keyword": k["text"], "status": cell["status"],
+                                           "position": cell.get("position"), "first_store": cell.get("first_store"), "error": cell.get("error")})
     return {"run_id": run_id, "week": datetime.now().strftime("W%V"), "at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "source": f"live:{getattr(provider, 'name', 'provider')}", "cells": cells, "errors": errors,
-            "api_calls": getattr(provider, "calls", None)}
+            "api_calls": getattr(provider, "calls", None), "cancelled": bool(should_cancel and should_cancel())}

@@ -33,7 +33,7 @@ _mock = MockProvider()  # config/attributes 의 원본(국가·제품·속성 �
 RUNS_DIR = os.getenv("HC_RUNS_DIR") or os.path.join(os.path.dirname(__file__), "runs")
 os.makedirs(RUNS_DIR, exist_ok=True)
 _KW_PATH = os.path.join(os.path.dirname(__file__), "hc_keywords.json")
-STATE: Dict[str, Any] = {"running": False, "done": 0, "total": 0, "run_id": None, "error": None}
+STATE: Dict[str, Any] = {"running": False, "done": 0, "total": 0, "run_id": None, "error": None, "cancel": False, "cells": []}
 
 
 def _provider_kind() -> str:
@@ -147,9 +147,13 @@ def _bg(countries, products, detail):
         provider = get_provider("serpapi", raw_dir=os.path.join(RUNS_DIR, run_id_tmp, "raw"))
         kws = _load_keywords().get("keywords", [])
 
-        def prog(d, t):
+        def prog(d, t, info=None):
             STATE.update(done=d, total=t)
-        run = hc_engine.collect_run(provider, _mock.config(), _mock.attributes(), kws, countries, products, detail, prog)
+            if info:
+                cells = [x for x in STATE["cells"] if not (x["country"] == info["country"] and x["product"] == info["product"] and x["keyword"] == info["keyword"])]
+                STATE["cells"] = cells + [info]
+        run = hc_engine.collect_run(provider, _mock.config(), _mock.attributes(), kws, countries, products, detail, prog,
+                                    should_cancel=lambda: STATE.get("cancel"))
         run["run_id"] = run_id_tmp
         json.dump(run, open(os.path.join(RUNS_DIR, run_id_tmp + ".json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
         files = sorted(f for f in os.listdir(RUNS_DIR) if f.endswith(".json"))
@@ -183,7 +187,7 @@ def hc_run_start(payload: Dict[str, Any] = Body(default={})):
     if STATE.get("running"):
         raise HTTPException(409, "이미 수집 중")
     from datetime import datetime
-    STATE.update(running=True, done=0, total=0, run_id=f"hc_{datetime.now():%Y%m%d_%H%M%S}", error=None)
+    STATE.update(running=True, done=0, total=0, run_id=f"hc_{datetime.now():%Y%m%d_%H%M%S}", error=None, cancel=False, cells=[])
     detail = bool(payload.get("detail", False))  # 기본 OFF — 호출 수 절감(운영 결정 2026-09)
     threading.Thread(target=_bg, args=(payload.get("countries"), payload.get("products"), detail), daemon=True).start()
     return {"status": "started", "run_id": STATE["run_id"], "estimate": _estimate(payload.get("countries"), payload.get("products"), detail)}
@@ -192,6 +196,15 @@ def hc_run_start(payload: Dict[str, Any] = Body(default={})):
 @hc_router.get("/run-status")
 def hc_run_status():
     return STATE
+
+
+@hc_router.post("/run/cancel")
+def hc_run_cancel():
+    """멈춤 — 다음 키워드부터 중단하고 지금까지 결과를 저장한다(API 호출도 그 시점에서 멈춤)."""
+    if not STATE.get("running"):
+        return {"ok": True, "running": False}
+    STATE["cancel"] = True
+    return {"ok": True, "cancelling": True}
 
 
 @hc_router.get("/report.xlsx")
