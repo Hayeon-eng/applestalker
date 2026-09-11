@@ -14,6 +14,7 @@ button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;
   <div><label>시각</label><div class="row"><input id="hour" type="number" min="0" max="23"><input id="minute" type="number" min="0" max="59"></div></div></div>
   <div class="row"><label><input type="checkbox" id="runA" style="width:auto"> 🍎 Apple Stalker 크롤 포함</label><label><input type="checkbox" id="runB" style="width:auto"> 🐝 큐비 검수 포함</label></div>
   <div class="row"><label><input type="checkbox" id="staticDaily" style="width:auto"> 🐝 스태틱 페이지 Schema 라이트 — <b>매일</b> 실행</label><div><label>매일 실행 시각(시)</label><input id="staticHour" type="number" min="0" max="23"></div></div>
+  <div class="row"><label><input type="checkbox" id="runC" style="width:auto"> 🍯 honeyComb 주간 실행 포함 <span class="hint">(SerpApi 호출 발생 — 제품명 키워드 5개 × 6국 = 30회/실행)</span></label><label><input type="checkbox" id="cDetail" style="width:auto"> 상세 조회 포함(호출 최대 2배)</label></div>
   <div class="hint">자동 실행은 프로그램(exe)이 켜져 있어야 동작합니다. PC 가 꺼져 있으면 그 주는 건너뜁니다. 지금 바로 한 번 돌리려면 → <button class="s" onclick="runNow()">지금 실행</button></div>
 </div>
 <div class="card"><h2>이메일</h2>
@@ -27,6 +28,7 @@ button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;
 <div class="card"><h2>접속·키</h2>
   <div class="row"><div><label>화면 비밀번호(비우면 게이트 없음)</label><input id="site"></div><div><label>관리자 비밀번호(URL 추가/삭제)</label><input id="admin"></div></div>
   <label>Gemini API 키(Apple Stalker AI 요약, 선택)</label><input id="gemini">
+  <label>SerpApi 키 — 🍯 honeyComb Google Shopping 수집(필수, serpapi.com 가입 후 발급)</label><input id="serp" placeholder="키를 넣으면 honeyComb 의 '수집 실행'이 활성화됩니다">
   <label>공용 DB 주소(선택 — 비우면 이 PC 파일에 저장)</label><input id="db" placeholder="postgresql://…  (사내망은 5432 차단으로 대개 사용 불가)">
   <div class="hint">현재 DB: <span id="dbNow"></span> · 이력 공유는 큐비 사이드바 '이력 내보내기/가져오기'(JSON)로 하세요.</div>
   <div style="margin-top:14px;display:flex;gap:8px"><button class="p" onclick="save()">저장</button><a class="s" style="padding:9px 14px;border-radius:10px;text-decoration:none;color:#374151" href="/">← 도구로 돌아가기</a></div>
@@ -35,12 +37,12 @@ button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;
 <script>
 const $=id=>document.getElementById(id); let C=null;
 fetch('/api/settings').then(r=>r.json()).then(d=>{C=d.config;$('cfgPath').textContent=d.config_path;$('dbNow').textContent=d.database||'(sqlite)';
- const s=C.schedule,e=C.email;$('mode').value=s.mode;$('weekday').value=s.weekday;$('hour').value=s.hour;$('minute').value=s.minute;$('runA').checked=!!s.run_apple_stalker;$('runB').checked=!!s.run_qubi;$('staticDaily').checked=s.static_daily!==false;$('staticHour').value=s.static_hour??8;
+ const s=C.schedule,e=C.email;$('mode').value=s.mode;$('weekday').value=s.weekday;$('hour').value=s.hour;$('minute').value=s.minute;$('runA').checked=!!s.run_apple_stalker;$('runB').checked=!!s.run_qubi;$('staticDaily').checked=s.static_daily!==false;$('staticHour').value=s.static_hour??8;$('runC').checked=!!s.run_honeycomb;$('cDetail').checked=!!s.honeycomb_detail;
  $('emEnabled').checked=!!e.enabled;$('emAuto').checked=!!e.auto_send_after_run;$('smtp').value=e.smtp_server||'';$('port').value=e.smtp_port||'';$('sender').value=e.sender||'';$('pw').value=e.password||'';$('rcpt').value=e.recipients||'';
- $('site').value=C.site_password||'';$('admin').value=C.admin_password||'';$('gemini').value=C.gemini_api_key||'';$('db').value=C.database_url||''});
-async function save(){const body={schedule:{mode:$('mode').value,weekday:+$('weekday').value,hour:+$('hour').value,minute:+$('minute').value,run_apple_stalker:$('runA').checked,run_qubi:$('runB').checked,static_daily:$('staticDaily').checked,static_hour:+$('staticHour').value||8},
+ $('site').value=C.site_password||'';$('admin').value=C.admin_password||'';$('gemini').value=C.gemini_api_key||'';$('serp').value=C.serpapi_key||'';$('db').value=C.database_url||''});
+async function save(){const body={schedule:{mode:$('mode').value,weekday:+$('weekday').value,hour:+$('hour').value,minute:+$('minute').value,run_apple_stalker:$('runA').checked,run_qubi:$('runB').checked,static_daily:$('staticDaily').checked,static_hour:+$('staticHour').value||8,run_honeycomb:$('runC').checked,honeycomb_detail:$('cDetail').checked},
  email:{enabled:$('emEnabled').checked,auto_send_after_run:$('emAuto').checked,smtp_server:$('smtp').value,smtp_port:+$('port').value||587,sender:$('sender').value,password:$('pw').value,recipients:$('rcpt').value},
- site_password:$('site').value,admin_password:$('admin').value,gemini_api_key:$('gemini').value,database_url:$('db').value};
+ site_password:$('site').value,admin_password:$('admin').value,gemini_api_key:$('gemini').value,serpapi_key:$('serp').value,database_url:$('db').value};
  const r=await (await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();$('msg').textContent=r.ok?'저장됨 — '+(r.note||''):'저장 실패'}
 async function runNow(){await fetch('/api/settings/run-now',{method:'POST'});$('msg').textContent='실행을 시작했습니다 — 각 도구 화면에서 진행률을 확인하세요'}
 </script></body></html>

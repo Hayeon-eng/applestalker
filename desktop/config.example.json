@@ -4,9 +4,10 @@
   "admin_password": "0108",
   "database_url": "",
   "gemini_api_key": "",
+  "serpapi_key": "",
   "email": { "enabled": false, "auto_send_after_run": false, "smtp_server": "smtp.naver.com", "smtp_port": 587, "sender": "", "password": "", "recipients": "" },
   "schedule": { "mode": "manual", "weekday": 0, "hour": 9, "minute": 0, "run_apple_stalker": true, "run_qubi": true,
                 "qubi_payload": { "product": "M3", "page_types": ["PDP", "Compare"], "mode": "all" },
-                "static_daily": true, "static_hour": 8 },
+                "static_daily": true, "static_hour": 8, "run_honeycomb": false, "honeycomb_detail": false },
   "open_browser": true
 }

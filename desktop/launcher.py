@@ -34,11 +34,13 @@ DEFAULT_CONFIG = {
     "admin_password": "0108",              # URL 추가/삭제
     "database_url": "",                    # 비우면 PC 파일(sqlite). 공용 DB 쓰려면 postgres URL
     "gemini_api_key": "",                  # Apple Stalker AI 요약(없으면 요약 생략)
+    "serpapi_key": "",                     # honeyComb Google Shopping 수집(SerpApi) — 없으면 목업만
     "email": {"enabled": False, "auto_send_after_run": False, "smtp_server": "smtp.naver.com", "smtp_port": 587,
               "sender": "", "password": "", "recipients": ""},
     "schedule": {"mode": "manual", "weekday": 0, "hour": 9, "minute": 0, "run_apple_stalker": True, "run_qubi": True,
                  "qubi_payload": {"product": "M3", "page_types": ["PDP", "Compare"], "mode": "all"},
-                 "static_daily": True, "static_hour": 8},   # 스태틱 페이지 Schema 라이트 — 매일 08:00 (mode 가 auto 일 때)
+                 "static_daily": True, "static_hour": 8,    # 스태틱 페이지 Schema 라이트 — 매일 08:00 (mode 가 auto 일 때)
+                 "run_honeycomb": False, "honeycomb_detail": False},  # honeyComb(SerpApi 호출 발생) 은 기본 수동 — 켜면 주간 실행에 포함
     "open_browser": True,
 }
 
@@ -69,6 +71,11 @@ def apply_env(cfg: dict):
     os.environ["DATABASE_URL"] = cfg.get("database_url") or f"sqlite:///{(DATA_DIR / 'abc_tool.db').as_posix()}"
     if cfg.get("gemini_api_key"):
         os.environ["GEMINI_API_KEY"] = cfg["gemini_api_key"]
+    if cfg.get("serpapi_key"):
+        os.environ["SERPAPI_KEY"] = cfg["serpapi_key"]
+    elif "SERPAPI_KEY" in os.environ and not cfg.get("serpapi_key"):
+        os.environ.pop("SERPAPI_KEY", None)
+    os.environ.setdefault("HC_RUNS_DIR", str(DATA_DIR / "hc_runs"))
     em = cfg.get("email") or {}
     os.environ["EMAIL_REPORT_ENABLED"] = "true" if em.get("enabled") else "false"
     for k, v in (("SMTP_SERVER", em.get("smtp_server")), ("SMTP_PORT", str(em.get("smtp_port") or "")),
@@ -145,6 +152,7 @@ def build_app(cfg: dict):
     @app.get("/api/settings")
     def get_settings():
         c = load_config(); c = json.loads(json.dumps(c)); c["email"]["password"] = "***" if c["email"].get("password") else ""
+        c["serpapi_key"] = ("***" + c["serpapi_key"][-4:]) if c.get("serpapi_key") else ""
         return {"config": c, "config_path": str(CONFIG_PATH), "data_dir": str(DATA_DIR), "database": os.environ.get("DATABASE_URL", "").split("@")[-1]}
 
     @app.post("/api/settings")
@@ -155,8 +163,8 @@ def build_app(cfg: dict):
                 if k == "email" and body[k].get("password") == "***":
                     body[k]["password"] = c["email"].get("password", "")
                 c[k].update(body[k])
-        for k in ("site_password", "admin_password", "gemini_api_key", "database_url", "open_browser", "port"):
-            if k in body:
+        for k in ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "database_url", "open_browser", "port"):
+            if k in body and not (k == "serpapi_key" and str(body[k]).startswith("***")):
                 c[k] = body[k]
         save_config(c); apply_env(c)
         return {"ok": True, "note": "포트·DB 변경은 재시작 후 적용"}
@@ -205,6 +213,12 @@ def scheduled_job(cfg: dict, manual: bool = False):
                 print("[scheduler] qubi:", r.status_code, r.text[:120])
             except Exception as e:
                 print("[scheduler] qubi fail:", e)
+        if sch.get("run_honeycomb"):
+            try:
+                r = c.post(f"{base}/api/hc/run", json={"detail": bool(sch.get("honeycomb_detail", False))})
+                print("[scheduler] honeycomb:", r.status_code, r.text[:120])
+            except Exception as e:
+                print("[scheduler] honeycomb fail:", e)
         # 메일: cron_tick 이 EMAIL_REPORT_ENABLED 에 따라 발송 — auto_send_after_run 이 꺼져 있으면 건너뛰도록 env 조정
     print("[scheduler] job done")
 
