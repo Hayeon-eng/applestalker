@@ -209,11 +209,9 @@ export default function Page() {
   // [2026-09] 최신 제품 URL 자동 탐색(Apple) — 사이트맵 + 세대 프로브 + 존재 확인. verified 만 등록.
   const [discover, setDiscover] = useState<{ loading: boolean; result: any | null; picked: Set<string> }>({ loading: false, result: null, picked: new Set() });
   const runDiscover = async () => {
-    const kw = window.prompt("새 제품군 가설 슬러그(선택, 콤마 구분 — 예: iphone-fold, iphone-duo). 비우면 세대 번호 기반만 탐색", "");
-    if (kw === null) return;
     setDiscover({ loading: true, result: null, picked: new Set() });
     try {
-      const r = await (await fetch(API + "/api/urls/discover?site_key=apple&keywords=" + encodeURIComponent(kw))).json();
+      const r = await (await fetch(API + "/api/urls/discover?site_key=apple")).json();
       setDiscover({ loading: false, result: r, picked: new Set((r.verified || []).map((x: any) => x.url)) });
     } catch (e) { setDiscover({ loading: false, result: { error: String(e) }, picked: new Set() }); }
   };
@@ -359,21 +357,21 @@ export default function Page() {
           )}
 
           <button className="runItem" onClick={runDiscover} disabled={discover.loading}>
-            <span style={{ fontSize: 12, color: "var(--blue)", fontWeight: 600 }}>{discover.loading ? "탐색 중… (사이트맵·존재 확인)" : "🔎 최신 제품 URL 자동 탐색 (Apple)"}</span>
+            <span style={{ fontSize: 12, color: "var(--blue)", fontWeight: 600 }}>{discover.loading ? "찾는 중… (apple.com 에 실제로 있는 주소만)" : "🔎 Apple 신제품 페이지 찾기"}</span>
           </button>
           {discover.result && (
             <div style={{ padding: "4px 6px 8px", fontSize: 11.5 }}>
               {discover.result.error && <div style={{ color: "var(--high)" }}>{discover.result.error}</div>}
               {!discover.result.error && (<>
-                <div style={{ color: "var(--sec)", marginBottom: 4 }}>현재 세대 {JSON.stringify(discover.result.seed_generation)} · 후보 {discover.result.candidates?.length} · <b style={{ color: "#166534" }}>존재 확인 {discover.result.verified?.length}</b></div>
+                <div style={{ color: "var(--sec)", marginBottom: 4 }}>apple.com 에 실제로 존재하는 새 페이지 <b style={{ color: "#166534" }}>{discover.result.verified?.length}개</b> (아래 체크된 것만 등록됩니다)</div>
                 {(discover.result.candidates || []).filter((c: any) => c.verified).map((c: any) => (
                   <label key={c.url} style={{ display: "flex", gap: 6, alignItems: "flex-start", padding: "2px 0" }}>
                     <input type="checkbox" checked={discover.picked.has(c.url)} onChange={(e) => { const s2 = new Set(discover.picked); e.target.checked ? s2.add(c.url) : s2.delete(c.url); setDiscover({ ...discover, picked: s2 }); }} />
                     <span style={{ wordBreak: "break-all" }}>{c.url} <span style={{ color: "var(--sec)" }}>· {c.category}{c.generation ? ` · ${c.generation}세대` : ""} · {c.source}</span></span>
                   </label>))}
-                {(discover.result.verified || []).length === 0 && <div style={{ color: "var(--sec)" }}>존재가 확인된 새 URL 이 없습니다(현재 시드가 최신이거나 사이트 접근 불가). 확인되지 않은 후보는 등록하지 않습니다.</div>}
+                {(discover.result.verified || []).length === 0 && <div style={{ color: "var(--sec)" }}>새로 확인된 페이지가 없습니다(이미 최신이거나 apple.com 접근 불가).</div>}
                 {(discover.result.candidates || []).some((c: any) => !c.verified) && (
-                  <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", color: "var(--sec)" }}>미확인 후보 {(discover.result.candidates || []).filter((c: any) => !c.verified).length}개 보기</summary>
+                  <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", color: "var(--sec)" }}>확인해 봤지만 없는 주소 {(discover.result.candidates || []).filter((c: any) => !c.verified).length}개</summary>
                     {(discover.result.candidates || []).filter((c: any) => !c.verified).map((c: any) => <div key={c.url} style={{ color: "var(--ter)", wordBreak: "break-all" }}>{c.url} · HTTP {c.status ?? "—"}{c.note ? ` · ${c.note}` : ""}</div>)}
                   </details>)}
                 {discover.picked.size > 0 && <button className="btnAdd" style={{ marginTop: 6, padding: "5px 10px" }} onClick={applyDiscover}>확인된 {discover.picked.size}개 등록</button>}

@@ -48,6 +48,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const [kwFocus, setKwFocus] = useState<string | null>(null);        // 특정 키워드로 벌집 보기
   const [attrProduct, setAttrProduct] = useState("");
   const [online, setOnline] = useState<boolean | null>(null);
+  const [loadErr, setLoadErr] = useState("");
   const [kwForm, setKwForm] = useState<Partial<Keyword>>({ type: "brand", subtype: "A1", countries: [], enabled: true });
   const [msg, setMsg] = useState("");
   const [runState, setRunState] = useState<any>(null);
@@ -59,12 +60,14 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const loadKeywords = async () => { try { const d = await (await fetch(api("/api/hc/keywords"))).json(); setKeywords(d.keywords || []); if (d.taxonomy) setTaxonomy(d.taxonomy); } catch { /* */ } };
   useEffect(() => { (async () => {
     try {
-      const c = await (await fetch(api("/api/hc/config"))).json(); setCfg(c); setOnline(true);
+      const rc = await fetch(api("/api/hc/config"));
+      if (!rc.ok) { setLoadErr(`/api/hc/config → HTTP ${rc.status}`); setOnline(false); return; }
+      const c = await rc.json(); setCfg(c); setOnline(true);
       setProds(new Set(c.products.map((p: any) => p.slug))); setCtrys(new Set(c.countries.map((x: any) => x.code))); setAttrProduct(c.products[0]?.slug || "");
       setAttrs((await (await fetch(api("/api/hc/attributes"))).json()).attributes || []);
       const rs = (await (await fetch(api("/api/hc/runs"))).json()).runs || []; setRuns(rs); if (rs.length) setRunId(rs[rs.length - 1].run_id);
       await loadKeywords();
-    } catch { setOnline(false); }
+    } catch (e: any) { setLoadErr(String(e)); setOnline(false); }
   })(); }, [apiBase]);
   useEffect(() => { if (!runId) return; (async () => {
     setRun(await (await fetch(api(`/api/hc/runs/${runId}`))).json());
@@ -72,7 +75,9 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
     setPrev(i > 0 ? await (await fetch(api(`/api/hc/runs/${runs[i - 1].run_id}`))).json() : null);
   })(); }, [runId, runs]);
 
-  const allCells: Cell[] = run?.cells || [];
+  // [2026-09] run 이 하나도 없어도(수집 전) 화면은 뜬다 — 빈 run 으로 렌더
+  const runSafe = run || { run_id: "", week: "", at: "", source: "", cells: [] as Cell[] };
+  const allCells: Cell[] = runSafe.cells || [];
   const cells = useMemo(() => allCells.filter((c) => c.keyword_type === kwType && prods.has(c.product) && ctrys.has(c.country)), [allCells, kwType, prods, ctrys]);
   const cellOf = (country: string, product: string) => {
     if (kwFocus) return allCells.find((c) => c.country === country && c.product === product && c.keyword === kwFocus) || null;
@@ -83,8 +88,8 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const prevCellOf = (country: string, product: string) => (prev?.cells || []).find((c: Cell) => c.country === country && c.product === product && c.keyword_type === kwType);
   const kwFor = (product: string, country: string) => keywords.filter((k) => k.product === product && k.enabled && (!k.countries.length || k.countries.includes(country)));
 
-  if (online === false) return <div className="appShell"><div style={{ padding: 30 }}>honeyComb 백엔드(/api/hc)에 연결할 수 없습니다. <button className="btnSecondary" onClick={onHome}>홈</button></div></div>;
-  if (!cfg || !run) return <div className="appShell"><div style={{ padding: 30, color: "var(--sec)" }}>honeyComb 불러오는 중…</div></div>;
+  if (online === false) return <div className="appShell"><div style={{ padding: 30 }}>honeyComb 백엔드(/api/hc)에 연결할 수 없습니다.<div style={{ fontSize: 12, color: "var(--sec)", margin: "6px 0 10px" }}>{loadErr} — backend/honeycomb 폴더의 파일(hc_provider.py·hc_mock_data.json.gz)이 빠졌거나 라우터 등록에 실패했을 수 있습니다. 로그 창의 "[main] honeycomb router skip" 줄을 확인하세요.</div><button className="btnSecondary" onClick={onHome}>홈</button></div></div>;
+  if (!cfg) return <div className="appShell"><div style={{ padding: 30, color: "var(--sec)" }}>honeyComb 불러오는 중…</div></div>;
 
   const cts = cfg.countries.filter((c: any) => ctrys.has(c.code)), prs = cfg.products.filter((p: any) => prods.has(p.slug));
   const checked = cells.filter((c) => ["top1", "topn", "low", "absent"].includes(c.status));
@@ -164,7 +169,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
               <button className={`tabBtn ${tab === "attrs" ? "on" : ""}`} onClick={() => setTab("attrs")}>보이는 속성 확인</button>
               <button className={`tabBtn ${tab === "keywords" ? "on" : ""}`} onClick={() => setTab("keywords")}>키워드 관리 <span style={{ color: "var(--sec)", fontWeight: 500 }}>{keywords.length}</span></button>
             </div>
-            <div className="toolRow"><span style={{ fontSize: 12, color: "var(--sec)" }}>{run.week} · {run.at} · {run.source?.startsWith("mock") ? "목업 데이터(Final Report 7/23·7/27 이관)" : run.source}</span></div>
+            <div className="toolRow"><span style={{ fontSize: 12, color: "var(--sec)" }}>{runSafe.at ? `${runSafe.week} · ${runSafe.at} · ${runSafe.source?.startsWith("mock") ? "목업 데이터(Final Report 7/23·7/27 이관)" : runSafe.source}` : "아직 수집 결과가 없습니다 — 왼쪽 아래 \"수집 실행\""}</span></div>
           </div>
         </header>
 
@@ -237,7 +242,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                   </g>); })}
                 </svg>
                 </>)}
-                {run.source?.startsWith("mock") && <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "8px 0 0" }}>목업: position은 Final Report의 S.com O/X·1위 판매처를 환산한 값(실측 아님). </p>}
+                {runSafe.source?.startsWith("mock") && <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "8px 0 0" }}>목업: position은 Final Report의 S.com O/X·1위 판매처를 환산한 값(실측 아님).</p>}
               </div>
 
               {sel && (() => {

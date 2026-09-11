@@ -1,12 +1,12 @@
 "use client";
 import { useRef } from "react";
-import { QubiTargets } from "./QubiTargets";
+import { QubiUrlList } from "./QubiUrlList";
 
 /* QubiSidebar — QubiApp에서 분리된 좌측 사이드바(URL 관리·검수 이력).
    [2026-07 분할] QubiApp.tsx 46KB 제한 대응. JSX 본문은 원본 그대로이며,
    참조하던 상태/핸들러를 동일 이름 props로 받는다(동작 변경 없음). */
 export function QubiSidebar(props: any) {
-  const { onHome, online, apiBase, downloadTemplate, uploadTemplate, xlsxFileRef, history, openHistory, removeHistory, onHistoryChanged } = props;
+  const { onHome, online, apiBase, history, openHistory, removeHistory, onHistoryChanged } = props;
   const histFileRef = useRef<HTMLInputElement>(null);
   return (
       <aside className="sidebar">
@@ -15,14 +15,9 @@ export function QubiSidebar(props: any) {
         <div className={`connBadge ${online === true ? "ok" : "bad"}`}><span className="connDot" />{online === null ? "확인 중" : online ? "백엔드 연결됨" : "연결 안 됨"}</div>
 
         <div className="sideScroll">
-          {/* [2026-09] "URL 관리" → "대상 관리": URL 은 삼성 검색 API 로 자동 해석. 여기서는 해석 결과 보기·예외 등록·제외만.
-              기존 템플릿 업로드는 '예외 일괄 등록' 용도로만 남긴다. */}
-          <QubiTargets apiBase={apiBase} />
-          <div style={{ padding: "0 10px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button onClick={downloadTemplate} className="btnSecondary" style={{ fontSize: 11, padding: "4px 8px" }}>⬇ 예외 템플릿</button>
-            <button onClick={() => xlsxFileRef.current?.click()} className="btnSecondary" style={{ fontSize: 11, padding: "4px 8px" }}>⬆ 예외 일괄 업로드</button>
-            <input ref={xlsxFileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadTemplate(f); e.currentTarget.value = ""; }} />
-          </div>
+          {/* [2026-09-11] URL 은 저장소의 site_registry 파일(정적)로 관리 — 화면에서는 보기만. 워치·공통 페이지 URL 은
+              GitHub Actions "resolve-urls" 가 삼성 사이트에서 찾아 site_registry.part5.json 으로 커밋한다. */}
+          <QubiUrlList apiBase={apiBase} />
 
           {/* 검수 이력 */}
           <div className="sideLabel" style={{ marginTop: 14 }}>검수 이력 <span style={{ color: "var(--sec)" }}>{history.length}건</span></div>
