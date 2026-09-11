@@ -24,7 +24,7 @@ for f in glob.glob(os.path.join(root, 'backend', '**', '*.py'), recursive=True):
 
 hidden = (collect_submodules('uvicorn') + collect_submodules('sqlalchemy') + collect_submodules('openpyxl')
           + collect_submodules('pptx') + collect_submodules('httpx') + collect_submodules('bs4') + collect_submodules('lxml')
-          + ['multipart', 'anyio', 'sniffio', 'h11', 'psycopg2', 'loguru', 'dotenv', 'PIL'])
+          + ['multipart', 'anyio', 'sniffio', 'h11', 'psycopg2', 'loguru', 'dotenv', 'PIL', 'truststore'])
 datas += collect_data_files('pptx') + collect_data_files('certifi')
 
 a = Analysis([os.path.join(here, 'launcher.py')], pathex=[root, os.path.join(root, 'backend'), os.path.join(root, 'backend', 'dotcom_qa')],

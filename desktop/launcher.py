@@ -42,12 +42,14 @@ DEFAULT_CONFIG = {
                  "static_daily": True, "static_hour": 8,    # 공통페이지 QA — 매일 08:00 (mode 가 auto 일 때)
                  "run_honeycomb": False, "honeycomb_detail": False},  # honeyComb(SerpApi 호출 발생) 은 기본 수동 — 켜면 주간 실행에 포함
     "open_browser": True,
+    "ca_bundle_path": "",                   # (선택) 회사 루트 인증서 .pem 경로 — truststore 로 안 풀릴 때
+    "ssl_verify": True,                     # 최후 수단: false 면 인증서 검증 끔(사내 테스트용)
 }
 
 
 # [2026-09-11] 팀 공통 설정 임베드 — exe 안에 desktop/config.default.json 이 들어가 있으면(빌드 시 GitHub Secrets 로 채움)
 # 누구 PC 에서 켜도 비밀번호·API 키·자동 실행 설정이 같다. 이메일(email)은 각자 PC 의 config.json 에서만 정한다.
-SHARED_KEYS = ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "schedule", "database_url", "port")
+SHARED_KEYS = ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "schedule", "database_url", "port", "ca_bundle_path", "ssl_verify")
 
 
 def _bundled_default() -> dict:
@@ -110,6 +112,28 @@ def apply_env(cfg: dict):
     os.environ.setdefault("USE_PLAYWRIGHT", "false"); os.environ.setdefault("JS_RESCUE", "false"); os.environ.setdefault("QB_SPEC_API", "true")
     os.environ.setdefault("KEEP_SNAPSHOTS", "10")
     os.environ.setdefault("QB_STATIC_DIR", str(DATA_DIR / "static_runs"))  # 공통페이지 QA 결과(매일) 저장
+
+
+def apply_os_trust():
+    """[2026-09-11] 사내망 SSL — 프록시가 https 를 회사 인증서로 재봉인하면 파이썬 기본 인증서 목록(certifi)만으로는
+    CERTIFICATE_VERIFY_FAILED 가 난다. truststore 로 Windows/macOS 인증서 저장소를 쓰게 하면 크롬이 믿는 인증서를 그대로 믿는다.
+    config.json 에 ca_bundle_path(회사 CA .pem) 가 있으면 그것도 함께 지정. 최후 수단 ssl_verify=false (경고 로그)."""
+    cfg = load_config()
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+        print("[launcher] SSL: OS 인증서 저장소 사용(truststore)")
+    except Exception as e:
+        print(f"[launcher] truststore 사용 불가({e}) — certifi 기본 목록으로 진행")
+    ca = cfg.get("ca_bundle_path")
+    if ca and Path(ca).exists():
+        os.environ["SSL_CERT_FILE"] = ca; os.environ["REQUESTS_CA_BUNDLE"] = ca
+        print(f"[launcher] SSL: CA bundle {ca}")
+    if str(cfg.get("ssl_verify", True)).lower() in ("false", "0"):
+        import ssl
+        ssl._create_default_https_context = ssl._create_unverified_context  # noqa
+        os.environ["QB_SSL_VERIFY"] = "false"
+        print("[launcher] ⚠ SSL 검증 끔(ssl_verify=false) — 사내 테스트용, 가능하면 truststore/CA bundle 을 쓰세요")
 
 
 def apply_windows_proxy():
@@ -280,7 +304,7 @@ def scheduler_loop():
 
 def main():
     cfg = load_config()
-    apply_env(cfg); apply_windows_proxy()
+    apply_env(cfg); apply_windows_proxy(); apply_os_trust()
     app = build_app(cfg)
     port = int(cfg.get("port", 8765))
     threading.Thread(target=scheduler_loop, daemon=True).start()
