@@ -5,7 +5,7 @@ services:
     env: python
     plan: free
     rootDir: .
-    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
+    buildCommand: pip install -r requirements.txt  # [2026-09] 렌더 기본 OFF — 필요 시 "&& python -m playwright install chromium" 복원
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - { key: PYTHON_VERSION, value: 3.11.0 }
@@ -13,8 +13,11 @@ services:
       - { key: CRON_TOKEN, sync: false }
       - { key: GEMINI_API_KEY, sync: false }
       - { key: GEMINI_MODEL, value: gemini-2.5-flash }
-      - { key: USE_PLAYWRIGHT, value: "true" }
-      - { key: ENABLE_SCREENSHOT, value: "true" }
+      - { key: USE_PLAYWRIGHT, value: "false" }   # [2026-09] 렌더 기본 OFF(코드는 유지, 켜면 재활성)
+      - { key: ENABLE_SCREENSHOT, value: "false" }
+      - { key: JS_RESCUE, value: "false" }
+      - { key: QB_SPEC_API, value: "true" }          # Compare 스펙 = searchapi spec/compare
+      - { key: QB_SPEC_RESCUE_CAP, value: "0" }
       - { key: KEEP_SNAPSHOTS, value: "5" }
       # [속도 튜닝 — 한 단계씩 상향, collection failed 건수 모니터링하며 조절]
       - { key: QB_RUN_CONCURRENCY, value: "8" }       # 기본 6 → 8
