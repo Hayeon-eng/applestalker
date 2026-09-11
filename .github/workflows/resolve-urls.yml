@@ -1,0 +1,25 @@
+name: resolve-urls
+# 워치(Watch Ultra2 · Watch9) 검수 URL 을 삼성 사이트에서 찾아 site_registry.part5.json 으로 커밋한다.
+# 수동 실행(Run workflow) 또는 매주 월요일 03:00 UTC. 인터넷이 되는 러너에서 돌기 때문에 사내망 제약이 없다.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 3 * * 1'
+permissions:
+  contents: write
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install httpx sqlalchemy
+      - name: Resolve watch URLs
+        run: python tools/resolve_watch_registry.py
+      - name: Commit if changed
+        run: |
+          git config user.name "abc-tool-bot"
+          git config user.email "abc-tool-bot@users.noreply.github.com"
+          git add backend/dotcom_qa/site_registry.part*.json
+          git diff --cached --quiet && echo "no change" || git commit -m "chore: watch URL registry (auto)" && git push
