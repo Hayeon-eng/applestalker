@@ -11,9 +11,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '22' }
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
+      - name: Write shared config from Secrets
+        shell: pwsh
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        run: |
+          # 저장소의 desktop/config.default.json(비밀 아닌 공통 설정: 자동 실행 요일·시각 등)에 Secrets(비밀번호·키)를 얹어 exe 에 임베드
+          $path = "desktop/config.default.json"
+          $cfg = if (Test-Path $path) { Get-Content $path -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
+          if ($env:SITE_PASSWORD)  { $cfg["site_password"]  = $env:SITE_PASSWORD }
+          if ($env:ADMIN_PASSWORD) { $cfg["admin_password"] = $env:ADMIN_PASSWORD }
+          if ($env:GEMINI_API_KEY) { $cfg["gemini_api_key"] = $env:GEMINI_API_KEY }
+          if ($env:SERPAPI_KEY)    { $cfg["serpapi_key"]    = $env:SERPAPI_KEY }
+          $cfg | ConvertTo-Json -Depth 5 | Set-Content $path -Encoding UTF8
+          Write-Host "shared config keys: $($cfg.Keys -join ', ')"
       - name: Build exe
         shell: pwsh
         run: .\desktop\build.ps1
