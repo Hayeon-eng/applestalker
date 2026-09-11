@@ -12,6 +12,7 @@ qb_api.py — 큐비 — Dotcom QA 체커 [분할 후 집결자]
   qb_routes_history.py   /history*, /overview, /report.xlsx, /email-draft
   qb_routes_manage.py    /sites*, /products*, /specs*, /rules/*/add (V2 편집 차단 포함)
   qb_routes_specrules.py /spec-rules*, /spec-check (Rule DB V2)
+  qb_routes_targets.py   /targets* (URL 자동 해석·예외·제외) [2026-09]
 """
 from __future__ import annotations
 import os
@@ -27,3 +28,5 @@ import qb_routes_run      # noqa: F401,E402
 import qb_routes_history  # noqa: F401,E402
 import qb_routes_manage   # noqa: F401,E402
 import qb_routes_specrules  # noqa: F401,E402
+import qb_routes_targets   # noqa: F401,E402  [2026-09] 대상 관리(URL 자동 해석)
+import qb_routes_static    # noqa: F401,E402  [2026-09] 스태틱 페이지 Schema 라이트(매일)

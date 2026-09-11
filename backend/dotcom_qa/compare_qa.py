@@ -134,9 +134,119 @@ def _find_rule(spec_label: str, category: str, specs: List[Dict[str, Any]],
     return None
 
 
-def _evaluate_cell(rule: Dict[str, Any], cell_value: str) -> Tuple[str, str]:
+# ── [2026-09] 매칭 v2 — API(spec/compare) 행과 HTML 행 공통 ────────────────────────
+# 문제(sg Compare API 실측): 짧은 alias('display' 등) 부분일치가 '먼저 만난 룰'을 채택해
+# Cover Display Dimension→Main Display Size, Peak Brightness→Cover Display Size 같은 오매칭으로
+# 정상 값이 대량 FAIL. 또 Battery/Processor/Durability 그룹의 리프는 이름이 비어 있어(값만 있음)
+# 라벨 매칭 자체가 불가. → ① 가장 긴 alias 우선(최소 길이 6) + 카테고리 호환 가점,
+# ② 라벨이 없거나 못 찾으면 값 안의 단위/정답 토큰으로 룰을 고르는 값 주도 매칭, ③ 그래도 없으면 unchecked.
+_CAT_SYNONYM = {
+    "display size": {"display"}, "cover screen": {"display"}, "full screen": {"display"},
+    "weight & size": {"dimension", "weight"}, "weight size": {"dimension", "weight"},
+    "storage": {"storage", "memory"}, "device": {"device", "product"},
+}
+
+
+def _cat_compatible(row_cat: str, rule_cat: str) -> bool:
+    rc, uc = svm.normalize_text(row_cat), svm.normalize_text(rule_cat)
+    if not rc or not uc:
+        return True
+    if rc in uc or uc in rc:
+        return True
+    return bool(_CAT_SYNONYM.get(rc, set()) & {uc} or any(w in uc for w in _CAT_SYNONYM.get(rc, set())))
+
+
+def _clean_value(v: str) -> str:
+    return svm.normalize_text(re.sub(r"[®™]", "", v or ""))
+
+
+def _nums(s: str) -> List[float]:
+    return [float(x) for x in re.findall(r"\d+(?:\.\d+)?", svm.normalize_text(s or ""))]
+
+
+def _words(s: str) -> set:
+    return {w for w in re.findall(r"[a-z\uac00-\ud7a3]{3,}", svm.normalize_text(s or "")) if w not in ("the", "and", "screen", "display")}
+
+
+def _find_rule_v2(spec_label: str, category: str, value: str, specs: List[Dict[str, Any]],
+                  dictionary: Optional[Dict[str, List[str]]], unit_synonyms: Dict[str, List[str]]) -> Optional[Dict[str, Any]]:
+    """점수제 매칭. 라벨(리프명 우선, 경로 포함 라벨 보조) alias 일치 + 카테고리 호환 + 단어 겹침,
+    라벨이 없으면 값 안의 정답 토큰/단위 + 단어 겹침으로 고른다. 최고점이 기준 미달이면 None(unchecked)."""
+    leaf = spec_label.split(" · ")[-1] if spec_label else ""
+    labels = [l for l in dict.fromkeys([leaf, spec_label]) if l]
+    vn = _clean_value(value)
+    lw = _words(spec_label)
+    best, best_score = None, 0
+    for rule in specs:
+        attr = rule.get("attribute", "")
+        if not attr:
+            continue
+        cat_ok = _cat_compatible(category, rule.get("category", ""))
+        overlap = len(lw & _words(attr))
+        score = 0
+        for lab in labels:
+            ln = _norm_loose(lab)
+            if not ln:
+                continue
+            for alias in _aliases_for(attr, dictionary):
+                an = _norm_loose(alias)
+                if not an:
+                    continue
+                if an == ln:
+                    sc = 1000 + len(an)
+                elif len(an) >= 6 and an in ln:
+                    sc = 100 + len(an)
+                elif len(ln) >= 4 and ln in an and len(ln) * 2 >= len(an):
+                    sc = 50 + len(ln)
+                else:
+                    continue
+                score = max(score, sc)
+        if score == 0 and not lw:
+            pass  # 라벨 없음 → 아래 값 주도
+        score += (20 if cat_ok else -40) + 15 * overlap
+        # 값 주도 가점: 정답 토큰/단위가 값에 있음 (라벨 매칭이 없어도 후보가 됨)
+        if cat_ok:
+            for a in svm.parse_accepted(rule.get("expected", "")):
+                an = _clean_value(a)
+                if an and len(an) >= 3 and an in vn:
+                    score += 60; break
+            cu = svm.canon_unit(rule.get("unit", ""))
+            if cu and any(re.search(r"\d\s*" + re.escape(svm.normalize_text(syn)) + r"(?![a-z])", vn)
+                          for syn in unit_synonyms.get(cu, [cu]) if syn):
+                score += 30
+        if score > best_score:
+            best, best_score = rule, score
+    return best if best_score >= 50 else None
+
+
+def _unit_in(value_norm: str, unit: str, unit_synonyms: Dict[str, List[str]]) -> bool:
+    cu = svm.canon_unit(unit)
+    if not cu:
+        return False
+    for syn in unit_synonyms.get(cu, [cu]) or [cu]:
+        sn = svm.normalize_text(syn)
+        if sn and re.search(r"\d\s*" + re.escape(sn) + r"(?![a-z])", value_norm):
+            return True
+    return False
+
+
+def _other_unit_in(value_norm: str, unit: str, unit_synonyms: Dict[str, List[str]]) -> bool:
+    cu = svm.canon_unit(unit)
+    for u, syns in unit_synonyms.items():
+        if u == cu or u in getattr(svm, "GENERIC_AMBIGUOUS_UNITS", {"x"}):
+            continue  # 'x'(줌 배율)는 치수 표기 'H x W x D'의 x 와 겹쳐 단위로 보지 않는다
+        for syn in syns:
+            sn = svm.normalize_text(syn)
+            if sn and len(sn) >= 1 and re.search(r"\d\s*" + re.escape(sn) + r"(?![a-z])", value_norm):
+                return True
+    return False
+
+
+def _evaluate_cell(rule: Dict[str, Any], cell_value: str,
+                   unit_synonyms: Optional[Dict[str, List[str]]] = None) -> Tuple[str, str]:
     """단일 셀 값 vs 룰(expected/unit/validation) → (status, message).
     status: pass|fail|warn|na"""
+    unit_synonyms = unit_synonyms or svm.DEFAULT_UNIT_SYNONYMS
     value = (cell_value or "").strip()
     if not value:
         return "na", "값 없음"
@@ -158,29 +268,44 @@ def _evaluate_cell(rule: Dict[str, Any], cell_value: str) -> Tuple[str, str]:
         m = re.search(r"-?\d+(?:\.\d+)?", nv)
         if not m:
             return "na", "숫자 값을 찾을 수 없음"
-        found = float(m.group())
         accepted_nums = []
         for a in accepted:
             ma = re.search(r"-?\d+(?:\.\d+)?", svm.normalize_text(a))
             if ma:
                 accepted_nums.append(float(ma.group()))
-        if any(abs(found - a) < 1e-6 for a in accepted_nums):
+        # [2026-09] 값에 숫자가 여러 개(HxWxD '123.9 x 81.9 x 9.7', 범위 '1~120 Hz')면 그중 하나가 정답이면 PASS
+        found_all = _nums(nv)
+        if any(abs(f - a) < 1e-6 for f in found_all for a in accepted_nums):
             return "pass", "OK"
         if accepted_nums:
+            # 룰 단위가 있는데 값엔 그 단위가 없고 '다른' 알려진 단위가 붙어 있으면 항목 매칭 오류 가능 → 확인
+            if unit and not _unit_in(nv, unit, unit_synonyms) and _other_unit_in(nv, unit, unit_synonyms):
+                return "warn", f"확인 필요 — 값 '{value}'의 단위가 룰 단위({unit})와 다름(항목 매칭 재확인)"
             return "fail", f"오기재 — 정답 '{expected}{unit}'이 아닌 '{value}' 표기"
         return "warn", "정답 숫자를 파싱하지 못해 확인 필요"
 
     if vtype == "option_match":
         opts = [o.strip() for o in re.split(r"[/|,]", expected) if o.strip()]
-        if any(svm.normalize_text(o) and svm.normalize_text(o) in nv for o in opts):
+        acc_nums = {n for o in opts for n in _nums(o)}
+        # [2026-09] 값에 나열된 옵션 각각을 검사 — 정답 집합 밖 옵션(128 GB)이 하나라도 있으면 FAIL
+        listed = [p.strip() for p in re.split(r"[/|,\n]", nv) if p.strip()]
+        wrong = [p for p in listed if _nums(p) and not (set(_nums(p)) & acc_nums)]
+        if wrong:
+            return "fail", f"오기재 — 정답 옵션({expected}) 밖 값 표기: {', '.join(wrong)}"
+        if any(svm.normalize_text(o) and svm.normalize_text(o) in nv for o in opts) or (acc_nums & set(_nums(nv))):
             return "pass", "OK"
         return "fail", f"오기재 — 정답 옵션({expected}) 밖 값 표기"
 
     # exact / dictionary / prefix
     variants = accepted if vtype != "prefix" else [expected]
+    nv2 = _clean_value(value)
     for v in variants:
-        vn = svm.normalize_text(v)
-        if vn and (vn in nv or nv in vn):
+        vn = _clean_value(v)   # ®/™ 제거 후 비교(Snapdragon® 8 Elite …)
+        if vn and (vn in nv2 or nv2 in vn):
+            return "pass", "OK"
+        # [2026-09] 숫자 포함 exact('1~120 (Adaptive)' vs '1~120 Hz'): 정답의 숫자 집합이 값에 다 있으면 PASS
+        en = _nums(vn)
+        if en and set(en) <= set(_nums(nv2)):
             return "pass", "OK"
     return "fail", f"오기재 — 정답 '{expected}'이 아닌 '{value}' 표기"
 
@@ -220,14 +345,15 @@ class CompareQA:
                     bucket["warn"] += 1
                     continue
 
-                rule = _find_rule(spec, category, rs.get("rules") or [], rs.get("dictionary") or {})
+                rule = _find_rule_v2(spec, category, value, rs.get("rules") or [], rs.get("dictionary") or {},
+                                     svm.build_unit_synonyms(rs))
                 if rule is None:
                     out_values.append({**cell, "status": "unchecked",
                                        "message": "이 스펙 항목이 Rule DB에 없음 — DB 보완 필요(페이지 오류 아님)"})
                     bucket["unchecked"] += 1
                     continue
 
-                status, message = _evaluate_cell(rule, value)
+                status, message = _evaluate_cell(rule, value, svm.build_unit_synonyms(rs))
                 out_values.append({**cell, "product_canonical": rs.get("product", raw_product),
                                    "status": status, "message": message})
                 bucket[status] = bucket.get(status, 0) + 1

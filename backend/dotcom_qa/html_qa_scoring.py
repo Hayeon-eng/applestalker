@@ -111,7 +111,8 @@ def extract_html_signals(html: str) -> Dict[str, Any]:
     # 페이지 앞쪽의 사소한 마크업 오류(태그 안 닫힘 등) 하나로 그 뒤 파싱이 틀어지면 h3/h4처럼
     # 문서 하단부 태그를 통째로 못 찾을 수 있다 — 페이지소스엔 분명히 있는데 "없음"으로 뜨는 원인.
     # lxml은 그런 오류를 복구하고 계속 파싱하므로 나머지 모듈과 동일하게 맞춘다.
-    soup = BeautifulSoup(html or "", "lxml")
+    import page_doc
+    soup = page_doc.soup_for(html)  # [2026-09 속도] 파싱 1회 공유
     title_tag = soup.find("title")
     md = soup.find("meta", attrs={"name": "description"})
     h1s = [h.get_text(strip=True) for h in soup.find_all("h1")]

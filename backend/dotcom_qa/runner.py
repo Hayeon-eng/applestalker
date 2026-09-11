@@ -353,11 +353,30 @@ def check_html(html: str, rules: Dict[str, Any],
 
         # [Compare Pipeline] Compare 페이지 전용 Matrix QA — Spec 축에 속한다.
         if pt == "Compare":
-            try:
-                import compare_pipeline
-                compare_v2 = compare_pipeline.run_compare_pipeline(html, mp)
-            except Exception as e:  # Compare Pipeline 실패가 기존 검수를 죽이지 않게
-                print(f"[runner] compare_v2 skip: {e}")
+            compare_v2 = None
+            # [2026-09] ① 삼성 검색 API(spec/compare)에서 비교표 데이터를 직접 받아 판정(렌더 불필요).
+            #   sg Compare HAR 로 확인된 구조. QB_SPEC_API=false 로 끄면 ② HTML 경로만 사용.
+            if os.getenv("QB_SPEC_API", "true").lower() == "true" and mp and sitecode:
+                try:
+                    import spec_api, spec_rule_db
+                    from compare_qa import CompareQA
+                    rs_api = spec_rule_db.load(mp)
+                    if rs_api:
+                        matrix = spec_api.compare_matrix_from_api(sitecode, mp, rs_api)
+                        compare_v2 = CompareQA().evaluate(matrix, mp)
+                        compare_v2["summary"]["source"] = "api:spec/compare"
+                        compare_v2["summary"]["category_code"] = matrix.get("category_code")
+                except Exception as e:
+                    print(f"[runner] compare api skip → HTML 경로: {e}")
+                    compare_v2 = None
+            # ② HTML 경로(렌더된 DOM 이 있을 때만 의미 있음 — httpx HTML 은 비교표 값이 비어 있음)
+            if compare_v2 is None:
+                try:
+                    import compare_pipeline
+                    compare_v2 = compare_pipeline.run_compare_pipeline(html, mp)
+                    compare_v2.setdefault("summary", {})["source"] = "html"
+                except Exception as e:  # Compare Pipeline 실패가 기존 검수를 죽이지 않게
+                    print(f"[runner] compare_v2 skip: {e}")
 
     return {
         "schema": schema_result,

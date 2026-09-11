@@ -109,7 +109,8 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
         results: List[Optional[Dict[str, Any]]] = [None] * len(targets)
         # [2026-07 FIX] spec_v2가 "스펙 값 0개 + httpx로만 수집됨"을 진단한 페이지만
         # 골라 Playwright로 재렌더 후 재검수한다. 전체 크롤 속도 유지를 위해 예산을 둔다.
-        spec_rescue_cap = int(os.getenv("QB_SPEC_RESCUE_CAP", "30"))
+        # [2026-09] 렌더 기본 OFF: 스펙 미감지 페이지 재렌더 예산 기본 0 (필요 시 QB_SPEC_RESCUE_CAP=N 으로 켬)
+        spec_rescue_cap = int(os.getenv("QB_SPEC_RESCUE_CAP", "0"))
         spec_rescue_state = {"used": 0}
 
         def rules_for(pt, mp):
@@ -125,7 +126,12 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
                 mp = runner.product_from_url(url)
                 html, err, rendered_by, http_status, final_url = None, None, None, None, None
                 try:
-                    res = await crawler.force_render(url) if pt.lower() == "compare" else await crawler.crawl(url, requires_js=True)
+                    # [2026-09] 렌더 기본 OFF — Compare 도 httpx 로 받고(Data QA 는 소스 기준), 비교표 값은
+                    # runner 가 spec/compare API 로 가져온다. 강제 렌더는 QB_RENDER_COMPARE=true 일 때만.
+                    if pt.lower() == "compare" and os.getenv("QB_RENDER_COMPARE", "false").lower() == "true":
+                        res = await crawler.force_render(url)
+                    else:
+                        res = await crawler.crawl(url, requires_js=True)
                     html = (res or {}).get("html_content")
                     err = (res or {}).get("error")
                     rendered_by = (res or {}).get("rendered_by")

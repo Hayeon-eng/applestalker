@@ -69,7 +69,8 @@ class HybridCrawler:
         # [JS_RESCUE] 전면 렌더(USE_PLAYWRIGHT)는 그대로 꺼둔 채, httpx가 '빈/차단'
         # 페이지를 받은 경우에 한해서만 Playwright로 그 페이지만 구제한다.
         # → 정상 페이지는 렌더하지 않아 전체 크롤 속도는 유지, Meta 같은 소수만 추가 비용.
-        self.js_rescue = os.getenv("JS_RESCUE", "true").lower() == "true"
+        # [2026-09] 기본 OFF — 렌더는 예외 상황에서만(JS_RESCUE=true). Data QA 는 소스 HTML, Compare 스펙은 API.
+        self.js_rescue = os.getenv("JS_RESCUE", "false").lower() == "true"
         self.js_rescue_cap = int(os.getenv("JS_RESCUE_CAP", "8"))
         self._rescue_used = 0
         # 렌더가 실제로 가능한지(전면 렌더 or 구제 중 하나라도 켜짐)

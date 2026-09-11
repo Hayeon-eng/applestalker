@@ -41,11 +41,51 @@ def _load_sites(path: str) -> Dict[str, Any]:
     raise FileNotFoundError(f"site_registry.json 또는 site_registry.part*.json 을 찾을 수 없습니다: {_HERE}")
 
 
+def _merge_resolved(base_sites: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """[2026-09] 자동 해석 결과(site_registry.resolved.json) + 예외(site_registry.exceptions.json) 를 우선하고,
+    해석되지 않은 (sitecode, product, page_type) 조합만 기존 레지스트리 항목으로 채운다(source=legacy).
+    resolved 파일이 없으면 기존 동작 그대로."""
+    try:
+        import resolver
+        res = resolver.load_resolved()
+        exc = resolver.load_exceptions()
+    except Exception:
+        return base_sites
+    if not res and not exc:
+        return base_sites
+    out: List[Dict[str, Any]] = []
+    covered = set()
+    for e in (exc or []):
+        row = {**e, "source": "exception"}
+        out.append(row); covered.add((row["sitecode"], row.get("product"), row.get("page_type") or "PDP"))
+    for e in ((res or {}).get("entries") or []):
+        key = (e["sitecode"], e.get("product"), e.get("page_type") or "PDP")
+        if key in covered:
+            continue
+        out.append({**e, "source": e.get("source", "finder")}); covered.add(key)
+    resolved_sites = {e["sitecode"] for e in ((res or {}).get("entries") or [])}
+    unresolved_keys = {(u["sitecode"], u["product"]) for u in ((res or {}).get("unresolved") or [])}
+    for b in base_sites:
+        key = (b["sitecode"], b.get("product"), b.get("page_type") or "PDP")
+        if key in covered:
+            continue
+        # 해석을 시도했는데 실패한 조합만 legacy 폴백(성공한 사이트·제품에서 해석 안 된 페이지타입은 만들지 않음)
+        if res and b["sitecode"] in resolved_sites and (b["sitecode"], b.get("product")) not in unresolved_keys:
+            continue
+        out.append({**b, "source": "legacy"}); covered.add(key)
+    return [e for e in out if not e.get("excluded")]
+
+
 class SiteRegistry:
     def __init__(self, path: str = _DEFAULT):
         self.path = path
         self.data = _load_sites(path)
-        self.sites: List[Dict[str, Any]] = self.data.get("sites", [])
+        self.legacy_sites: List[Dict[str, Any]] = list(self.data.get("sites", []))
+        self.sites: List[Dict[str, Any]] = _merge_resolved(self.legacy_sites)
+
+    def reload(self):
+        """해석/예외 파일이 바뀐 뒤 병합 결과를 다시 만든다."""
+        self.sites = _merge_resolved(self.legacy_sites)
 
     # ── 조회 ──
     def all(self) -> List[Dict[str, Any]]:

@@ -24,23 +24,30 @@ def page_regions(html: str) -> tuple:
     """페이지 텍스트를 (본문, disclaimer/각주) 로 분리한다.
     - disclaimer/footnote/legal/cookie/terms 성격의 영역은 본문에서 떼어낸다
       → 본문 스펙 검사가 각주 참조번호(02, 03, 1965 …)나 법적고지 숫자를 오인하지 않게.
-    - 각주 영역의 값(예: rated capacity 4855 mAh)은 별도(Disclaimer 스코프) 검사에 사용."""
+    - 각주 영역의 값(예: rated capacity 4855 mAh)은 별도(Disclaimer 스코프) 검사에 사용.
+    [2026-09 속도] page_doc 의 공유 soup 을 쓰고(재파싱 없음), decompose/extract 대신 조상 검사로 제외한다."""
     try:
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(html or "", "lxml")
-        for t in soup(["script", "style", "noscript"]):
-            t.extract()
-        disc_parts = []
+        import page_doc
+        soup = page_doc.soup_for(html)
         kw = re.compile(r"(disclaimer|footnote|legal|terms|cookie|cp-disc|sub-disc|fineprint|fine-print)", re.I)
+        # 1) 각주/법적고지 요소와 <sup> 를 한 번 훑어 모으고, 그 안의 문자열 id 집합을 만든다(조상 탐색 없이 O(n)).
+        disc_els = []
         for el in soup.find_all(True):
-            idc = " ".join(filter(None, [el.get("id", "")] + (el.get("class") or [])))
+            if el.name == "sup":
+                disc_els.append(el); continue
+            attrs = getattr(el, "attrs", None) or {}
+            idc = " ".join(filter(None, [str(attrs.get("id", "") or "")] + list(attrs.get("class") or [])))
             if idc and kw.search(idc):
-                disc_parts.append(el.get_text(" ", strip=True))
-                el.extract()
-        # 상단 <sup> 각주 참조번호도 본문에서 제거(숫자 오인 방지)
-        for sup in soup.find_all("sup"):
-            sup.extract()
-        body = re.sub(r"\s+", " ", soup.get_text(" ", strip=True))
+                disc_els.append(el)
+        disc_string_ids = set()
+        disc_parts = []
+        for el in disc_els:
+            if el.name != "sup":
+                disc_parts.append(page_doc.text_of(el))
+            for st_ in el.strings:
+                disc_string_ids.add(id(st_))
+        # 2) 본문 = 전체 문자열 − (각주/sup 내부 문자열) − script/style
+        body = re.sub(r"\s+", " ", " ".join(str(x) for x in page_doc.visible_strings(soup) if id(x) not in disc_string_ids))
         disc = re.sub(r"\s+", " ", " ".join(disc_parts))
         return body, disc
     except Exception:

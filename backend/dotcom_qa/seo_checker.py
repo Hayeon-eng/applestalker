@@ -199,7 +199,8 @@ def check_seo(html: str, page_url: str, page_type: str = "PDP",
               other_model_tokens: Optional[List[str]] = None,
               final_url: Optional[str] = None) -> Dict[str, Any]:
     cfg = _cfg()
-    soup = BeautifulSoup(html or "", "lxml")
+    import page_doc
+    soup = page_doc.soup_for(html)  # [2026-09 속도] 파싱 1회 공유
     import schema_checker
     nodes = schema_checker.extract_jsonld(html or "")
     items: List[Dict[str, Any]] = []

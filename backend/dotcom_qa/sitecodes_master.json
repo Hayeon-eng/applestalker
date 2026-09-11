@@ -1,0 +1,916 @@
+{
+ "source": "Sitecode_Master_91.csv (2026-09)",
+ "count": 91,
+ "sites": [
+  {
+   "no": 1,
+   "subs": "SECA",
+   "country": "Canada",
+   "sitecode": "ca_fr",
+   "base_url": "https://www.samsung.com/ca_fr/",
+   "mode": "auto",
+   "lang_variant_of": "CA",
+   "note": null
+  },
+  {
+   "no": 2,
+   "subs": "SECA",
+   "country": "Canada",
+   "sitecode": "ca",
+   "base_url": "https://www.samsung.com/ca/",
+   "mode": "auto",
+   "lang_variant_of": "CA",
+   "note": null
+  },
+  {
+   "no": 3,
+   "subs": "SEM",
+   "country": "Mexico",
+   "sitecode": "mx",
+   "base_url": "https://www.samsung.com/mx/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 4,
+   "subs": "SEDA",
+   "country": "Brazil",
+   "sitecode": "br",
+   "base_url": "https://www.samsung.com/br/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 5,
+   "subs": "SELA",
+   "country": "Latin America",
+   "sitecode": "latin",
+   "base_url": "https://www.samsung.com/latin/",
+   "mode": "auto",
+   "lang_variant_of": "LATIN",
+   "note": null
+  },
+  {
+   "no": 6,
+   "subs": "SELA",
+   "country": "Latin America",
+   "sitecode": "latin_en",
+   "base_url": "https://www.samsung.com/latin_en/",
+   "mode": "auto",
+   "lang_variant_of": "LATIN",
+   "note": null
+  },
+  {
+   "no": 7,
+   "subs": "SAMCOL",
+   "country": "Colombia",
+   "sitecode": "co",
+   "base_url": "https://www.samsung.com/co/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 8,
+   "subs": "SEASA",
+   "country": "Argentina",
+   "sitecode": "ar",
+   "base_url": "https://www.samsung.com/ar/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 9,
+   "subs": "SELA",
+   "country": "Paraguay / Uruguay",
+   "sitecode": "py",
+   "base_url": "https://www.samsung.com/py/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 10,
+   "subs": "SELA",
+   "country": "Paraguay / Uruguay",
+   "sitecode": "uy",
+   "base_url": "https://www.samsung.com/uy/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 11,
+   "subs": "SECH",
+   "country": "Chile",
+   "sitecode": "cl",
+   "base_url": "https://www.samsung.com/cl/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 12,
+   "subs": "SEPR",
+   "country": "Peru",
+   "sitecode": "pe",
+   "base_url": "https://www.samsung.com/pe/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 13,
+   "subs": "SAPL",
+   "country": "Singapore",
+   "sitecode": "sg",
+   "base_url": "https://www.samsung.com/sg/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 14,
+   "subs": "SEAU / SENZ",
+   "country": "Australia / New Zealand",
+   "sitecode": "au",
+   "base_url": "https://www.samsung.com/au/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 15,
+   "subs": "SEAU / SENZ",
+   "country": "Australia / New Zealand",
+   "sitecode": "nz",
+   "base_url": "https://www.samsung.com/nz/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 16,
+   "subs": "SEIN",
+   "country": "Indonesia",
+   "sitecode": "id",
+   "base_url": "https://www.samsung.com/id/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 17,
+   "subs": "TSE",
+   "country": "Thailand / Myanmar",
+   "sitecode": "th",
+   "base_url": "https://www.samsung.com/th/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 18,
+   "subs": "TSE",
+   "country": "Thailand / Myanmar",
+   "sitecode": "mm",
+   "base_url": "https://www.samsung.com/mm/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 19,
+   "subs": "SAVINA",
+   "country": "Vietnam",
+   "sitecode": "vn",
+   "base_url": "https://www.samsung.com/vn/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 20,
+   "subs": "SME",
+   "country": "Malaysia",
+   "sitecode": "my",
+   "base_url": "https://www.samsung.com/my/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 21,
+   "subs": "SEPCO",
+   "country": "Philippines",
+   "sitecode": "ph",
+   "base_url": "https://www.samsung.com/ph/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 22,
+   "subs": "SEUK",
+   "country": "U.K / Ireland",
+   "sitecode": "uk",
+   "base_url": "https://www.samsung.com/uk/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 23,
+   "subs": "SEUK",
+   "country": "U.K / Ireland",
+   "sitecode": "ie",
+   "base_url": "https://www.samsung.com/ie/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 24,
+   "subs": "SEG",
+   "country": "Germany",
+   "sitecode": "de",
+   "base_url": "https://www.samsung.com/de/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 25,
+   "subs": "SEASA",
+   "country": "Austria / Switzerland",
+   "sitecode": "at",
+   "base_url": "https://www.samsung.com/at/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 26,
+   "subs": "SEASA",
+   "country": "Austria / Switzerland",
+   "sitecode": "ch",
+   "base_url": "https://www.samsung.com/ch/",
+   "mode": "auto",
+   "lang_variant_of": "CH",
+   "note": null
+  },
+  {
+   "no": 27,
+   "subs": "SEASA",
+   "country": "Austria / Switzerland",
+   "sitecode": "ch_fr",
+   "base_url": "https://www.samsung.com/ch_fr/",
+   "mode": "auto",
+   "lang_variant_of": "CH",
+   "note": null
+  },
+  {
+   "no": 28,
+   "subs": "SEF",
+   "country": "France",
+   "sitecode": "fr",
+   "base_url": "https://www.samsung.com/fr/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 29,
+   "subs": "SEI",
+   "country": "Italy",
+   "sitecode": "it",
+   "base_url": "https://www.samsung.com/it/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 30,
+   "subs": "SEGR",
+   "country": "Greece",
+   "sitecode": "gr",
+   "base_url": "https://www.samsung.com/gr/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 31,
+   "subs": "SEIB",
+   "country": "Spain / Portugal",
+   "sitecode": "es",
+   "base_url": "https://www.samsung.com/es/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 32,
+   "subs": "SEIB",
+   "country": "Spain / Portugal",
+   "sitecode": "pt",
+   "base_url": "https://www.samsung.com/pt/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 33,
+   "subs": "SEBN",
+   "country": "Belgium / Netherlands",
+   "sitecode": "be",
+   "base_url": "https://www.samsung.com/be/",
+   "mode": "auto",
+   "lang_variant_of": "BE",
+   "note": null
+  },
+  {
+   "no": 34,
+   "subs": "SEBN",
+   "country": "Belgium / Netherlands",
+   "sitecode": "be_fr",
+   "base_url": "https://www.samsung.com/be_fr/",
+   "mode": "auto",
+   "lang_variant_of": "BE",
+   "note": null
+  },
+  {
+   "no": 35,
+   "subs": "SEBN",
+   "country": "Belgium / Netherlands",
+   "sitecode": "nl",
+   "base_url": "https://www.samsung.com/nl/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 36,
+   "subs": "SENA",
+   "country": "Sweden / Denmark / Finland / Norway",
+   "sitecode": "se",
+   "base_url": "https://www.samsung.com/se/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 37,
+   "subs": "SENA",
+   "country": "Sweden / Denmark / Finland / Norway",
+   "sitecode": "dk",
+   "base_url": "https://www.samsung.com/dk/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 38,
+   "subs": "SENA",
+   "country": "Sweden / Denmark / Finland / Norway",
+   "sitecode": "fi",
+   "base_url": "https://www.samsung.com/fi/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 39,
+   "subs": "SENA",
+   "country": "Sweden / Denmark / Finland / Norway",
+   "sitecode": "no",
+   "base_url": "https://www.samsung.com/no/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 40,
+   "subs": "SEPOL",
+   "country": "Poland",
+   "sitecode": "pl",
+   "base_url": "https://www.samsung.com/pl/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 41,
+   "subs": "SEROM",
+   "country": "Romania / Bulgaria",
+   "sitecode": "ro",
+   "base_url": "https://www.samsung.com/ro/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 42,
+   "subs": "SEROM",
+   "country": "Romania / Bulgaria",
+   "sitecode": "bg",
+   "base_url": "https://www.samsung.com/bg/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 43,
+   "subs": "SEH",
+   "country": "Hungary",
+   "sitecode": "hu",
+   "base_url": "https://www.samsung.com/hu/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 44,
+   "subs": "SECZ",
+   "country": "Czech / Slovakia",
+   "sitecode": "cz",
+   "base_url": "https://www.samsung.com/cz/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 45,
+   "subs": "SECZ",
+   "country": "Czech / Slovakia",
+   "sitecode": "sk",
+   "base_url": "https://www.samsung.com/sk/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 46,
+   "subs": "SEB",
+   "country": "Estonia / Latvia / Lithuania",
+   "sitecode": "ee",
+   "base_url": "https://www.samsung.com/ee/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": "제품 URL에 Z 미사용(galaxy-fold8)"
+  },
+  {
+   "no": 47,
+   "subs": "SEB",
+   "country": "Estonia / Latvia / Lithuania",
+   "sitecode": "lv",
+   "base_url": "https://www.samsung.com/lv/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": "제품 URL에 Z 미사용(galaxy-fold8)"
+  },
+  {
+   "no": 48,
+   "subs": "SEB",
+   "country": "Estonia / Latvia / Lithuania",
+   "sitecode": "lt",
+   "base_url": "https://www.samsung.com/lt/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": "제품 URL에 Z 미사용(galaxy-fold8)"
+  },
+  {
+   "no": 49,
+   "subs": "SEAD",
+   "country": "Croatia / Serbia / Slovenia / Albania / Macedonia / Bosnia",
+   "sitecode": "hr",
+   "base_url": "https://www.samsung.com/hr/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 50,
+   "subs": "SEAD",
+   "country": "Croatia / Serbia / Slovenia / Albania / Macedonia / Bosnia",
+   "sitecode": "rs",
+   "base_url": "https://www.samsung.com/rs/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 51,
+   "subs": "SEAD",
+   "country": "Croatia / Serbia / Slovenia / Albania / Macedonia / Bosnia",
+   "sitecode": "si",
+   "base_url": "https://www.samsung.com/si/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 52,
+   "subs": "SEAD",
+   "country": "Croatia / Serbia / Slovenia / Albania / Macedonia / Bosnia",
+   "sitecode": "al",
+   "base_url": "https://www.samsung.com/al/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 53,
+   "subs": "SEAD",
+   "country": "Croatia / Serbia / Slovenia / Albania / Macedonia / Bosnia",
+   "sitecode": "mk",
+   "base_url": "https://www.samsung.com/mk/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 54,
+   "subs": "SEAD",
+   "country": "Croatia / Serbia / Slovenia / Albania / Macedonia / Bosnia",
+   "sitecode": "ba",
+   "base_url": "https://www.samsung.com/ba/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 55,
+   "subs": "SIEL",
+   "country": "India",
+   "sitecode": "in",
+   "base_url": "https://www.samsung.com/in/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 56,
+   "subs": "Bangladesh",
+   "country": "Bangladesh",
+   "sitecode": "bd",
+   "base_url": "https://www.samsung.com/bd/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 57,
+   "subs": "SGE",
+   "country": "UAE",
+   "sitecode": "ae",
+   "base_url": "https://www.samsung.com/ae/",
+   "mode": "auto",
+   "lang_variant_of": "AE",
+   "note": null
+  },
+  {
+   "no": 58,
+   "subs": "SGE",
+   "country": "UAE",
+   "sitecode": "ae_ar",
+   "base_url": "https://www.samsung.com/ae_ar/",
+   "mode": "auto",
+   "lang_variant_of": "AE",
+   "note": null
+  },
+  {
+   "no": 59,
+   "subs": "SEIL",
+   "country": "Israel / Palestine",
+   "sitecode": "il",
+   "base_url": "https://www.samsung.com/il/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 60,
+   "subs": "SEIL",
+   "country": "Israel / Palestine",
+   "sitecode": "ps",
+   "base_url": "https://www.samsung.com/ps/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 61,
+   "subs": "SESAR",
+   "country": "Saudi Arabia",
+   "sitecode": "sa",
+   "base_url": "https://www.samsung.com/sa/",
+   "mode": "auto",
+   "lang_variant_of": "SA",
+   "note": null
+  },
+  {
+   "no": 62,
+   "subs": "SESAR",
+   "country": "Saudi Arabia",
+   "sitecode": "sa_en",
+   "base_url": "https://www.samsung.com/sa_en/",
+   "mode": "auto",
+   "lang_variant_of": "SA",
+   "note": null
+  },
+  {
+   "no": 63,
+   "subs": "SETK",
+   "country": "Turkey",
+   "sitecode": "tr",
+   "base_url": "https://www.samsung.com/tr/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 64,
+   "subs": "IRAN",
+   "country": "Iran",
+   "sitecode": "iran",
+   "base_url": "https://www.samsung.com/iran/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 65,
+   "subs": "SELV",
+   "country": "Levant / Iraq / Lebanon",
+   "sitecode": "levant",
+   "base_url": "https://www.samsung.com/levant/",
+   "mode": "auto",
+   "lang_variant_of": "LEVANT",
+   "note": null
+  },
+  {
+   "no": 66,
+   "subs": "SELV",
+   "country": "Levant / Iraq / Lebanon",
+   "sitecode": "levant_ar",
+   "base_url": "https://www.samsung.com/levant_ar/",
+   "mode": "auto",
+   "lang_variant_of": "LEVANT",
+   "note": null
+  },
+  {
+   "no": 67,
+   "subs": "SELV",
+   "country": "Levant / Iraq / Lebanon",
+   "sitecode": "iq_ar",
+   "base_url": "https://www.samsung.com/iq_ar/",
+   "mode": "auto",
+   "lang_variant_of": "IQ_AR",
+   "note": null
+  },
+  {
+   "no": 68,
+   "subs": "SELV",
+   "country": "Levant / Iraq / Lebanon",
+   "sitecode": "iq_ku",
+   "base_url": "https://www.samsung.com/iq_ku/",
+   "mode": "auto",
+   "lang_variant_of": "IQ_AR",
+   "note": null
+  },
+  {
+   "no": 69,
+   "subs": "SELV",
+   "country": "Levant / Iraq / Lebanon",
+   "sitecode": "lb",
+   "base_url": "https://www.samsung.com/lb/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 70,
+   "subs": "SEPAK",
+   "country": "Pakistan",
+   "sitecode": "pk",
+   "base_url": "https://www.samsung.com/pk/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 71,
+   "subs": "SEEG-S",
+   "country": "Egypt",
+   "sitecode": "eg",
+   "base_url": "https://www.samsung.com/eg/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 72,
+   "subs": "SEMAG",
+   "country": "North Africa",
+   "sitecode": "n_africa",
+   "base_url": "https://www.samsung.com/n_africa/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 73,
+   "subs": "Africa RHQ",
+   "country": "Africa Pan",
+   "sitecode": "africa_en",
+   "base_url": "https://www.samsung.com/africa_en/",
+   "mode": "auto",
+   "lang_variant_of": "AFRICA_EN",
+   "note": null
+  },
+  {
+   "no": 74,
+   "subs": "Africa RHQ",
+   "country": "Africa Pan",
+   "sitecode": "africa_fr",
+   "base_url": "https://www.samsung.com/africa_fr/",
+   "mode": "auto",
+   "lang_variant_of": "AFRICA_EN",
+   "note": null
+  },
+  {
+   "no": 75,
+   "subs": "Africa RHQ",
+   "country": "Africa Pan",
+   "sitecode": "africa_pt",
+   "base_url": "https://www.samsung.com/africa_pt/",
+   "mode": "auto",
+   "lang_variant_of": "AFRICA_EN",
+   "note": null
+  },
+  {
+   "no": 76,
+   "subs": "SSA",
+   "country": "South Africa",
+   "sitecode": "za",
+   "base_url": "https://www.samsung.com/za/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 77,
+   "subs": "SCIC",
+   "country": "China",
+   "sitecode": "cn",
+   "base_url": "https://www.samsung.com.cn/",
+   "mode": "manual",
+   "lang_variant_of": null,
+   "note": "별도 도메인(samsung.com.cn), locale 세그먼트 없음 → 자동 검사 제외·직접 확인"
+  },
+  {
+   "no": 78,
+   "subs": "SEHK",
+   "country": "Hong Kong",
+   "sitecode": "hk",
+   "base_url": "https://www.samsung.com/hk/",
+   "mode": "auto",
+   "lang_variant_of": "HK",
+   "note": null
+  },
+  {
+   "no": 79,
+   "subs": "SEHK",
+   "country": "Hong Kong",
+   "sitecode": "hk_en",
+   "base_url": "https://www.samsung.com/hk_en/",
+   "mode": "auto",
+   "lang_variant_of": "HK",
+   "note": null
+  },
+  {
+   "no": 80,
+   "subs": "SET",
+   "country": "Taiwan",
+   "sitecode": "tw",
+   "base_url": "https://www.samsung.com/tw/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 81,
+   "subs": "SERC",
+   "country": "Russia / Azerbaijan",
+   "sitecode": "ru",
+   "base_url": "https://www.samsung.com/ru/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 82,
+   "subs": "SERC",
+   "country": "Russia / Azerbaijan",
+   "sitecode": "az",
+   "base_url": "https://www.samsung.com/az/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 83,
+   "subs": "SEUC",
+   "country": "Ukraine",
+   "sitecode": "ua",
+   "base_url": "https://www.samsung.com/ua/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": "제품 URL에 Z 미사용(galaxy-fold8)"
+  },
+  {
+   "no": 84,
+   "subs": "SECE",
+   "country": "Kazakhstan / Mongol",
+   "sitecode": "kz_ru",
+   "base_url": "https://www.samsung.com/kz_ru/",
+   "mode": "auto",
+   "lang_variant_of": "KZ_RU",
+   "note": null
+  },
+  {
+   "no": 85,
+   "subs": "SECE",
+   "country": "Kazakhstan / Mongol",
+   "sitecode": "kz_kz",
+   "base_url": "https://www.samsung.com/kz_kz/",
+   "mode": "auto",
+   "lang_variant_of": "KZ_RU",
+   "note": null
+  },
+  {
+   "no": 86,
+   "subs": "SECE",
+   "country": "Kazakhstan / Mongol",
+   "sitecode": "mn",
+   "base_url": "https://www.samsung.com/mn/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 87,
+   "subs": "SEUZ",
+   "country": "Uzbekistan",
+   "sitecode": "uz_ru",
+   "base_url": "https://www.samsung.com/uz_ru/",
+   "mode": "auto",
+   "lang_variant_of": "UZ_RU",
+   "note": null
+  },
+  {
+   "no": 88,
+   "subs": "SEUZ",
+   "country": "Uzbekistan",
+   "sitecode": "uz_uz",
+   "base_url": "https://www.samsung.com/uz_uz/",
+   "mode": "auto",
+   "lang_variant_of": "UZ_RU",
+   "note": null
+  },
+  {
+   "no": 89,
+   "subs": "SEA",
+   "country": "US",
+   "sitecode": "us",
+   "base_url": "https://www.samsung.com/us/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 90,
+   "subs": "SEC",
+   "country": "Korea",
+   "sitecode": "sec",
+   "base_url": "https://www.samsung.com/sec/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  },
+  {
+   "no": 91,
+   "subs": "SEJ",
+   "country": "Japan",
+   "sitecode": "jp",
+   "base_url": "https://www.samsung.com/jp/",
+   "mode": "auto",
+   "lang_variant_of": null,
+   "note": null
+  }
+ ]
+}

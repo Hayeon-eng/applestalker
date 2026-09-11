@@ -137,10 +137,8 @@ def extract(html: str) -> Dict[str, Any]:
     pairs: [{"label","value","section","source"}]  source: dl|table|sibling
     section_blocks: 컴포넌트 경계를 보존한 블록 리스트(window_search가 여기서만 검색)
     sections: section_blocks를 이어붙인 텍스트(exists/option_match 등 '포함 여부' 검사용)"""
-    from bs4 import BeautifulSoup
-    soup = BeautifulSoup(html or "", "lxml")
-    for t in soup(["script", "style", "noscript"]):
-        t.extract()
+    import page_doc
+    soup = page_doc.soup_for(html)  # [2026-09 속도] 파싱 1회 공유 — script/style 은 제거하지 않고 텍스트 추출 시 건너뛴다
 
     pairs: List[Dict[str, str]] = []
 
@@ -236,7 +234,7 @@ def extract(html: str) -> Dict[str, Any]:
         sec = _classify(dl)
         dts, dds = dl.find_all("dt"), dl.find_all("dd")
         for dt, dd in zip(dts, dds):
-            label, value = _clean(dt.get_text(" ")), _clean(dd.get_text(" "))
+            label, value = _clean(page_doc.text_of(dt)), _clean(page_doc.text_of(dd))
             if label and value:
                 pairs.append({"label": label, "value": value, "section": sec, "source": "dl"})
 
@@ -264,7 +262,7 @@ def extract(html: str) -> Dict[str, Any]:
             cells = tr.find_all(["th", "td"])
             if len(cells) < 2:
                 continue
-            label = _clean(cells[0].get_text(" "))
+            label = _clean(page_doc.text_of(cells[0]))
             if not label or len(label) >= 80:
                 continue
             if header_cells and ri == 0:
@@ -272,7 +270,7 @@ def extract(html: str) -> Dict[str, Any]:
             if header_cells and len(cells) >= 3:
                 # 다중 값 컬럼(Compare) — 컬럼별 페어 + product_hint
                 for ci in range(1, len(cells)):
-                    value = _clean(cells[ci].get_text(" "))
+                    value = _clean(page_doc.text_of(cells[ci]))
                     hint = header_cells[ci] if ci < len(header_cells) else ""
                     if value:
                         p = {"label": label, "value": value, "section": sec,
@@ -281,7 +279,7 @@ def extract(html: str) -> Dict[str, Any]:
                             p["category"] = table_category
                         pairs.append(p)
             else:
-                value = _clean(cells[1].get_text(" "))
+                value = _clean(page_doc.text_of(cells[1]))
                 if value:
                     p = {"label": label, "value": value, "section": sec, "source": "table"}
                     if table_category:
@@ -294,14 +292,14 @@ def extract(html: str) -> Dict[str, Any]:
     for el in soup.find_all(True, class_=lab_rx):
         sib = el.find_next_sibling(True, class_=val_rx)
         if sib is not None:
-            label, value = _clean(el.get_text(" ")), _clean(sib.get_text(" "))
+            label, value = _clean(page_doc.text_of(el)), _clean(page_doc.text_of(sib))
             if label and value and len(label) < 80 and len(value) < 200:
                 pairs.append({"label": label, "value": value,
                               "section": _classify(el), "source": "sibling"})
 
     # ④ heading 텍스트로 컨테이너 섹션 보정(스펙/구성품/각주 등)
     for el in soup.find_all(("h1", "h2", "h3", "h4")):
-        htext = _clean(el.get_text(" "))
+        htext = _clean(page_doc.text_of(el))
         for tag, rx in _HEADING_KEYWORDS:
             if rx.search(htext) and el.parent is not None:
                 el.parent["data-qb-section"] = tag
@@ -313,7 +311,7 @@ def extract(html: str) -> Dict[str, Any]:
     for el in soup.find_all(_LEAF_CANDIDATE_TAGS):
         if not _is_leaf_block(el):
             continue
-        text = _clean(el.get_text(" "))
+        text = _clean(page_doc.text_of(el))
         if not text:
             continue
         forced = None

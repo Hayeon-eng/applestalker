@@ -64,6 +64,49 @@ def _history_save(results, summary, product="M3", scope="", duration_seconds: Op
     return entry
 
 
+# ── [2026-09] 이력 내보내기/가져오기 — 사내망에서 공용 DB 포트가 막혀 이력 공유가 안 되므로,
+#    각자 PC(sqlite)에 저장한 이력을 JSON 파일로 내보내고 상대가 가져와 같은 화면으로 볼 수 있게 한다.
+@qb_router.get("/history/export")
+def qb_history_export(run_id: Optional[str] = Query(None)):
+    from fastapi.responses import JSONResponse
+    db = SessionLocal()
+    try:
+        qs = db.query(QbHistory).order_by(QbHistory.id.desc())
+        rows = [qs.filter(QbHistory.run_id == run_id).first()] if run_id else qs.limit(50).all()
+        rows = [r for r in rows if r]
+        payload = {"tool": "qubi", "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                   "entries": [{"run_id": r.run_id, "at": r.at, "product": r.product, "scope": r.scope, "pages": r.pages,
+                                "fail": r.fail, "warn": r.warn, "duration_seconds": r.duration_seconds,
+                                "results": json.loads(r.results or "[]")} for r in rows]}
+    finally:
+        db.close()
+    name = f"qubi_history_{run_id or 'all'}_{datetime.now():%Y%m%d}.json"
+    return JSONResponse(payload, headers={"Content-Disposition": f"attachment; filename={name}"})
+
+
+@qb_router.post("/history/import")
+def qb_history_import(payload: Dict[str, Any] = Body(...)):
+    """내보낸 JSON 을 그대로 올리면 run_id 기준으로 없는 것만 추가한다(덮어쓰지 않음)."""
+    entries = payload.get("entries") or []
+    if payload.get("tool") not in (None, "qubi") or not isinstance(entries, list):
+        raise HTTPException(400, "큐비 이력 JSON 이 아닙니다")
+    db = SessionLocal(); added = skipped = 0
+    try:
+        for e in entries:
+            rid = str(e.get("run_id") or "")
+            if not rid or db.query(QbHistory).filter(QbHistory.run_id == rid).first():
+                skipped += 1; continue
+            db.add(QbHistory(run_id=rid, at=e.get("at"), product=e.get("product"), scope=(e.get("scope") or "") + " · 가져옴",
+                             pages=e.get("pages", 0), fail=e.get("fail", 0), warn=e.get("warn", 0),
+                             duration_seconds=e.get("duration_seconds"),
+                             results=json.dumps(e.get("results") or [], ensure_ascii=False, separators=(",", ":"))))
+            added += 1
+        db.commit()
+    finally:
+        db.close()
+    return {"ok": True, "added": added, "skipped": skipped}
+
+
 @qb_router.get("/history")
 def qb_history():
     return {"history": _history_index()}
