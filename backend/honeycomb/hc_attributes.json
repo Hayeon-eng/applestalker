@@ -1,0 +1,595 @@
+{
+ "_note": "GMC 속성 표준(Master File Standard 시트) + 관측 위치",
+ "attributes": [
+  {
+   "no": 1,
+   "sub": false,
+   "category": "Basic Product Data",
+   "name": "ID",
+   "code": "id",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 2,
+   "sub": false,
+   "category": "Basic Product Data",
+   "name": "Title",
+   "code": "title",
+   "feeding": "Auto / Manual",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 3,
+   "sub": false,
+   "category": "Basic Product Data",
+   "name": "Description",
+   "code": "description",
+   "feeding": "Auto / Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 4,
+   "sub": false,
+   "category": "Basic Product Data",
+   "name": "Link",
+   "code": "link",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 5,
+   "sub": false,
+   "category": "Basic Product Data",
+   "name": "Image link",
+   "code": "image_link",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 6,
+   "sub": false,
+   "category": "Basic Product Data",
+   "name": "Additional image link",
+   "code": "additional_image_link",
+   "feeding": "Auto / Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 7,
+   "sub": false,
+   "category": "Basic Product Data",
+   "name": "Video link",
+   "code": "video_link",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 8,
+   "sub": false,
+   "category": "Basic Product Data",
+   "name": "3D model link",
+   "code": "virtual_model_link",
+   "feeding": "Auto / Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 8,
+   "sub": true,
+   "category": "Basic Product Data",
+   "name": "Mobile link",
+   "code": "mobile_link",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 9,
+   "sub": false,
+   "category": "Price and availability",
+   "name": "Availability",
+   "code": "availability",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 10,
+   "sub": false,
+   "category": "Price and availability",
+   "name": "Availability date",
+   "code": "availability_date",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 11,
+   "sub": false,
+   "category": "Price and availability",
+   "name": "Expiration Date",
+   "code": "expiration_date",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 12,
+   "sub": false,
+   "category": "Price and availability",
+   "name": "Price",
+   "code": "price",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 13,
+   "sub": false,
+   "category": "Price and availability",
+   "name": "Sale price",
+   "code": "sale_price",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 14,
+   "sub": false,
+   "category": "Price and availability",
+   "name": "Sales Price Effective Date",
+   "code": "sale_price_effective_date",
+   "feeding": "Auto(Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 15,
+   "sub": false,
+   "category": "Price and availability",
+   "name": "Installment",
+   "code": "installment",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 16,
+   "sub": false,
+   "category": "Product Category",
+   "name": "Google product category",
+   "code": "google_product_category",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 16,
+   "sub": true,
+   "category": "Product Category",
+   "name": "Google product category (Alt)",
+   "code": "google_product_category",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 17,
+   "sub": false,
+   "category": "Product Category",
+   "name": "Product type",
+   "code": "product_type",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 18,
+   "sub": false,
+   "category": "Product identifiers",
+   "name": "Brand",
+   "code": "brand",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 19,
+   "sub": false,
+   "category": "Product identifiers",
+   "name": "GTIN",
+   "code": "gtin",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 20,
+   "sub": false,
+   "category": "Product identifiers",
+   "name": "MPN",
+   "code": "mpn",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 21,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Certification",
+   "code": "certification",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 22,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Gender",
+   "code": "gender",
+   "feeding": "Auto(Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 23,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Color",
+   "code": "color",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 24,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Condition",
+   "code": "condition",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 25,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Document Link*",
+   "code": "document_link",
+   "feeding": "Manual",
+   "conversational": true,
+   "observe": "detail"
+  },
+  {
+   "no": 26,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Energy efficiency class",
+   "code": "energy_efficiency_class",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 27,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Item group ID",
+   "code": "item_group_id",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 28,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Item Group Title*",
+   "code": "item_group_title",
+   "feeding": "Manual",
+   "conversational": true,
+   "observe": "detail"
+  },
+  {
+   "no": 29,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Material",
+   "code": "material",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 29,
+   "sub": true,
+   "category": "Detailed product description",
+   "name": "Minimum Energy efficiency class",
+   "code": "energy_efficiency_class",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 29,
+   "sub": true,
+   "category": "Detailed product description",
+   "name": "Maximum Energy efficiency class",
+   "code": "energy_efficiency_class",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 30,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Popularity Rank*",
+   "code": "popularity_rank",
+   "feeding": "Manual",
+   "conversational": true,
+   "observe": "detail"
+  },
+  {
+   "no": 31,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Product detail",
+   "code": "product_detail",
+   "feeding": "Auto(Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 32,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Product length",
+   "code": "product_length",
+   "feeding": "Auto(Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 33,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Product width",
+   "code": "product_width",
+   "feeding": "Auto(Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 34,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Product height",
+   "code": "product_height",
+   "feeding": "Auto(Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 35,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Product highlight",
+   "code": "product_highlight",
+   "feeding": "Auto / Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 36,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Product weight",
+   "code": "product_weight",
+   "feeding": "Auto(Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 37,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Question and Answer*",
+   "code": "question_and_answer",
+   "feeding": "Manual",
+   "conversational": true,
+   "observe": "detail"
+  },
+  {
+   "no": 38,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Related Product*",
+   "code": "related_product",
+   "feeding": "Manual",
+   "conversational": true,
+   "observe": "detail"
+  },
+  {
+   "no": 39,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Size",
+   "code": "size",
+   "feeding": "Auto (Hybris)",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 40,
+   "sub": false,
+   "category": "Detailed product description",
+   "name": "Variant Option*",
+   "code": "variant_option",
+   "feeding": "Manual",
+   "conversational": true,
+   "observe": "detail"
+  },
+  {
+   "no": 41,
+   "sub": false,
+   "category": "shopping campaigns and other configurations",
+   "name": "Custom label 0",
+   "code": "custom_label_0",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 41,
+   "sub": true,
+   "category": "shopping campaigns and other configurations",
+   "name": "Custom label 1",
+   "code": "custom_label_1",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 41,
+   "sub": true,
+   "category": "shopping campaigns and other configurations",
+   "name": "Custom label 2",
+   "code": "custom_label_2",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 41,
+   "sub": true,
+   "category": "shopping campaigns and other configurations",
+   "name": "Custom label 3",
+   "code": "custom_label_3",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 41,
+   "sub": true,
+   "category": "shopping campaigns and other configurations",
+   "name": "Custom label 4",
+   "code": "custom_label_4",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 42,
+   "sub": false,
+   "category": "shopping campaigns and other configurations",
+   "name": "Promotion id",
+   "code": "promotion_id",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 43,
+   "sub": false,
+   "category": "shopping campaigns and other configurations",
+   "name": "Lifestyle image link",
+   "code": "lifestyle_image_link",
+   "feeding": "Auto / Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 44,
+   "sub": false,
+   "category": "shopping campaigns and other configurations",
+   "name": "Short Title",
+   "code": "short_title",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "detail"
+  },
+  {
+   "no": 45,
+   "sub": false,
+   "category": "delivery and returns",
+   "name": "shipping(country:price:service)",
+   "code": "shipping",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "card"
+  },
+  {
+   "no": 46,
+   "sub": false,
+   "category": "delivery and returns",
+   "name": "Shipping label",
+   "code": "shipping_label",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 47,
+   "sub": false,
+   "category": "delivery and returns",
+   "name": "Maximum handling time",
+   "code": "max_handling_time",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 48,
+   "sub": false,
+   "category": "delivery and returns",
+   "name": "Minimum handling time",
+   "code": "min_handling_time",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 49,
+   "sub": false,
+   "category": "delivery and returns",
+   "name": "Shipping transit business days",
+   "code": "shipping_transit_business_days",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 50,
+   "sub": false,
+   "category": "delivery and returns",
+   "name": "Shipping handling business days",
+   "code": "shipping_handling_business_days",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "feed"
+  },
+  {
+   "no": 51,
+   "sub": false,
+   "category": "delivery and returns",
+   "name": "Free shipping threshold",
+   "code": "free_shipping_threshold",
+   "feeding": "Manual",
+   "conversational": false,
+   "observe": "card"
+  }
+ ]
+}

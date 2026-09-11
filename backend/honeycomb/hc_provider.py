@@ -52,9 +52,26 @@ class MockProvider(Provider):
             self.data = {"config": {"top_n": 8, "countries": [], "products": [], "status_legend": {}}, "attributes": [], "runs": []}
 
     def config(self) -> Dict[str, Any]:
+        # [2026-09-11] 국가·제품 설정은 hc_config.json 이 원본(목업 파일과 무관하게 항상 존재) — 목업은 폴백
+        p = os.path.join(_HERE, "hc_config.json")
+        if os.path.exists(p):
+            try:
+                c = json.load(open(p, encoding="utf-8")); c.pop("_note", None)
+                if c.get("countries") and c.get("products"):
+                    return c
+            except Exception:
+                pass
         return self.data["config"]
 
     def attributes(self) -> List[Dict[str, Any]]:
+        p = os.path.join(_HERE, "hc_attributes.json")
+        if os.path.exists(p):
+            try:
+                a = json.load(open(p, encoding="utf-8")).get("attributes") or []
+                if a:
+                    return a
+            except Exception:
+                pass
         return self.data["attributes"]
 
     def runs(self) -> List[Dict[str, Any]]:
