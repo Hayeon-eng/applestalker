@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -122,6 +122,12 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
 # 큐비 🐝 — Dotcom QA 모듈 마운트 (기존 HybridCrawler 자동 연결)
 from dotcom_qa.qb_api import qb_router, enable_default_crawler
 app.include_router(qb_router)
+# [2026-09] 🐝C honeyComb — Google Shopping 노출·속성 역추적 (목업 provider). 실패해도 A/B 는 그대로 뜬다.
+try:
+    from honeycomb.hc_routes import hc_router
+    app.include_router(hc_router)
+except Exception as _e:
+    print(f"[main] honeycomb router skip: {_e}")
 
 enable_default_crawler()
 
@@ -623,6 +629,39 @@ def add_url(req: AddURL):
                       {"s": sk, "u": u, "t": tier_for_url(u), "c": datetime.utcnow()})
         c.commit()
     return {"status": "added", "url": u, "site_key": sk}
+
+
+@app.get("/api/urls/discover")
+def discover_urls(site_key: str = Query("apple"), keywords: str = Query(""), verify: bool = Query(True)):
+    """[2026-09] 최신 제품 URL 자동 탐색 — 사이트맵 + 세대 번호 프로브 + HTTP 존재 확인.
+    현재는 apple 만 지원. keywords 는 새 제품군 가설 슬러그(콤마 구분, 예: iphone-fold)."""
+    if site_key != "apple":
+        raise HTTPException(400, "현재 apple 만 지원합니다")
+    import discovery
+    seeds = [x["url"] for x in load_active_urls("apple", [r[1] for r in q("SELECT site_key,url FROM monitored_urls WHERE enabled=true AND site_key='apple'")])]
+    kws = [k.strip() for k in keywords.split(",") if k.strip()]
+    return discovery.discover_apple(seeds, kws, verify=verify)
+
+
+@app.post("/api/urls/discover/apply")
+def discover_apply(req: Dict[str, Any] = Body(...)):
+    """탐색 결과 중 verified=true 인 URL 만 등록(admin_password 필요)."""
+    _check_admin(req.get("admin_password", ""))
+    added = []
+    for u in req.get("urls", []):
+        u = str(u).strip()
+        if not u.startswith("http"):
+            continue
+        with sync_engine.connect() as c:
+            exists = c.execute(text("SELECT 1 FROM monitored_urls WHERE url=:u"), {"u": u}).fetchone()
+            if exists:
+                c.execute(text("UPDATE monitored_urls SET enabled=true WHERE url=:u"), {"u": u})
+            else:
+                c.execute(text("INSERT INTO monitored_urls (site_key,url,tier_level,enabled,created_at) VALUES (:s,:u,:t,true,:c)"),
+                          {"s": req.get("site_key") or site_key_for_url(u) or "apple", "u": u, "t": tier_for_url(u), "c": datetime.utcnow()})
+            c.commit()
+        added.append(u)
+    return {"status": "added", "count": len(added), "urls": added}
 
 
 @app.delete("/api/urls")
