@@ -41,7 +41,7 @@ APPLE_PATTERNS: Dict[str, Dict[str, List[str]]] = {
     "mac": {"pdp": ["/macbook-pro/", "/macbook-air/"], "buy": ["/shop/buy-mac/macbook-pro", "/shop/buy-mac/macbook-air"]},
 }
 # 새 제품군 후보 슬러그 — 존재가 확인되지 않은 '가설' 목록. 사용자가 추가 가능. 확인 전에는 등록되지 않는다.
-FOLD_KEYWORDS = ["iphone-fold", "iphone-ultra", "iphone-duo", "iphone-flip"]
+FOLD_KEYWORDS: List[str] = []  # 새 제품군 슬러그는 추측하지 않는다 — 사용자가 URL 을 확인해 주면 config 시드에 정적으로 추가
 SITEMAP_HINTS = re.compile(r"/(iphone[-\w]*|apple-watch[-\w]*|airpods[-\w]*|ipad[-\w]*|macbook[-\w]*|shop/buy-(iphone|watch|airpods|ipad|mac)/[-\w]+)/?$", re.I)
 
 
