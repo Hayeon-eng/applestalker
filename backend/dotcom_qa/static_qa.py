@@ -199,7 +199,7 @@ async def run_all(sites: Optional[List[Dict[str, Any]]] = None, pages: Optional[
             key = f"{site['sitecode']}|{page['key']}"
             cands = ([cache[key]] if key in cache else []) + [u for u in candidate_urls(site, page) if u != cache.get(key)]
             row = None
-            async with httpx.AsyncClient(headers=headers, timeout=25) as client:
+            async with httpx.AsyncClient(headers=headers, timeout=25, verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false")) as client:
                 for u in cands:
                     r = await fetch(client, u)
                     if isinstance(r, Exception):

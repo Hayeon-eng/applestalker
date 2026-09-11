@@ -107,7 +107,7 @@ class HybridCrawler:
     # START
     # ─────────────────────────────────────────────
     async def start(self):
-        self._client = httpx.AsyncClient(
+        self._client = httpx.AsyncClient(verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false"), 
             headers=BASE_HEADERS,
             timeout=httpx.Timeout(self.http_timeout, connect=10.0),
             follow_redirects=True,

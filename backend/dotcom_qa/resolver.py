@@ -72,7 +72,7 @@ def product_defs() -> List[Dict[str, Any]]:
 # ── API ────────────────────────────────────────────────────────────────
 def _get(url: str, params: Dict[str, Any]) -> Dict[str, Any]:
     import httpx
-    r = httpx.get(url, params=params, headers=HEADERS, timeout=TIMEOUT)
+    r = httpx.get(url, params=params, headers=HEADERS, timeout=TIMEOUT, verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false"))
     r.raise_for_status()
     return r.json()
 
