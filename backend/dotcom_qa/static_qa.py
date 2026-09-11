@@ -35,7 +35,7 @@ STATIC_PAGES: List[Dict[str, Any]] = [
     {"key": "galaxy-ai", "label": "Galaxy AI", "paths": ["{base}galaxy-ai/", "{base}mobile/galaxy-ai/", "{base}smartphones/galaxy-ai/"], "confirmed": False},
     {"key": "samsung-health", "label": "Samsung Health", "paths": ["{base}apps/samsung-health/", "{base}samsung-health/", "{base}mobile/apps/samsung-health/"], "confirmed": False},
     {"key": "one-ui", "label": "One UI", "paths": ["{base}one-ui/", "{base}apps/one-ui/", "{base}mobile/one-ui/"], "confirmed": False},
-    {"key": "find-your-galaxy", "label": "Find your Galaxy", "paths": ["{base}mobile/find-your-galaxy/", "{base}smartphones/find-your-galaxy/", "{base}find-your-galaxy/"], "confirmed": False},
+    {"key": "find-your-galaxy", "label": "Find your Galaxy", "paths": ["{base}mobile/find-your-galaxy/"], "confirmed": True},  # 사용자 확인 2026-09-11 (/sg/mobile/find-your-galaxy/)
 ]
 REF_PROPS = ("hasPart", "mainEntity", "mainEntityOfPage", "isPartOf", "about", "publisher", "brand", "manufacturer", "subjectOf", "breadcrumb")
 RICH_REQUIRED: Dict[str, List[str]] = {
