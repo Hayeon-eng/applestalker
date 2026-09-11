@@ -361,6 +361,21 @@ def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
     idx = {c: header.index(c) for c in _URL_COLS if c in header}
     added = 0
     skipped_dupe = 0
+    # [2026-09] replace_product=true 면 업로드 파일에 등장하는 (product, page_type) 조합의 기존 항목을 먼저 지운다 —
+    # finder API 로 다시 받은 워치 URL 처럼 '통째로 교체'가 필요할 때(tools/registry_from_collector.py 산출물).
+    removed = 0
+    if payload.get("replace_product"):
+        combos = set()
+        for r in rows[1:]:
+            def g0(col):
+                i = idx.get(col)
+                return (str(r[i]).strip() if i is not None and i < len(r) and r[i] is not None else "")
+            if g0("url"):
+                combos.add((g0("product") or "galaxy-z-fold8", g0("page_type") or "PDP"))
+        for e in list(_registry.all()):
+            if (e.get("product"), e.get("page_type") or "PDP") in combos:
+                if _registry.remove(e["sitecode"], e["url"]):
+                    removed += 1
     for r in rows[1:]:
         def g(col):
             i = idx.get(col)
@@ -377,6 +392,6 @@ def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
         except ValueError:
             skipped_dupe += 1  # 이미 (sitecode, url) 그대로 존재 — 새 행을 또 만들지 않음
     _registry.save()
-    return {"ok": True, "added": added, "skipped_duplicate": skipped_dupe, "count": len(_registry.all())}
+    return {"ok": True, "added": added, "skipped_duplicate": skipped_dupe, "removed": removed, "count": len(_registry.all())}
 
 

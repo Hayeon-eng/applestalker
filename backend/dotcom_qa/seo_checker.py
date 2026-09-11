@@ -293,7 +293,8 @@ def check_seo(html: str, page_url: str, page_type: str = "PDP",
             add("Breadcrumb", "Wrong breadcrumb structure", "fail", crumb_txt, f"{len(bitems)} items")
             problems += 1
         last = bitems[-1]
-        if self_tok["model"] and not _has_any(last["name"], self_tok["model"]):
+        # [2026-09] 단수 부족으로 이미 구조 오류를 냈으면 '마지막 단계가 제품 아님'은 같은 사실의 중복 → 1행만
+        if problems == 0 and self_tok["model"] and not _has_any(last["name"], self_tok["model"]):
             # 마지막 단계가 제품이 아니면 구조 오류(kz_kz 사례 'home > mobile > smartphones'),
             # 제품인데 다른 모델명이면 라벨 오류. 현지어 음차 라벨은 사전 미등록 가능 → warn.
             if _has_any(last["name"], other_tok):

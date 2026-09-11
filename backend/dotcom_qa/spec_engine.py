@@ -151,6 +151,11 @@ def _prev_text_value_in(prev_models: List[Dict], rule: Dict, v_norm: str) -> Opt
     return None
 
 
+# [2026-09] 화면 크기 등을 법정 계량단위(mm)로만 표기하는 사이트 — inch 정답의 mm 환산 노출을 PASS 로 인정.
+# (sec 실크롤: '193.0mm 메인 디스플레이' 정상 표기가 "단위 환산 — 확인 필요"로 떴음). 필요 시 사이트 추가.
+CONVERSION_OK_SITES = {"sec"}
+
+
 # ── 단위별 정답 합집합 (같은 단위 다른 스펙의 정답끼리 오답 취급 방지) ──
 def _unit_accepted_union(rules: List[Dict], prev_models: List[Dict]) -> Dict[str, set]:
     union: Dict[str, set] = {}
@@ -161,7 +166,12 @@ def _unit_accepted_union(rules: List[Dict], prev_models: List[Dict]) -> Dict[str
         for part in re.split(r"[|/,]", str(raw or "")):
             m = re.search(r"\d+(?:\.\d+)?", svm.normalize_text(part))
             if m:
-                union.setdefault(cu, set()).add(float(m.group()))
+                v = float(m.group())
+                union.setdefault(cu, set()).add(v)
+                # [2026-09] 환산 단위에도 정답을 등록 — 5.5inch 룰의 139.7mm 노출이 두께(mm) 룰에서
+                # "정답 집합 밖 값"으로 잡히지 않게(sec 실크롤: Thickness(Unfolded) 확인 오탐).
+                for other, factor in svm._UNIT_CONVERSIONS.get(cu, {}).items():
+                    union.setdefault(other, set()).add(round(v * factor, 1))
     for r in rules:
         _add(r.get("unit", ""), r.get("expected", ""))
         # '256 / 512 / 1TB' — GB 룰의 TB 옵션은 TB 합집합에도 넣는다
@@ -235,6 +245,7 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
 
     country_exc = [c for c in ruleset.get("country_exceptions", [])
                    if _norm(c.get("country", "")) == _norm(sitecode)]
+    accept_conv = _norm(sitecode) in CONVERSION_OK_SITES
 
     ex = spec_extractor.extract(html)
     pairs, sections, section_blocks = ex["pairs"], ex["sections"], ex["section_blocks"]
@@ -405,7 +416,8 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
         if vtype == "numeric_exact":
             res = svm.evaluate_numeric(rule, blocks, unit_synonyms, prev_models,
                                        unit_union, label_in_block=label_in_block,
-                                       target_tokens=target_tokens, sibling_models=sibling_models)
+                                       target_tokens=target_tokens, sibling_models=sibling_models,
+                                       accept_conversion=accept_conv)
             for d in res.get("detail", []):
                 trace.append({"step": "value-scan", "detail": d})
             if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
@@ -435,7 +447,8 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                                   f"exact '{rule['expected']}' → 숫자+단위({cu})로 재해석해 다국어 numeric 판정"})
                     res = svm.evaluate_numeric(num_rule, blocks, unit_synonyms, prev_models,
                                                unit_union, label_in_block=label_in_block,
-                                               target_tokens=target_tokens, sibling_models=sibling_models)
+                                               target_tokens=target_tokens, sibling_models=sibling_models,
+                                               accept_conversion=accept_conv)
                     for d in res.get("detail", []):
                         trace.append({"step": "value-scan", "detail": d})
                     if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":

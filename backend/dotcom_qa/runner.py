@@ -38,7 +38,8 @@ def page_type_from_url(url: str) -> str:
     return "PDP"
 
 
-DERIVED_PAGE_TYPES = ("Specs", "Buying")
+# [2026-09] 크롤 대상에서 Specs 제외(사용자 결정). URL 이 /specs/ 면 분류만 하고 파생 생성은 Buying 만.
+DERIVED_PAGE_TYPES = ("Buying",)
 
 
 def derive_page_url(pdp_url: str, page_type: str) -> str:
@@ -149,7 +150,18 @@ def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
     # URL에 /compare/ 접미사만 붙이기(_to_compare)" 방식으로는 이 구조를 표현할 수 없어,
     # 제품별로 별도의 compare_blocks 덱이 있으면 그걸 우선 사용한다(없으면 기존 방식으로 폴백).
     by_type = (sv.get("compare_blocks") if is_compare and sv.get("compare_blocks") else None) or sv.get("blocks", {})
-    name_tokens = sv.get("name_tokens", {})
+    name_tokens = dict(sv.get("name_tokens", {}) or {})
+    # [2026-09 FIX] 제품명 식별 토큰이 영문(Fold8/Fold 8)만 있어 현지어 제품명("Samsung 갤럭시 Z 폴드8",
+    # "Galaxy Z フォールド8")이 '제품명 오기'로 오탐됐다(sec 실크롤 확인). Spec Rule DB 시드의
+    # product_aliases(다국어 제품명)를 model_any 에 합쳐 현지어 표기도 정상으로 인정한다.
+    try:
+        _seed = os.path.join(_HERE, f"spec_rules.seed.{market_product}.json")
+        if os.path.exists(_seed):
+            _al = json.load(open(_seed, encoding="utf-8")).get("product_aliases") or []
+            if _al and name_tokens:
+                name_tokens["model_any"] = list(dict.fromkeys(list(name_tokens.get("model_any") or []) + _al))
+    except Exception:
+        pass
     slug = market_product  # 예: galaxy-s26 / galaxy-z-fold7 / galaxy-buds4-pro
     is_phone = slug.startswith(("galaxy-s", "galaxy-z"))
 
@@ -251,13 +263,18 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
     cdata = json.load(open(copy_path, encoding="utf-8"))["products"]
     cr = cdata.get(market_product) if market_product else None
     if not cr:
-        cr = cdata.get(product, {})
+        # [2026-09 FIX] 제품별 카피 룰이 없을 때 패밀리(M3=S26 Ultra 폰 토큰)로 폴백하면 워치/Fold8 Ultra 등에
+        # 200MP·5000mAh 같은 남의 스펙 '누락' 오탐이 생긴다(sec/sg 실크롤 Proper Noun 노이즈). 폰 계열(S/Z)이
+        # 아니면 빈 룰로 두어 copy 검사를 건너뛴다 — Spec QA(Rule DB)가 제품별로 별도 판정한다.
+        cr = cdata.get(product, {}) if str(market_product or "").startswith(("galaxy-s", "galaxy-z")) or not market_product else {}
     try:
         specs_all = json.load(open(spec_path, encoding="utf-8")).get("products", {})
     except Exception:
         specs_all = {}
     mp = market_product or ("galaxy-s26-ultra" if product == "M3" else product)
-    entry = specs_all.get(mp) or specs_all.get("galaxy-s26-ultra") or {}
+    # [2026-09 FIX] 해당 제품 항목이 없을 때 S26 Ultra 스펙으로 폴백하면 워치/버즈 페이지에
+    # 200MP·5000mAh 같은 폰 스펙 '누락' 오탐이 대량 발생한다 → 폰 계열이 아니면 빈 값.
+    entry = specs_all.get(mp) or (specs_all.get("galaxy-s26-ultra") if str(mp).startswith(("galaxy-s", "galaxy-z")) else None) or {}
     ks = entry.get("specs", []) if isinstance(entry, dict) else (entry or [])
     label = entry.get("label", mp) if isinstance(entry, dict) else mp
     return {"schema": sr, "copy": cr, "key_specs": ks, "product_label": label,
@@ -291,7 +308,8 @@ def check_html(html: str, rules: Dict[str, Any],
     if mode in DATA_MODES:
         schema_result = schema_checker.check_page(html, rules["schema"],
                                                   sitecode=sitecode, site_lang=site_lang,
-                                                  market_product=mp)
+                                                  market_product=mp,
+                                                  page_url=(final_url or page_url or None))  # [2026-09] {PD_URL} 치환
         copy_result = copy_checker.check_copy(html, rules["copy"], key_specs=rules.get("key_specs"), page_type=pt)
         html_qa_result = html_qa_scoring.score_html_qa(html, rules["schema"], schema_result, rendered_by=rendered_by)
         # [2026-09 D2~D7] 사람 검수 항목(Canonical/robots/Title 구성/Meta/Breadcrumb) — 소스 HTML 기준

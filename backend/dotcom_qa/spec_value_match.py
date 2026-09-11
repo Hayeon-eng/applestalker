@@ -362,8 +362,11 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                      unit_accepted_union: Dict[str, set],
                      label_in_block=None,
                      target_tokens: Optional[List[str]] = None,
-                     sibling_models: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+                     sibling_models: Optional[List[Dict[str, Any]]] = None,
+                     accept_conversion: bool = False) -> Dict[str, Any]:
     """numeric_exact 룰의 V3 판정.
+    [2026-09] accept_conversion=True 면 단위 환산 표기(inch 정답 ↔ mm 노출)를 '확인'이 아닌 PASS 로 판정한다 —
+    한국(sec)처럼 법정 계량단위(mm)로만 화면 크기를 적는 사이트용(sec 실크롤: 7.6"→193.0mm 정상 표기가 확인으로 떴음).
     [2026-09 S2/S3] · 숫자 귀속을 블록 단위(attribute_block)에서 숫자별 최근접 모델 언급
     (attribute_hit)으로 바꿈 · 형제 모델(sibling_models: 동세대 Ultra/FE 등) 문장의 숫자는
     FAIL 근거로 쓰지 않음 · '현 제품 다른 스펙 정답(union)' 검사를 '전작 값 혼입' 검사보다
@@ -491,6 +494,11 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                 "detail": detail}
     if conv:
         h = conv[0]
+        if accept_conversion:
+            return {"status": "pass", "found": h.get("text", "") or h["block"][:120], "confidence": "high",
+                    "message": (f"OK — 환산 표기({h.get('text','')} = 정답 {_fmt_num(h.get('matches_accepted', 0))}{unit}), "
+                                "이 사이트는 현지 계량단위 표기 허용"),
+                    "detail": detail + ["conversion accepted (site policy)"]}
         return {"status": "warn", "found": h["block"][:120], "confidence": "medium",
                 "message": (f"단위 환산 표기({h.get('text','')}) 발견 — 정답 {'/'.join(accepted_str)}{unit}과 "
                             "상응하나 표기 단위가 가이드와 다름 (확인 필요)"),

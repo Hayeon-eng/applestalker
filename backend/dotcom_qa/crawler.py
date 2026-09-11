@@ -318,6 +318,23 @@ class HybridCrawler:
         if re.search(r"(?<!\d)(404|403|429)(?!\d)", head) or re.search(r"\bnot found\b", head):
             return f"error page detected: {title or 'unknown title'}"
 
+        # [2026-09 FIX] 삼성닷컴 soft-404 — 없는 URL 을 HTTP 200 + 안내 페이지로 돌려준다.
+        #   title: "SAMSUNG | Samsung UK"(제품명 없는 브랜드 타이틀), h1: "The page you requested is not available",
+        #   본문은 GNB/푸터 메뉴만. 워치 실크롤에서 이 페이지가 '정상 수집'으로 통과해 ✅ 가 찍혔다.
+        #   → 실패로 분류해 Not Checked 시트로 보낸다(URL 자체를 고쳐야 하는 문제임을 사유에 명시).
+        h1_low = h1.lower()
+        soft404_h1 = re.search(
+            r"(is not available|page you requested|cannot be found|could not be found|doesn'?t exist|"
+            r"페이지를 찾을 수 없|요청하신 페이지|ページが見つかりません|お探しのページ|无法找到|页面不存在|找不到|"
+            r"nicht verf[üu]gbar|nicht gefunden|n'est pas disponible|introuvable|no est[áa] disponible|no se encontr|"
+            r"non [èe] disponibile|non trovata|n[aã]o est[áa] dispon[íi]vel|niet beschikbaar|niet gevonden|"
+            r"не найдена|недоступна|nie znaleziono|niedostępna|bulunamad|mevcut değil|ไม่พบหน้า|không tìm thấy)",
+            h1_low)
+        brand_only_title = bool(re.match(r"^\s*samsung\s*[|｜\-–]\s*samsung\b", title.lower()))
+        if soft404_h1 or (brand_only_title and word_count < 80):
+            return (f"soft 404 — page not available (title '{title or '?'}', h1 '{h1[:60] or '?'}') · "
+                    f"registry URL 확인 필요: {url}")
+
         # title/h1은 있으나 실제 분석 근거가 거의 없는 케이스. Meta 에러 페이지처럼
         # nav나 빈 컨테이너만 남는 경우 변경 없음으로 오판하지 않도록 차단한다.
         if word_count < 15 and image_count == 0 and cta_count == 0 and schema_count == 0:

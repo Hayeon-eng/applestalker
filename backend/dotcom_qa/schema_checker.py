@@ -153,7 +153,7 @@ def _types_of(node: Dict[str, Any]) -> List[str]:
     return out
 
 
-def _id_regex(id_pattern: str, sitecode: Optional[str] = None) -> re.Pattern:
+def _id_regex(id_pattern: str, sitecode: Optional[str] = None, page_url: Optional[str] = None) -> re.Pattern:
     """@id 패턴({SITECODE}/[SITECODE] 포함)을 와일드카드 정규식으로.
 
     [2026-07 예외] CN은 다른 국가와 달리 URL에 국가 경로 세그먼트가 없고 도메인 자체가
@@ -161,6 +161,11 @@ def _id_regex(id_pattern: str, sitecode: Optional[str] = None) -> re.Pattern:
     (경로에 /cn/ 세그먼트가 끼지 않음). 그대로 두면 'samsung.com/' 뒤에 슬래시가 오는 걸
     전제한 패턴이 CN 도메인과 영영 매칭되지 않아 @id가 늘 불일치로 잡혔다. sitecode가 'cn'이면
     'samsung.com/{SITECODE}' 부분만 'samsung.com.cn'으로 바꿔 이 한 사이트만 예외 처리한다."""
+    # [2026-09 FIX] {PD_URL} — 워치/버즈(Simple PD)는 로케일별 URL 이 SKU 슬러그를 포함해 일정하지 않아
+    # schema_values 가 {PD_URL} 자리표시자를 쓴다. README 는 runner 가 치환한다고 적었지만 실제 구현이 없어
+    # 문자 그대로 '{PD_URL}#webpage' 와 비교되고 있었다 → 실제 크롤된 페이지 URL 로 치환한다.
+    if page_url and "{PD_URL}" in id_pattern:
+        id_pattern = id_pattern.replace("{PD_URL}", page_url.split("?")[0].split("#")[0].rstrip("/") + "/")
     if sitecode == "cn":
         id_pattern = re.sub(r"samsung\.com/\{SITECODE\}", "samsung.com.cn", id_pattern)
         id_pattern = id_pattern.replace("samsung.com/[SITECODE]", "samsung.com.cn")
@@ -189,7 +194,7 @@ def _collect_ids(value: Any) -> List[str]:
 # ---------- 검수 ----------
 def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                sitecode: Optional[str] = None, site_lang: Optional[str] = None,
-               market_product: Optional[str] = None) -> Dict[str, Any]:
+               market_product: Optional[str] = None, page_url: Optional[str] = None) -> Dict[str, Any]:
     from qa_messages import render
     market_product_slug = market_product or ""
 
@@ -210,6 +215,8 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         s = pattern
         sc = sitecode or "\x00"
         lg = site_lang or "\x00"
+        if page_url and "{PD_URL}" in s:  # [2026-09] Simple PD(워치/버즈) 자리표시자 → 실제 페이지 URL
+            s = s.replace("{PD_URL}", page_url.split("?")[0].split("#")[0].rstrip("/") + "/")
         s = s.replace("{SITECODE}", sc).replace("[SITECODE]", sc).replace("{LANG-CODE}", lg)
         return s
 
@@ -277,7 +284,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         types = block["types"]
         id_pat = block.get("id_pattern")
         conditional = block.get("conditional")
-        rx = _id_regex(id_pat, sitecode) if id_pat else None
+        rx = _id_regex(id_pat, sitecode, page_url) if id_pat else None
 
         # 블록에 해당하는 노드 찾기: @type 교집합 + (@id 패턴 일치 시 가점)
         cand = [n for n in nodes if set(_types_of(n)) & set(types)]
@@ -321,7 +328,9 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
 
         # @id 패턴 검증
         if rx is not None and not id_matched:
-            f["id_mismatch"] = str(node.get("@id", ""))
+            # [2026-09 FIX] @id 자체가 없으면 빈 문자열이 들어가 리포트에 사유 없는 행("BreadcrumbList — ")이
+            # 찍혔다(sec 실크롤 확인). 누락임을 명시한다.
+            f["id_mismatch"] = str(node.get("@id", "") or "(missing @id)")
 
         # 프론트 '수정 위치' 표시용: 매칭된 노드를 보기 좋게 직렬화한 JSON-LD 스니펫(라인번호 UI에서 부여)
         try:
@@ -396,7 +405,9 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                 if site_lang and astr and site_lang.split("-")[0].lower() != astr.split("-")[0].lower():
                     lang_issue.append({"prop": prop, "actual": astr, "expected": site_lang})
                 continue
-            if kind in ("text", "exist"):
+            if kind == "exist":
+                continue  # [2026-09] 존재만 확인 — 값이 있으면 끝(번역확인 행 생성 안 함: citation/thumbnailUrl 등 URL 오탐)
+            if kind == "text":
                 translate_confirm.append({"prop": prop, "actual": astr[:60]})
                 continue
             # kind url / enum → 하드 정확 일치
@@ -424,7 +435,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         if block.get("haspart_ids"):
             present = set(_collect_ids(node.get("hasPart")))
             for want in block["haspart_ids"]:
-                wrx = _id_regex(want, sitecode)
+                wrx = _id_regex(want, sitecode, page_url)
                 if not any(wrx.match(pid) for pid in present):
                     f["haspart_missing"].append(_slug(want))
 

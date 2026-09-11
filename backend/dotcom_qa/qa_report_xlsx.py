@@ -399,8 +399,10 @@ def build_xlsx(page_results):
             return "Missing Spec" if missing else "Spec Mismatch"
         return "Other"
 
-    HEAD2 = ["#", "Product", "Site", "Where", "Issue Type", "Severity", "Spec Item", "Expected (Guide)", "Found on Page", "URL"]
-    W2 = [4, 16, 20, 22, 20, 12, 22, 30, 32, 38]
+    # [2026-09] "Reason" 열 추가 — 엔진 판정 메시지 + 마지막 trace. 실크롤 리포트만 보고도
+    # 오탐/누락 원인을 진단할 수 있게(sec 실크롤: Thickness FAIL 의 근거를 엑셀에서 알 수 없었음).
+    HEAD2 = ["#", "Product", "Site", "Where", "Issue Type", "Severity", "Spec Item", "Expected (Guide)", "Found on Page", "URL", "Reason (engine)"]
+    W2 = [4, 16, 20, 22, 20, 12, 22, 30, 32, 38, 60]
     ws2 = wb.create_sheet("Spec QA")
     ws2.append(HEAD2); _hdr(ws2)
     KIND_EN = {"spec": "Spec", "proper_noun": "Proper Noun", "spec_value": "Spec Value"}
@@ -424,7 +426,7 @@ def build_xlsx(page_results):
                         label = "Compare" + (" (review — not a confirmed error)" if st == "warn" else "")
                         item = f'{cell.get("product", "")} · {category + " — " if category else ""}{spec}'
                         spec_rows.append((meta, label, item, st, cell.get("message", ""),
-                                          str(cell.get("value", "")), "Compare"))
+                                          str(cell.get("value", "")), "Compare", cell.get("message", "")))
             elif sv:
                 # [V2 정합 — 2026-07 리팩토링] Critical=fail, Warning=warn(재확인 필요,
                 # 추출 신뢰도 낮음). Dictionary(미등록 표현)는 보조 기능이라 severity를
@@ -439,12 +441,14 @@ def build_xlsx(page_results):
                     if it.get("fix_guide"):
                         exp = f'{exp}  ·  Fix: {it["fix_guide"]}'
                     label = "Rule · " + it.get("rule_id", "") + (" (review — not a confirmed error)" if it.get("status") == "warn" else "")
-                    spec_rows.append((meta, label, item, it["status"], exp, found_s, loc or "PDP"))
+                    _tr = [t.get("detail", "") for t in (it.get("trace") or []) if t.get("step") in ("value-scan", "pair", "result")]
+                    reason = (it.get("message") or "") + ((" | " + " / ".join(_tr[-3:])) if _tr else "")
+                    spec_rows.append((meta, label, item, it["status"], exp, found_s, loc or "PDP", reason[:900]))
                 for c in sv.get("dictionary_review", []) or []:
                     spec_rows.append((meta, "Dictionary (reference)", c.get("alias", ""), "info",
                                       f'Seen on {c.get("count","?")} pages within this product · confidence={c.get("confidence","")} '
                                       "· Review translation/wording, then approve by adding to Dictionary (optional)",
-                                      "(unmapped label)", "Spec"))
+                                      "(unmapped label)", "Spec", ""))
             else:
                 for f in (pr.get("copy") or {}).get("findings", []):
                     if f.get("status") not in ("fail", "warn"):
@@ -455,25 +459,25 @@ def build_xlsx(page_results):
                     found = f.get("found") or []
                     found_s = ", ".join(map(str, found[:6])) if found else "(not found on page)"
                     loc = "Disclaimer" if f.get("region") == "disclaimer" else "Body"
-                    spec_rows.append((meta, kind, item, f.get("status"), expected, found_s, loc))
+                    spec_rows.append((meta, kind, item, f.get("status"), expected, found_s, loc, ""))
         except Exception as e:
             import traceback
             traceback.print_exc()
             meta = _meta(pr) if isinstance(pr, dict) else ("", "", pr, "", "", "")
             spec_rows.append((meta, "REPORT", "Report generation error", "fail",
-                               f"{type(e).__name__}: {e}", "(internal)", "Spec"))
+                               f"{type(e).__name__}: {e}", "(internal)", "Spec", ""))
     spec_rows.sort(key=lambda r: (r[0][1] or "zz", r[0][2] or "", sev_rank.get(r[3], 9)))
-    for n, (meta, kind, item, sev, exp, found, loc) in enumerate(spec_rows, 1):
+    for n, (meta, kind, item, sev, exp, found, loc, reason) in enumerate(spec_rows, 1):
         region, country, site, ptype, url, product = meta
         ws2.append([n, product, _site_cell(region, country, site), f"{kind} → {loc}",
-                    _issue_type_of2(kind, found), "", str(item), "", "", url])
+                    _issue_type_of2(kind, found), "", str(item), "", "", url, reason])
         rn = ws2.max_row
         sc = ws2.cell(row=rn, column=6); sc.value = SEV_LABEL.get(sev, sev)
         sc.font = Font(bold=True, color=SEV_COLOR2.get(sev, "000000"))
         sc.alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
         _write_diff_cells(ws2, rn, 8, 9, exp, found)
     if not spec_rows:
-        ws2.append(["—", "", "", "", "", "🟢 OK", "No issues found", "", "", ""])
+        ws2.append(["—", "", "", "", "", "🟢 OK", "No issues found", "", "", "", ""])
     _finish(ws2, W2, "A2")
 
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()

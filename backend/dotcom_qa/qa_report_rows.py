@@ -71,10 +71,12 @@ def _html_qa_rows(pr):
                      "Use exactly one <h1> per page (main page heading)",
                      "Body -> <h1>", "Primary heading signal for search / AEO", fix_c,
                      _code_pair_text(cur, fix_c)))
+    # [2026-09] H2 개수는 사람 검수 기준에 없는 항목(가이드 H2 최소 개수 데이터 미연결) — 오류(fail)로 내면
+    # 정합성이 깨지므로 확인(warn) 등급으로만 남긴다. 화면(HtmlQaDetail)도 동일하게 맞출 것.
     if len(h2s) == 0:
         as_is = "(none found) — 0 H2 tags"
         to_be = '<h2>Camera</h2>\n<h2>Battery</h2>\n<h2>Display</h2>'
-        rows.append(("HTML", "H2", "h2", "fail", as_is,
+        rows.append(("HTML", "H2", "h2", "warn", as_is,
                      "Add at least one <h2> section heading",
                      "Body -> <h2>", "Content structure signal for AEO",
                      to_be, _code_pair_text(as_is, to_be)))
@@ -267,7 +269,12 @@ def _schema_detail_rows(pr):
             rows.append(("Schema", ty, "inLanguage", "warn", as_is_txt, to_be_txt,
                          f"JSON-LD -> {name} -> inLanguage", "Language signal consistency",
                          _fix_code_for_value("inLanguage", li.get("expected", "")), cp))
-        for t in (f.get("translate_confirm") or []):
+        # [2026-09] 번역확인(translate_confirm)은 "오류 아님·사람이 현지화 여부만 확인" 안내라 사람 검수
+        # 기준에도 없고, 페이지마다 5~6행이 붙어 실제 오류를 가렸다(sec 실크롤: 12행 중 6행).
+        # 엑셀에서는 행을 만들지 않고(화면 JSON 에는 그대로 남아 '판정 근거'에서 볼 수 있음) 구조화 처리만 표시.
+        if f.get("translate_confirm"):
+            structured = True
+        for t in []:  # (구 로직 보존 — 필요 시 `f.get("translate_confirm") or []` 로 되돌리면 행이 다시 생성됨)
             structured = True
             as_is_txt = f"Current value: '{_clip(t.get('actual'), 140)}'"
             to_be_txt = f"Confirm '{t.get('prop', '')}' is correctly localized (not an error)"
@@ -321,6 +328,8 @@ def _html_qa_schema_gap_rows(pr, covered):
                          _fix_code_for_missing(prop, base_f, pr), cp))
         for prop in (v.get("weak_recommended") or []):
             if (ty, prop) in covered:
+                continue
+            if prop in ("screen_match",):  # [2026-09] 자동 검증 불가(수동확인 고정 0.5) 항목 — 누락 행 생성 안 함
                 continue
             label, where, why = _prop_help(prop, ty)
             as_is_txt = "(missing/partial) — recommended property"
