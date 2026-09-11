@@ -14,7 +14,7 @@ datas.append((os.path.join(here, 'settings.html'), 'desktop'))
 if os.path.exists(os.path.join(here, 'config.default.json')):
     datas.append((os.path.join(here, 'config.default.json'), 'desktop'))  # 팀 공통 설정(빌드 시 Secrets 로 채움)
 # 백엔드 데이터(JSON 룰·레지스트리·시드) — 코드 옆 상대경로로 읽으므로 같은 구조로 복사
-for pattern in ('backend/dotcom_qa/*.json', 'backend/honeycomb/*.json', 'backend/*.json'):
+for pattern in ('backend/dotcom_qa/*.json', 'backend/honeycomb/*.json', 'backend/honeycomb/*.json.gz', 'backend/*.json'):  # .gz 도 포함(honeyComb 목업)
     for f in glob.glob(os.path.join(root, pattern)):
         datas.append((f, os.path.dirname(os.path.relpath(f, root))))
 # 백엔드 파이썬 소스 자체도 리소스로 (런처가 sys.path 에 RES_DIR/backend 를 추가해 import)
