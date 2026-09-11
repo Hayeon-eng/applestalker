@@ -14,8 +14,8 @@ type Keyword = { id: string; product: string; text: string; type: string; subtyp
 
 const HONEY = "#E0A008", HONEY_DARK = "#8A5A00";
 const STATUS: Record<string, string> = { top1: "1순위", topn: "상단 노출", low: "8위 밖 노출", absent: "미노출", unranked: "순위 기록 없음", unchecked: "아직 조회 안 함" };
-const COLOR: Record<string, string> = { top1: "#2F8F5B", topn: "#E8C547", low: "#E07A1F", absent: "#C0392B", unranked: "#9DB0C4", unchecked: "#E5E7EB" };
-const TXT: Record<string, string> = { top1: "#fff", topn: "#3A2A0F", low: "#fff", absent: "#fff", unranked: "#fff", unchecked: "#6B7280" };
+const COLOR: Record<string, string> = { top1: "#2F8F5B", topn: "#E8C547", low: "#E07A1F", absent: "#C0392B", unranked: "#9DB0C4", unchecked: "#E5E7EB", error: "#F3F4F6" };
+const TXT: Record<string, string> = { top1: "#fff", topn: "#3A2A0F", low: "#fff", absent: "#fff", unranked: "#fff", unchecked: "#6B7280", error: "#9CA3AF" };
 const OBS: Record<string, string> = { card: "검색 결과 카드", detail: "제품 상세 창", feed: "검색 결과에 안 나옴" };
 const akey = (a: Attr) => a.code + (a.sub ? `#${a.no}` : "");
 const hexPts = (cx: number, cy: number, r: number) =>
@@ -40,7 +40,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const [taxonomy, setTaxonomy] = useState<any>(null);
   const [showTax, setShowTax] = useState(true);
   const [tab, setTab] = useState<"grid" | "attrs" | "keywords">("grid");
-  const [kwType, setKwType] = useState("brand");
+  const kwType = "brand"; // [2026-09-11] 제품명 키워드만 사용 — 자연어 키워드 제거
   const [prods, setProds] = useState<Set<string>>(new Set());
   const [ctrys, setCtrys] = useState<Set<string>>(new Set());
   const [sel, setSel] = useState<{ country: string; product: string } | null>(null);
@@ -48,8 +48,13 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const [kwFocus, setKwFocus] = useState<string | null>(null);        // 특정 키워드로 벌집 보기
   const [attrProduct, setAttrProduct] = useState("");
   const [online, setOnline] = useState<boolean | null>(null);
-  const [kwForm, setKwForm] = useState<Partial<Keyword>>({ type: "longtail", subtype: "B1", countries: [], enabled: true });
+  const [kwForm, setKwForm] = useState<Partial<Keyword>>({ type: "brand", subtype: "A1", countries: [], enabled: true });
   const [msg, setMsg] = useState("");
+  const [runState, setRunState] = useState<any>(null);
+  const [withDetail, setWithDetail] = useState(false);
+  const [estimate, setEstimate] = useState<any>(null);
+  useEffect(() => { (async () => { try { setEstimate(await (await fetch(api(`/api/hc/run-estimate?detail=${withDetail}`))).json()); } catch { /* */ } })(); }, [withDetail, keywords]);
+  const STATUS_X: Record<string, string> = { ...STATUS, error: "조회 실패" };
 
   const loadKeywords = async () => { try { const d = await (await fetch(api("/api/hc/keywords"))).json(); setKeywords(d.keywords || []); if (d.taxonomy) setTaxonomy(d.taxonomy); } catch { /* */ } };
   useEffect(() => { (async () => {
@@ -95,7 +100,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const saveKeyword = async () => {
     if (!kwForm.product || !kwForm.text) { setMsg("제품과 키워드를 입력하세요"); return; }
     const r = await (await fetch(api("/api/hc/keywords"), J(kwForm))).json();
-    setMsg(r.ok ? `저장됨 — ${r.keyword.text}` : "저장 실패"); setKwForm({ type: "longtail", subtype: "B1", countries: [], enabled: true, product: kwForm.product }); loadKeywords();
+    setMsg(r.ok ? `저장됨 — ${r.keyword.text}` : "저장 실패"); setKwForm({ type: "brand", subtype: "A1", countries: [], enabled: true, product: kwForm.product }); loadKeywords();
   };
   const removeKeyword = async (id: string) => { await fetch(api("/api/hc/keywords/remove"), J({ id })); loadKeywords(); };
   const toggleKeyword = async (k: Keyword) => { await fetch(api("/api/hc/keywords"), J({ ...k, enabled: !k.enabled })); loadKeywords(); };
@@ -105,7 +110,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
       <aside className="sidebar">
         <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🍯 honey<span style={{ color: HONEY }}>C</span>omb</div>
         <div className="brandSub">Google Shopping이라는 벌집 속에서, 우리 제품은 어떤 위치에 있는지 살펴봐요</div>
-        <div className={`connBadge ${online ? "ok" : "bad"}`}><span className="connDot" />{cfg.provider === "mock" ? "검토용 목업 · 수집 없음" : `연결됨 · ${cfg.provider}`}</div>
+        <div className={`connBadge ${cfg.provider === "serpapi" ? "ok" : "bad"}`}><span className="connDot" />{cfg.provider === "serpapi" ? "SERP API 연결됨 · 실수집 가능" : "SERP API 키 없음 — 목업만 표시"}</div>
         <div className="sideScroll">
           <div className="sideLabel">주차(run)</div>
           <div style={{ padding: "0 10px 8px" }}>
@@ -113,11 +118,6 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
               {runs.map((r) => <option key={r.run_id} value={r.run_id}>{r.week} · {r.at}</option>)}
             </select>
           </div>
-          <div className="sideLabel">키워드 유형</div>
-          <div style={{ padding: "0 10px 8px", display: "flex", gap: 5 }}>
-            {[["brand", "제품명(A)"], ["longtail", "자연어(B)"]].map(([v, l]) => <span key={v} style={chip(kwType === v)} onClick={() => setKwType(v)} title={v === "brand" ? "우리가 1순위여야 하는 검색어 — KPI: 1순위 비율" : "브랜드를 모르는 사람의 검색어 — KPI: 상단 노출 비율"}>{l}</span>)}
-          </div>
-          <div style={{ padding: "0 10px 8px", fontSize: 11, color: "var(--sec)", lineHeight: 1.45 }}>{kwType === "brand" ? "A · 제품명 키워드: 1순위(#1)여야 정상. KPI = 1순위 비율" : "B · 자연어 키워드: 상단(≤8) 노출이면 정상, 1순위 요구 X. KPI = 상단 노출 비율"}</div>
           <div className="sideLabel">제품</div>
           <div style={{ padding: "0 10px 8px", display: "flex", flexWrap: "wrap", gap: 5 }}>
             {cfg.products.map((p: any) => <span key={p.slug} style={chip(prods.has(p.slug))} onClick={() => { const s = new Set(prods); s.has(p.slug) ? s.delete(p.slug) : s.add(p.slug); setProds(s); }}>{p.label.replace("Galaxy ", "")}</span>)}
@@ -134,9 +134,25 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
           <p style={{ padding: "0 10px 8px", fontSize: 11.5, color: "var(--sec)", lineHeight: 1.5 }}>1위 = position 1 · 상단 = position ≤ {cfg.top_n}(둘째 줄까지) · gl/hl 지정 · 비로그인 데스크톱. 속성은 검색 결과 카드·제품 상세 창에서 보이는 것만 판정하고, 검색 결과에 아예 나오지 않는 속성은 '확인 불가'로 표시해요.</p>
         </div>
         <div className="sideFoot">
-          <button className="btnPrimary" style={{ background: HONEY_DARK }} disabled={cfg.provider === "mock"} title="수집 방식 확정 후 활성화">수집 실행</button>
+          <button className="btnPrimary" style={{ background: HONEY_DARK }} disabled={cfg.provider !== "serpapi" || !!runState}
+            title={cfg.provider !== "serpapi" ? "설정(/desktop/settings)에 SerpApi 키를 넣으면 활성화" : "국가×제품×사용 중 키워드 전체를 Google Shopping 에서 조회"}
+            onClick={async () => {
+              if (!window.confirm(`Google Shopping 조회를 시작합니다.\n예상 API 호출: 검색 ${estimate?.searches ?? "?"}회${withDetail ? ` + 상세 최대 ${estimate?.detail_max}회` : ""} (월 한도에서 차감)\n계속할까요?`)) return;
+              const r = await fetch(api("/api/hc/run"), J({ detail: withDetail }));
+              if (!r.ok) { setMsg((await r.json()).detail || "실행 실패"); return; }
+              const t = setInterval(async () => {
+                const st = await (await fetch(api("/api/hc/run-status"))).json(); setRunState(st);
+                if (!st.running) { clearInterval(t); setRunState(null); if (st.error) setMsg(`수집 실패: ${st.error}`);
+                  const rs = (await (await fetch(api("/api/hc/runs"))).json()).runs || []; setRuns(rs); if (rs.length) setRunId(rs[rs.length - 1].run_id); }
+              }, 2000);
+            }}>{runState ? `수집 중 ${runState.done}/${runState.total}` : "수집 실행"}</button>
+          <label className="emailNotice" style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }} title="우리 카드가 잡힌 셀마다 상세 1회 추가 조회(설명·이미지·영상 등 속성 역추적). 호출 수가 최대 2배">
+            <input type="checkbox" checked={withDetail} onChange={(e) => setWithDetail(e.target.checked)} /> 상세 조회(속성 역추적) 포함
+          </label>
+          {estimate && <span className="emailNotice">예상 호출 {estimate.searches}회{withDetail ? ` + 상세 최대 ${estimate.detail_max}회` : ""} · 국가 {estimate.countries} × 제품 {estimate.products} × 키워드 {estimate.keywords_enabled}</span>}
           <a className="btnSecondary" href={api(`/api/hc/report.xlsx?run_id=${runId}`)}>Excel 내려받기</a>
-          {cfg.provider === "mock" && <span className="emailNotice">목업: 수집 방식 확정 후 실행 가능</span>}
+          {cfg.provider !== "serpapi" && <span className="emailNotice">SerpApi 키가 없어 목업 데이터만 보입니다 — 설정에서 키 입력</span>}
+          {msg && <span className="emailNotice" style={{ color: HONEY_DARK }}>{msg}</span>}
         </div>
       </aside>
 
@@ -173,7 +189,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                   <div className="tabGroup"><button className={`tabBtn ${view === "hex" ? "on" : ""}`} onClick={() => setView("hex")}>제품 벌집</button><button className={`tabBtn ${view === "kw" ? "on" : ""}`} onClick={() => setView("kw")}>키워드별 순위</button></div>
                   {view === "hex" && (<>
                     <select value={kwFocus || ""} onChange={(e) => setKwFocus(e.target.value || null)} style={inp} title="특정 키워드 하나로 벌집을 봅니다. 비우면 유형 안에서 가장 좋은 결과">
-                      <option value="">키워드: {kwType === "brand" ? "제품명(A)" : "자연어(B)"} 중 최선</option>
+                      <option value="">키워드: 제품별 가장 잘 나온 결과</option>
                       {keywords.filter((k) => k.enabled && prods.has(k.product)).map((k) => <option key={k.id} value={k.text}>{k.subtype} · {k.text}</option>)}
                     </select>
                     <span style={{ fontSize: 12, color: "var(--sec)" }}>큰 숫자 = 우리 리스팅 position · 아랫줄 = 1위 판매처 · 셀을 누르면 상세</span>
@@ -188,7 +204,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                         {prs.map((p: any) => keywords.filter((k) => k.product === p.slug && k.enabled).sort((a, b) => (a.subtype || "").localeCompare(b.subtype || "")).map((k) => (
                           <tr key={k.id}>
                             <td style={td}>{p.label}</td><td style={td}>{k.text}</td>
-                            <td style={td}><span className={`badge ${k.type === "brand" ? "samsung" : "c6"}`}>{k.subtype}</span></td>
+                            <td style={td}><span className="badge samsung">{k.subtype}</span></td>
                             {cts.map((c: any) => { const cell = allCells.find((x) => x.country === c.code && x.product === p.slug && x.keyword === k.text) || null; const applicable = !k.countries.length || k.countries.includes(c.code);
                               return <td key={c.code} style={{ ...td, textAlign: "center" }} title={cell ? `${STATUS[cell.status]}${cell.first_store ? ` · 1위 ${cell.first_store}` : ""}` : "아직 조회 안 함"}>{applicable ? posBadge(cell) : <span style={{ color: "var(--ter)" }}>—</span>}</td>; })}
                             <td style={td}><span role="button" style={{ cursor: "pointer", color: "var(--blue)", fontSize: 11.5 }} onClick={() => { setKwFocus(k.text); setView("hex"); }}>벌집으로</span></td>
@@ -221,7 +237,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                   </g>); })}
                 </svg>
                 </>)}
-                {run.source?.startsWith("mock") && <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "8px 0 0" }}>목업: position은 Final Report의 S.com O/X·1위 판매처를 환산한 값(실측 아님). long-tail 키워드는 수집 전이라 아직 조회 안 함.</p>}
+                {run.source?.startsWith("mock") && <p style={{ fontSize: 11.5, color: "var(--sec)", margin: "8px 0 0" }}>목업: position은 Final Report의 S.com O/X·1위 판매처를 환산한 값(실측 아님). </p>}
               </div>
 
               {sel && (() => {
@@ -237,11 +253,20 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                     <thead><tr><th style={th}>키워드</th><th style={th}>유형</th><th style={th}>상태</th><th style={th}>position</th><th style={th}>1위 판매처</th><th style={th}>S.com</th><th style={th}>보이는 속성(보임/확인 가능)</th></tr></thead>
                     <tbody>
                       {kws.map((k) => { const r = pairCells.find((x) => x.keyword === k.text); const obs = r?.attrs ? Object.values(r.attrs).filter((v) => v !== "na") : [];
-                        return (<tr key={k.id}><td style={td}>{k.text}</td><td style={td}>{k.type === "brand" ? "제품명" : "long-tail"}</td><td style={td}><Badge st={r?.status || "unchecked"} /></td>
+                        return (<tr key={k.id}><td style={td}>{k.text}</td><td style={td}>{k.subtype || "A1"}</td><td style={td}><Badge st={r?.status || "unchecked"} /></td>
                           <td style={td}>{r?.position != null ? `#${r.position}` : "—"}</td><td style={td}>{r?.first_store || "—"}</td><td style={td}>{r?.scom_exposed || "—"}</td>
                           <td style={td}>{obs.length ? `${obs.filter((v) => v === "entered").length}/${obs.length}` : "—"}</td></tr>); })}
                     </tbody>
                   </table>
+                  {selCell && (selCell as any).items_top?.length > 0 && (<>
+                    <b style={{ fontSize: 12.5 }}>검색 결과 상위 {(selCell as any).items_top.length}개 <span style={{ color: "var(--sec)", fontWeight: 500 }}>키워드 “{selCell.keyword}” · 실제 Google Shopping 카드 순서</span></b>
+                    <table style={{ width: "100%", borderCollapse: "collapse", margin: "6px 0 14px" }}>
+                      <thead><tr><th style={th}>#</th><th style={th}>제품명(카드 제목)</th><th style={th}>판매처</th><th style={th}>가격</th><th style={th}></th></tr></thead>
+                      <tbody>{(selCell as any).items_top.map((it: any) => (<tr key={it.position} style={{ background: it.is_samsung_store ? "var(--low-soft)" : undefined }}>
+                        <td style={td}>#{it.position}</td><td style={td}>{it.title}</td><td style={td}>{it.merchant}</td><td style={td}>{it.price || "—"}</td>
+                        <td style={td}>{it.is_samsung_store ? <span className="badge samsung">우리 스토어</span> : ""}</td></tr>))}</tbody>
+                    </table>
+                  </>)}
                   {selCell && selCell.attrs && Object.keys(selCell.attrs).length > 0 ? (() => { const obs = Object.entries(selCell.attrs).filter(([, v]) => v !== "na"); const na = Object.values(selCell.attrs).filter((v) => v === "na").length; return (<>
                     <b style={{ fontSize: 12.5 }}>보이는 속성 확인 <span style={{ color: "var(--sec)", fontWeight: 500 }}>키워드 “{selCell.keyword}” 결과 카드·제품 상세 창에서 — 보임 <span style={{ color: "#15803D", fontWeight: 700 }}>{obs.filter(([, v]) => v === "entered").length}</span> · 안 보임 <span style={{ color: "#B42318", fontWeight: 700 }}>{obs.filter(([, v]) => v === "missed").length}</span> / 확인 가능 {obs.length}{na ? ` · 확인 불가 ${na}` : ""}</span></b>
                     <div style={{ height: 8 }} />
@@ -256,7 +281,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
                   <b style={{ fontSize: 14 }}>보이는 속성 확인 — 국가 비교</b>
                   <div style={{ display: "flex", gap: 5 }}>{cfg.products.map((p: any) => <span key={p.slug} style={chip(attrProduct === p.slug)} onClick={() => setAttrProduct(p.slug)}>{p.label.replace("Galaxy ", "")}</span>)}</div>
-                  <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: "auto" }}>✓ 화면에 보임 · ✗ 안 보임 · — 검색 결과에서는 볼 수 없는 속성 · 기준 키워드: {kwFocus || (kwType === "brand" ? "제품명 키워드 중 가장 잘 나온 결과" : "자연어 키워드 중 가장 잘 나온 결과")}</span>
+                  <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: "auto" }}>✓ 화면에 보임 · ✗ 안 보임 · — 검색 결과에서는 볼 수 없는 속성 · 기준 키워드: {kwFocus || "제품별 가장 잘 나온 결과"}</span>
                 </div>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ borderCollapse: "collapse", minWidth: 760 }}>
@@ -278,14 +303,14 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                 <div className="card" style={{ padding: "14px 20px" }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                     <b style={{ fontSize: 14 }}>키워드 분류 기준</b>
-                    <span style={{ fontSize: 12, color: "var(--sec)" }}>제품명(A)은 "우리가 1순위여야 하는 검색어", 자연어(B)는 "브랜드를 모르는 사람이 치는 검색어" — KPI가 다릅니다</span>
+                    <span style={{ fontSize: 12, color: "var(--sec)" }}>제품명 키워드만 사용합니다 — "우리 제품이 1위여야 하는 검색어". 제품당 1~2개(1개 추가 = 국가 수만큼 API 호출 증가)</span>
                     <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--blue)", cursor: "pointer" }} onClick={() => setShowTax((v) => !v)}>{showTax ? "접기" : "펼치기"}</span>
                   </div>
                   {showTax && (<>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 10 }}>
-                      {(["brand", "longtail"] as const).map((k) => { const t = taxonomy[k]; return (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginTop: 10 }}>
+                      {(["brand"] as const).filter((k) => taxonomy[k]).map((k) => { const t = taxonomy[k]; return (
                         <div key={k} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "10px 14px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span className={`badge ${k === "brand" ? "samsung" : "c6"}`}>{k === "brand" ? "A" : "B"}</span><b style={{ fontSize: 13 }}>{t.label}</b></div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="badge samsung">A</span><b style={{ fontSize: 13 }}>{t.label}</b></div>
                           <div style={{ fontSize: 12, color: "var(--label2)", margin: "6px 0 2px" }}><b>목적·KPI</b> — {t.goal}</div>
                           <div style={{ fontSize: 12, color: "var(--label2)", marginBottom: 8 }}><b>분류 규칙</b> — {t.rule}</div>
                           <table style={{ width: "100%", borderCollapse: "collapse" }}><tbody>
@@ -302,16 +327,15 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
               )}
               <div className="card">
                 <b style={{ fontSize: 14 }}>키워드 추가 · 수정</b>
-                <p style={{ fontSize: 12, color: "var(--sec)", margin: "4px 0 10px" }}>제품별로 Google Shopping에 넣을 검색어를 관리합니다. 서브타입(A1~A3 / B1~B4)을 고르면 유형(제품명/자연어)이 정해지고, 그 유형이 KPI 집계 방식을 결정합니다. 국가를 비우면 전 국가에 적용됩니다.</p>
+                <p style={{ fontSize: 12, color: "var(--sec)", margin: "4px 0 10px" }}>제품별 Google Shopping 검색어(제품명 키워드)를 관리합니다. 제품당 사용 중 키워드는 2개까지 — 키워드 1개가 늘면 국가 수(6)만큼 API 호출이 늘어납니다. 국가를 비우면 전 국가에 적용됩니다.</p>
                 <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 190px 200px 1fr auto", gap: 8, alignItems: "center" }}>
                   <select value={kwForm.product || ""} onChange={(e) => setKwForm({ ...kwForm, product: e.target.value })} style={inp}>
                     <option value="">제품 선택</option>{cfg.products.map((p: any) => <option key={p.slug} value={p.slug}>{p.label}</option>)}
                   </select>
                   <input value={kwForm.text || ""} onChange={(e) => setKwForm({ ...kwForm, text: e.target.value })} placeholder='검색어 (예: "best foldable phone for multitasking")' style={inp} />
-                  <select value={kwForm.subtype || "B1"} onChange={(e) => setKwForm({ ...kwForm, subtype: e.target.value, type: e.target.value.startsWith("A") ? "brand" : "longtail" })} style={inp} title="유형은 서브타입으로 결정됩니다(A=제품명, B=자연어)">
-                    {taxonomy ? Object.entries(taxonomy).filter(([k]) => k === "brand" || k === "longtail").map(([k, t]: any) => (
-                      <optgroup key={k} label={t.label}>{Object.entries(t.subtypes || {}).map(([code, st]: any) => <option key={code} value={code}>{code} {st.label}</option>)}</optgroup>))
-                      : <><option value="A1">A1 정식 제품명</option><option value="B1">B1 카테고리 탐색</option></>}
+                  <select value={kwForm.subtype || "A1"} onChange={(e) => setKwForm({ ...kwForm, subtype: e.target.value, type: "brand" })} style={inp} title="제품명 키워드만 등록할 수 있습니다">
+                    {taxonomy?.brand ? Object.entries(taxonomy.brand.subtypes || {}).map(([code, st]: any) => <option key={code} value={code}>{code} {st.label}</option>)
+                      : <><option value="A1">A1 정식 제품명</option><option value="A2">A2 제품명 + 사양/변형</option><option value="A3">A3 제품명 + 구매 의도</option></>}
                   </select>
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{cfg.countries.map((c: any) => { const on = (kwForm.countries || []).includes(c.code); return <span key={c.code} style={{ ...chip(on), fontSize: 11, padding: "2px 7px" }} onClick={() => setKwForm({ ...kwForm, countries: on ? (kwForm.countries || []).filter((x) => x !== c.code) : [...(kwForm.countries || []), c.code] })}>{c.code}</span>; })}</div>
                   <input value={kwForm.note || ""} onChange={(e) => setKwForm({ ...kwForm, note: e.target.value })} placeholder="메모(선택)" style={inp} />
@@ -326,7 +350,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                   <tbody>
                     {[...keywords].sort((a, b) => a.product.localeCompare(b.product) || a.type.localeCompare(b.type)).map((k) => (<tr key={k.id} style={{ opacity: k.enabled ? 1 : 0.5 }}>
                       <td style={td}>{cfg.products.find((p: any) => p.slug === k.product)?.label || k.product}</td><td style={td}>{k.text}</td>
-                      <td style={td}><span className={`badge ${k.type === "brand" ? "samsung" : "c6"}`} title={taxonomy?.[k.type]?.subtypes?.[k.subtype || ""]?.desc || ""}>{k.subtype || (k.type === "brand" ? "A" : "B")} · {taxonomy?.[k.type]?.subtypes?.[k.subtype || ""]?.label || (k.type === "brand" ? "제품명" : "long-tail")}</span></td>
+                      <td style={td}><span className="badge samsung" title={taxonomy?.brand?.subtypes?.[k.subtype || ""]?.desc || ""}>{k.subtype || "A"} · {taxonomy?.brand?.subtypes?.[k.subtype || ""]?.label || "제품명"}</span></td>
                       <td style={td}>{k.countries?.length ? k.countries.join(", ") : "전 국가"}</td>
                       <td style={td}><span role="button" style={{ cursor: "pointer", color: k.enabled ? "#15803D" : "var(--sec)", fontWeight: 600 }} onClick={() => toggleKeyword(k)}>{k.enabled ? "사용 중" : "꺼짐"}</span></td>
                       <td style={{ ...td, color: "var(--sec)" }}>{k.note || ""}</td>
