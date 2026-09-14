@@ -485,20 +485,31 @@ def timeline(level: Optional[str] = None, category: Optional[str] = None, limit:
 
 # ── 크롤 트리거 / 진행률 ──
 @app.post("/trigger-crawl/all")
-async def trigger_all():
+async def trigger_all(payload: Dict[str, Any] = Body(default=None)):
     if crawl_state["crawling"]:
         raise HTTPException(409, "이미 크롤 진행 중")
+    # [2026-09-14] 선택 수집 — payload.site_keys 가 오면 그 사이트만, 없으면 전체
+    want = None
+    if payload and isinstance(payload.get("site_keys"), list) and payload["site_keys"]:
+        want = [sk for sk in SITE_KEYS if sk in set(payload["site_keys"])]
+    keys = want or SITE_KEYS
     batch_id = f"manual_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
     crawl_state.update(crawling=True, events=[], run_id=batch_id)
 
     async def run():
         try:
-            for sk in SITE_KEYS:
+            for sk in keys:
                 await crawl_service.execute_crawl(sk, session_id=batch_id)
         finally:
             crawl_state["crawling"] = False
     asyncio.create_task(run())
-    return {"status": "started"}
+    return {"status": "started", "sites": keys}
+
+
+@app.get("/api/site-keys")
+def api_site_keys():
+    """수집 대상 사이트(경쟁사) 목록 — 선택 수집 UI 용."""
+    return {"site_keys": SITE_KEYS}
 
 
 @app.get("/api/crawl-status")
