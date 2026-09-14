@@ -38,6 +38,17 @@ _STOPWORDS = {
 }
 
 
+def _is_product_name(label: str, product: str) -> bool:
+    """제품명(슬러그)과 사실상 같은 표현은 Dictionary 후보에서 제외 — 'Galaxy Z Fold8' 같은 게 뜨면 혼란만 준다.
+    슬러그(galaxy-z-fold8)의 토큰이 라벨에 대부분 들어 있으면 제품명으로 본다."""
+    n = re.sub(r"[^a-z0-9]+", " ", (label or "").lower()).split()
+    toks = [t for t in re.sub(r"[^a-z0-9]+", " ", (product or "").lower()).split() if t not in ("galaxy",)]
+    if not n or not toks:
+        return False
+    hit = sum(1 for t in toks if t in n)
+    return hit >= max(1, len(toks) - 1)  # 슬러그 토큰이 거의 다 들어있음
+
+
 def _is_stopword(label: str) -> bool:
     n = re.sub(r"\s+", "", label or "").lower()
     if not n or len(n) <= 1:
@@ -79,7 +90,7 @@ def aggregate(page_results: List[Dict[str, Any]],
         groups = by_product.setdefault(product, {})
         for c in hits:
             alias = (c.get("alias") or "").strip()
-            if not alias or _is_stopword(alias):
+            if not alias or _is_stopword(alias) or _is_product_name(alias, product):
                 continue
             key = alias.lower()
             g = groups.setdefault(key, {
