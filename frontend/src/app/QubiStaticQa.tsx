@@ -95,6 +95,26 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
 
       </div>
 
+      {/* [2026-09-14] 페이지·권역별 정상/오류 비율 (보고용) */}
+      {run?.insight && (
+        <div className="card">
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+            <b style={{ fontSize: 14 }}>페이지·권역별 비율</b>
+            <span style={{ fontSize: 12, color: "var(--sec)" }}>정상 {run.insight.overall.ok_pct}% · 오류 {run.insight.overall.err_pct}% (전체 {run.insight.overall.total})</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--label2)", marginBottom: 4 }}>페이지별</div>
+              {Object.entries(run.insight.by_page).map(([k, v]: any) => <Bar key={k} label={k} v={v} />)}
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--label2)", marginBottom: 4 }}>권역별 (오류 많은 순)</div>
+              <div style={{ maxHeight: 220, overflow: "auto" }}>{Object.entries(run.insight.by_region).map(([k, v]: any) => <Bar key={k} label={k} v={v} />)}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 매트릭스 — 국가 × 페이지 */}
       {run && (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -144,6 +164,19 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
   );
 }
 
+function Bar({ label, v }: { label: string; v: any }) {
+  const ok = v.ok_pct, err = v.err_pct, na = 100 - ok - err;
+  return (
+    <div style={{ margin: "4px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+        <span>{label}</span><span style={{ color: "var(--sec)" }}>정상 {ok}% · 오류 {err}% <span style={{ color: "var(--ter)" }}>({v.total})</span></span>
+      </div>
+      <div style={{ display: "flex", height: 8, borderRadius: 999, overflow: "hidden", background: "#EEF0F3" }}>
+        <div style={{ width: ok + "%", background: "#22A05B" }} /><div style={{ width: err + "%", background: "#D64545" }} /><div style={{ width: na + "%", background: "#C7CDD6" }} />
+      </div>
+    </div>);
+}
+
 function Detail({ sel, onClose }: { sel: any; onClose: () => void }) {
   return (
     <div className="card qbiPopIn">
@@ -153,6 +186,20 @@ function Detail({ sel, onClose }: { sel: any; onClose: () => void }) {
         <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--sec)", cursor: "pointer" }} onClick={onClose}>닫기 ✕</span>
       </div>
       <div style={{ fontSize: 12, color: "var(--label2)", marginBottom: 8 }}>{HELP[sel.status]} — {(sel.reasons || []).join(" · ")}{sel.http_status ? ` · HTTP ${sel.http_status}` : ""}{sel.title ? ` · "${sel.title}"` : ""}</div>
+      {sel.guide && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "0 0 12px" }}>
+          <div style={{ background: "#FDECEC", borderRadius: 8, padding: "8px 10px" }}><b style={{ fontSize: 11.5, color: "#B42318" }}>지금 상태 (as-is)</b><div style={{ fontSize: 12, marginTop: 3 }}>{sel.guide.as_is}</div></div>
+          <div style={{ background: "#E8F5EC", borderRadius: 8, padding: "8px 10px" }}><b style={{ fontSize: 11.5, color: "#166534" }}>이렇게 고치세요 (to-be)</b><div style={{ fontSize: 12, marginTop: 3 }}>{sel.guide.to_be}</div>{sel.guide.who !== "-" && <div style={{ fontSize: 11, color: "var(--sec)", marginTop: 4 }}>담당: {sel.guide.who}</div>}</div>
+          {sel.guide.fixes?.length > 0 && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <b style={{ fontSize: 11.5, color: "var(--label2)" }}>블록별 조치</b>
+              <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}>
+                <thead><tr><th style={th}>블록</th><th style={th}>유형</th><th style={th}>위치</th><th style={th}>조치</th></tr></thead>
+                <tbody>{sel.guide.fixes.map((f: any, i: number) => (<tr key={i}><td style={td}>{f.block}</td><td style={td}>{f.category}</td><td style={{ ...td, wordBreak: "break-all" }}>{f.where}</td><td style={td}>{f.to_be}</td></tr>))}</tbody>
+              </table>
+            </div>)}
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
         <div>
           <b>스키마 블록 {sel.blocks}개 · 읽기 실패 {(sel.parse_errors || []).filter((p: any) => p.severity !== "warn").length}</b>
