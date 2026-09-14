@@ -122,13 +122,34 @@ class SerpApiProvider(Provider):
     def fetch_shopping(self, country: Dict[str, Any], keyword: str) -> Dict[str, Any]:
         tag = f"shop_{country['code']}_{''.join(ch if ch.isalnum() else '_' for ch in keyword)[:40]}"
         data = self._get({"engine": "google_shopping", "q": keyword, "gl": country["gl"], "hl": country["hl"], "num": 40}, tag)
+        # [2026-09-14] 광고(Sponsored) 제외 후 오가닉(자연 결과)만으로 position 재부여.
+        #   판정 기준: SerpApi 는 광고를 별도 배열(shopping_ads/ads)로 주거나, 항목의 tag/extensions 에 'Sponsored' 표시.
+        #   ads 배열의 항목은 순위 계산에서 제외하고, shopping_results 안에 섞인 sponsored 표시 항목도 제외한다.
+        raw = data.get("shopping_results") or []
+
+        def _is_ad(x: Dict[str, Any]) -> bool:
+            tag = str(x.get("tag") or x.get("badge") or "").lower()
+            exts = " ".join(str(e) for e in (x.get("extensions") or [])).lower()
+            if "sponsor" in tag or "sponsor" in exts or "ad" == tag or "광고" in tag:
+                return True
+            if x.get("sponsored") is True or x.get("ad") is True:
+                return True
+            # aclk 리다이렉트 링크(광고 클릭 추적)면 광고로 본다
+            lk = str(x.get("product_link") or x.get("link") or "")
+            return "aclk" in lk or "/aclk?" in lk
+        organic = [x for x in raw if not _is_ad(x)]
+        ad_count = len(raw) - len(organic)
         items = []
-        for i, s in enumerate(data.get("shopping_results") or [], 1):
+        for i, s in enumerate(organic, 1):   # position 을 오가닉 기준으로 1부터 다시 매김
             link = s.get("product_link") or s.get("link") or ""
             merchant = s.get("source") or s.get("seller") or ""
-            item = {"position": s.get("position") or i, "title": s.get("title"), "merchant": merchant, "price": s.get("price"),
+            item = {"position": i, "title": s.get("title"), "merchant": merchant, "price": s.get("price"),  # position=오가닉 재부여(광고 제외)
                     "extracted_price": s.get("extracted_price"), "old_price": s.get("old_price"), "rating": s.get("rating"),
                     "reviews": s.get("reviews"), "delivery": s.get("delivery"), "link": link, "product_id": s.get("product_id"),
+                    # [2026-09-14] 상세는 이제 immersive product 방식 — shopping 결과의 토큰/링크를 그대로 넘겨 상세를 받는다
+                    "immersive_token": s.get("immersive_product_page_token"),
+                    "serpapi_immersive": s.get("serpapi_immersive_product_api"),
+                    "serpapi_product_link": s.get("serpapi_product_api") or s.get("serpapi_product_link"),
                     "thumbnail": s.get("thumbnail"), "tag": s.get("tag") or s.get("badge"), "is_samsung_store": _is_samsung(merchant, link)}
             # 검색 결과 카드에서 바로 관측되는 GMC 속성
             attrs = {"title": s.get("title"), "price": s.get("price"), "image_link": s.get("thumbnail"),
@@ -145,14 +166,28 @@ class SerpApiProvider(Provider):
             items.append(item)
         # 인라인 광고(ads)·서로 다른 블록은 위치가 별도 → 문서상 shopping_results 만 순위로 본다
         return {"items": items, "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "provider": self.name,
-                "raw_ref": (data.get("search_metadata") or {}).get("json_endpoint"), "total": len(items)}
+                "raw_ref": (data.get("search_metadata") or {}).get("json_endpoint"), "total": len(items),
+                "ads_excluded": ad_count + len(data.get("shopping_ads") or data.get("ads") or [])}
 
     def fetch_product_detail(self, country: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
-        pid = item.get("product_id")
-        if not pid:
+        # [2026-09-14] Google 이 상세를 immersive product 로 바꾸면서 옛 product_id → google_product 방식은
+        # 대부분 실패한다. 우선순위: ① immersive_product_page_token → google_immersive_product
+        #                          ② product_id → google_product(폴백, 구형 항목용)
+        # 어느 쪽도 없거나 실패하면 {} 반환(호출측이 카드 속성만으로 진행하고 순위는 보존).
+        cc = country["code"]
+        token = item.get("immersive_token")
+        data = None
+        if token:
+            tag = f"prod_{cc}_immersive_{abs(hash(token)) % 10**8}"
+            data = self._get({"engine": "google_immersive_product", "page_token": token,
+                              "gl": country["gl"], "hl": country["hl"]}, tag)
+        elif item.get("product_id"):
+            pid = str(item["product_id"])
+            tag = f"prod_{cc}_{pid}"
+            data = self._get({"engine": "google_product", "product_id": pid, "gl": country["gl"], "hl": country["hl"]}, tag)
+        else:
             return {}
-        tag = f"prod_{country['code']}_{pid}"
-        data = self._get({"engine": "google_product", "product_id": pid, "gl": country["gl"], "hl": country["hl"]}, tag)
+        # 두 엔진 모두 product_results 로 반환(immersive 는 필드 일부만 채워질 수 있음)
         pr = data.get("product_results") or {}
         out: Dict[str, Any] = {}
         if pr.get("title"):

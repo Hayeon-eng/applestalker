@@ -147,10 +147,21 @@ def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any
                     ours = [it for it in items if it.get("is_samsung_store")]
                     if ours:
                         best = min(ours, key=lambda it: it["position"])
-                        detail = provider.fetch_product_detail(c, best) if detail_for_samsung else {}
-                        cell["attrs"] = trace_attributes(best, detail, attributes)
                         cell["our_item"] = {k2: best.get(k2) for k2 in ("position", "title", "merchant", "price", "link", "product_id")}
+                        # 카드에서 바로 보이는 속성은 항상 채운다(상세 조회 없이도)
+                        cell["attrs"] = trace_attributes(best, {}, attributes)
+                        # 상세 조회는 '있으면 더 채우는' 보강 단계 — 실패해도 순위 결과는 그대로 두고 경고만 남긴다
+                        if detail_for_samsung:
+                            try:
+                                detail = provider.fetch_product_detail(c, best)
+                                if detail:
+                                    cell["attrs"] = trace_attributes(best, detail, attributes)
+                            except Exception as de:
+                                cell["detail_error"] = str(de)[:200]
+                                errors.append({"country": c["code"], "product": p["slug"], "keyword": k["text"],
+                                               "error": f"상세 조회 실패(순위는 정상): {str(de)[:160]}"})
                 except Exception as e:
+                    # 여기까지 오면 검색(순위) 자체가 실패한 것 — 그때만 error
                     cell["status"] = "error"; cell["error"] = str(e)[:200]
                     errors.append({"country": c["code"], "product": p["slug"], "keyword": k["text"], "error": str(e)[:200]})
                 cells.append(cell); done += 1
