@@ -23,6 +23,7 @@ from fastapi import Body, HTTPException
 from fastapi.responses import StreamingResponse
 
 import static_qa
+import static_guide
 from qb_core import qb_router
 
 STORE = os.getenv("QB_STATIC_DIR") or os.path.join(os.path.dirname(__file__), "static_runs")
@@ -108,7 +109,26 @@ def static_run_get(run_id: str):
     d = _load(run_id)
     if not d:
         raise HTTPException(404, "없음")
+    for r in d.get("results", []):
+        r["guide"] = static_guide.cell_guide(r)
+    d["insight"] = static_guide.summarize(d.get("results", []), static_qa.load_sites())
     return d
+
+
+@qb_router.get("/static/summary/{run_id}")
+def static_summary(run_id: str):
+    """페이지별·권역별 정상/오류 비율 + 대표 오류 사례의 as-is/to-be (보고용 요약)."""
+    d = _load(run_id)
+    if not d:
+        raise HTTPException(404, "없음")
+    insight = static_guide.summarize(d.get("results", []), static_qa.load_sites())
+    # 상태별 대표 사례 1건씩(가이드 포함)
+    examples = {}
+    for r in d.get("results", []):
+        if r["status"] not in examples and r["status"] != "정상":
+            examples[r["status"]] = {"sitecode": r["sitecode"], "country": r.get("country"), "page": r.get("page_label"),
+                                     "url": r["url"], "guide": static_guide.cell_guide(r)}
+    return {"run_id": run_id, "at": d.get("at"), "insight": insight, "examples": examples}
 
 
 @qb_router.get("/static/report.xlsx")
