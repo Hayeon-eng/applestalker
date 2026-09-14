@@ -166,7 +166,7 @@ def build_app(cfg: dict):
     sys.path.insert(0, str(RES_DIR / "backend"))
     sys.path.insert(0, str(RES_DIR / "backend" / "dotcom_qa"))
     os.chdir(RES_DIR / "backend")  # 상대경로(./local.db 등) 기준
-    from fastapi import Request, Form
+    from fastapi import Request
     from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse, FileResponse
     from fastapi.staticfiles import StaticFiles
     from starlette.middleware.base import BaseHTTPMiddleware
@@ -177,7 +177,12 @@ def build_app(cfg: dict):
 
     # ── 비밀번호 게이트(Next middleware + /api/gate-auth 대체) ──
     @app.post("/api/gate-auth")
-    async def gate_auth(password: str = Form(""), next: str = Form("/")):
+    async def gate_auth(request: Request):
+        # Form(...) 을 쓰면 python-multipart 패키지가 필요해 exe 에서 죽을 수 있다 → 폼 본문을 직접 파싱(의존성 0)
+        from urllib.parse import parse_qs
+        body = (await request.body()).decode("utf-8", "ignore")
+        form = {k: v[0] for k, v in parse_qs(body).items()}
+        password = form.get("password", ""); next = form.get("next", "/") or "/"
         if site_password and password != site_password:
             return RedirectResponse(f"/gate/?next={next}&error=1", status_code=303)
         resp = RedirectResponse(next if next.startswith("/") else "/", status_code=303)
