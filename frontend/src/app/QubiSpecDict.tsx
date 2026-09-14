@@ -122,14 +122,15 @@ export function DictionaryReviewSection({ results, product, api, flash }:
       <div onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", background: "#FAFBFC" }}>
         <span style={{ fontSize: 15 }}>📖</span>
         <b style={{ fontSize: 13 }}>Dictionary Review</b>
-        <span style={{ fontSize: 11.5, color: "var(--sec)" }}>사전 미등록 표현 {cands.length}건 — 보조 기능, Spec 오류가 아닙니다</span>
+        <span style={{ fontSize: 11.5, color: "var(--sec)" }} title="검수 사전에 없는데 페이지에 자주 나온 표현을 모은 참고 목록입니다. 스펙 오류가 아니라 '사전에 추가할지 검토하세요'라는 안내예요. 제품명 자체는 목록에서 제외됩니다.">사전 미등록 표현 {cands.length}건 — 보조 기능(스펙 오류 아님) ⓘ</span>
         <span style={{ marginLeft: "auto", fontSize: 11, color: "#0A66E0" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
       </div>
       {open && (
         <div style={{ padding: "4px 14px 12px", borderTop: "1px solid var(--line)" }}>
           <div style={{ fontSize: 11, color: "var(--sec)", margin: "8px 0" }}>
-            이번 실행에서 <b>{product}</b>의 여러 페이지에 반복 등장했고 신뢰도(Confidence)가 낮지 않은 표현만 모았습니다.
-            1회성으로만 발견됐거나 신뢰도가 낮은 표현은 자동으로 제외되었습니다.
+            <b>이게 뭔가요?</b> 검수 사전(정답 항목 목록)에는 없지만 <b>{product}</b> 페이지에 여러 번 나온 표현을 모은 참고 목록입니다.
+            "이 표현을 사전에 추가할까요?"를 검토하라는 것으로, <b>스펙 오류가 아닙니다</b>. 한 번만 나오거나 신뢰도가 낮은 표현,
+            그리고 제품명 자체(예: Galaxy Z Fold8)는 자동으로 제외됩니다.
           </div>
           {cands.map((c, i) => (
             <GroupedCandidateRow key={c.alias + i} cand={c} attributes={attributes} product={product} api={api} flash={flash}

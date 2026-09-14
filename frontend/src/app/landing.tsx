@@ -8,7 +8,7 @@ export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb }: { onEnt
     <div className="landingShell">
       <div className="landingInner">
         <h1 className="landingTitle" style={{ marginBottom: 6 }}>어떤 도구를 여시겠어요?</h1>
-        <p className="landingSub">🍎 무엇이 바뀌었나 · 🐝 맞게 올라갔나 · 🐝C AI/소비자에게 뜨는가 — ABC 세 도구를 한 곳에서.</p>
+        <p className="landingSub">🍎 무엇이 바뀌었나 · 🐝 맞게 올라갔나 · 🐝C 검색창에 뜨는가 — ABC 세 도구를 한 곳에서.</p>
 
         <div className="landingCardGrid">
           <div className="landingCard" style={{ display: "flex", flexDirection: "column" }}>
@@ -49,11 +49,22 @@ export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb }: { onEnt
             <ul className="landingFactList" style={{ flex: 1 }}>
               <li>주요 6개국 Google Shopping에서 우리 제품이 <b>1순위(상단 2줄)</b>에 뜨는지</li>
               <li>뜰 때 보이는 <b>GMC 51개 속성</b>을 역추적 — 피드에 넣은 것과 대조</li>
-              <li>1위를 차지하는 Shop(Amazon·Shopee…)과 주차별 변화</li>
+              <li>1위를 차지한 노점(Amazon·Shopee…)과 주차별 변화</li>
             </ul>
             <button className="landingCTA" style={{ marginTop: 12, background: "#8A5A00" }} onClick={onEnterHoneyComb}>🍯 벌집 열기</button>
           </div>
 
+        </div>
+
+        {/* [2026-09-14] 이메일 자동 발송 설정 — 각 사용자 PC 에서 켠다(발송은 각자 설정). exe 는 설정 페이지, 웹은 안내 */}
+        <div style={{ marginTop: 22, display: "flex", justifyContent: "center" }}>
+          <button className="landingCTA" style={{ background: "#1B4FD8", maxWidth: 420 }}
+            onClick={() => {
+              const url = window.location.origin + "/desktop/settings";
+              fetch(window.location.origin + "/api/settings", { cache: "no-store" })
+                .then((r) => { if (r.ok) window.open("/desktop/settings", "_blank"); else alert("이메일 자동 발송 설정은 PC 프로그램(exe)에서만 가능합니다. 웹(Render) 버전은 관리자 환경변수로 설정합니다."); })
+                .catch(() => alert("이메일 자동 발송 설정은 PC 프로그램(exe)에서 열립니다."));
+            }}>✉️ 이메일 자동 발송 설정</button>
         </div>
       </div>
     </div>

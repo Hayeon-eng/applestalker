@@ -136,7 +136,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
             {Object.keys(STATUS).map((s) => [<i key={s + "i"} style={{ display: "block", width: 14, height: 14, background: COLOR[s], clipPath: "polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)" }} />, <span key={s}>{STATUS[s]} <span style={{ color: "var(--sec)" }}>— {cfg.status_legend?.[s]}</span></span>])}
           </div>
           <div className="sideLabel" style={{ marginTop: 10 }}>판정 기준</div>
-          <p style={{ padding: "0 10px 8px", fontSize: 11.5, color: "var(--sec)", lineHeight: 1.5 }}>1위 = position 1 · 상단 = position ≤ {cfg.top_n}(둘째 줄까지) · gl/hl 지정 · 비로그인 데스크톱. 속성은 검색 결과 카드·제품 상세 창에서 보이는 것만 판정하고, 검색 결과에 아예 나오지 않는 속성은 '확인 불가'로 표시해요.</p>
+          <p style={{ padding: "0 10px 8px", fontSize: 11.5, color: "var(--sec)", lineHeight: 1.5 }}>1위 = position 1 · 상단 = position ≤ {cfg.top_n}(둘째 줄까지) · gl/hl 지정 · 비로그인 데스크톱. 속성은 검색 결과 카드·제품 상세 창에서 보이는 것만 판정하고, 검색 결과에 아예 나오지 않는 속성은 '확인 불가'로 표시해요. 광고(Sponsored) 카드는 순위 계산에서 제외하고 자연 결과부터 셉니다.</p>
         </div>
         <div className="sideFoot">
           {runState && <button className="btnSecondary" style={{ color: "#B42318", border: "1px solid #B42318", background: "#fff" }} onClick={async () => { if (window.confirm("수집을 멈출까요? 지금까지 조회한 결과는 저장됩니다.")) await fetch(api("/api/hc/run/cancel"), J({})); }}>■ 멈춤</button>}

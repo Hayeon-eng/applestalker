@@ -40,6 +40,11 @@ export default function Page() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerSection, setDrawerSection] = useState<string | null>(null);
   const [showUrlAdd, setShowUrlAdd] = useState(false);
+  // [2026-09-14] 선택 수집 — 사이트 목록 + 선택 집합
+  const [siteKeys, setSiteKeys] = useState<string[]>([]);
+  const [pickSites, setPickSites] = useState<Set<string>>(new Set());
+  const [showPick, setShowPick] = useState(false);
+  useEffect(() => { fetch(API + "/api/site-keys").then((r) => r.json()).then((d) => setSiteKeys(d.site_keys || [])).catch(() => {}); }, []);
   const newUrlRef = useRef<HTMLInputElement>(null);
   const esRef = useRef<EventSource | null>(null);
 
@@ -139,11 +144,12 @@ export default function Page() {
     load();
   };
 
-  const startCrawl = async () => {
+  const startCrawl = async (only?: string[]) => {
     if (!online) return;
     setCrawling(true);
     try {
-      await fetch(API + "/trigger-crawl/all", { method: "POST" });
+      await fetch(API + "/trigger-crawl/all", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(only && only.length ? { site_keys: only } : {}) });
       connectProgress();
     } catch {
       setCrawling(false);
@@ -402,9 +408,23 @@ export default function Page() {
         </div>
 
         <div className="sideFoot">
-          <button className="btnPrimary" disabled={!online || crawling} onClick={startCrawl}>
-            {crawling ? "수집 중…" : "수집 실행"}
+          <button className="btnPrimary" disabled={!online || crawling} onClick={() => startCrawl()}>
+            {crawling ? "수집 중…" : "수집 실행 (전체)"}
           </button>
+          <button className="btnSecondary" style={{ marginTop: 6, fontSize: 12 }} disabled={!online || crawling} onClick={() => setShowPick((v) => !v)}>
+            {showPick ? "▾ 선택 수집 닫기" : "▸ 특정 사이트만 수집"}
+          </button>
+          {showPick && (
+            <div style={{ marginTop: 6, padding: 8, background: "#fff", border: "1px solid var(--line)", borderRadius: 8 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+                {siteKeys.map((k) => { const on = pickSites.has(k); return (
+                  <span key={k} onClick={() => { const n = new Set(pickSites); on ? n.delete(k) : n.add(k); setPickSites(n); }}
+                    style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, cursor: "pointer", border: on ? "1px solid #2554E6" : "1px solid var(--line)", background: on ? "#2554E6" : "#fff", color: on ? "#fff" : "var(--label)" }}>{k}</span>); })}
+              </div>
+              <button className="btnPrimary" style={{ fontSize: 12, padding: "6px 10px" }} disabled={!pickSites.size || crawling}
+                onClick={() => { startCrawl(Array.from(pickSites)); setShowPick(false); }}>선택 {pickSites.size}개 수집</button>
+            </div>
+          )}
           {emailState && <p className="emailNotice">{emailState}</p>}
         </div>
       </aside>
