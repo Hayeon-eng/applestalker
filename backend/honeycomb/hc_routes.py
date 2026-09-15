@@ -18,7 +18,7 @@ import json
 import os
 import sys
 import threading
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -176,8 +176,8 @@ def _estimate(countries=None, products=None, detail=False) -> Dict[str, Any]:
 
 
 @hc_router.get("/run-estimate")
-def hc_run_estimate(detail: bool = Query(False)):
-    return _estimate(detail=detail)
+def hc_run_estimate(detail: bool = Query(False), countries: Optional[List[str]] = Query(None), products: Optional[List[str]] = Query(None)):
+    return _estimate(countries=countries, products=products, detail=detail)
 
 
 @hc_router.post("/run")
