@@ -111,6 +111,9 @@ class HybridCrawler:
             timeout=httpx.Timeout(self.http_timeout, connect=10.0),
             follow_redirects=True,
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+            # [2026-09 FIX] 사내망 SSL 재봉인 프록시 대응 — dotcom_qa/honeycomb 와 동일한
+            # QB_SSL_VERIFY 이스케이프 해치(데스크톱 launcher.py 의 ssl_verify=false 최후수단이 이 값을 셋함).
+            verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false"),
         )
 
     # ─────────────────────────────────────────────
@@ -379,6 +382,7 @@ class HybridCrawler:
                     user_agent=self.user_agent,
                     locale="en-US",
                     timezone_id="America/Los_Angeles",
+                    ignore_https_errors=(os.getenv("QB_SSL_VERIFY", "true").lower() == "false"),
                 )
                 # [consent] 동의/지역 게이트가 강한 사이트(Meta 등)에 미리 동의 쿠키를 심어
                 # 쿠키월/리다이렉트로 'Error | Meta' 껍데기가 오는 것을 줄인다.

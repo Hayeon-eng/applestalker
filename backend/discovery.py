@@ -20,6 +20,7 @@ discovery.py — Apple Stalker · 최신 제품 URL 자동 탐색 [2026-09 신�
   · 이 모듈은 URL 존재만 확인한다. 페이지 역할(PF/PDP/Buying) 판정은 기존 config.page_role_for_url 이 한다.
 """
 from __future__ import annotations
+import os
 import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
@@ -102,7 +103,7 @@ def discover_apple(current_seeds: List[str], extra_keywords: Optional[List[str]]
                 if g:
                     seed_gen[cat] = max(seed_gen.get(cat, 0), g)
     results: List[Dict[str, Any]] = []
-    with httpx.Client(headers={"User-Agent": UA}, timeout=TIMEOUT) as client:
+    with httpx.Client(headers={"User-Agent": UA}, timeout=TIMEOUT, verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false")) as client:
         # ① 사이트맵
         sm = sitemap_paths(client)
         for u in sm:
