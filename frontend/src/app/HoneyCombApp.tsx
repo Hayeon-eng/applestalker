@@ -54,7 +54,14 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const [runState, setRunState] = useState<any>(null);
   const [withDetail, setWithDetail] = useState(false);
   const [estimate, setEstimate] = useState<any>(null);
-  useEffect(() => { (async () => { try { setEstimate(await (await fetch(api(`/api/hc/run-estimate?detail=${withDetail}`))).json()); } catch { /* */ } })(); }, [withDetail, keywords]);
+  useEffect(() => { (async () => {
+    try {
+      const qs = new URLSearchParams({ detail: String(withDetail) });
+      Array.from(ctrys).forEach((c) => qs.append("countries", c));
+      Array.from(prods).forEach((p) => qs.append("products", p));
+      setEstimate(await (await fetch(api(`/api/hc/run-estimate?${qs.toString()}`))).json());
+    } catch { /* */ }
+  })(); }, [withDetail, keywords, ctrys, prods]);
   const STATUS_X: Record<string, string> = { ...STATUS, error: "조회 실패" };
 
   const loadKeywords = async () => { try { const d = await (await fetch(api("/api/hc/keywords"))).json(); setKeywords(d.keywords || []); if (d.taxonomy) setTaxonomy(d.taxonomy); } catch { /* */ } };
@@ -141,10 +148,10 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
         <div className="sideFoot">
           {runState && <button className="btnSecondary" style={{ color: "#B42318", border: "1px solid #B42318", background: "#fff" }} onClick={async () => { if (window.confirm("수집을 멈출까요? 지금까지 조회한 결과는 저장됩니다.")) await fetch(api("/api/hc/run/cancel"), J({})); }}>■ 멈춤</button>}
           <button className="btnPrimary" style={{ background: HONEY_DARK }} disabled={cfg.provider !== "serpapi" || !!runState}
-            title={cfg.provider !== "serpapi" ? "설정(/desktop/settings)에 SerpApi 키를 넣으면 활성화" : "국가×제품×사용 중 키워드 전체를 Google Shopping 에서 조회"}
+            title={cfg.provider !== "serpapi" ? "설정(/desktop/settings)에 SerpApi 키를 넣으면 활성화" : "선택된 국가×제품×사용 중 키워드를 Google Shopping 에서 조회"}
             onClick={async () => {
               if (!window.confirm(`Google Shopping 조회를 시작합니다.\n예상 API 호출: 검색 ${estimate?.searches ?? "?"}회${withDetail ? ` + 상세 최대 ${estimate?.detail_max}회` : ""} (월 한도에서 차감)\n계속할까요?`)) return;
-              const r = await fetch(api("/api/hc/run"), J({ detail: withDetail }));
+              const r = await fetch(api("/api/hc/run"), J({ detail: withDetail, countries: Array.from(ctrys), products: Array.from(prods) }));
               if (!r.ok) { setMsg((await r.json()).detail || "실행 실패"); return; }
               setRunState({ running: true, done: 0, total: 0, cells: [] });
               const t = setInterval(async () => {

@@ -3,6 +3,7 @@
    91개 사이트 × 7종 공통 페이지(Home · All about Galaxy · Switch to Galaxy · Galaxy AI · Samsung Health · One UI · Find your Galaxy)를
    매일 한 번 "전형적 오류"만 본다. DATA QA 처럼 위에서 페이지를 고르고, 아래에서 상태별 상세를 본다. 백엔드 /api/qb/static/* */
 import { useEffect, useState } from "react";
+import { sel as selStyle, SEV } from "./qubiShared";
 
 const ORDER = ["정상", "파싱 실패", "오적용", "미해결 참조", "페이지 없음", "접근 실패", "기타"];
 const COLOR: Record<string, string> = { "정상": "#DCFCE7", "파싱 실패": "#FEE2E2", "오적용": "#FEF3C7", "미해결 참조": "#FEF3C7", "페이지 없음": "#E5E7EB", "접근 실패": "#F3F4F6", "기타": "#FFF7ED" };
@@ -10,7 +11,7 @@ const INK: Record<string, string> = { "정상": "#166534", "파싱 실패": "#99
 const HELP: Record<string, string> = {
   "정상": "스키마(JSON-LD)가 모두 읽히고 전형적 오류가 없음",
   "파싱 실패": "일부 스키마 블록이 문법 오류(escape·제어문자·괄호·쉼표)로 읽히지 않음 — 그 블록은 검색엔진이 못 봄 → HTML 수정 필요",
-  "오적용": "스키마의 @id/url 에 다른 국가 사이트 주소가 섞여 있음 (예: ca_fr 페이지가 /ca/ 를 가리킴)",
+  "오적용": "스키마의 @id/url 에 다른 국가 사이트 주소가 섞여 있음 (예: de 페이지가 /fr/ 를 가리킴 — ca_fr↔ca 같은 언어 변형은 제외)",
   "미해결 참조": "스키마가 가리키는 @id 가 이 페이지 안에 정의되어 있지 않음",
   "페이지 없음": "404 이거나 안내 페이지로 떨어짐 — 그 국가에 이 페이지가 없거나 주소가 다름",
   "접근 실패": "403/429/네트워크 오류 — 사이트 문제보다 수집 환경(프록시·차단) 문제일 수 있음",
@@ -18,7 +19,6 @@ const HELP: Record<string, string> = {
 };
 const th: React.CSSProperties = { textAlign: "left", fontSize: 11.5, color: "var(--sec)", fontWeight: 600, padding: "6px 8px", borderBottom: "1px solid var(--line)", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#fff" };
 const td: React.CSSProperties = { fontSize: 12, padding: "5px 8px", borderBottom: "1px solid var(--line)", verticalAlign: "top" };
-const chip = (on: boolean): React.CSSProperties => ({ fontSize: 12, padding: "4px 10px", borderRadius: 999, cursor: "pointer", border: on ? "1px solid #0A66E0" : "1px solid var(--line)", background: on ? "#0A66E0" : "#fff", color: on ? "#fff" : "var(--label)", fontWeight: on ? 700 : 500 });
 const Pill = ({ s, n, on, onClick }: { s: string; n?: number; on?: boolean; onClick?: () => void }) => (
   <span title={HELP[s]} onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", fontSize: 11.5, padding: "3px 9px", borderRadius: 999, background: COLOR[s], color: INK[s], fontWeight: 700, outline: on ? "2px solid var(--blue)" : "none" }}>{s}{n != null ? ` ${n}` : ""}</span>);
 
@@ -63,8 +63,8 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
       {/* 페이지 선택 — DATA QA 의 제품 칩과 같은 위치·역할 */}
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: "var(--sec)", marginRight: 4 }}>페이지</span>
-        <span style={chip(page === "all")} onClick={() => { setPage("all"); setSel(null); }}>전체 {pages.length}종</span>
-        {pages.map((p) => <span key={p.key} style={chip(page === p.key)} onClick={() => { setPage(p.key); setSel(null); }} >{p.label}</span>)}
+        <span style={selStyle("all", page === "all")} onClick={() => { setPage("all"); setSel(null); }}>전체 {pages.length}종</span>
+        {pages.map((p) => <span key={p.key} style={selStyle(p.key, page === p.key)} onClick={() => { setPage(p.key); setSel(null); }} >{p.label}</span>)}
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
           {runs.length > 0 && <select value={run?.run_id || ""} onChange={(e) => openRun(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }}>
             {runs.map((r) => <option key={r.run_id} value={r.run_id}>{r.at}</option>)}</select>}
@@ -88,7 +88,7 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
           <span style={{ fontSize: 12, color: "var(--sec)" }}>{meta.auto}개 국가 사이트{meta.manual?.length ? ` (직접 확인: ${meta.manual.join(", ")})` : ""} · {run ? `마지막 검수 ${run.at}` : "아직 검수 전"}</span>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={chip(stFilter === "all")} onClick={() => setStFilter("all")}>전체 {results.length}</span>
+          <span style={selStyle("all", stFilter === "all")} onClick={() => setStFilter("all")}>전체 {results.length}</span>
           {ORDER.map((s) => <Pill key={s} s={s} n={count(s)} on={stFilter === s} onClick={() => setStFilter(stFilter === s ? "all" : s)} />)}
           {!run && <span style={{ fontSize: 12, color: "var(--sec)" }}>"지금 검수"를 누르면 약 {est}분 걸립니다(페이지당 1~2초).</span>}
         </div>
@@ -172,7 +172,7 @@ function Bar({ label, v }: { label: string; v: any }) {
         <span>{label}</span><span style={{ color: "var(--sec)" }}>정상 {ok}% · 오류 {err}% <span style={{ color: "var(--ter)" }}>({v.total})</span></span>
       </div>
       <div style={{ display: "flex", height: 8, borderRadius: 999, overflow: "hidden", background: "#EEF0F3" }}>
-        <div style={{ width: ok + "%", background: "#22A05B" }} /><div style={{ width: err + "%", background: "#D64545" }} /><div style={{ width: na + "%", background: "#C7CDD6" }} />
+        <div style={{ width: ok + "%", background: SEV.pass.c }} /><div style={{ width: err + "%", background: SEV.fail.c }} /><div style={{ width: na + "%", background: SEV.na.c }} />
       </div>
     </div>);
 }
