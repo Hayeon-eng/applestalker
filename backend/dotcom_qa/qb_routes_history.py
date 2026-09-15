@@ -23,6 +23,7 @@ from models import QbHistory
 
 import qb_core
 from qb_core import qb_router, _registry
+from qb_routes_static import _list as _static_runs, _load as _static_run
 
 # ── 검수 이력 (DB 저장) ──
 # [FIX] 기존엔 dotcom_qa/qb_history/*.json 로컬 파일에 저장했으나, Render 무료 플랜은
@@ -206,10 +207,20 @@ def qb_history_remove(payload: Dict[str, Any] = Body(...)):
 
 
 
+def _latest_static_run() -> Optional[Dict[str, Any]]:
+    """공통페이지 QA 최신 실행 결과 — 있으면 통합 리포트에 시트로 추가한다.
+    공통페이지 QA는 Data/Spec QA 와 별도 주기로 돌기 때문에 run_id 매칭 없이 항상 최신 것을 붙인다."""
+    try:
+        runs = _static_runs()
+        return _static_run(runs[0]["run_id"]) if runs else None
+    except Exception:
+        return None
+
+
 @qb_router.get("/report.xlsx")
 def qb_report_xlsx_get(run_id: str = Query(None)):
     try:
-        data = qa_report.build_xlsx(qb_core._resolve_results(run_id=run_id))
+        data = qa_report.build_xlsx(qb_core._resolve_results(run_id=run_id), static_run=_latest_static_run())
     except Exception as e:
         # [2026-07 FIX] 원인 불명 500 리포트 대응 — 어떤 페이지의 어떤 값 때문에 실패했는지
         # 서버 로그에 전체 traceback을 남기고, 사용자에게는 원인 파악 가능한 메시지를 준다.
@@ -224,7 +235,7 @@ def qb_report_xlsx_get(run_id: str = Query(None)):
 @qb_router.post("/report.xlsx")
 def qb_report_xlsx(payload: Dict[str, Any] = Body(default={})):
     try:
-        data = qa_report.build_xlsx(qb_core._resolve_results(payload))
+        data = qa_report.build_xlsx(qb_core._resolve_results(payload), static_run=_latest_static_run())
     except Exception as e:
         import traceback
         traceback.print_exc()

@@ -7,7 +7,8 @@ static_qa.py — 큐비 · 스태틱(캠페인/공통) 페이지 Schema 라이�
   (Z8_Schema_QA_Dashboard 의 상태 체계와 동일: 정상 / 파싱 실패 / 오적용 / 미해결 참조 / 페이지 없음 / 기타)
   ① 페이지 응답: HTTP 상태, soft-404(안내 페이지) → '페이지 없음'
   ② JSON-LD 블록 수 · 블록별 파싱 실패(잘못된 escape / 제어문자 / 괄호 불일치 / 쉼표 누락 / 스마트 따옴표) → '파싱 실패'
-  ③ 오적용: @id / url 에 **다른 사이트코드** 경로가 섞임(예: /ca_fr/ 페이지에 samsung.com/ca/ 참조)
+  ③ 오적용: @id / url 에 **다른 국가**의 사이트코드 경로가 섞임(예: /de/ 페이지에 samsung.com/fr/ 참조).
+     단, ca_fr↔ca·ch_fr↔ch 처럼 sitecodes_master.json 의 lang_variant_of 로 묶인 "같은 국가의 언어 변형"은 제외.
   ④ 미해결 참조: hasPart / mainEntity / isPartOf / about 이 가리키는 @id 가 페이지 안에 정의되어 있지 않음
   ⑤ 중복 @id: 같은 @id 를 가진 노드가 2개 이상
   ⑥ 스키마 O/X: 어떤 @type 이 있는지(WebPage·BreadcrumbList·Organization·FAQPage·VideoObject·Product·ItemList …)
@@ -73,6 +74,24 @@ def _site_seg(url: str) -> str:
     return segs[0].lower() if segs else ""
 
 
+_SITECODE_GROUP_CACHE: Dict[str, str] = {}
+
+
+def _sitecode_group(code: str) -> str:
+    """sitecode(소문자) → 같은 국가의 언어 변형을 하나로 묶는 그룹 키.
+    sitecodes_master.json 의 lang_variant_of 를 사용(예: ca_fr·ca → 둘 다 'CA', ch_fr·ch → 둘 다 'CH').
+    lang_variant_of 가 없는 사이트(언어 변형 없음)는 자기 자신의 대문자형을 그룹 키로 쓴다."""
+    if not _SITECODE_GROUP_CACHE:
+        try:
+            for s in load_sites():
+                sc_code = str(s.get("sitecode", "")).lower()
+                if sc_code:
+                    _SITECODE_GROUP_CACHE[sc_code] = s.get("lang_variant_of") or sc_code.upper()
+        except Exception:
+            pass
+    return _SITECODE_GROUP_CACHE.get(code, code.upper())
+
+
 def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[int] = None,
                       soft404: Optional[str] = None) -> Dict[str, Any]:
     import schema_checker as sc
@@ -121,9 +140,12 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
                                       if rid not in defined and rid.split("#")[0].rstrip("/") == page_base})
     out["external_refs"] = sorted({rid for p, rid in refs if rid not in defined and rid.split("#")[0].rstrip("/") != page_base})[:20]
     my = sitecode.lower()
+    my_group = _sitecode_group(my)
     for u in all_urls:
         seg = _site_seg(u)
         if seg and seg != my and "samsung.com" in u and seg not in ("global",):
+            if _sitecode_group(seg) == my_group:
+                continue  # 같은 국가의 언어 변형(예: ca_fr 페이지가 /ca/ 를 참조) — 오적용 아님
             if not (my in ("cn",) and seg == "cn"):
                 out["foreign_refs"].append(u)
     out["foreign_refs"] = sorted(set(out["foreign_refs"]))[:20]

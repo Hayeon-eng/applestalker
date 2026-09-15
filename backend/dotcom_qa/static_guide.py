@@ -16,7 +16,7 @@ STATUS_GUIDE: Dict[str, Dict[str, str]] = {
         "to_be": "아래 블록별 원인(줄:칸)대로 HTML 의 <script type=\"application/ld+json\"> 내용을 고쳐 배포하세요. 대부분 스마트따옴표·비표시문자·괄호/쉼표 문제입니다.",
         "who": "퍼블리싱/개발"},
     "오적용": {
-        "as_is": "스키마의 @id·url 에 다른 국가 사이트 주소가 섞여 있습니다(예: ca_fr 페이지가 /ca/ 를 가리킴). 검색엔진이 엉뚱한 페이지를 정본으로 인식할 수 있습니다.",
+        "as_is": "스키마의 @id·url 에 다른 국가 사이트 주소가 섞여 있습니다(예: de 페이지가 /fr/ 를 가리킴 — ca_fr↔ca 처럼 같은 국가의 언어 변형은 정상으로 봅니다). 검색엔진이 엉뚱한 페이지를 정본으로 인식할 수 있습니다.",
         "to_be": "해당 값의 사이트코드 경로를 이 페이지의 사이트코드로 통일하세요(공용 리소스 이미지 등 의도된 글로벌 경로는 예외).",
         "who": "개발"},
     "미해결 참조": {
@@ -99,3 +99,43 @@ def summarize(results: List[Dict[str, Any]], sites_meta: List[Dict[str, Any]]) -
         "by_region": {k: _ratio(v) for k, v in sorted(by_region.items(), key=lambda kv: -_ratio(kv[1])["err"])},
         "overall": _ratio(results),
     }
+
+
+# [2026-09 신규] "공통페이지 매트릭스"+"공통페이지 상세" 시트 작성 — qb_routes_static.py 단독
+# 리포트(/api/qb/static/report.xlsx)와 qa_report_xlsx.py 통합 리포트(/api/qb/report.xlsx)가
+# 동일 로직을 공유한다(기존 Workbook 에 시트만 추가하므로 새 wb 생성 여부는 호출부 책임).
+def build_report_sheets(wb, run: Dict[str, Any]) -> None:
+    import static_qa
+    from openpyxl.styles import Font, PatternFill
+    results = run.get("results", [])
+    if not results:
+        return
+    ws = wb.create_sheet("공통페이지 매트릭스")
+    pages = [p for p in static_qa.STATIC_PAGES if p["key"] in {r["page"] for r in results}]
+    ws.append(["Sitecode", "Country"] + [p["label"] for p in pages])
+    for c in ws[1]:
+        c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="1B2A4A")
+    COLOR = {"정상": "DCFCE7", "파싱 실패": "FEE2E2", "오적용": "FEF3C7", "미해결 참조": "FEF3C7", "페이지 없음": "E5E7EB", "접근 실패": "F3F4F6", "기타": "FFF7ED"}
+    by = {(r["sitecode"], r["page"]): r for r in results}
+    for sc in sorted({r["sitecode"] for r in results}):
+        row = [sc, next((r["country"] for r in results if r["sitecode"] == sc), "")]
+        for p in pages:
+            r = by.get((sc, p["key"])); row.append(r["status"] if r else "")
+        ws.append(row)
+        for i, p in enumerate(pages):
+            r = by.get((sc, p["key"]))
+            if r:
+                ws.cell(row=ws.max_row, column=3 + i).fill = PatternFill("solid", fgColor=COLOR.get(r["status"], "FFFFFF"))
+    ws2 = wb.create_sheet("공통페이지 상세")
+    ws2.append(["Sitecode", "Country", "Page", "URL", "HTTP", "Status", "Reason", "JSON-LD blocks", "Parse errors(#block · category · line:col)",
+                "Foreign refs", "Unresolved refs", "Duplicate @id", "Rich result missing", "Types"])
+    for c in ws2[1]:
+        c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="1B2A4A")
+    for r in sorted(results, key=lambda x: (static_qa.STATUS_ORDER.index(x["status"]) if x["status"] in static_qa.STATUS_ORDER else 9, x["sitecode"])):
+        ws2.append([r["sitecode"], r.get("country"), r.get("page_label"), r["url"], r.get("http_status"), r["status"], " · ".join(r.get("reasons", [])),
+                    r.get("blocks"), " | ".join(f"{p.get('block')} · {p.get('category')} · {p.get('line')}:{p.get('col')}" for p in r.get("parse_errors", []) if p.get("severity", "fail") == "fail"),
+                    " | ".join(r.get("foreign_refs", [])), " | ".join(r.get("unresolved_refs", [])), " | ".join(r.get("duplicate_ids", [])),
+                    " | ".join(f"{m['type']}({','.join(m['missing'])})" for m in r.get("rich_missing", [])), ", ".join(r.get("types", []))])
+    for ws_, widths in ((ws, [10, 16] + [14] * len(pages)), (ws2, [10, 14, 16, 50, 6, 10, 40, 8, 50, 40, 40, 40, 40, 40])):
+        for i, w in enumerate(widths, 1):
+            ws_.column_dimensions[ws_.cell(row=1, column=i).column_letter].width = w

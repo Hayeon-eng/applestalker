@@ -137,36 +137,8 @@ def static_report(run_id: Optional[str] = None):
     if not d:
         raise HTTPException(404, "실행 결과 없음")
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
-    wb = Workbook(); ws = wb.active; ws.title = "Matrix"
-    pages = [p for p in static_qa.STATIC_PAGES if p["key"] in {r["page"] for r in d["results"]}]
-    ws.append(["Sitecode", "Country"] + [p["label"] for p in pages])
-    for c in ws[1]:
-        c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="1B2A4A")
-    COLOR = {"정상": "DCFCE7", "파싱 실패": "FEE2E2", "오적용": "FEF3C7", "미해결 참조": "FEF3C7", "페이지 없음": "E5E7EB", "접근 실패": "F3F4F6", "기타": "FFF7ED"}
-    by = {(r["sitecode"], r["page"]): r for r in d["results"]}
-    for sc in sorted({r["sitecode"] for r in d["results"]}):
-        row = [sc, next((r["country"] for r in d["results"] if r["sitecode"] == sc), "")]
-        for p in pages:
-            r = by.get((sc, p["key"])); row.append(r["status"] if r else "")
-        ws.append(row)
-        for i, p in enumerate(pages):
-            r = by.get((sc, p["key"]))
-            if r:
-                ws.cell(row=ws.max_row, column=3 + i).fill = PatternFill("solid", fgColor=COLOR.get(r["status"], "FFFFFF"))
-    ws2 = wb.create_sheet("Detail")
-    ws2.append(["Sitecode", "Country", "Page", "URL", "HTTP", "Status", "Reason", "JSON-LD blocks", "Parse errors(#block · category · line:col)",
-                "Foreign refs", "Unresolved refs", "Duplicate @id", "Rich result missing", "Types"])
-    for c in ws2[1]:
-        c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="1B2A4A")
-    for r in sorted(d["results"], key=lambda x: (static_qa.STATUS_ORDER.index(x["status"]) if x["status"] in static_qa.STATUS_ORDER else 9, x["sitecode"])):
-        ws2.append([r["sitecode"], r.get("country"), r.get("page_label"), r["url"], r.get("http_status"), r["status"], " · ".join(r.get("reasons", [])),
-                    r.get("blocks"), " | ".join(f"{p.get('block')} · {p.get('category')} · {p.get('line')}:{p.get('col')}" for p in r.get("parse_errors", []) if p.get("severity", "fail") == "fail"),
-                    " | ".join(r.get("foreign_refs", [])), " | ".join(r.get("unresolved_refs", [])), " | ".join(r.get("duplicate_ids", [])),
-                    " | ".join(f"{m['type']}({','.join(m['missing'])})" for m in r.get("rich_missing", [])), ", ".join(r.get("types", []))])
-    for ws_, widths in ((ws, [10, 16] + [14] * len(pages)), (ws2, [10, 14, 16, 50, 6, 10, 40, 8, 50, 40, 40, 40, 40, 40])):
-        for i, w in enumerate(widths, 1):
-            ws_.column_dimensions[ws_.cell(row=1, column=i).column_letter].width = w
+    wb = Workbook(); wb.remove(wb.active)
+    static_guide.build_report_sheets(wb, d)
     buf = io.BytesIO(); wb.save(buf)
     return StreamingResponse(io.BytesIO(buf.getvalue()), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": f"attachment; filename=qubi_static_{d['run_id']}.xlsx"})

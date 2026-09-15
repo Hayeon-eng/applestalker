@@ -63,7 +63,7 @@ def _error_owner(block_type: str, where: str, item: str, issue_type: str) -> str
     # 4) 판정 불가(알 수 없는 블록/구문오류 등) → OC 폴백
     return "OC"
 
-def build_xlsx(page_results):
+def build_xlsx(page_results, static_run=None):
     """Excel 리포트 — 화면 탭과 동일한 2시트(전체 영어), 작업자가 바로 수정 가능한 상세 단위.
       · Sheet 1 "Data QA" : 속성 1개 = 1행. 현재값(As-Is) ↔ 수정 가이드(To-Be) + 수정 위치 + 영향
       · Sheet 2 "Spec QA" : 스펙/고유명사 1건 = 1행. 기준값 ↔ 페이지 실제값 + 수정 가이드
@@ -479,5 +479,9 @@ def build_xlsx(page_results):
     if not spec_rows:
         ws2.append(["—", "", "", "", "", "🟢 OK", "No issues found", "", "", "", ""])
     _finish(ws2, W2, "A2")
+
+    if static_run and static_run.get("results"):
+        import static_guide
+        static_guide.build_report_sheets(wb, static_run)
 
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
