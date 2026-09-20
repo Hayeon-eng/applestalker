@@ -1,0 +1,17 @@
+name: hc-scheduled-report
+
+on:
+  schedule:
+    - cron: "0 1 * * 1"   # Every Monday 10:00 KST (scheduled-crawl.yml 과 30분 이상 띄워 SerpApi 호출이 겹치지 않게)
+  workflow_dispatch: {}
+
+jobs:
+  collect-and-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake backend and run honeyComb collection + email
+        run: |
+          test -n "${{ secrets.BACKEND_URL }}" || (echo "BACKEND_URL secret is missing" && exit 1)
+          test -n "${{ secrets.CRON_TOKEN }}" || (echo "CRON_TOKEN secret is missing" && exit 1)
+          curl -fsS --retry 2 --retry-delay 10 --max-time 900 \
+            "${{ secrets.BACKEND_URL }}/api/hc/cron/tick?token=${{ secrets.CRON_TOKEN }}"
