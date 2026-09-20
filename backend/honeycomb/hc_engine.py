@@ -33,17 +33,24 @@ def judge_position(items: List[Dict[str, Any]], top_n: int) -> Dict[str, Any]:
             "status": "top1" if pos == 1 else "topn" if pos <= top_n else "low"}
 
 
-def trace_attributes(item: Dict[str, Any], detail: Dict[str, str], attributes: List[Dict[str, Any]]) -> Dict[str, str]:
-    """카드(item.attrs)+상세(detail) 에서 관측된 값 → 51속성 entered/missed/na. 실수집 provider 용."""
+def trace_attributes(item: Dict[str, Any], detail: Dict[str, str], attributes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """카드(item.attrs)+상세(detail) 에서 관측된 값 → 51속성 entered/missed/na. 실수집 provider 용.
+    [2026-09 신규] 그동안 entered/missed 로만 뭉개져서 "보임/안 보임"만 알 수 있었다 — 실제로 어떤
+    텍스트·불릿·이미지로 노출됐는지가 안 보였다. attrs(상태 문자열, 기존 소비처 호환 그대로 유지)와
+    별개로 values(실제 관측값)를 같이 반환해서, 화면에서 "어떻게" 노출됐는지도 보여줄 수 있게 한다."""
     seen = {**(item.get("attrs") or {}), **(detail or {})}
-    out = {}
+    out: Dict[str, str] = {}
+    values: Dict[str, Any] = {}
     for a in attributes:
         key = a["code"] + ("" if not a.get("sub") else f"#{a['no']}")
         if a["observe"] == "feed":
             out[key] = "na"
         else:
-            out[key] = "entered" if seen.get(a["code"]) not in (None, "", False) else "missed"
-    return out
+            raw = seen.get(a["code"])
+            out[key] = "entered" if raw not in (None, "", False) else "missed"
+            if raw not in (None, "", False):
+                values[key] = raw
+    return {"attrs": out, "attr_values": values}
 
 
 def gaps(cell: Dict[str, Any]) -> Dict[str, List[str]]:
@@ -134,7 +141,7 @@ def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any
                     progress(done, total, {"country": c["code"], "product": p["slug"], "keyword": k["text"], "status": "조회 중"})
                 cell = {"country": c["code"], "product": p["slug"], "keyword": k["text"], "keyword_type": k.get("type", "brand"),
                         "keyword_subtype": k.get("subtype"), "position": None, "top_n": top_n, "scom_exposed": None,
-                        "first_store": None, "status": "unchecked", "attrs": {}, "feed": {}, "evidence": None, "items_top": []}
+                        "first_store": None, "status": "unchecked", "attrs": {}, "attr_values": {}, "feed": {}, "evidence": None, "items_top": []}
                 try:
                     res = provider.fetch_shopping(c, k["text"])
                     items = res.get("items") or []
@@ -149,13 +156,15 @@ def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any
                         best = min(ours, key=lambda it: it["position"])
                         cell["our_item"] = {k2: best.get(k2) for k2 in ("position", "title", "merchant", "price", "link", "product_id")}
                         # 카드에서 바로 보이는 속성은 항상 채운다(상세 조회 없이도)
-                        cell["attrs"] = trace_attributes(best, {}, attributes)
+                        _tr = trace_attributes(best, {}, attributes)
+                        cell["attrs"], cell["attr_values"] = _tr["attrs"], _tr["attr_values"]
                         # 상세 조회는 '있으면 더 채우는' 보강 단계 — 실패해도 순위 결과는 그대로 두고 경고만 남긴다
                         if detail_for_samsung:
                             try:
                                 detail = provider.fetch_product_detail(c, best)
                                 if detail:
-                                    cell["attrs"] = trace_attributes(best, detail, attributes)
+                                    _tr = trace_attributes(best, detail, attributes)
+                                    cell["attrs"], cell["attr_values"] = _tr["attrs"], _tr["attr_values"]
                             except Exception as de:
                                 cell["detail_error"] = str(de)[:200]
                                 errors.append({"country": c["code"], "product": p["slug"], "keyword": k["text"],
