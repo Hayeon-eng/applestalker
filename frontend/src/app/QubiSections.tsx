@@ -186,6 +186,24 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
               </div>
             </div>
           )}
+          {/* [2026-09 신규] 그동안 여기엔 스키마 기준만 있었고 H태그/Meta/SEO 기준은 어디에도 안 보였다 —
+              QubiDataQa 상세뷰·점수 배지와 같은 용어(H태그/Meta/SEO)로 통일해 여기서도 설명한다. */}
+          <div style={{ borderTop: "2px solid var(--line)", marginTop: 8, paddingTop: 8 }}>
+            <b>HTML 검수 · SEO 요소 검수 기준</b>
+            <p style={{ color: "var(--sec)", margin: "2px 0 8px" }}>스키마와 별도로, 화면에 실제 보이는 태그·메타 정보도 사람 검수 항목과 같은 기준으로 확인해요. 세 영역(H태그/Meta/스키마)과 SEO 요소 검수는 서로 다른 점수로 따로 보여줘요 — 하나로 뭉치면 어디가 문제인지 안 보이기 때문이에요.</p>
+            <div style={{ fontWeight: 700, color: "var(--high)" }}>🔴 오류(fail)</div>
+            <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+              <li><b>H태그</b> — H1이 정확히 1개가 아님</li>
+              <li><b>Meta</b> — Title 또는 Description 태그 자체가 없음</li>
+              <li><b>SEO 요소</b> — Canonical 누락/자기참조 아님, robots 오설정, Breadcrumb 구조·라벨·링크 오류</li>
+            </ul>
+            <div style={{ fontWeight: 700, color: HONEY }}>🟡 확인(warn) — 오류 아님</div>
+            <ul style={{ margin: "2px 0 6px 16px", color: "var(--sec)", lineHeight: 1.7 }}>
+              <li>Title 60~70자, Description 160~180자(버퍼 이내 초과) — 태그는 있고 길이만 권장 범위를 살짝 넘음</li>
+              <li>H2/H3/H4는 없어도 정상인 페이지가 많아 비어있으면 오류 대신 확인 권장으로 표시</li>
+            </ul>
+            <div style={{ color: "var(--sec)", fontSize: 11.5, marginTop: 4 }}>점수 계산: H태그/Meta/스키마는 각각 (통과 항목 ÷ 전체 항목), SEO 요소는 (pass ÷ (pass+fail)) — warn은 어느 쪽 분모에도 감점으로 들어가지 않아요.</div>
+          </div>
         </div>
       ) : (
         <div style={{ fontSize: 12.5, marginTop: 8 }}>

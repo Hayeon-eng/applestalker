@@ -37,6 +37,8 @@ export default function Page() {
   const [crawling, setCrawling] = useState(false);
   const [progress, setProgress] = useState<CrawlProgress>({ active: false, total: 0, done: 0 });
   const [emailState, setEmailState] = useState("");
+  const [showEmailPicker, setShowEmailPicker] = useState(false);
+  const [emailSections, setEmailSections] = useState<Set<string>>(new Set(["data", "copy", "visual"]));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerSection, setDrawerSection] = useState<string | null>(null);
   const [showUrlAdd, setShowUrlAdd] = useState(false);
@@ -156,10 +158,11 @@ export default function Page() {
     }
   };
 
-  const copyEmailBody = async () => {
+  const copyEmailBody = async (sections?: string[]) => {
     setEmailState("본문 준비 중…");
     try {
-      const res = await fetch(API + "/api/export/email-html", { cache: "no-store" });
+      const qs = sections && sections.length ? "?" + sections.map((s) => `sections=${encodeURIComponent(s)}`).join("&") : "";
+      const res = await fetch(API + "/api/export/email-html" + qs, { cache: "no-store" });
       if (!res.ok) throw new Error("fetch");
       const html = await res.text();
       // 서식(표·색·점수) 유지하며 클립보드에 복사 → 메일 작성창에 그대로 붙여넣기
@@ -210,23 +213,6 @@ export default function Page() {
     if (newUrlRef.current) newUrlRef.current.value = "";
     setShowUrlAdd(false);
     load();
-  };
-
-  // [2026-09] 최신 제품 URL 자동 탐색(Apple) — 사이트맵 + 세대 프로브 + 존재 확인. verified 만 등록.
-  const [discover, setDiscover] = useState<{ loading: boolean; result: any | null; picked: Set<string> }>({ loading: false, result: null, picked: new Set() });
-  const runDiscover = async () => {
-    setDiscover({ loading: true, result: null, picked: new Set() });
-    try {
-      const r = await (await fetch(API + "/api/urls/discover?site_key=apple")).json();
-      setDiscover({ loading: false, result: r, picked: new Set((r.verified || []).map((x: any) => x.url)) });
-    } catch (e) { setDiscover({ loading: false, result: { error: String(e) }, picked: new Set() }); }
-  };
-  const applyDiscover = async () => {
-    const urls = Array.from(discover.picked); if (!urls.length) return;
-    const pw = window.prompt(`확인된 URL ${urls.length}개 등록 — 관리자 비밀번호`); if (pw === null) return;
-    const r = await fetch(API + "/api/urls/discover/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ urls, site_key: "apple", admin_password: pw }) });
-    if (!r.ok) { alert("등록 실패: 비밀번호를 확인하세요."); return; }
-    setDiscover({ loading: false, result: null, picked: new Set() }); load();
   };
 
   const deleteUrl = async (u: string) => {
@@ -362,29 +348,6 @@ export default function Page() {
             </div>
           )}
 
-          <button className="runItem" onClick={runDiscover} disabled={discover.loading}>
-            <span style={{ fontSize: 12, color: "var(--blue)", fontWeight: 600 }}>{discover.loading ? "찾는 중… (apple.com 에 실제로 있는 주소만)" : "🔎 Apple 신제품 페이지 찾기"}</span>
-          </button>
-          {discover.result && (
-            <div style={{ padding: "4px 6px 8px", fontSize: 11.5 }}>
-              {discover.result.error && <div style={{ color: "var(--high)" }}>{discover.result.error}</div>}
-              {!discover.result.error && (<>
-                <div style={{ color: "var(--sec)", marginBottom: 4 }}>apple.com 에 실제로 존재하는 새 페이지 <b style={{ color: "#166534" }}>{discover.result.verified?.length}개</b> (아래 체크된 것만 등록됩니다)</div>
-                {(discover.result.candidates || []).filter((c: any) => c.verified).map((c: any) => (
-                  <label key={c.url} style={{ display: "flex", gap: 6, alignItems: "flex-start", padding: "2px 0" }}>
-                    <input type="checkbox" checked={discover.picked.has(c.url)} onChange={(e) => { const s2 = new Set(discover.picked); e.target.checked ? s2.add(c.url) : s2.delete(c.url); setDiscover({ ...discover, picked: s2 }); }} />
-                    <span style={{ wordBreak: "break-all" }}>{c.url} <span style={{ color: "var(--sec)" }}>· {c.category}{c.generation ? ` · ${c.generation}세대` : ""} · {c.source}</span></span>
-                  </label>))}
-                {(discover.result.verified || []).length === 0 && <div style={{ color: "var(--sec)" }}>새로 확인된 페이지가 없습니다(이미 최신이거나 apple.com 접근 불가).</div>}
-                {(discover.result.candidates || []).some((c: any) => !c.verified) && (
-                  <details style={{ marginTop: 4 }}><summary style={{ cursor: "pointer", color: "var(--sec)" }}>확인해 봤지만 없는 주소 {(discover.result.candidates || []).filter((c: any) => !c.verified).length}개</summary>
-                    {(discover.result.candidates || []).filter((c: any) => !c.verified).map((c: any) => <div key={c.url} style={{ color: "var(--ter)", wordBreak: "break-all" }}>{c.url} · HTTP {c.status ?? "—"}{c.note ? ` · ${c.note}` : ""}</div>)}
-                  </details>)}
-                {discover.picked.size > 0 && <button className="btnAdd" style={{ marginTop: 6, padding: "5px 10px" }} onClick={applyDiscover}>확인된 {discover.picked.size}개 등록</button>}
-              </>)}
-            </div>
-          )}
-
           <button className="urlAccordionToggle" onClick={() => setUrlAccordionOpen((v) => !v)}>
             <span>{urlAccordionOpen ? "▾" : "▸"} 모니터링 URL 목록</span>
             <span className="urlAccordionCount">{urls.length}개</span>
@@ -462,9 +425,30 @@ export default function Page() {
                   🎞 PPTX
                 </a>
               )}
-              <button className="toolBtn" onClick={copyEmailBody} disabled={!online}>
-                📋 메일 본문 복사
-              </button>
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <button className="toolBtn" onClick={() => setShowEmailPicker((v) => !v)} disabled={!online}>
+                  📋 메일 본문 복사 {showEmailPicker ? "▴" : "▾"}
+                </button>
+                {showEmailPicker && (
+                  <div className="card" style={{ position: "absolute", bottom: "calc(100% + 4px)", right: 0, zIndex: 20, width: 180, padding: 10 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: "#667085", marginBottom: 6 }}>복사할 영역 선택</div>
+                    {[["data", "DATA"], ["copy", "COPY"], ["visual", "VISUAL"]].map(([key, label]) => {
+                      const on = emailSections.has(key);
+                      return (
+                        <label key={key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, padding: "4px 2px", cursor: "pointer" }}>
+                          <input type="checkbox" checked={on} onChange={(e) => {
+                            const next = new Set(emailSections);
+                            e.target.checked ? next.add(key) : next.delete(key);
+                            setEmailSections(next);
+                          }} />
+                          {label}
+                        </label>
+                      );
+                    })}
+                    <button className="toolBtn" style={{ marginTop: 8, width: "100%" }} onClick={() => { copyEmailBody(Array.from(emailSections)); setShowEmailPicker(false); }}>선택 항목 복사</button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

@@ -292,7 +292,7 @@ export const pageRoleFromUrl = (u: string): "home" | "pf" | "pdp" | "buying" | "
     if (/\/shop\//.test(path) || /\/buy\//.test(path) || /\/cart\//.test(path) || /\/checkout\//.test(path) || /\/config\//.test(path) || /shop-all/.test(path)) return "buying";
     if (/specs|specifications|tech-specs/.test(path)) return "specs";
     if (/compare|find-your|switch-to|galaxy-ai|apple-intelligence|one-ui/.test(path) && !/ray-ban-meta/.test(path)) return "campaign_or_compare";
-    if (/iphone-17-pro|pixel_10_pro|xiaomi-17-ultra|find-x9-ultra|x300-ultra|ipad-pro|xiaomi-pad-8-pro|airpods-pro|apple-watch-ultra|watch-ultra|buds4-pro|wf1000|wf-1000|fenix|macbook-pro|xps-16|xps-da|galaxy-s26-ultra|galaxy-tab-s11|galaxy-book|galaxy-book6-ultra|ray-ban-meta/.test(path)) return "pdp";
+    if (/iphone-\d+-pro|iphone-duo|pixel_10_pro|xiaomi-17-ultra|find-x9-ultra|x300-ultra|ipad-pro|xiaomi-pad-8-pro|airpods-pro|apple-watch-ultra|watch-ultra|buds4-pro|wf1000|wf-1000|fenix|macbook-pro|xps-16|xps-da|galaxy-s26-ultra|galaxy-tab-s11|galaxy-book|galaxy-book6-ultra|ray-ban-meta/.test(path)) return "pdp";
     if (/iphone|ipad|phones|smartphones|product-list|products|tablets|watch|watches|airpods|audio|headphones|wearables|mac|laptops|galaxybooks|galaxy-book|computers|ai-glasses/.test(path)) return "pf";
     return "content";
   } catch { return "content"; }

@@ -8,7 +8,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 type Cell = { country: string; product: string; keyword: string; keyword_type: string; position: number | null; status: string;
-  first_store?: string | null; scom_exposed?: string | null; attrs: Record<string, string>; feed: Record<string, string> };
+  first_store?: string | null; scom_exposed?: string | null; attrs: Record<string, string>; attr_values?: Record<string, any>; feed: Record<string, string> };
 type Attr = { no: number; sub?: boolean; category: string; name: string; code: string; observe: string };
 type Keyword = { id: string; product: string; text: string; type: string; subtype?: string; countries: string[]; enabled: boolean; note?: string };
 
@@ -111,10 +111,28 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
 
   const saveKeyword = async () => {
     if (!kwForm.product || !kwForm.text) { setMsg("제품과 키워드를 입력하세요"); return; }
-    const r = await (await fetch(api("/api/hc/keywords"), J(kwForm))).json();
+    // [2026-09 신규] 키워드 1개가 늘 때마다 국가 수만큼 SerpApi 호출이 곱절로 늘어나 부하가 커지므로 관리자 비밀번호로 막는다
+    const pw = window.prompt("키워드 추가 — 관리자 비밀번호(SerpApi 호출량이 늘어나는 조작입니다)");
+    if (pw === null) return;
+    const resp = await fetch(api("/api/hc/keywords"), J({ ...kwForm, admin_password: pw }));
+    const r = await resp.json().catch(() => ({}));
+    if (!resp.ok) { setMsg(r.detail || "저장 실패"); return; }
     setMsg(r.ok ? `저장됨 — ${r.keyword.text}` : "저장 실패"); setKwForm({ type: "brand", subtype: "A1", countries: [], enabled: true, product: kwForm.product }); loadKeywords();
   };
   const removeKeyword = async (id: string) => { await fetch(api("/api/hc/keywords/remove"), J({ id })); loadKeywords(); };
+  // [2026-09 신규] 큐비/애플스토커와 동일한 패턴 — 서버가 만든 HTML을 그대로 클립보드에 복사
+  const copyEmail = async () => {
+    try {
+      const r = await fetch(api(`/api/hc/email-html${runId ? `?run_id=${encodeURIComponent(runId)}` : ""}`), { cache: "no-store" });
+      if (!r.ok) throw new Error(`서버 오류 (${r.status})`);
+      const body = await r.text();
+      if (navigator.clipboard && "write" in navigator.clipboard && typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([body], { type: "text/html" }), "text/plain": new Blob([body], { type: "text/plain" }) })]);
+        setMsg("메일 본문 복사됨 — 붙여넣기 🍯");
+      } else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(body); setMsg("메일 본문 복사됨 🍯"); }
+      else { const w = window.open("", "_blank"); if (w) { w.document.write(body); w.document.close(); } setMsg("새 탭에서 복사하세요"); }
+    } catch (e: any) { setMsg(`메일 복사 실패 — ${e.message || e}`); }
+  };
   const toggleKeyword = async (k: Keyword) => { await fetch(api("/api/hc/keywords"), J({ ...k, enabled: !k.enabled })); loadKeywords(); };
 
   return (
@@ -164,7 +182,8 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
             <input type="checkbox" checked={withDetail} onChange={(e) => setWithDetail(e.target.checked)} /> 상세 조회(속성 역추적) 포함
           </label>
           {estimate && <span className="emailNotice">예상 호출 {estimate.searches}회{withDetail ? ` + 상세 최대 ${estimate.detail_max}회` : ""} · 국가 {estimate.countries} × 제품 {estimate.products} × 키워드 {estimate.keywords_enabled}</span>}
-          <a className="btnSecondary" href={api(`/api/hc/report.xlsx?run_id=${runId}`)}>Excel 내려받기</a>
+          <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
+          <a className="btnSecondary" href={api(`/api/hc/report.xlsx?run_id=${runId}`)}>📊 Excel 내려받기</a>
           {cfg.provider !== "serpapi" && <span className="emailNotice">SerpApi 키가 없어 목업 데이터만 보입니다 — 설정에서 키 입력</span>}
           {msg && <span className="emailNotice" style={{ color: HONEY_DARK }}>{msg}</span>}
         </div>
@@ -356,18 +375,14 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
               <div className="card">
                 <b style={{ fontSize: 14 }}>키워드 추가 · 수정</b>
                 <p style={{ fontSize: 12, color: "var(--sec)", margin: "4px 0 10px" }}>제품별 Google Shopping 검색어(제품명 키워드)를 관리합니다. 제품당 사용 중 키워드는 2개까지 — 키워드 1개가 늘면 국가 수(6)만큼 API 호출이 늘어납니다. 국가를 비우면 전 국가에 적용됩니다.</p>
-                <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 190px 200px 1fr auto", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 200px 1fr auto", gap: 8, alignItems: "center" }}>
                   <select value={kwForm.product || ""} onChange={(e) => setKwForm({ ...kwForm, product: e.target.value })} style={inp}>
                     <option value="">제품 선택</option>{cfg.products.map((p: any) => <option key={p.slug} value={p.slug}>{p.label}</option>)}
                   </select>
-                  <input value={kwForm.text || ""} onChange={(e) => setKwForm({ ...kwForm, text: e.target.value })} placeholder='검색어 (예: "best foldable phone for multitasking")' style={inp} />
-                  <select value={kwForm.subtype || "A1"} onChange={(e) => setKwForm({ ...kwForm, subtype: e.target.value, type: "brand" })} style={inp} title="제품명 키워드만 등록할 수 있습니다">
-                    {taxonomy?.brand ? Object.entries(taxonomy.brand.subtypes || {}).map(([code, st]: any) => <option key={code} value={code}>{code} {st.label}</option>)
-                      : <><option value="A1">A1 정식 제품명</option><option value="A2">A2 제품명 + 사양/변형</option><option value="A3">A3 제품명 + 구매 의도</option></>}
-                  </select>
+                  <input value={kwForm.text || ""} onChange={(e) => setKwForm({ ...kwForm, text: e.target.value, subtype: "A1", type: "brand" })} placeholder='제품명 키워드 (예: "Galaxy Z Fold8 Ultra")' style={inp} title="제품명 키워드만 등록할 수 있습니다" />
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{cfg.countries.map((c: any) => { const on = (kwForm.countries || []).includes(c.code); return <span key={c.code} style={{ ...chip(on), fontSize: 11, padding: "2px 7px" }} onClick={() => setKwForm({ ...kwForm, countries: on ? (kwForm.countries || []).filter((x) => x !== c.code) : [...(kwForm.countries || []), c.code] })}>{c.code}</span>; })}</div>
                   <input value={kwForm.note || ""} onChange={(e) => setKwForm({ ...kwForm, note: e.target.value })} placeholder="메모(선택)" style={inp} />
-                  <button className="btnPrimary" style={{ background: HONEY_DARK, padding: "7px 14px" }} onClick={saveKeyword}>저장</button>
+                  <button className="btnPrimary" style={{ background: HONEY_DARK, padding: "7px 14px" }} onClick={saveKeyword}>🔒 추가</button>
                 </div>
                 {msg && <p style={{ fontSize: 12, color: HONEY_DARK, marginTop: 8 }}>{msg}</p>}
               </div>
@@ -395,18 +410,32 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   );
 }
 
+function AttrValue({ v }: { v: any }) {
+  if (v == null || v === "") return <span style={{ color: "var(--sec)" }}>—</span>;
+  if (Array.isArray(v)) {
+    return <ul style={{ margin: 0, paddingLeft: 16 }}>{v.slice(0, 6).map((x, i) => <li key={i} style={{ fontSize: 11.5 }}>{String(x)}</li>)}{v.length > 6 && <li style={{ fontSize: 11, color: "var(--sec)" }}>외 {v.length - 6}개</li>}</ul>;
+  }
+  const s = String(v);
+  if (/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(s)) {
+    return <a href={s} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 6 }}><img src={s} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: 4, border: "1px solid var(--line)" }} /><span style={{ fontSize: 11, color: "var(--sec)", wordBreak: "break-all" }}>이미지 보기</span></a>;
+  }
+  if (/^https?:\/\//i.test(s)) return <a href={s} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, wordBreak: "break-all" }}>{s.length > 60 ? s.slice(0, 60) + "…" : s}</a>;
+  return <span style={{ fontSize: 11.5 }} title={s.length > 140 ? s : undefined}>{s.length > 140 ? s.slice(0, 140) + "…" : s}</span>;
+}
+
 function AttrTable({ attrs, cell }: { attrs: Attr[]; cell: Cell }) {
   const cats = [...new Set(attrs.map((a) => a.category))];
   return (
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead><tr><th style={th}>#</th><th style={th}>속성</th><th style={th}>보이는 곳</th><th style={th}>화면</th></tr></thead>
+      <thead><tr><th style={th}>#</th><th style={th}>속성</th><th style={th}>보이는 곳</th><th style={th}>화면</th><th style={th}>노출 내용 <span style={{ fontWeight: 400, color: "var(--sec)" }}>실제 관측값</span></th></tr></thead>
       <tbody>
         {cats.map((cat) => (<Fragment key={cat}>
-          <tr><td colSpan={4} style={{ ...td, background: "var(--rail)", fontWeight: 700, fontSize: 11.5, color: "var(--label2)" }}>{cat}</td></tr>
+          <tr><td colSpan={5} style={{ ...td, background: "var(--rail)", fontWeight: 700, fontSize: 11.5, color: "var(--label2)" }}>{cat}</td></tr>
           {attrs.filter((a) => a.category === cat).map((a) => { const v = cell.attrs[akey(a)] || "na";
             return (<tr key={akey(a)} style={{ background: v === "missed" ? "var(--high-soft)" : undefined }}>
               <td style={{ ...td, color: "var(--sec)" }}>{a.no}{a.sub ? "·" : ""}</td><td style={td}>{a.name}</td><td style={{ ...td, color: "var(--sec)" }}>{OBS[a.observe]}</td>
               <td style={td}><Mark v={v} /></td>
+              <td style={{ ...td, maxWidth: 320 }}>{v === "entered" ? <AttrValue v={cell.attr_values?.[akey(a)]} /> : <span style={{ color: "var(--sec)" }}>—</span>}</td>
             </tr>); })}
         </Fragment>))}
       </tbody>

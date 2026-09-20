@@ -217,3 +217,60 @@ function Detail({ sel, onClose }: { sel: any; onClose: () => void }) {
     </div>
   );
 }
+
+/* ── V2 검수 기준 설명 — 공통페이지(Static) QA. Spec/Data QA 패널과 톤·구조 통일 ── */
+export function StaticV2Criteria({ show, panelRef }: { show: boolean; panelRef?: any }) {
+  if (!show) return null;
+  const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
+  const h = { fontWeight: 800, fontSize: 12.5, marginBottom: 4 } as const;
+  const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.75 } as const;
+  return (
+    <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
+      <b style={{ fontSize: 14 }}>검수 방식 — 공통페이지</b>
+      <p style={{ fontSize: 12.5, color: "var(--sec)", margin: "6px 0 0" }}>
+        91개 사이트코드 × 7종 공통 페이지(Home·All about Galaxy·Switch to Galaxy 등)에서 <b>JSON-LD 스키마</b>가 검색엔진에 제대로 읽히는지를 규칙으로만 대조해요.
+      </p>
+      <div style={box}>
+        <div style={h}>결과는 7가지 — 오류로 집계되는 건 4가지</div>
+        <div style={li}>
+          <div>🟢 <b style={{ color: INK["정상"] }}>정상</b> — {HELP["정상"]}. <b>점수에 OK로 집계</b></div>
+          <div style={{ marginTop: 4 }}>🔴 <b style={{ color: INK["파싱 실패"] }}>파싱 실패</b> · <b style={{ color: INK["오적용"] }}>오적용</b> · <b style={{ color: INK["미해결 참조"] }}>미해결 참조</b> · <b style={{ color: INK["기타"] }}>기타</b> — 실제 콘텐츠·구현 결함. <b>점수에 오류로 집계</b></div>
+          <div style={{ marginTop: 4 }}>⚪ <b style={{ color: INK["페이지 없음"] }}>페이지 없음</b> · <b style={{ color: INK["접근 실패"] }}>접근 실패</b> — 그 국가에 페이지가 없거나(정상일 수 있음) 수집 환경 문제. <b>점수 계산에서 제외</b>(정상·오류 둘 다 아님)</div>
+        </div>
+      </div>
+      <div style={box}>
+        <div style={h}>같은 국가의 언어 변형은 "다른 국가"로 안 봐요</div>
+        <div style={li}>ca_fr↔ca, ch_fr↔ch 처럼 sitecodes_master.json 의 언어 변형 그룹이 같으면, 서로의 주소를 참조해도 "오적용"으로 잡지 않아요(예: ca_fr 페이지가 /ca/ 를 참조 — 정상).</div>
+      </div>
+      <div style={box}>
+        <div style={h}>검사 대상 페이지는 계속 늘어날 수 있어요</div>
+        <div style={li}>현재 확정 3종(Home·All about Galaxy·Switch to Galaxy) + 후보 4종. 후보는 첫 실행에서 200 응답인 경로를 자동으로 캐시해요 — 다음 실행부터 그 경로로 바로 확인합니다.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── V2 점수 계산 설명 — 공통페이지(Static) QA ── */
+export function StaticV2Score({ show, panelRef }: { show: boolean; panelRef?: any }) {
+  if (!show) return null;
+  const box = { background: "#F7F9FC", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginTop: 8 } as const;
+  const li = { fontSize: 12, color: "var(--sec)", lineHeight: 1.7 } as const;
+  return (
+    <div ref={panelRef} className="card qbiPopIn" style={{ marginTop: 16, padding: 16 }}>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>📊 점수 계산 — 공통페이지</div>
+      <div style={box}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>오류율 = (파싱실패+오적용+미해결참조+기타) ÷ (전체 − 페이지없음 − 접근실패) × 100</div>
+        <div style={{ ...li, marginTop: 6 }}>
+          ⚪ 페이지 없음·접근 실패는 <b>분모에서도 빠져요</b> — 그 국가에 해당 페이지가 아예 없거나(콘텐츠 문제 아님) 수집 환경 문제라 콘텐츠 품질과 무관하기 때문이에요.
+        </div>
+        <div style={{ ...li, marginTop: 6, background: "#fff", border: "1px solid var(--line)", borderRadius: 6, padding: "6px 8px" }}>
+          예) 91개 사이트 중 정상 80 · 오류 6 · 페이지없음 3 · 접근실패 2 → 6 ÷ 86 = <b>7%</b> 오류율(정상 93%)
+        </div>
+        <div style={{ ...li, marginTop: 4 }}>페이지별(Home·All about Galaxy…) 오류율도 같은 식으로 따로 계산해요 — 매트릭스의 각 열이 그 결과예요.</div>
+      </div>
+      <div style={{ fontSize: 11.5, color: "#93540A", marginTop: 8, background: "#FFFAEB", border: "1px solid #FEDF89", borderRadius: 8, padding: "8px 10px" }}>
+        ⚠️ 페이지없음·접근실패 비중이 큰 페이지는 오류율(%)만 보면 실제보다 좋아 보일 수 있어요 — 매트릭스에서 회색(⚪) 비중도 함께 확인하세요.
+      </div>
+    </div>
+  );
+}

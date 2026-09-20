@@ -10,7 +10,7 @@ import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
 import { HtmlQaSummary, SiteOverview } from "./QubiDataQa";
 import { SpecSiteOverview, SpecQaDetails, DictionaryPanel, DictionaryReviewSection, SpecV2RuleTable, SpecV2Criteria, SpecV2Score } from "./QubiSpecQa";
 import { QubiSidebar } from "./QubiSidebar";
-import { QubiStaticQa } from "./QubiStaticQa"; // [2026-09] 공통페이지 QA
+import { QubiStaticQa, StaticV2Criteria, StaticV2Score } from "./QubiStaticQa"; // [2026-09] 공통페이지 QA
 import { QubiRunPanel } from "./QubiRunPanel";
 
 export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
@@ -286,19 +286,25 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     }
   };
   const reportQs = () => (runId ? `?run_id=${encodeURIComponent(runId)}` : ""); // 화면에 보이는 이력과 동일 데이터 보장
-  const emailQs = () => { // 메일은 현재 탭 내용만 — schema/copy 중 지금 보는 것만 복사
+  const [showEmailPicker, setShowEmailPicker] = useState(false);
+  const [emailSections, setEmailSections] = useState<Set<string>>(new Set());
+  const emailSectionQs = (secs: string[]) => {
     const base = runId ? `?run_id=${encodeURIComponent(runId)}` : "?";
-    return `${base}${base.endsWith("?") ? "" : "&"}tab=${tab}`;
+    return `${base}${base.endsWith("?") ? "" : "&"}` + secs.map((s) => `sections=${encodeURIComponent(s)}`).join("&");
   };
   const downloadXlsx = async () => {
     if (!results.length) { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
     await downloadBlob(`/api/qb/report.xlsx${reportQs()}`, null, `qubi_qa_report${runId ? `_${runId}` : ""}.xlsx`); // [2026-07] 파일명에 run_id — 어느 검수의 리포트인지 파일만 봐도 구분
   };
-  const copyEmail = async () => {
-    if (!results.length) { setErr("먼저 검수를 실행한 뒤 메일 본문을 복사할 수 있어요."); return; }
+  // [2026-09 FIX] 예전엔 "지금 보는 탭"만 복사됐고 공통페이지 QA는 아예 복사가 안 됐다 —
+  // Data QA/Spec QA/공통페이지 QA 중 원하는 걸 체크박스로 골라서 한 메일에 합쳐 복사한다.
+  const copyEmail = async (secsArg?: string[]) => {
+    const secs: string[] = secsArg && secsArg.length ? secsArg : Array.from<string>(emailSections.size ? emailSections : new Set([tab]));
+    const needsResults = secs.some((s) => s === "schema" || s === "copy");
+    if (needsResults && !results.length && !secs.includes("static")) { setErr("먼저 검수를 실행한 뒤 메일 본문을 복사할 수 있어요."); return; }
     try {
       // Apple Stalker와 동일: 본문 없는 GET(CORS preflight 회피). run_id가 있으면 그 이력을, 없으면 서버가 든 마지막 결과를 받음
-      const r = await fetch(api(`/api/qb/email-draft${emailQs()}`), { cache: "no-store" });
+      const r = await fetch(api(`/api/qb/email-draft${emailSectionQs(secs)}`), { cache: "no-store" });
       if (!r.ok) throw new Error(`서버 오류 (${r.status})`);
       const body = await r.text();
       if (navigator.clipboard && "write" in navigator.clipboard && typeof ClipboardItem !== "undefined") {
@@ -306,6 +312,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         flash("메일 본문 복사됨 — 붙여넣기 🐝");
       } else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(body); flash("메일 본문 복사됨 🐝"); }
       else { const w = window.open("", "_blank"); if (w) { w.document.write(body); w.document.close(); } flash("새 탭에서 복사하세요"); }
+      setShowEmailPicker(false);
     } catch (e: any) { setErr(`메일 복사 실패 — ${e.message || e}`); }
   };
 
@@ -459,7 +466,29 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               <button className="toolBtn" onClick={() => (showScore ? setShowScore(false) : openScore())}>
                 {showScore ? "ⓘ 점수 계산 숨기기" : "ⓘ 점수 계산 보기"}
               </button>
-              <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <button className="toolBtn" onClick={() => setShowEmailPicker((v) => !v)}>✉ 메일 복사 {showEmailPicker ? "▴" : "▾"}</button>
+                {showEmailPicker && (
+                  <div className="card qbiPopIn" style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 20, width: 220, padding: 10 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 6 }}>복사할 영역 선택</div>
+                    {[["schema", "Data QA"], ["copy", "Spec QA"], ["static", "공통페이지 QA"]].map(([key, label]) => {
+                      const effective = emailSections.size ? emailSections : new Set([tab]);
+                      const on = effective.has(key);
+                      return (
+                        <label key={key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, padding: "4px 2px", cursor: "pointer" }}>
+                          <input type="checkbox" checked={on} onChange={(e) => {
+                            const next = new Set(effective);
+                            e.target.checked ? next.add(key) : next.delete(key);
+                            setEmailSections(next);
+                          }} />
+                          {label}
+                        </label>
+                      );
+                    })}
+                    <button className="btnAdd" style={{ marginTop: 8, width: "100%", padding: "6px 0" }} onClick={() => copyEmail()}>선택 항목 복사</button>
+                  </div>
+                )}
+              </div>
               <button className="toolBtn" onClick={downloadXlsx}>📊 Excel</button>
             </div>
           </div>
@@ -469,6 +498,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
           {tab === "static" ? (<>
             <h2 style={{ fontSize: 18, margin: "0 0 12px" }}>공통페이지 QA <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>Home · Switch to Galaxy 등 공통 페이지 7종 × 91 국가 — 스키마가 있는지, 제대로 읽히는지, Google 리치결과 기본 요건을 갖췼는지(매일)</span></h2>
             <QubiStaticQa apiBase={apiBase} />
+            <StaticV2Criteria show={showRules} panelRef={rulesRef} />
+            <StaticV2Score show={showScore} panelRef={scoreRef} />
           </>) : (<>
           <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>
             {tab === "schema" ? "DATA QA" : "스펙 QA"} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>

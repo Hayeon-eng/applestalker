@@ -147,8 +147,19 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {/* ═══ HTML 검수 카드 (파랑 계열) ═══ */}
       <div style={{ border: "1px solid #DCE7FA", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ background: "#EEF4FE", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#1B57C4", borderLeft: "3px solid #1B57C4" }}>
-          HTML 검수 <span style={{ fontWeight: 400, color: "#5B7BB4", fontSize: 10.5 }}>Meta · 제목 태그</span>
+        <div style={{ background: "#EEF4FE", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#1B57C4", borderLeft: "3px solid #1B57C4", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <span>HTML 검수 <span style={{ fontWeight: 400, color: "#5B7BB4", fontSize: 10.5 }}>Meta · 제목 태그</span></span>
+          {/* [2026-09 신규] 그동안 하나로 뭉쳐 보이던 적용율을 영역별(H태그/Meta/스키마)로 분산 노출 */}
+          {l1.by_category && (
+            <span style={{ display: "flex", gap: 8, fontSize: 10.5, fontWeight: 700, marginLeft: "auto" }}>
+              {[["h_tag", "H태그"], ["meta", "Meta"], ["schema", "스키마"]].map(([k, label]) => {
+                const c = l1.by_category[k];
+                if (!c || c.apply_rate_pct == null) return null;
+                const color = c.apply_rate_pct >= 90 ? "#067647" : c.apply_rate_pct >= 70 ? "#93540A" : "#B42318";
+                return <span key={k} style={{ color, background: "#fff", borderRadius: 6, padding: "2px 8px" }}>{label} {c.apply_rate_pct}%</span>;
+              })}
+            </span>
+          )}
         </div>
         <div style={{ padding: "10px 14px" }}>
         {/* 문제 먼저 — 진짜 오류(fail)만 빨간 박스. 버퍼 이내 경미한 초과(warn)는 별도로 옅게 표시 */}
@@ -195,9 +206,12 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
       {/* ═══ [2026-09] SEO 요소 검수 (사람 검수 항목: Canonical · robots · Title 구성 · Meta · Breadcrumb) ═══ */}
       {seo && Array.isArray(seo.items) && (
         <div style={{ border: "1px solid #D9EEE3", borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ background: "#EEF8F2", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#067647", borderLeft: "3px solid #067647" }}>
-            SEO 요소 검수 <span style={{ fontWeight: 400, color: "#3B8F63", fontSize: 10.5 }}>Canonical · robots · Title 구성 · Meta Description · Breadcrumb — 사람 검수와 동일 항목</span>
-            <span style={{ marginLeft: 8, fontSize: 10.5, color: "var(--sec)" }}>❌ {seo.summary?.fail ?? 0} · 🟡 {seo.summary?.warn ?? 0} · ✅ {seo.summary?.pass ?? 0}</span>
+          <div style={{ background: "#EEF8F2", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#067647", borderLeft: "3px solid #067647", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <span>SEO 요소 검수 <span style={{ fontWeight: 400, color: "#3B8F63", fontSize: 10.5 }}>Canonical · robots · Title 구성 · Meta Description · Breadcrumb — 사람 검수와 동일 항목</span></span>
+            {seo.summary?.pct != null && (
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: seo.summary.pct >= 90 ? "#067647" : seo.summary.pct >= 70 ? "#93540A" : "#B42318", background: "#fff", borderRadius: 6, padding: "2px 8px" }}>SEO {seo.summary.pct}%</span>
+            )}
+            <span style={{ fontSize: 10.5, color: "var(--sec)" }}>❌ {seo.summary?.fail ?? 0} · 🟡 {seo.summary?.warn ?? 0} · ✅ {seo.summary?.pass ?? 0}</span>
           </div>
           <div style={{ padding: "10px 14px", display: "grid", gridTemplateColumns: "150px 1fr", rowGap: 6, fontSize: 11.5, alignItems: "start" }}>
             {seo.items.map((it: any, k: number) => (
