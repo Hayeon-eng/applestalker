@@ -142,19 +142,19 @@ def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
     items: List[Dict[str, Any]] = []
 
     h1_count = len(sig["h1_list"])
-    items.append({"item": "H1 존재(1개)", "pass": h1_count == 1,
+    items.append({"item": "H1 존재(1개)", "pass": h1_count == 1, "category": "h_tag",
                   "detail": f"h1 {h1_count}개 발견"})
 
     if guide_h1_keywords:
         h1_text = " ".join(sig["h1_list"]).lower()
         hit = any(k.lower() in h1_text for k in guide_h1_keywords)
-        items.append({"item": "H1 가이드 키워드 포함", "pass": hit,
+        items.append({"item": "H1 가이드 키워드 포함", "pass": hit, "category": "h_tag",
                       "detail": f"기대 키워드 {guide_h1_keywords}"})
     # guide_h1_keywords 없으면 항목 생성 안 함(가이드 데이터 미연결 상태를 숨기지 않음)
 
     if guide_h2_min_count is not None:
         h2_count = len(sig["h2_list"])
-        items.append({"item": "H2 개수(가이드 대비)", "pass": h2_count >= guide_h2_min_count,
+        items.append({"item": "H2 개수(가이드 대비)", "pass": h2_count >= guide_h2_min_count, "category": "h_tag",
                       "detail": f"h2 {h2_count}개 / 가이드 {guide_h2_min_count}개 이상"})
 
     def _len_status(length: int, max_len: int, buffer: int) -> str:
@@ -167,13 +167,13 @@ def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
 
     title = sig["title"] or ""
     title_status = "fail" if not title else _len_status(len(title), title_max_len, title_warn_buffer)
-    items.append({"item": "Meta Title 존재·길이", "pass": title_status != "fail", "status": title_status,
+    items.append({"item": "Meta Title 존재·길이", "pass": title_status != "fail", "status": title_status, "category": "meta",
                   "detail": (f"길이 {len(title)}자(권장 ≤{title_max_len}자 · {title_max_len}~{title_max_len + title_warn_buffer}자는 확인 권장)"
                              if title else "누락")})
 
     desc = sig["meta_description"] or ""
     desc_status = "fail" if not desc else _len_status(len(desc), desc_max_len, desc_warn_buffer)
-    items.append({"item": "Meta Description 존재·길이", "pass": desc_status != "fail", "status": desc_status,
+    items.append({"item": "Meta Description 존재·길이", "pass": desc_status != "fail", "status": desc_status, "category": "meta",
                   "detail": (f"길이 {len(desc)}자(권장 ≤{desc_max_len}자 · {desc_max_len}~{desc_max_len + desc_warn_buffer}자는 확인 권장)"
                              if desc else "누락")})
 
@@ -186,13 +186,23 @@ def level1_apply_rate(html: str, schema_rules: Dict[str, Any],
             continue  # 조건부 블록은 적용율 분모에서 제외(엑셀 기준: 조건부=경고, 필수 산정 대상 아님)
         types = set(block.get("types", []))
         present = bool(types & found_types)
-        items.append({"item": f"스키마 타입 존재: {block.get('name')}", "pass": present,
+        items.append({"item": f"스키마 타입 존재: {block.get('name')}", "pass": present, "category": "schema",
                       "detail": ", ".join(types)})
 
     total = len(items)
     passed = sum(1 for i in items if i["pass"])
+    # [2026-09 신규] 지금까지 apply_rate_pct 하나로 h-tag/meta/schema 존재여부가 섞여서,
+    # "어떤 영역이 문제인지"가 안 보였다 — 영역별로 나눠서 별도 점수도 함께 반환한다
+    # (apply_rate_pct 자체는 기존 소비처(엑셀 등) 호환을 위해 그대로 둔다).
+    by_category: Dict[str, Dict[str, Any]] = {}
+    for cat in ("h_tag", "meta", "schema"):
+        cat_items = [i for i in items if i.get("category") == cat]
+        cat_passed = sum(1 for i in cat_items if i["pass"])
+        by_category[cat] = {"applied": cat_passed, "total": len(cat_items),
+                             "apply_rate_pct": round(100 * cat_passed / len(cat_items), 1) if cat_items else None}
     return {"items": items, "applied": passed, "total": total,
             "apply_rate_pct": round(100 * passed / total, 1) if total else None,
+            "by_category": by_category,
             "signals": {  # 화면에 실제 태깅된 값을 그대로 보여주기 위한 원본 리스트
                 "title": sig["title"], "meta_description": sig["meta_description"],
                 "h1_list": sig["h1_list"], "h2_list": sig["h2_list"],

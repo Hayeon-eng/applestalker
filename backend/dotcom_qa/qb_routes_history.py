@@ -246,12 +246,17 @@ def qb_report_xlsx(payload: Dict[str, Any] = Body(default={})):
 
 
 @qb_router.get("/email-draft")
-def qb_email_draft_get(run_id: str = Query(None), tab: str = Query(None)):
-    return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(run_id=run_id), tab=tab))
+def qb_email_draft_get(run_id: str = Query(None), tab: str = Query(None), sections: Optional[List[str]] = Query(None)):
+    # [2026-09 FIX] sections(다중 선택) 우선, 없으면 예전 단일 tab 파라미터로 하위호환
+    secs = sections or ([tab] if tab else None)
+    static_run = _latest_static_run() if (secs and "static" in secs) else None
+    return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(run_id=run_id), sections=secs, static_run=static_run))
 
 
 @qb_router.post("/email-draft")
 def qb_email_draft(payload: Dict[str, Any] = Body(default={})):
-    return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(payload), tab=payload.get("tab")))
+    secs = payload.get("sections") or ([payload.get("tab")] if payload.get("tab") else None)
+    static_run = _latest_static_run() if (secs and "static" in secs) else None
+    return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(payload), sections=secs, static_run=static_run))
 
 

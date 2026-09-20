@@ -335,6 +335,11 @@ def check_seo(html: str, page_url: str, page_type: str = "PDP",
     summary = {"fail": sum(1 for i in items if i["status"] == "fail"),
                "warn": sum(1 for i in items if i["status"] == "warn"),
                "pass": sum(1 for i in items if i["status"] == "pass")}
+    # [2026-09 신규] Canonical/Title구성/Meta/robots/Breadcrumb 는 지금까지 pass/fail 개수만 있고
+    # 점수(%)가 없어서, 스키마·H태그·Meta길이 쪽만 채점되어 있는 것처럼 보였다 — 같은 방식(warn은
+    # 감점 없이 확인 권장, fail만 분모에 넣어 계산)으로 SEO 점수도 만든다.
+    seo_scored = summary["fail"] + summary["pass"]
+    summary["pct"] = round(100 * summary["pass"] / seo_scored, 1) if seo_scored else None
     return {"summary": summary, "items": items, "title": title, "meta_description": desc,
             "canonical": canon_href, "robots": rc, "breadcrumb": bc}
 

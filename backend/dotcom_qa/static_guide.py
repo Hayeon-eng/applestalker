@@ -104,38 +104,112 @@ def summarize(results: List[Dict[str, Any]], sites_meta: List[Dict[str, Any]]) -
 # [2026-09 신규] "공통페이지 매트릭스"+"공통페이지 상세" 시트 작성 — qb_routes_static.py 단독
 # 리포트(/api/qb/static/report.xlsx)와 qa_report_xlsx.py 통합 리포트(/api/qb/report.xlsx)가
 # 동일 로직을 공유한다(기존 Workbook 에 시트만 추가하므로 새 wb 생성 여부는 호출부 책임).
+_STATUS_EN = {
+    "정상": "OK", "파싱 실패": "Parse Error", "오적용": "Wrong Country Reference",
+    "미해결 참조": "Unresolved Reference", "페이지 없음": "Page Not Found",
+    "접근 실패": "Access Failed", "기타": "Other",
+}
+_STATUS_COLOR = {  # Data QA 시트의 MARK_COLOR(pass=1F9E5C/warn=E0A008/fail=D8362F/na=98A2B3) 팔레트 그대로 사용
+    "정상": "DCFCE7", "파싱 실패": "FDE2E1", "오적용": "FDE2E1", "미해결 참조": "FDE2E1",
+    "기타": "FDE2E1", "페이지 없음": "EEF0F3", "접근 실패": "EEF0F3",
+}
+_CATEGORY_HINT_EN = {
+    "syntax": "JSON syntax error — check the block structure.",
+    "smart_quote": "Smart quotes (\u201c \u201d \u2018 \u2019) found — replace with straight quotes (\").",
+    "invisible_char": "Invisible characters (NBSP/zero-width/BOM) found — remove them.",
+    "missing_comma": "Missing comma — check the separator between items.",
+    "unbalanced": "Mismatched brackets — check opening/closing brackets and quotes.",
+    "trailing_comma": "Unnecessary trailing comma after the last item — remove it.",
+    "unescaped": "Unescaped quote or special character found.",
+}
+
+
+def _reason_en(r: Dict[str, Any]) -> str:
+    """r 의 원본 필드로 영문 사유를 새로 조립 — 한글 reasons 문자열을 번역하는 대신
+    같은 근거 데이터로 다시 만들어서 숫자·건수가 항상 실제 값과 일치한다."""
+    status = r.get("status")
+    if status == "페이지 없음":
+        return "HTTP 404" if r.get("http_status") == 404 else "Soft 404 (redirected to a generic page)"
+    if status == "접근 실패":
+        return f"HTTP {r['http_status']}" if r.get("http_status") else "Network error — check proxy/blocking"
+    if status == "파싱 실패":
+        hard = [p for p in r.get("parse_errors", []) if p.get("severity", "fail") == "fail"]
+        return f"{len(hard)} of {r.get('blocks', 0)} JSON-LD block(s) failed to parse"
+    if status == "오적용":
+        return f"{len(r.get('foreign_refs', []))} reference(s) to another country's address"
+    if status == "미해결 참조":
+        return f"{len(r.get('unresolved_refs', []))} reference(s) to an undefined @id"
+    if status == "기타":
+        return "No JSON-LD found"
+    bits = []
+    if r.get("duplicate_ids"):
+        bits.append(f"{len(r['duplicate_ids'])} duplicate @id")
+    if r.get("rich_missing"):
+        types = ", ".join(f"{m['type']}({','.join(m['missing'])})" for m in r["rich_missing"][:3])
+        bits.append(f"missing required rich-result properties: {types}")
+    return "; ".join(bits) if bits else "No major issues found"
+
+
 def build_report_sheets(wb, run: Dict[str, Any]) -> None:
+    """공통페이지 QA run 결과를 기존 Workbook 에 매트릭스+상세 시트로 추가한다.
+    qb_routes_static.py 단독 리포트와 qa_report_xlsx.py 통합 리포트가 함께 쓴다.
+    [2026-09 FIX] Data QA/Spec QA 시트(전체 영어)와 나란히 한 파일에 들어가므로, 이 시트만
+    한글로 남아있으면 리포트 하나에 언어가 섞여 품질이 떨어져 보인다 — 상태·사유를 전부 영문화."""
     import static_qa
-    from openpyxl.styles import Font, PatternFill
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
     results = run.get("results", [])
     if not results:
         return
-    ws = wb.create_sheet("공통페이지 매트릭스")
+    thin = Side(style="thin", color="E4E7EC"); border = Border(thin, thin, thin, thin)
+    hfont = Font(bold=True, color="FFFFFF"); hfill = PatternFill("solid", fgColor="1B2A4A")
+
+    def _hdr(ws):
+        for c in ws[1]:
+            c.font = hfont; c.fill = hfill
+            c.alignment = Alignment(vertical="center", horizontal="center", wrap_text=True)
+
+    def _finish(ws, widths, freeze):
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+        for row in ws.iter_rows(min_row=2):
+            for c in row:
+                c.border = border
+                if c.alignment.horizontal is None:
+                    c.alignment = Alignment(vertical="top", wrap_text=True)
+        ws.freeze_panes = freeze
+
+    ws = wb.create_sheet("Static QA - Matrix")
     pages = [p for p in static_qa.STATIC_PAGES if p["key"] in {r["page"] for r in results}]
     ws.append(["Sitecode", "Country"] + [p["label"] for p in pages])
-    for c in ws[1]:
-        c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="1B2A4A")
-    COLOR = {"정상": "DCFCE7", "파싱 실패": "FEE2E2", "오적용": "FEF3C7", "미해결 참조": "FEF3C7", "페이지 없음": "E5E7EB", "접근 실패": "F3F4F6", "기타": "FFF7ED"}
+    _hdr(ws)
     by = {(r["sitecode"], r["page"]): r for r in results}
     for sc in sorted({r["sitecode"] for r in results}):
         row = [sc, next((r["country"] for r in results if r["sitecode"] == sc), "")]
         for p in pages:
-            r = by.get((sc, p["key"])); row.append(r["status"] if r else "")
+            r = by.get((sc, p["key"])); row.append(_STATUS_EN.get(r["status"], r["status"]) if r else "")
         ws.append(row)
         for i, p in enumerate(pages):
             r = by.get((sc, p["key"]))
             if r:
-                ws.cell(row=ws.max_row, column=3 + i).fill = PatternFill("solid", fgColor=COLOR.get(r["status"], "FFFFFF"))
-    ws2 = wb.create_sheet("공통페이지 상세")
-    ws2.append(["Sitecode", "Country", "Page", "URL", "HTTP", "Status", "Reason", "JSON-LD blocks", "Parse errors(#block · category · line:col)",
-                "Foreign refs", "Unresolved refs", "Duplicate @id", "Rich result missing", "Types"])
-    for c in ws2[1]:
-        c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="1B2A4A")
+                cell = ws.cell(row=ws.max_row, column=3 + i)
+                cell.fill = PatternFill("solid", fgColor=_STATUS_COLOR.get(r["status"], "FFFFFF"))
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+    _finish(ws, [10, 16] + [16] * len(pages), "C2")
+
+    ws2 = wb.create_sheet("Static QA - Detail")
+    ws2.append(["Sitecode", "Country", "Page", "URL", "HTTP", "Status", "Reason", "Fix Hint", "JSON-LD Blocks",
+                "Parse Errors (block · category · line:col)", "Foreign Refs", "Unresolved Refs",
+                "Duplicate @id", "Rich Result Missing", "Types"])
+    _hdr(ws2)
     for r in sorted(results, key=lambda x: (static_qa.STATUS_ORDER.index(x["status"]) if x["status"] in static_qa.STATUS_ORDER else 9, x["sitecode"])):
-        ws2.append([r["sitecode"], r.get("country"), r.get("page_label"), r["url"], r.get("http_status"), r["status"], " · ".join(r.get("reasons", [])),
-                    r.get("blocks"), " | ".join(f"{p.get('block')} · {p.get('category')} · {p.get('line')}:{p.get('col')}" for p in r.get("parse_errors", []) if p.get("severity", "fail") == "fail"),
+        hard = [p for p in r.get("parse_errors", []) if p.get("severity", "fail") == "fail"]
+        hints = "; ".join(dict.fromkeys(_CATEGORY_HINT_EN.get(p.get("category"), p.get("category")) for p in hard))
+        ws2.append([r["sitecode"], r.get("country"), r.get("page_label"), r["url"], r.get("http_status"),
+                    _STATUS_EN.get(r["status"], r["status"]), _reason_en(r), hints,
+                    r.get("blocks"), " | ".join(f"{p.get('block')} · {p.get('category')} · {p.get('line')}:{p.get('col')}" for p in hard),
                     " | ".join(r.get("foreign_refs", [])), " | ".join(r.get("unresolved_refs", [])), " | ".join(r.get("duplicate_ids", [])),
                     " | ".join(f"{m['type']}({','.join(m['missing'])})" for m in r.get("rich_missing", [])), ", ".join(r.get("types", []))])
-    for ws_, widths in ((ws, [10, 16] + [14] * len(pages)), (ws2, [10, 14, 16, 50, 6, 10, 40, 8, 50, 40, 40, 40, 40, 40])):
-        for i, w in enumerate(widths, 1):
-            ws_.column_dimensions[ws_.cell(row=1, column=i).column_letter].width = w
+        status_font_color = "1F9E5C" if r["status"] == "정상" else ("667085" if r["status"] in ("페이지 없음", "접근 실패") else "D8362F")
+        ws2.cell(row=ws2.max_row, column=6).font = Font(bold=True, color=status_font_color)
+    _finish(ws2, [10, 14, 16, 46, 6, 10, 34, 34, 8, 46, 34, 34, 30, 34, 30], "G2")

@@ -232,7 +232,10 @@ async def run_all(sites: Optional[List[Dict[str, Any]]] = None, pages: Optional[
                     h1 = re.search(r"<h1[^>]*>(.*?)</h1>", r.text, re.I | re.S)
                     soft = SOFT404.search(re.sub(r"<[^>]+>", " ", h1.group(1))) if h1 else None
                     title = re.search(r"<title[^>]*>(.*?)</title>", r.text, re.I | re.S)
-                    brand_only = bool(title and re.match(r"^\s*samsung\s*[|｜\-–]\s*samsung\b", title.group(1).strip().lower()))
+                    # [2026-09 FIX] home 페이지는 자기 자신의 정상 title 자체가 "Samsung | Samsung {국가}"처럼
+                    # 브랜드명이 반복되는 형태라, 이 휴리스틱을 그대로 적용하면 정상 홈페이지가 전부
+                    # soft-404(페이지 없음)로 오판된다 — slug_lost 와 동일하게 home 은 제외한다.
+                    brand_only = page["key"] != "home" and bool(title and re.match(r"^\s*samsung\s*[|｜\-–]\s*samsung\b", title.group(1).strip().lower()))
                     if r.status_code == 200 and not slug_lost and not soft and not brand_only:
                         row = check_static_page(r.text, final, site["sitecode"], 200)
                         row["title"] = title.group(1).strip()[:120] if title else ""
