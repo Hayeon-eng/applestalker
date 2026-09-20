@@ -341,8 +341,18 @@ class EmailService:
             ("<div style='font-family:monospace;color:#B0B7C0;font-size:10.5px;margin-top:3px;word-break:break-all'>" + url + "</div>" if url else "") +
             "</td></tr>")
 
-    def build_html(self, report_type="morning"):
+    def build_html(self, report_type="morning", sections=None):
         d = self._report_data()
+        # [2026-09 신규] DATA/COPY/VISUAL 중 원하는 축만 골라 보내고 싶다는 요청 — axes/sites_detail 은
+        # AXIS_META 순서로 이미 깔끔하게 나뉘어 있어 라벨로 안전하게 거를 수 있다. 다만 "변화" 표(rows)는
+        # detected_changes 테이블에 축이 명확히 안 남아 있어(값을 확인 못 함) 여기서는 거르지 않는다 —
+        # 잘못 추측해서 조용히 엉뚱한 걸 빼는 것보다, 전체를 보여주고 아래에 안내만 다는 편이 안전하다.
+        partial = bool(sections)
+        if partial:
+            wanted = {str(s).upper() for s in sections}
+            d["axes"] = [a for a in d["axes"] if a["label"] in wanted]
+            for sd in d.get("sites_detail") or []:
+                sd["axes"] = [a for a in sd["axes"] if a["label"] in wanted]
         when = d["when"]
         if not d["when"] and not d["axes"] and not d["rows"]:
             body = "<p style='color:#667085'>아직 수집 데이터가 없습니다.</p>"
@@ -355,8 +365,9 @@ class EmailService:
             if not rows:
                 rows = "<tr><td colspan='3' style='padding:14px;color:#667085;border-top:1px solid #EAECF0'>이번 수집에서는 변경점이 없습니다. 페이지별 현재 상태를 확인해 주세요.</td></tr>"
             sep = "<div style='height:1px;background:#EAECF0;margin:18px 0'></div>"
+            changes_note = ("<div style='font-size:11px;color:#98A2B3;margin:-4px 0 6px'>선택한 영역과 무관하게 전체 변화가 표시됩니다</div>" if partial else "")
             changes_section = (
-                "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>변화 · 권장 액션</div>"
+                "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>변화 · 권장 액션</div>" + changes_note +
                 "<table style='width:100%;border-collapse:collapse'><tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>구분</th><th style='padding:6px 8px'>중요도</th><th style='padding:6px 8px'>변화 → 액션</th></tr>" + rows + "</table>"
             )
             body = (

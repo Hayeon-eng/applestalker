@@ -6,6 +6,7 @@ facts are in intel_facts.py so GitHub Web Editor can open this file reliably.
 """
 
 from __future__ import annotations
+import concurrent.futures as cf
 import json
 import os
 import re
@@ -189,17 +190,36 @@ class IntelEngine:
             # SDK가 내부적으로 얼마나 오래 걸릴지 보장이 없어, 이 함수는 스레드에서 돌더라도
             # (asyncio.to_thread) 사이트 하나 처리 시간이 한없이 늘어질 수 있다.
             req_opts = {"timeout": int(os.getenv("GEMINI_CALL_TIMEOUT_S", "20"))}
-            try:
-                resp = self.model.generate_content(prompt, generation_config=gen_cfg, request_options=req_opts)
-            except TypeError:
-                # 구버전 SDK가 request_options 파라미터를 지원하지 않으면 조용히 폴백
+
+            def _call():
                 try:
-                    resp = self.model.generate_content(prompt, generation_config=gen_cfg)
+                    return self.model.generate_content(prompt, generation_config=gen_cfg, request_options=req_opts)
+                except TypeError:
+                    # 구버전 SDK가 request_options 파라미터를 지원하지 않으면 조용히 폴백
+                    try:
+                        return self.model.generate_content(prompt, generation_config=gen_cfg)
+                    except Exception:
+                        return self.model.generate_content(prompt)
                 except Exception:
-                    resp = self.model.generate_content(prompt)
-            except Exception:
-                # response_mime_type 등을 모델/SDK가 거부하면 기본 호출로 폴백
-                resp = self.model.generate_content(prompt, request_options=req_opts)
+                    # response_mime_type 등을 모델/SDK가 거부하면 기본 호출로 폴백
+                    return self.model.generate_content(prompt, request_options=req_opts)
+
+            # [2026-09 FIX] 위 request_options.timeout 은 SDK/gRPC 내부(네트워크 재시도·TLS
+            # 핸드셰이크 등)에서 지켜지지 않을 수 있다는 게 도입 당시부터 알려진 한계였다 —
+            # 실제로 크롤이 특정 개수에서 멈추고 분석 화면이 끝내 안 뜨는 증상으로 나타남.
+            # 별도 스레드로 감싸 하드 타임아웃(SDK 타임아웃 + 10s 여유)을 걸어, 정말 멈추더라도
+            # 이 함수는 반드시 제때 반환하고 rule-based 폴백으로 넘어가게 한다. 스레드 자체가
+            # 멈춰 있어도 결과를 기다리지 않도록 shutdown(wait=False)로 즉시 손을 뗀다.
+            hard_cap = req_opts["timeout"] + 10
+            ex = cf.ThreadPoolExecutor(max_workers=1)
+            try:
+                resp = ex.submit(_call).result(timeout=hard_cap)
+            except cf.TimeoutError:
+                print(f"[intel] {category} llm enrich failed: 하드 타임아웃 {hard_cap}s 초과 — "
+                      f"SDK 자체 timeout({req_opts['timeout']}s)이 지켜지지 않는 상태로 판단, rule-based로 폴백")
+                return None
+            finally:
+                ex.shutdown(wait=False)
             return self._parse_json(resp.text)
         except Exception as e:
             # [FIX] 기존엔 "llm enrich failed"라고만 찍혀서 gemini-2.5+ thinking 토큰이

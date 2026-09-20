@@ -105,13 +105,13 @@ SEED_TARGETS: Dict[str, Target] = {
         domains=["apple.com"],
         extraction=ExtractionRule(requires_js=True, price_selectors=COMMERCE_SELECTORS),
         seed_urls=[
-            # Smartphone: iPhone Pro — PF / PDP / Buying
+            # Smartphone: iPhone Pro / Duo — PF / PDP / Buying
             "https://www.apple.com/iphone/",
-            "https://www.apple.com/iphone-17-pro/",
-            "https://www.apple.com/shop/buy-iphone/iphone-17-pro",
-            # [2026-09 정적 추가] iPhone 18 Pro — Apple 슬러그 관행(iphone-<n>-pro) 기준. 존재하지 않으면 크롤 시 404/리다이렉트로 표시된다.
             "https://www.apple.com/iphone-18-pro/",
             "https://www.apple.com/shop/buy-iphone/iphone-18-pro",
+            # [2026-09] iPhone Duo — Apple 슬러그 관행(iphone-<name>) 기준. 존재하지 않으면 크롤 시 404/리다이렉트로 표시된다.
+            "https://www.apple.com/iphone-duo/",
+            "https://www.apple.com/shop/buy-iphone/iphone-duo",
             # Tablet: iPad Pro — PF / PDP / Buying
             "https://www.apple.com/ipad/",
             "https://www.apple.com/ipad-pro/",

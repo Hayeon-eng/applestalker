@@ -765,11 +765,12 @@ def email_send(report_type: str = "morning"):
 
 
 @app.get("/api/export/email-html")
-def export_email_html(report_type: str = "morning"):
+def export_email_html(report_type: str = "morning", sections: Optional[List[str]] = Query(None)):
     """SMTP 발송 대신, 메일에 붙여넣을 수 있는 리포트 HTML 본문만 반환.
-    프론트의 '메일 본문 복사' 버튼이 이 HTML을 서식 포함으로 클립보드에 복사한다."""
+    프론트의 '메일 본문 복사' 버튼이 이 HTML을 서식 포함으로 클립보드에 복사한다.
+    sections: data/copy/visual 중 원하는 것만(생략 시 기존처럼 전체)."""
     from fastapi.responses import HTMLResponse
-    return HTMLResponse(content=email_service.build_html(report_type))
+    return HTMLResponse(content=email_service.build_html(report_type, sections=sections))
 
 
 if __name__ == "__main__":
