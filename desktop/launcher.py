@@ -203,9 +203,26 @@ def build_app(cfg: dict):
     # ── 설정 API + 설정 페이지(스케줄/메일 자동·수동) ──
     @app.get("/api/settings")
     def get_settings():
-        c = load_config(); c = json.loads(json.dumps(c)); c["email"]["password"] = "***" if c["email"].get("password") else ""
-        c["serpapi_key"] = ("***" + c["serpapi_key"][-4:]) if c.get("serpapi_key") else ""
-        return {"config": c, "config_path": str(CONFIG_PATH), "data_dir": str(DATA_DIR), "database": os.environ.get("DATABASE_URL", "").split("@")[-1]}
+        c = load_config(); c = json.loads(json.dumps(c))
+        # [2026-09 FIX] 화면 비번·관리자 비번·Gemini 키·SerpApi 키·DB 주소·SMTP 자격증명은
+        # 이 PC 를 쓰는 누구나 열어볼 수 있는 화면·API 응답에 실제 값을 내려주지 않는다
+        # (개발자도구 Network 탭으로도 안 보이게) — 설정 여부만 알려주고, 값을 바꾸려면
+        # config.json 을 직접 연다. 스케줄·이메일 발송 on/off 처럼 PC마다 달라도 되는
+        # 값만 그대로 내려준다.
+        secrets = {
+            "site_password_set": bool(c.get("site_password")),
+            "admin_password_set": bool(c.get("admin_password")),
+            "gemini_api_key_set": bool(c.get("gemini_api_key")),
+            "serpapi_key_set": bool(c.get("serpapi_key")),
+            "database_url_set": bool(c.get("database_url")),
+            "smtp_set": bool(c.get("email", {}).get("sender") and c.get("email", {}).get("password")),
+        }
+        for k in ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "database_url"):
+            c.pop(k, None)
+        if isinstance(c.get("email"), dict):
+            c["email"] = {k: v for k, v in c["email"].items() if k in ("enabled", "auto_send_after_run")}
+        return {"config": c, "secrets": secrets, "config_path": str(CONFIG_PATH), "data_dir": str(DATA_DIR),
+                "database": os.environ.get("DATABASE_URL", "").split("@")[-1]}
 
     @app.post("/api/settings")
     async def set_settings(request: Request):

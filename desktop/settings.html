@@ -5,7 +5,10 @@ h1{font-size:18px;margin:0 0 4px}h2{font-size:14px;margin:0 0 10px;color:#374151
 input,select{font:inherit;font-size:13px;padding:7px 9px;border:1px solid #E5E7EB;border-radius:8px;width:100%;box-sizing:border-box}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hint{font-size:11.5px;color:#6B7280;margin-top:4px}
 button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600}.p{background:#1B4FD8;color:#fff}.s{background:rgba(0,0,0,.06)}
-.msg{font-size:12.5px;color:#166534;margin-top:8px}.warn{background:#FEF3E2;color:#B45309;border-radius:8px;padding:8px 10px;font-size:12px}</style></head>
+.msg{font-size:12.5px;color:#166534;margin-top:8px}.warn{background:#FEF3E2;color:#B45309;border-radius:8px;padding:8px 10px;font-size:12px}
+.statusRow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F2F4F7;font-size:13px}
+.statusRow:last-child{border-bottom:0}.pill{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px}
+.pill.on{background:#DCFCE7;color:#166534}.pill.off{background:#F2F4F7;color:#6B7280}</style></head>
 <body>
 <div class="card"><h1>⚙ ABC Tool 설정</h1><div class="hint">이 PC 에서 돌아가는 프로그램의 설정입니다. 저장하면 바로 적용되고(포트·DB 는 재시작 후), 파일로는 <code id="cfgPath"></code> 에 저장됩니다.</div></div>
 <div class="card"><h2>자동 실행</h2>
@@ -20,29 +23,26 @@ button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;
 <div class="card"><h2>이메일</h2>
   <label><input type="checkbox" id="emEnabled" style="width:auto"> 이메일 기능 사용(SMTP)</label>
   <label><input type="checkbox" id="emAuto" style="width:auto"> 자동 실행이 끝나면 리포트 메일 자동 발송</label>
-  <div class="hint">꺼 두면 화면의 '메일 본문 복사'로 수동 발송만 가능합니다(SMTP 없이도 동작).</div>
-  <div class="row"><div><label>SMTP 서버</label><input id="smtp"></div><div><label>포트</label><input id="port" type="number"></div></div>
-  <div class="row"><div><label>보내는 주소</label><input id="sender"></div><div><label>비밀번호(앱 비밀번호)</label><input id="pw" type="password"></div></div>
-  <label>받는 주소(콤마 구분)</label><input id="rcpt">
+  <div class="hint">꺼 두면 화면의 '메일 본문 복사'로 수동 발송만 가능합니다(SMTP 없이도 동작). SMTP 서버·보내는 주소·비밀번호·받는 주소는 이 화면에서 바꾸지 않습니다(아래 참고).</div>
 </div>
-<div class="card"><h2>접속·키</h2>
-  <div class="row"><div><label>화면 비밀번호(비우면 게이트 없음)</label><input id="site"></div><div><label>관리자 비밀번호(URL 추가/삭제)</label><input id="admin"></div></div>
-  <label>Gemini API 키(Apple Stalker AI 요약, 선택)</label><input id="gemini">
-  <label>SerpApi 키 — 🍯 honeyComb Google Shopping 수집(필수, serpapi.com 가입 후 발급)</label><input id="serp" placeholder="키를 넣으면 honeyComb 의 '수집 실행'이 활성화됩니다">
-  <label>공용 DB 주소(선택 — 비우면 이 PC 파일에 저장)</label><input id="db" placeholder="postgresql://…  (사내망은 5432 차단으로 대개 사용 불가)">
-  <div class="hint">현재 DB: <span id="dbNow"></span> · 이력 공유는 큐비 사이드바 '이력 내보내기/가져오기'(JSON)로 하세요.</div>
-  <div style="margin-top:14px;display:flex;gap:8px"><button class="p" onclick="save()">저장</button><a class="s" style="padding:9px 14px;border-radius:10px;text-decoration:none;color:#374151" href="/">← 도구로 돌아가기</a></div>
+<div class="card"><h2>접속·키 <span class="hint" style="margin:0">— 이 PC 를 쓰는 누구나 볼 수 있는 화면이라 값 자체는 여기 두지 않습니다</span></h2>
+  <div id="secretStatus"></div>
+  <div class="warn" style="margin-top:10px">화면 비밀번호·관리자 비밀번호·Gemini API 키·SerpApi 키·DB 주소·SMTP 계정은 <code id="cfgPath2"></code> 파일을 텍스트 편집기로 직접 열어 수정하세요. 저장 후 프로그램을 다시 시작하면 적용됩니다.</div>
+</div>
+<div class="card">
+  <div style="display:flex;gap:8px"><button class="p" onclick="save()">저장</button><a class="s" style="padding:9px 14px;border-radius:10px;text-decoration:none;color:#374151" href="/">← 도구로 돌아가기</a></div>
   <div class="msg" id="msg"></div>
 </div>
 <script>
 const $=id=>document.getElementById(id); let C=null;
-fetch('/api/settings').then(r=>r.json()).then(d=>{C=d.config;$('cfgPath').textContent=d.config_path;$('dbNow').textContent=d.database||'(sqlite)';
+const SECRET_LABELS=[["site_password_set","화면 비밀번호"],["admin_password_set","관리자 비밀번호"],["gemini_api_key_set","Gemini API 키"],["serpapi_key_set","SerpApi 키"],["database_url_set","공용 DB 주소"],["smtp_set","이메일(SMTP) 계정"]];
+fetch('/api/settings').then(r=>r.json()).then(d=>{C=d.config;$('cfgPath').textContent=d.config_path;$('cfgPath2').textContent=d.config_path;
  const s=C.schedule,e=C.email;$('mode').value=s.mode;$('weekday').value=s.weekday;$('hour').value=s.hour;$('minute').value=s.minute;$('runA').checked=!!s.run_apple_stalker;$('runB').checked=!!s.run_qubi;$('staticDaily').checked=s.static_daily!==false;$('staticHour').value=s.static_hour??8;$('runC').checked=!!s.run_honeycomb;$('cDetail').checked=!!s.honeycomb_detail;
- $('emEnabled').checked=!!e.enabled;$('emAuto').checked=!!e.auto_send_after_run;$('smtp').value=e.smtp_server||'';$('port').value=e.smtp_port||'';$('sender').value=e.sender||'';$('pw').value=e.password||'';$('rcpt').value=e.recipients||'';
- $('site').value=C.site_password||'';$('admin').value=C.admin_password||'';$('gemini').value=C.gemini_api_key||'';$('serp').value=C.serpapi_key||'';$('db').value=C.database_url||''});
+ $('emEnabled').checked=!!e.enabled;$('emAuto').checked=!!e.auto_send_after_run;
+ $('secretStatus').innerHTML=SECRET_LABELS.map(([k,label])=>{const on=!!(d.secrets&&d.secrets[k]);return `<div class="statusRow"><span>${label}</span><span class="pill ${on?'on':'off'}">${on?'설정됨':'미설정'}</span></div>`;}).join('')
+   + `<div class="statusRow"><span>DB</span><span class="pill on">${d.database||'(sqlite)'}</span></div>`});
 async function save(){const body={schedule:{mode:$('mode').value,weekday:+$('weekday').value,hour:+$('hour').value,minute:+$('minute').value,run_apple_stalker:$('runA').checked,run_qubi:$('runB').checked,static_daily:$('staticDaily').checked,static_hour:+$('staticHour').value||8,run_honeycomb:$('runC').checked,honeycomb_detail:$('cDetail').checked},
- email:{enabled:$('emEnabled').checked,auto_send_after_run:$('emAuto').checked,smtp_server:$('smtp').value,smtp_port:+$('port').value||587,sender:$('sender').value,password:$('pw').value,recipients:$('rcpt').value},
- site_password:$('site').value,admin_password:$('admin').value,gemini_api_key:$('gemini').value,serpapi_key:$('serp').value,database_url:$('db').value};
+ email:{enabled:$('emEnabled').checked,auto_send_after_run:$('emAuto').checked}};
  const r=await (await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();$('msg').textContent=r.ok?'저장됨 — '+(r.note||''):'저장 실패'}
 async function runNow(){await fetch('/api/settings/run-now',{method:'POST'});$('msg').textContent='실행을 시작했습니다 — 각 도구 화면에서 진행률을 확인하세요'}
 </script></body></html>
