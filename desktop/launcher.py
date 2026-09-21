@@ -43,7 +43,7 @@ DEFAULT_CONFIG = {
                  "run_honeycomb": False, "honeycomb_detail": False},  # honeyComb(SerpApi 호출 발생) 은 기본 수동 — 켜면 주간 실행에 포함
     "open_browser": True,
     "ca_bundle_path": "",                   # (선택) 회사 루트 인증서 .pem 경로 — truststore 로 안 풀릴 때
-    "ssl_verify": True,                     # 최후 수단: false 면 인증서 검증 끔(사내 테스트용)
+    "ssl_verify": False,                     # 최후 수단: false 면 인증서 검증 끔(사내 테스트용)
 }
 
 
