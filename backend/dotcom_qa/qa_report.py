@@ -55,6 +55,18 @@ def _section_block_schema_copy(page_results, tab):
     from html import escape
     rows = _flatten(page_results, tab=tab)
     fail = sum(1 for r in rows if r["status"] == "fail")
+    warn = sum(1 for r in rows if r["status"] == "warn")
+    # [2026-09 신규] "전체적으로 얼마나 괜찮은지"가 안 보여서 요약을 맨 위에 붙인다.
+    # _flatten() 은 원래 fail/warn 행만 돌려주므로(정상 항목은 안 담김) "정상 비율"은
+    # 항목 단위가 아니라 "이슈가 하나도 없는 페이지 비율"로 계산한다(그래야 실제로 맞는 숫자가 됨).
+    total_pages = len(page_results)
+    pages_with_issue = len({r["url"] for r in rows if r.get("url")})
+    pct = round(100 * (total_pages - pages_with_issue) / total_pages, 1) if total_pages else None
+    summary_html = ""
+    if total_pages:
+        color = "#1F9E5C" if (pct or 0) >= 90 else ("#E0A008" if (pct or 0) >= 70 else "#D8362F")
+        summary_html = ("<div style='font-size:12.5px;color:#475467;margin-bottom:8px'>이슈 없는 페이지 <b style='color:" + color + "'>" + str(pct) + "%</b>"
+                         " · 오류 " + str(fail) + "건 · 확인 " + str(warn) + "건 (검수한 페이지 " + str(total_pages) + "개 중 " + str(pages_with_issue) + "개에서 발견)</div>")
     by_site = {}
     for r in rows:
         by_site.setdefault(r["sitecode"], []).append(r)
@@ -77,7 +89,7 @@ def _section_block_schema_copy(page_results, tab):
                    "<span style='font-weight:400;color:#667085;font-size:11px'>" + escape((meta.get("region") or "") + " · " + (meta.get("country") or "")) + "</span></div>"
                    "<div style='font-family:monospace;color:#98A2B3;font-size:10.5px;word-break:break-all;margin:2px 0 4px'>" + escape(meta.get("url", "")) + "</div>"
                    + lis + "</div>")
-    return blocks, fail
+    return summary_html + blocks, fail
 
 
 def _section_block_static(static_run):
@@ -87,6 +99,14 @@ def _section_block_static(static_run):
     from html import escape
     results = (static_run or {}).get("results", [])
     bad = [r for r in results if r.get("status") != "정상"]
+    # [2026-09 신규] 개별 사이트 카드만 있고 "전체 오류율"이 안 보였다 — Data QA/Spec QA 섹션과
+    # 같은 형태(정상 비율 + 건수)로 요약을 맨 위에 붙인다. static_guide._ratio() 를 그대로 재사용.
+    summary_html = ""
+    if results:
+        ratio = static_guide._ratio(results)
+        color = "#1F9E5C" if ratio["ok_pct"] >= 90 else ("#E0A008" if ratio["ok_pct"] >= 70 else "#D8362F")
+        summary_html = ("<div style='font-size:12.5px;color:#475467;margin-bottom:8px'>정상 <b style='color:" + color + "'>" + str(ratio["ok_pct"]) + "%</b>"
+                         " · 오류 " + str(ratio["err"]) + "건 · 페이지없음·접근실패 " + str(ratio["na"]) + "건 · 정상 " + str(ratio["ok"]) + "건 (전체 " + str(ratio["total"]) + "건)</div>")
     by_site = {}
     for r in bad:
         by_site.setdefault(r["sitecode"], []).append(r)
@@ -107,7 +127,7 @@ def _section_block_static(static_run):
                    "<div style='font-size:13px;font-weight:800;color:#101318'>" + escape(sc) + " "
                    "<span style='font-weight:400;color:#667085;font-size:11px'>" + escape(country) + "</span></div>"
                    + lis + "</div>")
-    return blocks, len(bad)
+    return summary_html + blocks, len(bad)
 
 
 def build_email_draft(page_results, when="", sections=None, static_run=None):
@@ -122,15 +142,21 @@ def build_email_draft(page_results, when="", sections=None, static_run=None):
     section_labels = []
     total_fail = 0
     for tab in sections:
+        not_run = False
         if tab in ("schema", "copy"):
             blocks, fail = _section_block_schema_copy(page_results, tab)
+            not_run = not page_results
         elif tab == "static":
             blocks, fail = _section_block_static(static_run)
+            not_run = not (static_run and static_run.get("results"))
         else:
             continue
         total_fail += fail
         if not blocks:
-            blocks = "<p style='color:#1F9E5C;font-size:12.5px;margin:6px 0 0'>이 영역에서 오류가 발견되지 않았습니다.</p>"
+            # [2026-09 FIX] "결과 없음"과 "실행했는데 오류 없음"은 다른 상태 — 검수를 아예 안 돌렸는데도
+            # "오류가 발견되지 않았습니다"로 보이면 실제로 확인이 안 된 영역을 통과한 것처럼 오해하게 된다.
+            blocks = ("<p style='color:#98A2B3;font-size:12.5px;margin:6px 0 0'>아직 검수를 실행하지 않았습니다.</p>" if not_run
+                      else "<p style='color:#1F9E5C;font-size:12.5px;margin:6px 0 0'>이 영역에서 오류가 발견되지 않았습니다.</p>")
         section_labels.append(labels[tab])
         section_htmls.append(
             "<div style='margin-top:18px'>"

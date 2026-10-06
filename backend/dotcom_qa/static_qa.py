@@ -139,9 +139,12 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
     out["unresolved_refs"] = sorted({f"{p} → {rid}" for p, rid in refs
                                       if rid not in defined and rid.split("#")[0].rstrip("/") == page_base})
     out["external_refs"] = sorted({rid for p, rid in refs if rid not in defined and rid.split("#")[0].rstrip("/") != page_base})[:20]
+    _ASSET_EXT = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".ico", ".mp4", ".pdf")
     my = sitecode.lower()
     my_group = _sitecode_group(my)
     for u in all_urls:
+        if u.split("?")[0].rstrip("/").lower().endswith(_ASSET_EXT):
+            continue  # 이미지·미디어 자산은 국가 공용 CDN 경로인 경우가 흔해 사이트코드 비교 대상이 아님
         seg = _site_seg(u)
         if seg and seg != my and "samsung.com" in u and seg not in ("global",):
             if _sitecode_group(seg) == my_group:

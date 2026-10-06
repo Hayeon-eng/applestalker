@@ -57,7 +57,9 @@ def _load(run_id: str) -> Optional[Dict[str, Any]]:
 def static_pages():
     sites = static_qa.load_sites()
     return {"pages": static_qa.STATIC_PAGES, "sites": len(sites), "auto": sum(1 for s in sites if s["mode"] == "auto"),
-            "manual": [s["sitecode"] for s in sites if s["mode"] != "auto"], "status_order": static_qa.STATUS_ORDER}
+            "manual": [s["sitecode"] for s in sites if s["mode"] != "auto"], "status_order": static_qa.STATUS_ORDER,
+            # [2026-09 신규] 권역별 수집 선택 — 프론트가 국가/사이트코드를 다시 조합하지 않고 그대로 쓰도록
+            "site_list": [{"sitecode": s["sitecode"], "country": s.get("country"), "subs": s.get("subs") or "(미지정)"} for s in sites if s["mode"] == "auto"]}
 
 
 async def _bg(pages, sitecodes):
