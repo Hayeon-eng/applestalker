@@ -45,6 +45,7 @@ DEFAULT_CONFIG = {
                  "static_daily": True, "static_hour": 8,    # 공통페이지 QA — 매일 08:00 (mode 가 auto 일 때)
                  "run_honeycomb": False, "honeycomb_detail": False},  # honeyComb(SerpApi 호출 발생) 은 기본 수동 — 켜면 주간 실행에 포함
     "open_browser": True,
+    "ai_summary": False,                    # [2026-10] Apple Stalker 분석에 Gemini 사용 여부 — 기본 끔(규칙 기반만). 켜면 GEMINI 키 필요
     "ca_bundle_path": "",                   # (선택) 회사 루트 인증서 .pem 경로 — truststore 로 안 풀릴 때
     "ssl_verify": False,                     # 최후 수단: false 면 인증서 검증 끔(사내 테스트용)
 }
@@ -139,13 +140,16 @@ def apply_env(cfg: dict):
             os.environ[env_key] = v
         else:
             os.environ.pop(env_key, None)
+    os.environ["INTEL_LLM"] = "true" if cfg.get("ai_summary") else "false"   # [2026-10] 규칙 기반 기본
+    os.environ.setdefault("GEMINI_TRANSPORT", "rest")                          # [2026-10] 사내망 인증서 호환(gRPC 아님)
     os.environ.setdefault("HC_RUNS_DIR", str(DATA_DIR / "hc_runs"))
     em = cfg.get("email") or {}
     os.environ["EMAIL_REPORT_ENABLED"] = "true" if em.get("enabled") else "false"
-    for k, v in (("SMTP_SERVER", em.get("smtp_server")), ("SMTP_PORT", str(em.get("smtp_port") or "")),
-                 ("SENDER_EMAIL", em.get("sender")), ("SENDER_PASSWORD", em.get("password")), ("RECIPIENT_EMAIL", em.get("recipients"))):
-        if v:
-            os.environ[k] = str(v)
+    # [2026-10] 화면에서 지운 값도 반영되게 빈 값이면 환경변수를 비운다(서버·포트는 기본값 유지)
+    os.environ["SMTP_SERVER"] = str(em.get("smtp_server") or "smtp.naver.com")
+    os.environ["SMTP_PORT"] = str(em.get("smtp_port") or "587")
+    for k, v in (("SENDER_EMAIL", em.get("sender")), ("SENDER_PASSWORD", em.get("password")), ("RECIPIENT_EMAIL", em.get("recipients"))):
+        os.environ[k] = str(v or "")
     os.environ.setdefault("CRON_TOKEN", secrets.token_hex(8))
     # 렌더 기본 OFF(큐비 v5 결정) — exe 에는 chromium 을 넣지 않는다
     os.environ.setdefault("USE_PLAYWRIGHT", "false"); os.environ.setdefault("JS_RESCUE", "false"); os.environ.setdefault("QB_SPEC_API", "true")
@@ -260,7 +264,10 @@ def build_app(cfg: dict):
         for k in ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "database_url"):
             c.pop(k, None)
         if isinstance(c.get("email"), dict):
-            c["email"] = {k: v for k, v in c["email"].items() if k in ("enabled", "auto_send_after_run")}
+            # [2026-10] 이메일은 "각자 PC 에서 설정"하는 값이므로 화면에서 편집 가능 — 비밀번호만 마스킹(***)해 내려준다
+            em = dict(c["email"])
+            em["password"] = "***" if em.get("password") else ""
+            c["email"] = em
         return {"config": c, "secrets": secrets, "config_path": str(CONFIG_PATH), "data_dir": str(DATA_DIR),
                 "database": os.environ.get("DATABASE_URL", "").split("@")[-1]}
 
@@ -272,7 +279,7 @@ def build_app(cfg: dict):
                 if k == "email" and body[k].get("password") == "***":
                     body[k]["password"] = c["email"].get("password", "")
                 c[k].update(body[k])
-        for k in ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "database_url", "open_browser", "port"):
+        for k in ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "database_url", "open_browser", "port", "ai_summary"):
             if k in body and not (k == "serpapi_key" and str(body[k]).startswith("***")):
                 c[k] = body[k]
         save_config(c); apply_env(c)
