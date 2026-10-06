@@ -220,20 +220,27 @@ def gemini_deep_health():
 
 @app.get("/api/runs")
 def runs():
-    rows = q("SELECT crawl_run_id, site_name, started_at, total_urls_crawled, total_changes_detected, session_id "
+    rows = q("SELECT crawl_run_id, site_name, started_at, total_urls_crawled, total_changes_detected, session_id, completed_at "
              "FROM crawl_runs WHERE status='completed' ORDER BY started_at DESC LIMIT 120")
     # 같은 수집 배치(session_id)끼리 묶고 삼성+애플 합산
     sessions = {}
     for r in rows:
         key = _session_key(r[2], r[5])
         s = sessions.setdefault(key, {"session": key, "run_ids": [], "sites": set(),
-                                       "pages": 0, "changes": 0, "latest": r[2]})
+                                       "pages": 0, "changes": 0, "latest": r[2], "first": r[2], "ended": r[6]})
         s["run_ids"].append(r[0]); s["sites"].add(r[1])
         s["pages"] += (r[3] or 0); s["changes"] += (r[4] or 0)
         if r[2] and (not s["latest"] or r[2] > s["latest"]): s["latest"] = r[2]
+        if r[2] and (not s["first"] or r[2] < s["first"]): s["first"] = r[2]
+        if r[6] and (not s["ended"] or r[6] > s["ended"]): s["ended"] = r[6]
+    def _dur(v):  # [2026-10] 세션 소요 시간(초) — 첫 run 시작 ~ 마지막 run 완료
+        try:
+            return int((v["ended"] - v["first"]).total_seconds()) if v.get("ended") and v.get("first") else None
+        except Exception:
+            return None
     out = [{"session": _session_label(v["latest"]), "session_id": v["session"], "run_ids": v["run_ids"],
             "sites": sorted(v["sites"]), "pages": v["pages"], "changes": v["changes"],
-            "timestamp": _kst_str(v["latest"])}
+            "timestamp": _kst_str(v["latest"]), "duration_seconds": _dur(v)}
            for v in sessions.values()]
     out.sort(key=lambda x: x["timestamp"], reverse=True)
     return {"sessions": out[:30]}
@@ -502,6 +509,7 @@ async def trigger_all(payload: Dict[str, Any] = Body(default=None)):
                 await crawl_service.execute_crawl(sk, session_id=batch_id)
         finally:
             crawl_state["crawling"] = False
+            crawl_state["last_finished_at"] = datetime.now().isoformat(timespec="seconds")   # [2026-10] 프론트 폴링 폴백용
     asyncio.create_task(run())
     return {"status": "started", "sites": keys}
 
@@ -514,7 +522,9 @@ def api_site_keys():
 
 @app.get("/api/crawl-status")
 def crawl_status():
-    return {"crawling": crawl_state["crawling"], "run_id": crawl_state["run_id"]}
+    # [2026-10] SSE 가 끊겨도 프론트가 폴링으로 완료를 알 수 있게 마지막 완료 시각을 함께 준다
+    return {"crawling": crawl_state["crawling"], "run_id": crawl_state["run_id"],
+            "last_finished_at": crawl_state.get("last_finished_at")}
 
 
 @app.get("/api/crawl-progress")

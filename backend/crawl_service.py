@@ -142,6 +142,8 @@ class CrawlServiceV2:
             # INTEL (항상 실행)
             # ─────────────────────────────────────────────
             summary = summarize_events(all_events)
+            # [2026-10] 수집 바가 100% 가 된 뒤의 "분석 정리" 단계를 화면에 알린다(이전엔 이 구간이 침묵이라 멈춘 것처럼 보였다)
+            self._emit(type="analyzing", site=site_key, llm=bool(self.intel.ready), pages=len(crawled), changes=len(all_events))
 
             # [FIX] _run_intel 내부의 Gemini 호출 + 재시도 time.sleep()이 동기(sync)라
             # 그대로 두면 asyncio 이벤트 루프 전체를 그 시간만큼 멈춘다(= SSE 하트비트도

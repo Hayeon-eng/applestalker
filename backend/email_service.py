@@ -51,6 +51,11 @@ def _short(value, fallback="값 없음", limit=220):
 class EmailService:
     def __init__(self, engine):
         self.engine = engine
+        self._refresh_env()
+
+    def _refresh_env(self):
+        """[2026-10] 데스크톱 설정 화면에서 SMTP 를 바꾸면 launcher.apply_env 가 환경변수만 갱신한다 —
+        인스턴스가 기동 시 값을 들고 있으면 재시작 전까지 옛 값으로 보내므로 발송 직전에 다시 읽는다."""
         self.server = os.getenv("SMTP_SERVER", "smtp.naver.com")
         self.port = int(os.getenv("SMTP_PORT", "587"))
         self.sender = os.getenv("SENDER_EMAIL", "")
@@ -385,6 +390,7 @@ class EmailService:
         return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>애플스토커 🍎</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>" + header_meta + "</div><div style='margin-top:16px'>" + body + "</div></div></div>"
 
     def send(self, report_type="morning"):
+        self._refresh_env()
         if not self.enabled:
             return {"status": "skipped", "reason": "EMAIL_REPORT_ENABLED is false"}
         missing = self.configured()

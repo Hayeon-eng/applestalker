@@ -38,13 +38,35 @@ class IntelEngine:
         self.ready = False
         # Q3: 여러 사이트를 연속 분석할 때 RPM 초과로 뒤 순번(경쟁사)이 폴백되는 것을 완화하기 위한 호출 간 지연
         self._call_delay = float(os.getenv("GEMINI_CALL_DELAY_SEC", "0.8"))
-        if _GENAI and self.api_key and self.api_key != "your_gemini_api_key_here":
+        # [2026-10] 서킷 브레이커 — SSL/네트워크/하드 타임아웃처럼 "다시 해도 똑같을" 실패가 한 번 나면
+        # 이 세션(크롤 1회) 동안 LLM 을 끈다. 예전엔 카테고리 3개 × 재시도 3회 × 30s = 사이트당 최대 4분 30초를
+        # 실패에 소비해, 수집 바가 100% 가 되고도 몇 분간 결과가 안 뜨는 증상의 주원인이었다.
+        self.disabled_reason: Optional[str] = None
+        # [2026-10] INTEL_LLM=false 면 Gemini 를 아예 안 쓴다(규칙 기반만). 데스크톱 기본값은 끔(launcher 가 config.ai_summary 로 제어).
+        llm_on = os.getenv("INTEL_LLM", "true").lower() not in ("0", "false", "no", "off")
+        if not llm_on:
+            self.disabled_reason = "ai_disabled_by_config"
+        if llm_on and _GENAI and self.api_key and self.api_key != "your_gemini_api_key_here":
             try:
-                genai.configure(api_key=self.api_key)
+                # [2026-10] transport=rest — gRPC 는 OS 인증서 저장소(truststore)·REQUESTS_CA_BUNDLE 을 무시해
+                # 사내망(HTTPS 재서명 프록시)에서 CERTIFICATE_VERIFY_FAILED 로 핸드셰이크가 매번 실패했다.
+                # REST(httpx/requests)는 launcher.apply_os_trust() 가 주입한 인증서를 그대로 쓴다.
+                transport = os.getenv("GEMINI_TRANSPORT", "rest")
+                try:
+                    genai.configure(api_key=self.api_key, transport=transport)
+                except TypeError:
+                    genai.configure(api_key=self.api_key)
                 self.model = genai.GenerativeModel(self.model_name)
                 self.ready = True
             except Exception as e:
                 print(f"[intel] gemini init failed: {e}")
+
+    def _trip(self, reason: str):
+        """LLM 을 이 세션 동안 끈다(한 번만 로그)."""
+        if self.ready:
+            print(f"[intel] ⚠ Gemini 비활성(이번 수집 동안): {reason} — 이후 사이트는 규칙 기반으로만 분석")
+        self.ready = False
+        self.disabled_reason = self.disabled_reason or reason
 
     def is_available(self) -> bool:
         return self.ready
@@ -125,16 +147,19 @@ class IntelEngine:
         rule_actions = self._rule_actions(is_ours, events)
 
         if self.ready:
-            # 일시적 오류(레이트리밋/타임아웃/JSON 파싱 실패) 대비 최대 3회 시도
+            # 일시적 오류(레이트리밋/빈 응답/JSON 파싱 실패)만 최대 3회 시도. 하드 타임아웃·SSL·인증 오류는
+            # _llm_enrich 가 서킷을 내려(self.ready=False) 즉시 멈춘다 — 같은 실패를 반복하지 않는다.
             llm_out = None
             last_err = None
             for attempt in range(3):
+                if not self.ready:
+                    break
                 try:
                     llm_out = self._llm_enrich(name, site_display, is_ours, facts, narrative_lines, events)
                 except Exception as e:
                     last_err = e
                     llm_out = None
-                if llm_out:
+                if llm_out or not self.ready:
                     break
                 if attempt < 2:
                     time.sleep(1.5 * (attempt + 1))  # 1.5s, 3s backoff
@@ -154,6 +179,7 @@ class IntelEngine:
             "confidence": 0.7,
             "_source": "rule_based",
             "_fallback_reason": ("ai_response_failed" if self.ready else "ai_disabled"),
+            "_fallback_detail": self.disabled_reason,   # [2026-10] 왜 꺼졌는지(config / ssl / timeout …)
         }
 
     def _llm_enrich(self, category, site_display, is_ours, facts, narrative_lines, events) -> Optional[Dict[str, Any]]:
@@ -217,6 +243,7 @@ class IntelEngine:
             except cf.TimeoutError:
                 print(f"[intel] {category} llm enrich failed: 하드 타임아웃 {hard_cap}s 초과 — "
                       f"SDK 자체 timeout({req_opts['timeout']}s)이 지켜지지 않는 상태로 판단, rule-based로 폴백")
+                self._trip(f"hard_timeout_{hard_cap}s")   # [2026-10] 네트워크가 막힌 상태 — 반복해도 같다
                 return None
             finally:
                 ex.shutdown(wait=False)
@@ -232,6 +259,10 @@ class IntelEngine:
                       f"— rule-based로 폴백. raw={msg[:200]}")
             else:
                 print(f"[intel] {category} llm enrich failed: {e}")
+                ml = msg.lower()
+                if any(k in ml for k in ("certificate_verify_failed", "ssl", "handshake", "unable to get local issuer",
+                                         "api key not valid", "permission_denied", "401", "403", "connection refused", "name resolution")):
+                    self._trip("ssl_or_auth_error")   # [2026-10] 인증서·키·네트워크 문제 — 재시도 무의미
             return None
 
     def _narrate_copy(self, c: Dict[str, Any]) -> List[str]:
