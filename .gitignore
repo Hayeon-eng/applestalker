@@ -9,6 +9,10 @@
 .env.local
 .env.production
 .env.*.local
+# [2026-10] 런처가 만드는 설정(키 포함 가능) + 임베드 키 — 절대 커밋 금지
+config.json
+desktop/config.json
+desktop/embedded_keys.py
 
 # ----------------------------------------
 # Python
