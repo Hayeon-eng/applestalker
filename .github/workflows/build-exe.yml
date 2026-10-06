@@ -1,10 +1,24 @@
 name: build-exe
 # ABC_Tool.exe 자동 빌드 — main 에 push 되거나 수동 실행하면 Windows 러너가 빌드해 아티팩트로 올린다.
+#
+# [2026-09 보안 변경] 기본 빌드는 관리자의 API 키·비밀번호를 exe 에 넣지 않는다.
+#   PyInstaller exe 는 pyinstxtractor 같은 도구로 풀면 임베드된 config.default.json 이 그대로 읽혀서,
+#   exe 를 받은 팀원 누구나 관리자 키를 꺼내볼 수 있었다(아티팩트는 저장소 접근 권한이 있으면 누구나 다운로드).
+#   → push 로 자동 실행되는 빌드는 키 없이 "프로그램만" 만든다. 키가 필요한 팀원에게는 관리자가
+#     별도 채널(메신저 DM·비밀번호 관리자 등)로 config.json 을 따로 전달해 exe 옆에 둔다
+#     (launcher.py 는 exe 옆 config.json 을 이미 읽는다 — 키는 exe 밖에만 존재).
+#   → 관리자 본인용으로 키가 들어간 exe 가 꼭 필요하면 수동 실행(workflow_dispatch)에서 embed_secrets 를 켠다.
+#     그 산출물은 이름에 ADMIN_ONLY 가 붙고 보관 기간도 1일뿐이니, 절대 팀에 배포하지 말고 본인만 쓸 것.
 on:
   push:
     branches: [main]
     paths: ['backend/**', 'frontend/**', 'desktop/**', 'requirements.txt', '.github/workflows/build-exe.yml']
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      embed_secrets:
+        description: "관리자 본인용 — Secrets(비밀번호·API 키)를 exe 에 임베드(배포 금지)"
+        type: boolean
+        default: false
 jobs:
   build:
     runs-on: windows-latest
@@ -14,7 +28,8 @@ jobs:
         with: { node-version: '22' }
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
-      - name: Write shared config from Secrets
+      - name: Write shared config from Secrets (관리자 본인용 수동 빌드에서만)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.embed_secrets }}
         shell: pwsh
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
@@ -30,15 +45,27 @@ jobs:
           if ($env:GEMINI_API_KEY) { $cfg["gemini_api_key"] = $env:GEMINI_API_KEY }
           if ($env:SERPAPI_KEY)    { $cfg["serpapi_key"]    = $env:SERPAPI_KEY }
           $cfg | ConvertTo-Json -Depth 5 | Set-Content $path -Encoding UTF8
-          Write-Host "shared config keys: $($cfg.Keys -join ', ')"
+          Write-Host "ADMIN-ONLY build — shared config keys: $($cfg.Keys -join ', ')"
       - name: Build exe
         shell: pwsh
         run: .\desktop\build.ps1
-      - name: Zip
+      - name: Zip (배포용 — 키 없음)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.embed_secrets) }}
         shell: pwsh
         run: Compress-Archive -Path desktop\dist\ABC_Tool\* -DestinationPath ABC_Tool_win_${{ github.run_number }}.zip
+      - name: Zip (관리자 본인용 — 키 포함, 배포 금지)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.embed_secrets }}
+        shell: pwsh
+        run: Compress-Archive -Path desktop\dist\ABC_Tool\* -DestinationPath ABC_Tool_win_ADMIN_ONLY_DO_NOT_DISTRIBUTE_${{ github.run_number }}.zip
       - uses: actions/upload-artifact@v4
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.embed_secrets) }}
         with:
           name: ABC_Tool_win
           path: ABC_Tool_win_*.zip
           retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.embed_secrets }}
+        with:
+          name: ABC_Tool_win_ADMIN_ONLY
+          path: ABC_Tool_win_ADMIN_ONLY_*.zip
+          retention-days: 1
