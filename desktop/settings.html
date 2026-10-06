@@ -23,11 +23,11 @@ button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;
 <div class="card"><h2>이메일</h2>
   <label><input type="checkbox" id="emEnabled" style="width:auto"> 이메일 기능 사용(SMTP)</label>
   <label><input type="checkbox" id="emAuto" style="width:auto"> 자동 실행이 끝나면 리포트 메일 자동 발송</label>
-  <div class="hint">꺼 두면 화면의 '메일 본문 복사'로 수동 발송만 가능합니다(SMTP 없이도 동작). SMTP 서버·보내는 주소·비밀번호·받는 주소는 이 화면에서 바꾸지 않습니다(아래 참고).</div>
+  <div class="hint">꺼 두면 화면의 '메일 본문 복사'로 수동 발송만 가능합니다(SMTP 없이도 동작). SMTP 서버·보내는 주소·비밀번호·받는 주소와 API·SerpApi 키는 <b>관리자만 변경할 수 있어</b> 이 화면에 없습니다(아래 '접속·키' 참고).</div>
 </div>
 <div class="card"><h2>접속·키 <span class="hint" style="margin:0">— 이 PC 를 쓰는 누구나 볼 수 있는 화면이라 값 자체는 여기 두지 않습니다</span></h2>
   <div id="secretStatus"></div>
-  <div class="warn" style="margin-top:10px">화면 비밀번호·관리자 비밀번호·Gemini API 키·SerpApi 키·DB 주소·SMTP 계정은 <code id="cfgPath2"></code> 파일을 텍스트 편집기로 직접 열어 수정하세요. 저장 후 프로그램을 다시 시작하면 적용됩니다.</div>
+  <div class="warn" style="margin-top:10px"><b>🔒 관리자만 변경할 수 있습니다.</b> 화면 비밀번호·관리자 비밀번호·Gemini API 키·SerpApi 키·DB 주소·SMTP 계정은 이 화면(팀원 누구나 열 수 있음)에서 바꾸지 않고, 관리자가 <code id="cfgPath2"></code> 파일을 직접 열어 수정합니다. 저장 후 프로그램을 다시 시작하면 적용됩니다.<br>배포되는 프로그램(exe)에는 이 값들이 들어 있지 않습니다 — 키가 필요한 PC 는 관리자에게 config.json 을 따로 받아 exe 옆에 두세요.</div>
 </div>
 <div class="card">
   <div style="display:flex;gap:8px"><button class="p" onclick="save()">저장</button><a class="s" style="padding:9px 14px;border-radius:10px;text-decoration:none;color:#374151" href="/">← 도구로 돌아가기</a></div>
