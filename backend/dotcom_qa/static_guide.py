@@ -72,17 +72,24 @@ def cell_guide(cell: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _ratio(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """정상/오류 비율. [2026-10 통일] pass/warn/fail/na 4단계 집계와 신호등용 score(na 제외 분모) 추가.
+    기존 키(ok/err/na/ok_pct/err_pct/by_status)는 그대로 유지(엑셀·메일이 쓴다)."""
+    from static_qa import sev_of
     total = len(rows)
     ok = sum(1 for r in rows if r["status"] == "정상")
     err = sum(1 for r in rows if r["status"] in ("파싱 실패", "오적용", "미해결 참조", "기타"))
     miss = sum(1 for r in rows if r["status"] in ("페이지 없음", "접근 실패"))
     by = {}
+    sev = {"pass": 0, "warn": 0, "fail": 0, "na": 0}
     for r in rows:
         by[r["status"]] = by.get(r["status"], 0) + 1
+        sev[sev_of(r["status"])] += 1
+    scored = sev["pass"] + sev["warn"] + sev["fail"]
     return {"total": total, "ok": ok, "err": err, "na": miss,
             "ok_pct": round(100 * ok / total) if total else 0,
             "err_pct": round(100 * err / total) if total else 0,
-            "by_status": by}
+            "by_status": by, "sev": sev,
+            "score": round(100 * sev["pass"] / scored) if scored else None}   # 신호등·게이지용(해당없음 제외)
 
 
 def summarize(results: List[Dict[str, Any]], sites_meta: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -90,9 +97,12 @@ def summarize(results: List[Dict[str, Any]], sites_meta: List[Dict[str, Any]]) -
     subs_of = {s["sitecode"]: s.get("subs") or "-" for s in sites_meta}
     by_page: Dict[str, Any] = {}
     by_region: Dict[str, Any] = {}
+    from static_qa import sev_of
     for r in results:
         by_page.setdefault(r.get("page_label") or r.get("page"), []).append(r)
         reg = subs_of.get(r["sitecode"], "-")
+        r["region"] = reg                      # [2026-10 통일] 프론트 권역별 신호등·권역 OVERVIEW 용
+        r["sev"] = sev_of(r["status"])         # [2026-10 통일] 공용 4단계 판정
         by_region.setdefault(reg, []).append(r)
     return {
         "by_page": {k: _ratio(v) for k, v in sorted(by_page.items())},

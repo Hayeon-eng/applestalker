@@ -103,7 +103,12 @@ def static_latest():
     runs = _list()
     if not runs:
         return {"run": None}
-    return {"run": _load(runs[0]["run_id"])}
+    d = _load(runs[0]["run_id"])
+    if d:  # [2026-10 통일] /runs/{id} 와 같은 형태(행마다 sev/region, insight)로 돌려준다
+        for r in d.get("results", []):
+            r["guide"] = static_guide.cell_guide(r)
+        d["insight"] = static_guide.summarize(d.get("results", []), static_qa.load_sites())
+    return {"run": d}
 
 
 @qb_router.get("/static/runs/{run_id}")

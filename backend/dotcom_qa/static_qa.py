@@ -44,6 +44,14 @@ RICH_REQUIRED: Dict[str, List[str]] = {
     "Organization": ["name"], "BreadcrumbList": ["itemListElement"], "FAQPage": ["mainEntity"], "ItemList": ["itemListElement"],
 }
 STATUS_ORDER = ["정상", "파싱 실패", "오적용", "미해결 참조", "페이지 없음", "접근 실패", "기타"]
+# [2026-10 통일] 7단계 상태 → 큐비 공용 4단계 판정(pass/warn/fail/na). 프론트·엑셀·권역 OVERVIEW 가 모두 이 표를 쓴다.
+#   파싱 실패 = fail(검색엔진이 블록을 못 읽음 → 수정 필수)
+#   오적용·미해결 참조·기타 = warn(스키마는 읽히나 참조/속성이 틀림)
+#   페이지 없음·접근 실패 = na(사이트 품질이 아닌 존재 여부·수집 환경 → 점수 분모 제외)
+SEV_OF_STATUS = {"정상": "pass", "파싱 실패": "fail", "오적용": "warn", "미해결 참조": "warn", "기타": "warn",
+                 "페이지 없음": "na", "접근 실패": "na"}
+def sev_of(status: str) -> str:
+    return SEV_OF_STATUS.get(status, "warn")
 
 
 def load_sites() -> List[Dict[str, Any]]:
