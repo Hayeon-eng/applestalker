@@ -251,7 +251,7 @@ def hc_email_html(run_id: Optional[str] = None):
         run, prev = _latest_two_runs()
         if not run:
             raise HTTPException(404, "실행 결과 없음")
-    return HTMLResponse(content=hc_email.build_html(run, prev, _mock.config()))
+    return HTMLResponse(content=hc_email.build_html(run, prev, _mock.config(), _mock.attributes()))
 
 
 @hc_router.get("/email/send")
@@ -267,7 +267,7 @@ def hc_email_send(run_id: Optional[str] = None):
         run, prev = _latest_two_runs()
         if not run:
             raise HTTPException(404, "실행 결과 없음")
-    r = hc_email.send_email(run, prev, _mock.config())
+    r = hc_email.send_email(run, prev, _mock.config(), _mock.attributes())
     if r["status"] == "sent":
         return r
     raise HTTPException(400 if r["status"] == "skipped" else 500, r.get("reason") or r.get("error"))
@@ -283,7 +283,7 @@ def hc_cron_tick(token: str = Query(...)):
     cron_token = os.getenv("CRON_TOKEN", "change-me")
     if token != cron_token:
         raise HTTPException(403, "invalid token")
-    kws = [k for k in _load_keywords().get("keywords", []) if k.get("enabled", True)]
+    kws = _load_keywords().get("keywords", [])  # collect_run 이 내부에서 enabled 필터링(위 _bg 와 동일 관례)
     run_id_tmp = f"cron_{time.strftime('%Y%m%d_%H%M%S')}"
     provider = get_provider(_provider_kind(), raw_dir=os.path.join(RUNS_DIR, run_id_tmp, "raw"))
     prev, _ = _latest_two_runs()
@@ -297,5 +297,5 @@ def hc_cron_tick(token: str = Query(...)):
             os.remove(os.path.join(RUNS_DIR, f))
     except Exception as e:
         return {"ran_at": datetime.utcnow().isoformat(), "status": "collect_failed", "error": str(e)[:300]}
-    mail = hc_email.send_email(run, prev, _mock.config())
+    mail = hc_email.send_email(run, prev, _mock.config(), _mock.attributes())
     return {"ran_at": datetime.utcnow().isoformat(), "run_id": run_id_tmp, "cells": len(run.get("cells", [])), "email": mail}

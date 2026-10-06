@@ -20,12 +20,27 @@ from typing import Any, Dict, List, Optional
 STATUS_ORDER = ["top1", "topn", "low", "absent", "unranked", "unchecked", "error"]
 
 
+# [2026-09 신규] 제품명으로 검색하면 같은 브랜드의 액세서리(Trail Band, Case 등)도 결과에 섞여 들어오는데,
+# 이걸 "우리 제품이 노출됨"으로 세면 실제 본품 순위가 왜곡된다(액세서리가 더 잘 팔려서 순위가 높으면
+# 본품이 낮은데도 1위로 잡힘). 제목에 액세서리 키워드가 있으면 순위·속성 판정 대상에서 제외한다.
+_ACCESSORY_KEYWORDS = ("band", "strap", "case", "cover", "sleeve", "pouch", "screen protector",
+                       "tempered glass", "charger", "charging", "cable", "adapter", "dock",
+                       "stand", "holder", "clip", "skin", "bumper", "clasp")
+
+
+def _is_accessory_title(title: Optional[str]) -> bool:
+    if not title:
+        return False
+    t = title.lower()
+    return any(kw in t for kw in _ACCESSORY_KEYWORDS)
+
+
 def judge_position(items: List[Dict[str, Any]], top_n: int) -> Dict[str, Any]:
     """provider items → (position, first_store, status). 실수집 provider 용."""
-    first_store = items[0]["merchant"] if items else None
-    ours = [it for it in items if it.get("is_samsung_store")]
     if not items:
         return {"position": None, "first_store": None, "status": "unchecked"}
+    first_store = items[0]["merchant"]
+    ours = [it for it in items if it.get("is_samsung_store") and not _is_accessory_title(it.get("title"))]
     if not ours:
         return {"position": None, "first_store": first_store, "status": "absent"}
     pos = min(it["position"] for it in ours)
@@ -141,7 +156,7 @@ def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any
                     progress(done, total, {"country": c["code"], "product": p["slug"], "keyword": k["text"], "status": "조회 중"})
                 cell = {"country": c["code"], "product": p["slug"], "keyword": k["text"], "keyword_type": k.get("type", "brand"),
                         "keyword_subtype": k.get("subtype"), "position": None, "top_n": top_n, "scom_exposed": None,
-                        "first_store": None, "status": "unchecked", "attrs": {}, "attr_values": {}, "feed": {}, "evidence": None, "items_top": []}
+                        "first_store": None, "status": "unchecked", "attrs": {}, "attr_values": {}, "feed": {}, "evidence": None, "items_top": [], "competitor_benchmark": None}
                 try:
                     res = provider.fetch_shopping(c, k["text"])
                     items = res.get("items") or []
@@ -151,7 +166,7 @@ def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any
                                 evidence=res.get("raw_ref"), fetched_at=res.get("fetched_at"),
                                 items_top=[{k2: it.get(k2) for k2 in ("position", "title", "merchant", "price", "is_samsung_store", "link")}
                                            for it in items[:top_n]])
-                    ours = [it for it in items if it.get("is_samsung_store")]
+                    ours = [it for it in items if it.get("is_samsung_store") and not _is_accessory_title(it.get("title"))]
                     if ours:
                         best = min(ours, key=lambda it: it["position"])
                         cell["our_item"] = {k2: best.get(k2) for k2 in ("position", "title", "merchant", "price", "link", "product_id")}
@@ -169,6 +184,16 @@ def collect_run(provider, config: Dict[str, Any], attributes: List[Dict[str, Any
                                 cell["detail_error"] = str(de)[:200]
                                 errors.append({"country": c["code"], "product": p["slug"], "keyword": k["text"],
                                                "error": f"상세 조회 실패(순위는 정상): {str(de)[:160]}"})
+                    elif items:
+                        # [2026-09 신규] 우리 제품이 안 보일 때 "그럼 1위는 뭘 잘하고 있나"를 카드 데이터만으로
+                        # 추가 호출 없이 함께 남긴다 — SerpApi 비용을 늘리지 않으면서 벤치마크로 쓸 수 있게.
+                        rival = min((it for it in items if not _is_accessory_title(it.get("title"))), key=lambda it: it["position"], default=None)
+                        if rival:
+                            _tr = trace_attributes(rival, {}, attributes)
+                            cell["competitor_benchmark"] = {
+                                **{k2: rival.get(k2) for k2 in ("position", "title", "merchant", "price", "link")},
+                                "attrs": _tr["attrs"], "attr_values": _tr["attr_values"],
+                            }
                 except Exception as e:
                     # 여기까지 오면 검색(순위) 자체가 실패한 것 — 그때만 error
                     cell["status"] = "error"; cell["error"] = str(e)[:200]

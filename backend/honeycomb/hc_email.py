@@ -76,7 +76,27 @@ def _changes_block(changes: List[Dict[str, Any]], cname: Dict[str, str], label: 
             + rows + more + "</div>")
 
 
-def build_html(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None) -> str:
+def _attr_breakdown(run: Dict[str, Any], attributes: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """속성 코드별 노출률 — cells 전체에서 entered/missed 비율(na 는 분모 제외). 가장 안 보이는 순으로 정렬."""
+    name_of = {a["code"]: a["name"] for a in (attributes or [])}
+    counts: Dict[str, Dict[str, int]] = {}
+    for cell in run.get("cells", []):
+        for code, v in (cell.get("attrs") or {}).items():
+            if v == "na":
+                continue
+            counts.setdefault(code, {"entered": 0, "missed": 0})
+            counts[code][v] = counts[code].get(v, 0) + 1
+    out = []
+    for code, c in counts.items():
+        total = c["entered"] + c["missed"]
+        if not total:
+            continue
+        out.append({"code": code, "name": name_of.get(code, code), "pct": round(100 * c["entered"] / total, 1), "total": total})
+    return sorted(out, key=lambda x: x["pct"])
+
+
+def build_html(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None,
+               attributes: Optional[List[Dict[str, Any]]] = None) -> str:
     s = hc_engine.summarize(run, keyword_type="brand")
     cname = {c["code"]: c["label"] for c in (config or {}).get("countries", [])}
     plabel = {p["slug"]: p["label"] for p in (config or {}).get("products", [])}
@@ -93,10 +113,28 @@ def build_html(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, c
     if s.get("first_stores"):
         top_stores = list(s["first_stores"].items())[:6]
         stores_html = ("<div style='margin-top:16px'>"
-                        "<div style='font-size:13px;font-weight:800;color:#101318;border-bottom:2px solid #8A5A00;padding-bottom:4px'>1위 판매처 분포</div>"
+                        "<div style='font-size:13px;font-weight:800;color:#101318;border-bottom:2px solid #8A5A00;padding-bottom:4px'>⬡ 1위 판매처 분포</div>"
                         "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px'>"
                         + "".join(f"<span style='font-size:11.5px;background:#FFF7E6;border:1px solid #FCE3A6;border-radius:6px;padding:3px 9px'><b>{escape(store)}</b> {n}건</span>" for store, n in top_stores)
                         + "</div></div>")
+
+    # [2026-09 신규] "속성이 얼마나 보이는지" 하나의 평균 숫자만 있었다 — 어떤 속성이 특히 안 보이는지
+    # 육각형(벌집) 모양 배지로 하나씩 보여준다(잘 안 보이는 속성 먼저 정렬).
+    attr_html = ""
+    breakdown = _attr_breakdown(run, attributes)
+    if breakdown:
+        rows = ""
+        for a in breakdown[:12]:
+            color = "#1F9E5C" if a["pct"] >= 80 else ("#E0A008" if a["pct"] >= 50 else "#D8362F")
+            rows += (
+                "<div style='display:flex;align-items:center;gap:8px;margin-top:6px'>"
+                "<div style='width:14px;height:16px;background:" + color + ";clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);flex-shrink:0'></div>"
+                "<div style='flex:1;font-size:12px;color:#101318'>" + escape(a["name"]) + "</div>"
+                "<b style='font-size:12px;color:" + color + "'>" + str(a["pct"]) + "%</b>"
+                "</div>")
+        attr_html = ("<div style='margin-top:16px'>"
+                      "<div style='font-size:13px;font-weight:800;color:#101318;border-bottom:2px solid #8A5A00;padding-bottom:4px'>⬡ 속성별 노출 현황 <span style='font-weight:400;color:#98A08B;font-size:11px'>잘 안 보이는 속성 먼저</span></div>"
+                      + rows + "</div>")
 
     changes_html = ""
     if prev_run:
@@ -104,8 +142,8 @@ def build_html(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, c
 
     return (
         "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'>"
-        "<div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'>"
-        "<div style='font-size:12px;color:#667085;font-weight:700'>허니콤 🍯🐝 — Google Shopping 노출 리포트</div>"
+        "<div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0;border-top:4px solid #E0A008'>"
+        "<div style='font-size:12px;color:#8A5A00;font-weight:700'>⬡ 허니콤 🍯🐝 — Google Shopping 노출 리포트</div>"
         "<h1 style='font-size:22px;margin:6px 0 2px'>" + escape(run.get("week") or run.get("at", "")) + "</h1>"
         "<div style='font-size:13px;color:#667085'>검사 " + str(total) + "건"
         + (f" · 1위 노출 {s['top1_rate']}%" if s.get("top1_rate") is not None else "")
@@ -114,9 +152,9 @@ def build_html(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, c
         + "</div>"
         "<div style='margin-top:14px'>" + _status_table(s["by_status"], total) + "</div>"
         "<div style='margin-top:16px'>"
-        "<div style='font-size:13px;font-weight:800;color:#101318;border-bottom:2px solid #8A5A00;padding-bottom:4px'>제품별 현황</div>"
+        "<div style='font-size:13px;font-weight:800;color:#101318;border-bottom:2px solid #8A5A00;padding-bottom:4px'>⬡ 제품별 현황</div>"
         + per_product_html + "</div>"
-        + stores_html + changes_html
+        + attr_html + stores_html + changes_html
         + "</div></div>")
 
 
@@ -150,7 +188,8 @@ def _smtp_send(subject: str, html: str) -> Dict[str, Any]:
         return {"status": "error", "error": type(exc).__name__ + ": " + str(exc)}
 
 
-def send_email(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def send_email(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None,
+               attributes: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     s = hc_engine.summarize(run, keyword_type="brand")
     subject = f"[허니콤] Google Shopping 리포트 · {run.get('week') or run.get('at', '')} · 1위 {s.get('top1_rate', '—')}%"
-    return _smtp_send(subject, build_html(run, prev_run, config))
+    return _smtp_send(subject, build_html(run, prev_run, config, attributes))
