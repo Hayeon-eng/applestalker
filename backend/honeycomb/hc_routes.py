@@ -67,8 +67,14 @@ def _saved_runs() -> list:
 
 
 def _all_runs() -> list:
-    """목업 run(있으면) + 실수집 run — 오래된 것부터."""
-    return list(_mock.runs()) + sorted(_saved_runs(), key=lambda r: r.get("at", ""))
+    """실수집 run — 오래된 것부터.
+    [2026-10 FIX] 예전엔 hc_mock_data.json.gz 의 샘플 run 2건(2026-07-23/27)을 항상 앞에 붙여 돌려줬다.
+    그래서 처음 설치한 PC 에서도 "과거 조회 이력"이 있는 것처럼 보였다. 목업 파일은 국가·속성 정의의 폴백으로만 쓰고
+    run 목록에는 넣지 않는다. 샘플 화면이 꼭 필요하면 HC_SHOW_MOCK_RUNS=true 로 켠다(기본 off)."""
+    runs = sorted(_saved_runs(), key=lambda r: r.get("at", ""))
+    if os.getenv("HC_SHOW_MOCK_RUNS", "").lower() in ("1", "true"):
+        runs = list(_mock.runs()) + runs
+    return runs
 
 
 def _find_run(run_id: str) -> Optional[Dict[str, Any]]:
