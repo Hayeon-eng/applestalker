@@ -119,9 +119,9 @@ _STATUS_EN = {
     "미해결 참조": "Unresolved Reference", "페이지 없음": "Page Not Found",
     "접근 실패": "Access Failed", "기타": "Other",
 }
-_STATUS_COLOR = {  # Data QA 시트의 MARK_COLOR(pass=1F9E5C/warn=E0A008/fail=D8362F/na=98A2B3) 팔레트 그대로 사용
-    "정상": "DCFCE7", "파싱 실패": "FDE2E1", "오적용": "FDE2E1", "미해결 참조": "FDE2E1",
-    "기타": "FDE2E1", "페이지 없음": "EEF0F3", "접근 실패": "EEF0F3",
+_STATUS_COLOR = {  # [2026-10 통일] 화면과 같은 4단계 배경 — pass 초록 / warn 노랑 / fail 빨강 / na 회색 (static_qa.SEV_OF_STATUS 와 일치)
+    "정상": "DCFCE7", "파싱 실패": "FDE2E1", "오적용": "FEF3C7", "미해결 참조": "FEF3C7",
+    "기타": "FEF3C7", "페이지 없음": "EEF0F3", "접근 실패": "EEF0F3",
 }
 _CATEGORY_HINT_EN = {
     "syntax": "JSON syntax error — check the block structure.",
@@ -210,7 +210,7 @@ def build_report_sheets(wb, run: Dict[str, Any]) -> None:
     ws2 = wb.create_sheet("Static QA - Detail")
     ws2.append(["Sitecode", "Country", "Page", "URL", "HTTP", "Status", "Reason", "Fix Hint", "JSON-LD Blocks",
                 "Parse Errors (block · category · line:col)", "Foreign Refs", "Unresolved Refs",
-                "Duplicate @id", "Rich Result Missing", "Types"])
+                "Duplicate @id", "Rich Result Missing", "Types", "Code Fix (as-is)", "Code Fix (to-be)"])   # [2026-10] 수정 코드 2열
     _hdr(ws2)
     for r in sorted(results, key=lambda x: (static_qa.STATUS_ORDER.index(x["status"]) if x["status"] in static_qa.STATUS_ORDER else 9, x["sitecode"])):
         hard = [p for p in r.get("parse_errors", []) if p.get("severity", "fail") == "fail"]
@@ -219,7 +219,11 @@ def build_report_sheets(wb, run: Dict[str, Any]) -> None:
                     _STATUS_EN.get(r["status"], r["status"]), _reason_en(r), hints,
                     r.get("blocks"), " | ".join(f"{p.get('block')} · {p.get('category')} · {p.get('line')}:{p.get('col')}" for p in hard),
                     " | ".join(r.get("foreign_refs", [])), " | ".join(r.get("unresolved_refs", [])), " | ".join(r.get("duplicate_ids", [])),
-                    " | ".join(f"{m['type']}({','.join(m['missing'])})" for m in r.get("rich_missing", [])), ", ".join(r.get("types", []))])
-        status_font_color = "1F9E5C" if r["status"] == "정상" else ("667085" if r["status"] in ("페이지 없음", "접근 실패") else "D8362F")
+                    " | ".join(f"{m['type']}({','.join(m['missing'])})" for m in r.get("rich_missing", [])), ", ".join(r.get("types", [])),
+                    "\n\n".join(f"[{f.get('label')}]\n{f.get('as_is') or ''}" for f in r.get("code_fixes", [])),
+                    "\n\n".join(f"[{f.get('label')}]\n{f.get('to_be') or '(manual fix — see as-is position)'}" for f in r.get("code_fixes", []))])
+        # [2026-10 통일] 상태 글자색을 공용 4단계(pass/warn/fail/na)로 — 화면과 같은 색
+        _sev = static_qa.sev_of(r["status"])
+        status_font_color = {"pass": "1F9E5C", "warn": "E0A008", "fail": "D8362F", "na": "98A2B3"}[_sev]
         ws2.cell(row=ws2.max_row, column=6).font = Font(bold=True, color=status_font_color)
-    _finish(ws2, [10, 14, 16, 46, 6, 10, 34, 34, 8, 46, 34, 34, 30, 34, 30], "G2")
+    _finish(ws2, [10, 14, 16, 46, 6, 10, 34, 34, 8, 46, 34, 34, 30, 34, 30, 48, 48], "G2")

@@ -100,6 +100,120 @@ def _sitecode_group(code: str) -> str:
     return _SITECODE_GROUP_CACHE.get(code, code.upper())
 
 
+# ── [2026-10] 수정 코드(as-is → to-be) 생성 ──────────────────────────────────
+_INVIS = {"\u00a0": "⟨NBSP⟩", "\u200b": "⟨ZWSP⟩", "\ufeff": "⟨BOM⟩", "\u200c": "⟨ZWNJ⟩", "\u200d": "⟨ZWJ⟩", "\u2028": "⟨LS⟩", "\u2029": "⟨PS⟩"}
+_SMART = {"\u201c": '\\"', "\u201d": '\\"', "\u2018": "'", "\u2019": "'"}
+_INVIS_RE = re.compile("[" + "".join(_INVIS) + "]")
+_SMART_RE = re.compile("[" + "".join(_SMART) + "]")
+
+
+def _raw_blocks(html: str) -> List[str]:
+    """extract_jsonld 와 같은 번호 체계(빈 블록 건너뜀)로 ld+json 원문 목록."""
+    import schema_checker as sc
+    return [m.group(1).strip() for m in sc._LD_RE.finditer(html or "") if m.group(1).strip()]
+
+
+def _window(raw: str, pos: int, span: int = 110) -> str:
+    """pos 주변 한 줄(또는 ±span 문자) 발췌. 줄이 아주 길면 잘라낸다."""
+    ls = raw.rfind("\n", 0, pos) + 1
+    le = raw.find("\n", pos); le = len(raw) if le < 0 else le
+    line = raw[ls:le]
+    if len(line) <= span * 2:
+        return line
+    a = max(ls, pos - span); b = min(le, pos + span)
+    return ("…" if a > ls else "") + raw[a:b] + ("…" if b < le else "")
+
+
+def _mark(s: str) -> str:
+    """비표시 문자를 눈에 보이는 토큰으로."""
+    return _INVIS_RE.sub(lambda m: _INVIS[m.group(0)], s)
+
+
+def build_code_fixes(html: str, out: Dict[str, Any], my: str, defined: set, ids: Dict[str, int]) -> List[Dict[str, Any]]:
+    """판정 근거마다 {kind, block, label, as_is, to_be, note, auto} 를 만든다.
+    auto=True 는 to_be 가 기계적으로 확정된 것(그대로 반영 가능), False 는 위치만 짚어 준 것(사람이 고쳐야 함)."""
+    fixes: List[Dict[str, Any]] = []
+    blocks = _raw_blocks(html)
+
+    def block_of(no):  # 1-based
+        return blocks[no - 1] if no and 0 < no <= len(blocks) else ""
+
+    seen_blocks = set()
+    for pe in out.get("parse_errors", []):
+        no = pe.get("block_no"); raw = block_of(no); cat = pe.get("category") or "syntax"
+        key = (no, cat)
+        if key in seen_blocks:
+            continue
+        seen_blocks.add(key)
+        if cat in ("invisible_char", "smart_quote"):
+            rx = _INVIS_RE if cat == "invisible_char" else _SMART_RE
+            hits = list(rx.finditer(raw))
+            if not hits:
+                continue
+            w = _window(raw, hits[0].start())
+            to_be = _INVIS_RE.sub("", w) if cat == "invisible_char" else _SMART_RE.sub(lambda m: _SMART[m.group(0)], w)
+            fixes.append({"kind": cat, "block": pe.get("block"), "label": "비표시 문자 제거" if cat == "invisible_char" else "스마트 따옴표 → 일반 따옴표",
+                          "as_is": _mark(w), "to_be": to_be, "auto": True,
+                          "note": f"이 블록에 {len(hits)}곳 — 첫 번째 위치만 표시. ⟨NBSP⟩⟨ZWSP⟩⟨BOM⟩ 표시가 실제 숨은 문자 자리." if cat == "invisible_char"
+                                  else f"이 블록에 {len(hits)}곳 — 값 안의 따옴표는 \\\" 로 이스케이프."})
+        elif cat == "trailing_comma":
+            m = re.search(r",(\s*[}\]])", raw)
+            if not m:
+                continue
+            w = _window(raw, m.start())
+            fixes.append({"kind": cat, "block": pe.get("block"), "label": "후행 쉼표 제거", "as_is": w,
+                          "to_be": re.sub(r",(\s*[}\]])", r"\1", w), "auto": True, "note": "마지막 항목 뒤 쉼표는 JSON 에서 허용되지 않음."})
+        else:
+            # 위치(줄:칸)는 알지만 정답을 기계적으로 만들 수 없는 문법 오류 — 위치만 짚어 준다
+            line = pe.get("line") or 0; col = pe.get("col") or 0
+            as_is = pe.get("line_text") or ""
+            if not as_is and raw and line:
+                ls = raw.splitlines(); as_is = ls[line - 1] if 0 < line <= len(ls) else ""
+            caret = (" " * max(0, col - 1) + "^") if col else ""
+            fixes.append({"kind": cat, "block": pe.get("block"), "label": {"missing_comma": "쉼표 누락", "unbalanced": "괄호 불일치", "unescaped": "이스케이프 누락"}.get(cat, "JSON 문법 오류"),
+                          "as_is": (as_is + ("\n" + caret if caret else "")) if as_is else f"{line}줄 {col}칸", "to_be": None, "auto": False,
+                          "note": pe.get("hint") or pe.get("msg") or ""})
+
+    # 오적용 — 다른 국가 사이트코드 URL → 내 사이트코드로
+    for u in out.get("foreign_refs", []):
+        seg = _site_seg(u)
+        if not seg:
+            continue
+        fixed = re.sub(r"(https?://[^/]+/)" + re.escape(seg) + r"(/|$)", r"\g<1>" + my + r"\2", u, count=1)
+        fixes.append({"kind": "foreign_ref", "block": None, "label": f"사이트코드 /{seg}/ → /{my}/", "as_is": u, "to_be": fixed, "auto": True,
+                      "note": "@id / url 값에 다른 국가 경로가 들어감 — 템플릿의 사이트코드 치환 누락 가능성."})
+
+    # 미해결 참조 — 같은 페이지 앵커인데 정의가 없음
+    for ref in out.get("unresolved_refs", []):
+        prop, _, rid = ref.partition(" → ")
+        frag = rid.split("#")[-1]
+        cands = sorted(i for i in defined if i.split("#")[-1] == frag)
+        as_is = f'"{prop}": {{ "@id": "{rid}" }}'
+        if cands:
+            to_be = f'"{prop}": {{ "@id": "{cands[0]}" }}'; note = f"같은 이름(#{frag})으로 정의된 @id 가 있음 — 그쪽을 가리키게 수정"
+        else:
+            to_be = f'/* 이 페이지 어딘가에 정의 추가 */\n{{ "@type": "<타입>", "@id": "{rid}", ... }}'; note = f"#{frag} 를 정의한 블록이 이 페이지에 없음 — 정의를 추가하거나 참조를 제거"
+        fixes.append({"kind": "unresolved_ref", "block": None, "label": f"참조 대상 없음 (#{frag})", "as_is": as_is, "to_be": to_be, "auto": bool(cands), "note": note})
+
+    # 중복 @id
+    for d in out.get("duplicate_ids", []):
+        fixes.append({"kind": "duplicate_id", "block": None, "label": "중복 @id", "as_is": f'"@id": "{d}"   // ×{ids.get(d, 2)}',
+                      "to_be": f'"@id": "{d}"   // 한 블록만 유지, 나머지는 #suffix 로 구분하거나 삭제', "auto": False,
+                      "note": "같은 @id 를 가진 노드가 여러 개면 검색엔진이 하나로 합치거나 무시함."})
+
+    # 리치결과 필수 속성 누락
+    for m in out.get("rich_missing", []):
+        head = {"@type": m["type"]}
+        if m.get("id"):
+            head["@id"] = m["id"]
+        as_is = json.dumps(head, ensure_ascii=False, indent=2)
+        full = dict(head); [full.__setitem__(p, "<값 입력>") for p in m.get("missing", [])]
+        fixes.append({"kind": "rich_missing", "block": None, "label": f"{m['type']} 필수 속성 추가", "as_is": as_is,
+                      "to_be": json.dumps(full, ensure_ascii=False, indent=2), "auto": False,
+                      "note": "누락: " + ", ".join(m.get("missing", [])) + " — Google 리치결과 필수(또는 권장) 속성."})
+    return fixes
+
+
 def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[int] = None,
                       soft404: Optional[str] = None) -> Dict[str, Any]:
     import schema_checker as sc
@@ -117,8 +231,9 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
     nodes = sc.extract_jsonld(html, parse_errors)
     out["blocks"] = len(re.findall(r'type\s*=\s*["\']application/ld\+json["\']', html, re.I))
     hard = [pe for pe in parse_errors if pe.get("severity", "fail") == "fail"]
-    out["parse_errors"] = [{"block": pe.get("block_label"), "category": pe.get("category"), "msg": pe.get("msg"),
-                            "line": pe.get("lineno"), "col": pe.get("colno"), "severity": pe.get("severity", "fail"), "hint": pe.get("hint")}
+    out["parse_errors"] = [{"block": pe.get("block_label"), "block_no": pe.get("block_no"), "category": pe.get("category"), "msg": pe.get("msg"),
+                            "line": pe.get("lineno"), "col": pe.get("colno"), "line_text": pe.get("line_text") or "",
+                            "severity": pe.get("severity", "fail"), "hint": pe.get("hint")}
                            for pe in parse_errors]
     types = set()
     ids: Dict[str, int] = {}
@@ -177,6 +292,11 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
                         miss.append("itemListElement[].name/position"); break
             if miss:
                 out["rich_missing"].append({"type": t, "id": n.get("@id"), "missing": sorted(set(miss))})
+    # [2026-10] as-is → to-be 를 "코드"로 — 화면 상세 패널·엑셀에서 그대로 복사해 고칠 수 있게
+    try:
+        out["code_fixes"] = build_code_fixes(html, out, my, defined, ids)
+    except Exception as e:  # 보조 정보라 실패해도 판정은 그대로
+        out["code_fixes"] = []; out["reasons"].append(f"(수정 코드 생성 실패: {e})")
     # 상태(대시보드 체계): 파싱 실패 > 오적용 > 미해결 참조 > 기타(중복 @id·필수 누락) > 정상
     if hard:
         out["status"] = "파싱 실패"; out["reasons"].append(f"JSON-LD {out['blocks']}개 블록 중 {len(hard)}개 파싱 실패")
