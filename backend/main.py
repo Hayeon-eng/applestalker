@@ -723,6 +723,23 @@ def export_pptx(run_id: Optional[str] = None):
         headers={"Content-Disposition": f"attachment; filename={filename('competitor_stalker','pptx')}"})
 
 
+@app.post("/api/export/criteria.xlsx")
+def export_criteria_xlsx(payload: Dict[str, Any] = Body(default={})):
+    """[2026-09 신규] 화면 '분석 기준 설명' Drawer 의 CRITERIA 를 그대로 받아 Excel로 — 프론트가
+    보내는 값 그대로 포맷만 입히므로 화면 내용과 항상 같다(따로 옮겨 적힌 사본이 아님)."""
+    from export_service import build_criteria_xlsx
+    criteria = payload.get("criteria") or []
+    if not criteria:
+        raise HTTPException(400, "criteria 데이터가 없습니다")
+    data = build_criteria_xlsx(criteria)
+    return StreamingResponse(iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=apple_stalker_기준표.xlsx"})
+    return StreamingResponse(iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f"attachment; filename={filename('competitor_stalker','pptx')}"})
+
+
 # ── Cron tick (GitHub Actions) ──
 @app.api_route("/api/cron/tick", methods=["GET", "POST"])
 async def cron_tick(token: str = Query(...), site: Optional[str] = None):

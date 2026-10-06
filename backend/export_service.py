@@ -504,5 +504,47 @@ def _priority_action(bucket: str, facts: Dict[str, Any], bd: Dict[str, Any]) -> 
     return "이미지 신호 양호 — 현 구성 유지." + cav
 
 
-def filename(prefix: str, ext: str) -> str:
+def build_criteria_xlsx(criteria: List[Dict[str, Any]]) -> bytes:
+    """[2026-09 신규] 화면의 '분석 기준 설명' Drawer(CRITERIA, 프론트 sharedCore.ts)와 내용이 갈라지지
+    않도록, 프론트가 그 데이터를 그대로 이 함수에 보내면 여기서는 서식만 입힌다 — 기준 텍스트를
+    백엔드에 따로 옮겨 적지 않는다(둘이 따로 놀면 나중에 반드시 어긋난다)."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    import io as _io
+
+    wb = Workbook()
+    ws = wb.active; ws.title = "채점 기준"
+    cols = ["구분", "질문", "답변", "용어 설명", "채점 방식"]
+    ws.append(["Apple Stalker — 분석 기준 설명"])
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(cols))
+    ws["A1"].font = Font(bold=True, size=13)
+    ws.append([])
+    head = PatternFill("solid", fgColor="111318"); hf = Font(color="FFFFFF", bold=True, size=10)
+    ws.append(cols)
+    for c in range(1, len(cols) + 1):
+        cell = ws.cell(3, c); cell.fill = head; cell.font = hf
+    thin = Side(style="thin", color="E4E7EC"); border = Border(thin, thin, thin, thin)
+    for sec in criteria:
+        title = sec.get("title", "")
+        note = sec.get("note")
+        for item in sec.get("items", []):
+            ws.append([title, item.get("q", ""), item.get("a", ""), item.get("detail") or "",
+                       "가중합산" if item.get("scoring") == "weighted" else ""])
+        if note:
+            ws.append([f"※ {title}", note, "", "", ""])
+            ws.cell(ws.max_row, 1).font = Font(italic=True, size=9, color="667085")
+            ws.cell(ws.max_row, 2).font = Font(italic=True, size=9, color="667085")
+    widths = [22, 34, 46, 46, 12]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    for r in ws.iter_rows(min_row=4):
+        for cell in r:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+            cell.border = border
+    ws.freeze_panes = "A4"
+    buf = _io.BytesIO(); wb.save(buf); return buf.getvalue()
+
+
+
     return f"{prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
