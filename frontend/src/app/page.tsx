@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast, Loading } from "./uiShared";
 import {
   View, MainTab, MetricTab, MetricView, SiteKey, CrawlProgress, Change, Report, Session,
   PageLite, PageDetail, UrlRow,
@@ -130,7 +131,7 @@ export default function Page() {
       setSelectedPage(null);
       setMainTab("overview"); // 이력 데이터는 '현황/변경점 분석' 탭에 표시되므로 그쪽으로 전환
     } catch {
-      alert("수집 이력을 불러오지 못했습니다. 네트워크 상태를 확인해주세요.");
+      toast("수집 이력을 불러오지 못했습니다. 네트워크 상태를 확인해주세요.", "err");
     } finally {
       setLoadingSession(false);
     }
@@ -209,7 +210,7 @@ export default function Page() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: u, admin_password: pw }),
     });
-    if (!r.ok) { alert("추가 실패: 비밀번호를 확인하세요."); return; }
+    if (!r.ok) { toast("추가 실패: 비밀번호를 확인하세요.", "err"); return; }
     if (newUrlRef.current) newUrlRef.current.value = "";
     setShowUrlAdd(false);
     load();
@@ -222,7 +223,7 @@ export default function Page() {
       API + "/api/urls?url=" + encodeURIComponent(u) + "&admin_password=" + encodeURIComponent(pw),
       { method: "DELETE" }
     );
-    if (!r.ok) { alert("삭제 실패: 비밀번호를 확인하세요."); return; }
+    if (!r.ok) { toast("삭제 실패: 비밀번호를 확인하세요.", "err"); return; }
     load();
   };
 
@@ -273,7 +274,7 @@ export default function Page() {
         </div>
 
         <div className="sideScroll">
-          <div className="sideLabel">수집 이력{loadingSession && " · 불러오는 중…"}</div>
+          <div className="sideLabel">수집 이력 {loadingSession && <Loading inline label="불러오는 중…" />}</div>
           {runs.length === 0 && <p className="muted" style={{ padding: "4px 6px" }}>아직 이력이 없습니다</p>}
           {runs.map((run) => {
             const isActive = run.run_ids.includes(activeSessionId || "");

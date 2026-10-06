@@ -3,7 +3,8 @@
    QubiSections에서 분리(파일 크기 축소). 상태는 ctx로 주입받음. */
 import { useState, Fragment } from "react";
 import type { ReactNode } from "react";
-import { SEV, HONEY, sel, TL_COLOR, TL_EMOJI, humanizeTerm } from "./qubiShared";
+import { SEV, HONEY, sel, TL_COLOR, TL_EMOJI, TL_NONE, humanizeTerm } from "./qubiShared";
+import { Meter } from "./uiShared";
 
 
 // ── HTML QA 종합 패널 [신규] ──────────────────────────────────────
@@ -15,7 +16,7 @@ function Accordion({ title, defaultOpen, children }: { title: ReactNode; default
   return (
     <div style={{ border: "1px solid var(--line)", borderRadius: 10, marginTop: 10, overflow: "hidden" }}>
       <div onClick={() => setOpen((v) => !v)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#F9FAFB", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-        <span>{title}</span><span style={{ fontSize: 11, color: "#0A66E0" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
+        <span>{title}</span><span style={{ fontSize: 11, color: "var(--blue)" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
       </div>
       {open && <div className="qbiPopIn" style={{ padding: "10px 12px" }}>{children}</div>}
     </div>
@@ -54,25 +55,13 @@ const propHelp = (p: string) => PROP_HELP[p] || { label: p, where: `JSON-LD → 
 function StatusChip({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span style={{ fontSize: 11, borderRadius: 6, padding: "3px 8px", whiteSpace: "nowrap",
-      background: ok ? "#ECFDF3" : "#FEF3F2", color: ok ? "#067647" : "#D8362F" }}>
+      background: ok ? "#ECFDF3" : "#FEF3F2", color: ok ? "var(--green-ink)" : "var(--red)" }}>
       {ok ? "✅" : "❌"} {label}
     </span>
   );
 }
 
-// 충족률 게이지(작은 막대) — KPI 유지용
-function Meter({ pct, danger }: { pct: number | null; danger?: boolean }) {
-  const v = pct == null ? 0 : pct;
-  const color = danger || v < 50 ? "#D8362F" : v < 80 ? "#E0A008" : "#1F9E5C";
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 130 }}>
-      <div style={{ flex: 1, height: 6, background: "#EEF1F6", borderRadius: 999 }}>
-        <div style={{ width: `${v}%`, height: "100%", background: color, borderRadius: 999 }} />
-      </div>
-      <b style={{ fontSize: 12.5, color }}>{pct == null ? "—" : `${pct}%`}</b>
-    </div>
-  );
-}
+// 충족률 게이지 — [2026-10 통일] uiShared.Meter 공용(Spec QA·공통페이지 QA 와 동일)
 
 // 단어 단위 diff (애플스토커 InlineDiff와 동일 스타일) — 기대값 vs 현재값 비교 표시
 function _tok(s: string): string[] { return (s || "").match(/\s+|[^\s]+/g) || []; }
@@ -96,8 +85,8 @@ function MiniDiff({ expected, actual }: { expected: string; actual: string }) {
       {out.map((t, k) => t.t === "same"
         ? <span key={k}>{t.s}</span>
         : t.t === "del"
-          ? <span key={k} style={{ textDecoration: "line-through", color: "#B42318", background: "#FDECEA", borderRadius: 3 }}>{t.s}</span>
-          : <span key={k} style={{ textDecoration: "underline", color: "#067647", background: "#EAF7EE", fontWeight: 700, borderRadius: 3 }}>{t.s}</span>)}
+          ? <span key={k} style={{ textDecoration: "line-through", color: "var(--red-ink)", background: "var(--red-soft)", borderRadius: 3 }}>{t.s}</span>
+          : <span key={k} style={{ textDecoration: "underline", color: "var(--green-ink)", background: "var(--green-soft)", fontWeight: 700, borderRadius: 3 }}>{t.s}</span>)}
     </span>
   );
 }
@@ -147,7 +136,7 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {/* ═══ HTML 검수 카드 (파랑 계열) ═══ */}
       <div style={{ border: "1px solid #DCE7FA", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ background: "#EEF4FE", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#1B57C4", borderLeft: "3px solid #1B57C4", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ background: "#EEF4FE", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "var(--blue)", borderLeft: "3px solid var(--blue)", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <span>HTML 검수 <span style={{ fontWeight: 400, color: "#5B7BB4", fontSize: 10.5 }}>Meta · 제목 태그</span></span>
           {/* [2026-09 신규] 그동안 하나로 뭉쳐 보이던 적용율을 영역별(H태그/Meta/스키마)로 분산 노출 */}
           {l1.by_category && (
@@ -155,7 +144,7 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
               {[["h_tag", "H태그"], ["meta", "Meta"], ["schema", "스키마"]].map(([k, label]) => {
                 const c = l1.by_category[k];
                 if (!c || c.apply_rate_pct == null) return null;
-                const color = c.apply_rate_pct >= 90 ? "#067647" : c.apply_rate_pct >= 70 ? "#93540A" : "#B42318";
+                const color = c.apply_rate_pct >= 90 ? "var(--green-ink)" : c.apply_rate_pct >= 70 ? "#93540A" : "var(--red-ink)";
                 return <span key={k} style={{ color, background: "#fff", borderRadius: 6, padding: "2px 8px" }}>{label} {c.apply_rate_pct}%</span>;
               })}
             </span>
@@ -167,7 +156,7 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
           <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "7px 10px", marginBottom: 8 }}>
             {htmlItems.filter((i) => i.status === "fail").map((i) => (
               <div key={i.key} style={{ fontSize: 11.5, padding: "2px 0" }}>
-                <b style={{ color: "#B42318" }}>❌ {i.key}</b> <span style={{ color: "var(--sec)" }}>{i.note}</span>
+                <b style={{ color: "var(--red-ink)" }}>❌ {i.key}</b> <span style={{ color: "var(--sec)" }}>{i.note}</span>
               </div>
             ))}
           </div>
@@ -193,9 +182,9 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
                       const list = i.key === "H2" ? (sig.h2_list || []) : i.key === "H3" ? (sig.h3_list || []) : (sig.h4_list || []);
                       return list.length
                         ? list.map((t: string, k: number) => <span key={k} style={{ display: "inline-block", background: "#F2F4F7", padding: "1px 6px", borderRadius: 5, margin: "1px 4px 1px 0", fontSize: 10.5 }}>{t}</span>)
-                        : <i style={{ color: i.key === "H2" ? "#B42318" : "var(--sec)" }}>{i.key === "H2" ? "누락" : "없음"}</i>;
+                        : <i style={{ color: i.key === "H2" ? "var(--red-ink)" : "var(--sec)" }}>{i.key === "H2" ? "누락" : "없음"}</i>;
                     })()
-                  : (i.val ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word", fontSize: 11 }}>{i.val}</code> : <i style={{ color: "#B42318" }}>누락</i>)}
+                  : (i.val ? <code style={{ background: "#F2F4F7", padding: "2px 6px", borderRadius: 5, wordBreak: "break-word", fontSize: 11 }}>{i.val}</code> : <i style={{ color: "var(--red-ink)" }}>누락</i>)}
               </span>
             </Fragment>
           ))}
@@ -206,17 +195,17 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
       {/* ═══ [2026-09] SEO 요소 검수 (사람 검수 항목: Canonical · robots · Title 구성 · Meta · Breadcrumb) ═══ */}
       {seo && Array.isArray(seo.items) && (
         <div style={{ border: "1px solid #D9EEE3", borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ background: "#EEF8F2", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#067647", borderLeft: "3px solid #067647", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ background: "#EEF8F2", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "var(--green-ink)", borderLeft: "3px solid var(--green-ink)", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <span>SEO 요소 검수 <span style={{ fontWeight: 400, color: "#3B8F63", fontSize: 10.5 }}>Canonical · robots · Title 구성 · Meta Description · Breadcrumb — 사람 검수와 동일 항목</span></span>
             {seo.summary?.pct != null && (
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: seo.summary.pct >= 90 ? "#067647" : seo.summary.pct >= 70 ? "#93540A" : "#B42318", background: "#fff", borderRadius: 6, padding: "2px 8px" }}>SEO {seo.summary.pct}%</span>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: seo.summary.pct >= 90 ? "var(--green-ink)" : seo.summary.pct >= 70 ? "#93540A" : "var(--red-ink)", background: "#fff", borderRadius: 6, padding: "2px 8px" }}>SEO {seo.summary.pct}%</span>
             )}
             <span style={{ fontSize: 10.5, color: "var(--sec)" }}>❌ {seo.summary?.fail ?? 0} · 🟡 {seo.summary?.warn ?? 0} · ✅ {seo.summary?.pass ?? 0}</span>
           </div>
           <div style={{ padding: "10px 14px", display: "grid", gridTemplateColumns: "150px 1fr", rowGap: 6, fontSize: 11.5, alignItems: "start" }}>
             {seo.items.map((it: any, k: number) => (
               <Fragment key={k}>
-                <span style={{ color: it.status === "fail" ? "#B42318" : it.status === "warn" ? "#93540A" : "var(--sec)", fontWeight: it.status === "pass" ? 400 : 700 }}>
+                <span style={{ color: it.status === "fail" ? "var(--red-ink)" : it.status === "warn" ? "#93540A" : "var(--sec)", fontWeight: it.status === "pass" ? 400 : 700 }}>
                   {it.status === "pass" ? "✅" : it.status === "warn" ? "🟡" : "❌"} {it.element}
                 </span>
                 <span>
@@ -232,7 +221,7 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
 
       {/* ═══ Schema 검수 (앰버 계열) ═══ */}
       <div style={{ border: "1px solid #F5E6C8", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ background: "#FDF6E9", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#96690B", borderLeft: "3px solid #E0A008" }}>
+        <div style={{ background: "#FDF6E9", padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#96690B", borderLeft: "3px solid var(--amber)" }}>
           Schema 검수 <span style={{ fontWeight: 400, color: "#A98A4B", fontSize: 10.5 }}>구조화 데이터(JSON-LD)</span>
         </div>
         <div style={{ padding: "10px 14px" }}>
@@ -259,13 +248,13 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
                 <summary style={{ listStyle: "none", cursor: "pointer" }}>
                   {/* 헤더: 신호등 + 타입 + 최종% */}
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>{TL_EMOJI[v.traffic_light] || "⚪"}</span>
+                    <span>{TL_EMOJI[v.traffic_light] || TL_NONE}</span>
                     <b style={{ fontSize: 13 }}>{t}</b>
                     {v.rich_result_status && v.rich_result_status !== "정식" && !String(v.rich_result_status).includes("폐지") &&
                       <span style={{ fontSize: 10.5, color: "var(--sec)", background: "#F2F4F7", borderRadius: 5, padding: "1px 6px" }}>리치결과 {v.rich_result_status}</span>}
                     <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
                       <Meter pct={v.final_pct} danger={v.axis1_gate_triggered || v.axis2_gate === 0} />
-                      <span style={{ fontSize: 11, color: "#0A66E0" }}>펼치기 ▾</span>
+                      <span style={{ fontSize: 11, color: "var(--blue)" }}>펼치기 ▾</span>
                     </span>
                   </div>
 
@@ -276,7 +265,7 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
                         const h = propHelp(p);
                         return (
                           <div key={p} style={{ fontSize: 12.5, padding: "3px 0" }}>
-                            <b style={{ color: "#B42318" }}>❌ {h.label} 누락/미흡</b>
+                            <b style={{ color: "var(--red-ink)" }}>❌ {h.label} 누락/미흡</b>
                             {h.why && <div style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 18 }}>영향: {h.why}</div>}
                             <div style={{ color: "var(--sec)", fontSize: 11.5, marginLeft: 18 }}>수정 위치: {h.where}</div>
                           </div>
@@ -287,7 +276,7 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
                   {parseCritical.length > 0 && (
                     <div style={{ background: "#FEF3F2", borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
                       {parseCritical.map((d: any, i: number) => (
-                        <div key={i} style={{ fontSize: 12.5, color: "#B42318" }}>❌ {d.message}</div>
+                        <div key={i} style={{ fontSize: 12.5, color: "var(--red-ink)" }}>❌ {d.message}</div>
                       ))}
                     </div>
                   )}
@@ -295,14 +284,14 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
                   {/* 2) 충족 현황(개수) */}
                   <div style={{ display: "flex", gap: 16, fontSize: 12.5, flexWrap: "wrap", marginTop: 8 }}>
                     <span style={{ color: "var(--sec)" }}>정보 충족률 <b style={{ color: "var(--label)" }}>{v.axis1_info_adequacy_pct}%</b></span>
-                    <span style={{ color: "var(--sec)" }}>필수 속성 <b style={{ color: v.required_ok < v.required_total ? "#B42318" : "#067647" }}>{v.required_ok} / {v.required_total}</b></span>
-                    <span style={{ color: "var(--sec)" }}>권장 속성 <b style={{ color: v.recommended_ok < v.recommended_total ? "#E0A008" : "#067647" }}>{v.recommended_ok} / {v.recommended_total}</b></span>
+                    <span style={{ color: "var(--sec)" }}>필수 속성 <b style={{ color: v.required_ok < v.required_total ? "var(--red-ink)" : "var(--green-ink)" }}>{v.required_ok} / {v.required_total}</b></span>
+                    <span style={{ color: "var(--sec)" }}>권장 속성 <b style={{ color: v.recommended_ok < v.recommended_total ? "var(--amber)" : "var(--green-ink)" }}>{v.recommended_ok} / {v.recommended_total}</b></span>
                   </div>
                   {weakRec.length > 0 && (
                     <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--sec)" }}>🟡 권장 보강: {weakRec.map((p) => propHelp(p).label).join(", ")}</div>
                   )}
                   {missReq.length === 0 && !v.axis1_gate_triggered && weakRec.length === 0 && parseCritical.length === 0 && (
-                    <div style={{ marginTop: 6, fontSize: 12, color: "#067647" }}>✅ 모든 필수·권장 항목 충족</div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: "var(--green-ink)" }}>✅ 모든 필수·권장 항목 충족</div>
                   )}
                 </summary>
 
@@ -320,7 +309,7 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
                   {blockFindings.length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 4 }}>판정 근거
-                        <span style={{ fontWeight: 400, marginLeft: 6 }}><span style={{ textDecoration: "line-through", color: "#B42318" }}>현재값</span> / <span style={{ textDecoration: "underline", color: "#067647" }}>기대값</span></span>
+                        <span style={{ fontWeight: 400, marginLeft: 6 }}><span style={{ textDecoration: "line-through", color: "var(--red-ink)" }}>현재값</span> / <span style={{ textDecoration: "underline", color: "var(--green-ink)" }}>기대값</span></span>
                       </div>
                       {blockFindings.map((f: any, i: number) => {
                         const vms = (f.val_mismatch || []).filter((v: any) => v.expected != null || v.actual != null);
@@ -398,11 +387,11 @@ export function HtmlQaDetail({ hq, findings = [], seo }: { hq: any; findings?: a
                   누락됐는지 프론트 대시보드에서 바로 확인할 수 있게 목록으로 표시한다. */}
               {Array.isArray(ck.missing_ids) && ck.missing_ids.length > 0 && (
                 <div style={{ margin: "2px 0 6px", padding: "6px 8px", background: "#FEF3F2", border: "1px solid #FECDCA", borderRadius: 6 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#B42318", marginBottom: 3 }}>@id 누락 노드 {ck.missing_ids.length}건</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--red-ink)", marginBottom: 3 }}>@id 누락 노드 {ck.missing_ids.length}건</div>
                   {ck.missing_ids.map((m: any, j: number) => (
                     <div key={j} style={{ fontSize: 11, color: "#7A271A", lineHeight: 1.5 }}>
                       • <b>{m.type || "(unknown)"}</b>{m.name ? ` — ${m.name}` : ""}
-                      {m.hint ? <span style={{ color: "#98A2B3", fontFamily: "monospace", marginLeft: 4, wordBreak: "break-all" }}>{m.hint}</span> : null}
+                      {m.hint ? <span style={{ color: "var(--gray)", fontFamily: "monospace", marginLeft: 4, wordBreak: "break-all" }}>{m.hint}</span> : null}
                     </div>
                   ))}
                 </div>
@@ -421,17 +410,17 @@ function OverallBanner({ hq, row }: { hq: any; row?: any }) {
   const overall = hq.overall || {};
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 18 }}>{TL_EMOJI[overall.traffic_light] || "⚪"}</span>
+      <span style={{ fontSize: 18 }}>{TL_EMOJI[overall.traffic_light] || TL_NONE}</span>
       <b style={{ fontSize: 13.5 }}>종합 판단</b>
-      {row && (row.product || row.market_product) && <span style={{ fontSize: 10.5, background: "#EEF1F6", color: "#475467", borderRadius: 4, padding: "1px 6px" }}>{row.product || row.market_product}</span>}
-      {row && row.page_type && <span style={{ fontSize: 10.5, background: "#E8F0FE", color: "#1B57C4", borderRadius: 4, padding: "1px 6px" }}>{row.page_type}</span>}
+      {row && (row.product || row.market_product) && <span style={{ fontSize: 10.5, background: "var(--gray-soft)", color: "#475467", borderRadius: 4, padding: "1px 6px" }}>{row.product || row.market_product}</span>}
+      {row && row.page_type && <span style={{ fontSize: 10.5, background: "#E8F0FE", color: "var(--blue)", borderRadius: 4, padding: "1px 6px" }}>{row.page_type}</span>}
       <span style={{ fontSize: 11.5, color: "var(--sec)" }}>
         데이터 유무 {overall.prop_total ? Math.round((overall.prop_ok / overall.prop_total) * 100) : "—"}% ({overall.prop_ok ?? 0}/{overall.prop_total ?? 0}) · 퀄리티 {overall.final_pct ?? "—"}%
       </span>
       <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
         {Object.entries(perType).map(([t, v]: [string, any]) => (
           <span key={t} style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "3px 9px",
-            background: (TL_COLOR[v.traffic_light] || "#98A2B3") + "1A", color: TL_COLOR[v.traffic_light] || "#98A2B3" }}>
+            background: (TL_COLOR[v.traffic_light] || "var(--gray)") + "1A", color: TL_COLOR[v.traffic_light] || "var(--gray)" }}>
             {TL_EMOJI[v.traffic_light]} {t} {v.final_pct ?? "—"}%
           </span>
         ))}
@@ -501,7 +490,7 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
             <div key={region} ref={(el) => { if (c.regionRefs) c.regionRefs.current[region] = el; }} style={{ marginTop: 12 }}>
               {/* 권역 헤더 */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", borderBottom: "2px solid var(--line)" }}>
-                <span>{TL_EMOJI[rtl] || "⚪"}</span>
+                <span>{TL_EMOJI[rtl] || TL_NONE}</span>
                 <b style={{ fontSize: 13 }}>{region}</b>
                 <span style={{ fontSize: 11, color: "var(--sec)" }}>{pages.length}개 페이지 · 평균 {rAvg < 0 ? "—" : Math.round(rAvg * 10) / 10}%</span>
               </div>
@@ -514,11 +503,11 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
                   <div key={key} style={{ borderBottom: "1px solid var(--line)" }}>
                     <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px 8px 16px", cursor: "pointer", fontSize: 12.5 }}>
-                      <span>{TL_EMOJI[tl] || "⚪"}</span>
+                      <span>{TL_EMOJI[tl] || TL_NONE}</span>
                       <b style={{ minWidth: 130 }}>{prod || r.sitecode}{r.page_type ? ` · ${r.page_type}` : ""}</b>
                       <span style={{ fontSize: 10.5, color: "var(--sec)" }}>{r.sitecode}</span>
                       <span style={{ marginLeft: "auto" }}>데이터 {hq.overall?.prop_total ? Math.round((hq.overall.prop_ok / hq.overall.prop_total) * 100) : "—"}% · AEO {hq.overall?.final_pct ?? "—"}%</span>
-                      <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
+                      <span style={{ fontSize: 11, color: "var(--blue)" }}>{expanded === key ? "▲" : "▼"}</span>
                     </div>
                     {expanded === key && <div className="qbiPopIn" style={{ padding: "0 4px 10px 16px" }}><HtmlQaDetail hq={hq} findings={r.schema?.findings || []} seo={r.seo} /></div>}
                   </div>
@@ -549,12 +538,12 @@ export function SiteOverview({ ctx: c }: { ctx: any }) {
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: "var(--sec)", fontWeight: 700 }}>전사이트 현황</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 16 }}>{TL_EMOJI[tl(ov.total_apply_pct)] || "⚪"}</span>
+          <span style={{ fontSize: 16 }}>{TL_EMOJI[tl(ov.total_apply_pct)] || TL_NONE}</span>
           <span style={{ fontSize: 11.5, color: "var(--sec)" }}>데이터 유무</span>
           <b style={{ fontSize: 20, color: TL_COLOR[tl(ov.total_apply_pct)] }}>{ov.total_apply_pct ?? "—"}%</b>
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 16 }}>{TL_EMOJI[tl(total)] || "⚪"}</span>
+          <span style={{ fontSize: 16 }}>{TL_EMOJI[tl(total)] || TL_NONE}</span>
           <span style={{ fontSize: 11.5, color: "var(--sec)" }}>AEO 퀄리티</span>
           <b style={{ fontSize: 20, color: TL_COLOR[tl(total)] }}>{total ?? "—"}%</b>
         </span>
@@ -573,7 +562,7 @@ export function SiteOverview({ ctx: c }: { ctx: any }) {
                 border: "1px solid var(--line)", borderRadius: 999, padding: "4px 11px", background: "#fff" }}>
               <span style={{ color: "var(--sec)" }}>{r.region}</span>
               <b style={{ color: TL_COLOR[tl(r.avg_aeo)] }}>{r.avg_aeo ?? "—"}</b>
-              <span style={{ fontSize: 10.5, color: "#0A66E0" }}>이동 ›</span>
+              <span style={{ fontSize: 10.5, color: "var(--blue)" }}>이동 ›</span>
             </button>
           ))}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Loading } from "./uiShared";
 import {
   MetricTab, MetricView, SiteKey, PageLite, PageDetail, UrlRow, Report, Change,
   METRICS, orderedSiteKeys, siteName, siteShortName, siteClass,
@@ -391,7 +392,7 @@ export function PagesTab({
             </div>
           ) : null;
         })()}
-        {loadingPage && <p className="muted">불러오는 중…</p>}
+        {loadingPage && <Loading inline />}
         {!loadingPage && !selectedPage && <p className="muted">아래 수집된 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>}
         {!loadingPage && selectedPage && <PageDrilldown page={selectedPage} focusMetric={metricTab} />}
       </div>

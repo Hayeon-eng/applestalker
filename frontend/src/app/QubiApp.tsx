@@ -522,7 +522,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               return <button key={p.code} onClick={() => {
                 setProduct(p.code);  // 화면·검수기준표를 이 제품으로
                 setSelectedProducts((prev) => { const n = new Set(prev); n.has(p.code) ? (n.size > 1 && n.delete(p.code)) : n.add(p.code); return n; });
-              }} style={{ ...sel(p.code, inCrawl), ...(shown ? { boxShadow: "0 0 0 2px #0A66E0 inset" } : {}) }}>
+              }} style={{ ...sel(p.code, inCrawl), ...(shown ? { boxShadow: "0 0 0 2px var(--blue) inset" } : {}) }}>
                 {inCrawl ? "✓ " : ""}{p.label}
               </button>;
             })}
@@ -536,8 +536,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
             })}
           </div>
 
-          {ok && <div style={{ background: "#ECFDF3", color: "#067647", padding: "8px 12px", borderRadius: 8, fontSize: 13, margin: "8px 0" }}>{ok}</div>}
-          {err && <div style={{ background: "#FEF3F2", color: "#B42318", padding: 10, borderRadius: 8, fontSize: 13, margin: "8px 0", fontWeight: 600 }}>{err}</div>}
+          {ok && <div style={{ background: "#ECFDF3", color: "var(--green-ink)", padding: "8px 12px", borderRadius: 8, fontSize: 13, margin: "8px 0" }}>{ok}</div>}
+          {err && <div style={{ background: "#FEF3F2", color: "var(--red-ink)", padding: 10, borderRadius: 8, fontSize: 13, margin: "8px 0", fontWeight: 600 }}>{err}</div>}
 
           {/* ① 리전별 검수 크롤 (91사이트) — 먼저 노출 */}
           <QubiRunPanel apiBase={apiBase} allSites={allSites} busy={busy} estimate={estimate} fmtEta={fmtEta} liveEtaSeconds={liveEtaSeconds} pageCount={pageCount} progress={progress} regionNames={regionNames} regionsMap={regionsMap} runByRegion={runByRegion} selectedRegions={selectedRegions} selectedSites={selectedSites} setSelectedRegions={setSelectedRegions} setSelectedSites={setSelectedSites} tab={tab} targetCodes={targetCodes} isUnlaunched={isUnlaunched} launchStatus={launchStatus} results={results} />
@@ -571,7 +571,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               [V2] spec_v2가 있으면 위 새 화면으로 교체되고, 룰셋 없는 제품만 기존 테이블로 폴백 */}
           {tab === "copy" && !results.some((r: any) => r.spec_v2) && rows.length > 0 && (
             <>
-              <div style={{ margin: "18px 0 8px", fontSize: 13, fontWeight: 700, color: failCount ? "#B42318" : "var(--label)" }}>
+              <div style={{ margin: "18px 0 8px", fontSize: 13, fontWeight: 700, color: failCount ? "var(--red-ink)" : "var(--label)" }}>
                 {failCount ? `🔴 오류 ${failCount}건` : "🟡 검토"}
                 {(() => { const w = rows.filter((x) => x.f.status === "warn").length;
                   return <span style={{ color: "var(--sec)", fontWeight: 400 }}> · 확인 {w}건</span>; })()}
@@ -587,7 +587,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                         <td style={{ padding: 8, borderTop: "1px solid var(--line)", whiteSpace: "nowrap" }}>{x.r.sitecode}</td>
                         <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}>{x.item}</td>
                         <td style={{ padding: 8, borderTop: "1px solid var(--line)", whiteSpace: "nowrap" }}><span style={{ display: "inline-block", background: SEV[x.f.status].c, color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap", lineHeight: 1.5 }}>{SEV[x.f.status].ko}</span></td>
-                        <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><div style={{ color: "var(--sec)" }}>{x.f.as_is}</div>{x.f.to_be ? <div style={{ fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)" }}>→ {x.f.to_be}</div> : null}<div style={{ fontSize: 11, color: "#0A66E0", marginTop: 3 }}>{expandedRow === i ? "▲ 근거 접기" : "▼ 상세 근거"}</div></td>
+                        <td style={{ padding: 8, borderTop: "1px solid var(--line)" }}><div style={{ color: "var(--sec)" }}>{x.f.as_is}</div>{x.f.to_be ? <div style={{ fontWeight: 600, color: x.f.status === "fail" ? "var(--red-ink)" : "var(--label)" }}>→ {x.f.to_be}</div> : null}<div style={{ fontSize: 11, color: "var(--blue)", marginTop: 3 }}>{expandedRow === i ? "▲ 근거 접기" : "▼ 상세 근거"}</div></td>
                       </tr>
                       {expandedRow === i && (
                         <tr>
@@ -598,7 +598,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                               <div style={{ fontSize: 12.5, color: "var(--label)", marginTop: 2 }}>{x.f.as_is || "—"}</div>
                               {x.f.to_be && <>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--sec)", marginTop: 6 }}>어떻게 고치나</div>
-                                <div style={{ fontSize: 12.5, fontWeight: 600, color: x.f.status === "fail" ? "#B42318" : "var(--label)", marginTop: 2 }}>→ {x.f.to_be}</div>
+                                <div style={{ fontSize: 12.5, fontWeight: 600, color: x.f.status === "fail" ? "var(--red-ink)" : "var(--label)", marginTop: 2 }}>→ {x.f.to_be}</div>
                               </>}
                             </div>
                             {/* 발생 위치·근거 */}
@@ -609,8 +609,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
                               {x.r.page_type && <><span style={{ color: "var(--sec)" }}>페이지타입</span><span>{x.r.page_type}</span></>}
                               {x.f.region && <><span style={{ color: "var(--sec)" }}>발견 위치</span><span>{x.f.region === "disclaimer" ? "각주(Disclaimer)" : "본문"}</span></>}
                               {x.f.expected && <><span style={{ color: "var(--sec)" }}>기준값</span><span>{x.f.expected}</span></>}
-                              {x.f.found && x.f.found.length > 0 && <><span style={{ color: "var(--sec)" }}>페이지 값</span><span style={{ color: "#B42318" }}>{x.f.found.join(", ")}</span></>}
-                              {x.r.url && <><span style={{ color: "var(--sec)" }}>URL</span><a href={x.r.url} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: 11, color: "#0A66E0", wordBreak: "break-all" }}>{x.r.url}</a></>}
+                              {x.f.found && x.f.found.length > 0 && <><span style={{ color: "var(--sec)" }}>페이지 값</span><span style={{ color: "var(--red-ink)" }}>{x.f.found.join(", ")}</span></>}
+                              {x.r.url && <><span style={{ color: "var(--sec)" }}>URL</span><a href={x.r.url} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: 11, color: "var(--blue)", wordBreak: "break-all" }}>{x.r.url}</a></>}
                             </div>
                           </td>
                         </tr>
@@ -621,7 +621,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
               </table>
             </>
           )}
-          {tab === "copy" && !results.some((r: any) => r.spec_v2) && results.length > 0 && rows.length === 0 && <p style={{ color: "#1F9E5C", marginTop: 16 }}>이 탭(스펙)에서 발견된 오류가 없어요 🐝</p>}
+          {tab === "copy" && !results.some((r: any) => r.spec_v2) && results.length > 0 && rows.length === 0 && <p style={{ color: "var(--green)", marginTop: 16 }}>이 탭(스펙)에서 발견된 오류가 없어요 🐝</p>}
           </>)}
         </div>
       </div>

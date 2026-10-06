@@ -1,4 +1,5 @@
 /* shared.ts에서 분리 — 점수/티어/액션/원라이너 로직. 타입·상수·URL 유틸은 sharedCore.ts */
+import { toast } from "./uiShared";
 import {
   MetricTab, MetricView, AnalysisBlock, PageLite, Change, SiteKey, metricActionSentence,
   orderedSiteKeys, siteName, siteShortName, metricAreaLabel,
@@ -350,6 +351,6 @@ export const captureScreen = async () => {
     a.download = `apple-stalker_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.png`;
     a.click();
   } catch {
-    alert("캡처에 실패했습니다.");
+    toast("캡처에 실패했습니다.", "err");
   }
 };

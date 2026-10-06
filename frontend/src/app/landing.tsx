@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "./uiShared";
 
 /* ════════════════════════════════════════════════════
    홈 랜딩 — 진입점 3개: 🍎 Apple Stalker / 🐝 큐비(QA Bee) / 🐝C honeyComb  (ABC Tool)
@@ -36,7 +37,7 @@ export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb }: { onEnt
               <li><b>스키마 QA</b> — JSON-LD 속성·값을 스펙과 대조</li>
               <li><b>스펙 QA</b> — 스펙 값·고유명사 정확성(번역 대응)</li>
             </ul>
-            <button className="landingCTA" style={{ marginTop: 12, background: "#E0A008" }} onClick={onEnterQubi}>🐝 큐비 부르기</button>
+            <button className="landingCTA" style={{ marginTop: 12, background: "var(--amber)" }} onClick={onEnterQubi}>🐝 큐비 부르기</button>
           </div>
 
           {/* [2026-09] C · honeyComb — Google Shopping 노출 순위 · GMC 속성 역추적 (목업 단계) */}
@@ -58,12 +59,12 @@ export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb }: { onEnt
 
         {/* [2026-09-14] 이메일 자동 발송 설정 — 각 사용자 PC 에서 켠다(발송은 각자 설정). exe 는 설정 페이지, 웹은 안내 */}
         <div style={{ marginTop: 22, display: "flex", justifyContent: "center" }}>
-          <button className="landingCTA" style={{ background: "#1B4FD8", maxWidth: 420 }}
+          <button className="landingCTA" style={{ background: "var(--blue)", maxWidth: 420 }}
             onClick={() => {
               const url = window.location.origin + "/desktop/settings";
               fetch(window.location.origin + "/api/settings", { cache: "no-store" })
-                .then((r) => { if (r.ok) window.open("/desktop/settings", "_blank"); else alert("이메일 자동 발송 설정은 PC 프로그램(exe)에서만 가능합니다. 웹(Render) 버전은 관리자 환경변수로 설정합니다."); })
-                .catch(() => alert("이메일 자동 발송 설정은 PC 프로그램(exe)에서 열립니다."));
+                .then((r) => { if (r.ok) window.open("/desktop/settings", "_blank"); else toast("이메일 자동 발송 설정은 PC 프로그램(exe)에서만 가능합니다. 웹(Render) 버전은 관리자 환경변수로 설정합니다.", "warn"); })
+                .catch(() => toast("이메일 자동 발송 설정은 PC 프로그램(exe)에서 열립니다.", "info"));
             }}>✉️ 이메일 자동 발송 설정</button>
         </div>
       </div>

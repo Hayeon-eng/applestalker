@@ -157,7 +157,7 @@ export function CriteriaPanel({ ctx: c }: { ctx: any }) {
               <div style={{ fontWeight: 700, fontSize: 12.5 }}>· 문법 오류</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
                 <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ fontWeight: 700, color: "#0A66E0" }}>Google Rich Result 기준</div>
+                  <div style={{ fontWeight: 700, color: "var(--blue)" }}>Google Rich Result 기준</div>
                   <ul style={{ margin: "4px 0 0 16px", color: "var(--sec)" }}>
                     {(rules.google_criteria["문법_오류"]?.["구글_기준"] || []).map((s: string, i: number) => <li key={i}>{s}</li>)}
                   </ul>
@@ -333,13 +333,13 @@ export function QuickView({ ctx: c }: { ctx: any }) {
             <div key={key} style={{ borderTop: "1px solid var(--line)", padding: "7px 0" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 6, cursor: "pointer" }} onClick={() => c.setQDetail(c.qDetail === key ? null : key)}>
                 <span style={{ fontSize: 12 }}><span style={{ background: SEV[x.f.status as keyof typeof SEV].c, color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 4, marginRight: 5 }}>{SEV[x.f.status as keyof typeof SEV].ko}</span><b>{x.r.sitecode}</b> · {humanizeTerm(x.item)}</span>
-                <span style={{ fontSize: 11, color: "#0A66E0" }}>{c.qDetail === key ? "닫기" : "상세"}</span>
+                <span style={{ fontSize: 11, color: "var(--blue)" }}>{c.qDetail === key ? "닫기" : "상세"}</span>
               </div>
               {c.qDetail === key && (
                 <div style={{ fontSize: 12, marginTop: 4, background: "#F9FAFB", borderRadius: 6, padding: 8 }}>
                   <div style={{ color: "var(--sec)" }}>as-is: {humanizeTerm(x.f.as_is)}</div>
                   <div style={{ fontWeight: 600, marginTop: 2 }}>→ {humanizeTerm(x.f.to_be)}</div>
-                  {x.r.url && <div style={{ fontFamily: "monospace", fontSize: 10.5, color: "#98A2B3", marginTop: 4, wordBreak: "break-all" }}>{x.r.url}</div>}
+                  {x.r.url && <div style={{ fontFamily: "monospace", fontSize: 10.5, color: "var(--gray)", marginTop: 4, wordBreak: "break-all" }}>{x.r.url}</div>}
                 </div>
               )}
             </div>

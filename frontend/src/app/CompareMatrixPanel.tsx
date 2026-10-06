@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { MiniDiff } from "./specQaShared";
+import { SEV, TL_NONE } from "./qubiShared";
 
 /* CompareMatrixPanel — Compare 전용 결과 UI.
    row.compare_v2 = { summary, rows: [{category, spec, values:[{product,value,status,message}]}], products }
@@ -12,14 +13,15 @@ import { MiniDiff } from "./specQaShared";
    · 전체 매트릭스 표는 기본 접힘 — 필요할 때만 "전체 표 보기"로 펼침 */
 
 const STATUS_EMOJI: Record<string, string> = {
-  pass: "✅", fail: "🔴", warn: "🟡", na: "⚪️", unchecked: "❔",
+  pass: "✅", fail: "🔴", warn: "🟡", na: TL_NONE, unchecked: "❔",
 };
+// [2026-10 통일] 색은 qubiShared.SEV 토큰 — PDP Spec QA·Data QA 와 같은 빨강/노랑/초록
 const STATUS_COLOR: Record<string, string> = {
-  pass: "#12A150", fail: "#E23434", warn: "#C48A00", na: "#98A2B3", unchecked: "#98A2B3",
+  pass: SEV.pass.c, fail: SEV.fail.c, warn: SEV.warn.c, na: SEV.na.c, unchecked: SEV.na.c,
 };
 // PDP Spec QA와 동일한 상태 어휘(오류/확인/정상)
 const STATUS_LABEL: Record<string, string> = {
-  fail: "오류", warn: "확인", unchecked: "DB 미등록", na: "값 없음",
+  fail: SEV.fail.ko, warn: SEV.warn.ko, unchecked: "DB 미등록", na: SEV.na.ko,  // na 라벨은 공용 어휘("해당없음")
 };
 
 // compare_qa 메시지("오기재 — 정답 'X'이 아닌 'Y' 표기")에서 기준값(정답)만 뽑아
@@ -116,7 +118,7 @@ export function CompareMatrixPanel({ row }: { row: any }) {
           </span>
         )}
         {row.url && (
-          <a href={row.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#0A66E0" }}>원본 페이지 ↗</a>
+          <a href={row.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "var(--blue)" }}>원본 페이지 ↗</a>
         )}
       </div>
 
@@ -126,7 +128,7 @@ export function CompareMatrixPanel({ row }: { row: any }) {
           <span key={p.product} style={{ fontSize: 12, border: "1px solid var(--line)", borderRadius: 999,
             padding: "4px 12px", display: "inline-flex", gap: 7, alignItems: "center" }}>
             <b>{p.product}</b>
-            <span style={{ color: p.score != null ? (p.score >= 90 ? "#12A150" : p.score >= 70 ? "#C48A00" : "#E23434") : "#98A2B3", fontWeight: 700 }}>
+            <span style={{ color: p.score != null ? (p.score >= 90 ? "#12A150" : p.score >= 70 ? "#C48A00" : "#E23434") : "var(--gray)", fontWeight: 700 }}>
               {p.score != null ? `${p.score}%` : "—"}
             </span>
             <span style={{ color: "var(--sec)" }}>✅{p.pass}·🔴{p.fail}·🟡{p.warn}·❔{p.unchecked}</span>
@@ -188,7 +190,7 @@ export function CompareMatrixPanel({ row }: { row: any }) {
       {/* 전체 매트릭스는 기본 접힘 — 필요할 때만 펼침 */}
       <button
         onClick={() => setShowTable((v) => !v)}
-        style={{ marginTop: 10, fontSize: 11.5, color: "#0A66E0", background: "none", border: "1px solid var(--line)",
+        style={{ marginTop: 10, fontSize: 11.5, color: "var(--blue)", background: "none", border: "1px solid var(--line)",
           borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
         {showTable ? "전체 표 접기" : `전체 표 보기 (${rows.length}개 항목 × ${products.length}개 제품)`}
       </button>

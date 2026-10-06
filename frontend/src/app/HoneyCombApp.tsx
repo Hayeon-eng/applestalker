@@ -6,6 +6,7 @@
    · 백엔드 /api/hc/* (backend/honeycomb). provider 가 mock → 실수집으로 바뀌어도 화면은 그대로
 ════════════════════════════════════════════════════════════════════ */
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { Loading, EmptyState, toast } from "./uiShared";
 
 type Cell = { country: string; product: string; keyword: string; keyword_type: string; position: number | null; status: string;
   first_store?: string | null; scom_exposed?: string | null; attrs: Record<string, string>; attr_values?: Record<string, any>; feed: Record<string, string>;
@@ -15,7 +16,8 @@ type Keyword = { id: string; product: string; text: string; type: string; subtyp
 
 const HONEY = "#E0A008", HONEY_DARK = "#8A5A00";
 const STATUS: Record<string, string> = { top1: "1순위", topn: "상단 노출", low: "8위 밖 노출", absent: "미노출", unranked: "순위 기록 없음", unchecked: "아직 조회 안 함" };
-const COLOR: Record<string, string> = { top1: "#2F8F5B", topn: "#E8C547", low: "#E07A1F", absent: "#C0392B", unranked: "#9DB0C4", unchecked: "#E5E7EB", error: "#F3F4F6" };
+// [2026-10 통일] 순위 등급색 — 1위/상단/미노출은 공용 토큰(초록/노랑/빨강), 하단은 구분용 주황 하나만 추가
+const COLOR: Record<string, string> = { top1: "var(--green)", topn: "var(--amber)", low: "#E07A1F", absent: "var(--red)", unranked: "var(--gray)", unchecked: "var(--gray-soft)", error: "#F3F4F6" };
 const TXT: Record<string, string> = { top1: "#fff", topn: "#3A2A0F", low: "#fff", absent: "#fff", unranked: "#fff", unchecked: "#6B7280", error: "#9CA3AF" };
 const OBS: Record<string, string> = { card: "검색 결과 카드", detail: "제품 상세 창", feed: "검색 결과에 안 나옴" };
 const akey = (a: Attr) => a.code + (a.sub ? `#${a.no}` : "");
@@ -27,7 +29,7 @@ const th: React.CSSProperties = { textAlign: "left", fontSize: 11.5, color: "var
 const td: React.CSSProperties = { fontSize: 12, padding: "6px 8px", borderBottom: "1px solid var(--line)", verticalAlign: "top" };
 const inp: React.CSSProperties = { fontSize: 12, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6 };
 const Badge = ({ st }: { st: string }) => <span className="badge" style={{ background: COLOR[st], color: TXT[st] }}>{STATUS[st] || st}</span>;
-const Mark = ({ v }: { v: string }) => v === "entered" ? <span style={{ color: "#15803D", fontWeight: 700 }}>✓ 보임</span> : v === "missed" ? <span style={{ color: "#B42318", fontWeight: 700 }}>✗ 안 보임</span> : <span style={{ color: "var(--ter)" }}>· 확인 불가</span>;
+const Mark = ({ v }: { v: string }) => v === "entered" ? <span style={{ color: "#15803D", fontWeight: 700 }}>✓ 보임</span> : v === "missed" ? <span style={{ color: "var(--red-ink)", fontWeight: 700 }}>✗ 안 보임</span> : <span style={{ color: "var(--ter)" }}>· 확인 불가</span>;
 
 export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onHome: () => void }) {
   const api = (p: string) => `${apiBase}${p}`;
@@ -73,7 +75,8 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
       const c = await rc.json(); setCfg(c); setOnline(true);
       setProds(new Set(c.products.map((p: any) => p.slug))); setCtrys(new Set(c.countries.map((x: any) => x.code))); setAttrProduct(c.products[0]?.slug || "");
       setAttrs((await (await fetch(api("/api/hc/attributes"))).json()).attributes || []);
-      const rs = (await (await fetch(api("/api/hc/runs"))).json()).runs || []; setRuns(rs); if (rs.length) setRunId(rs[rs.length - 1].run_id);
+      const rs = (await (await fetch(api("/api/hc/runs"))).json()).runs || []; setRuns(rs);
+      // [2026-10] 과거 run 을 자동으로 열지 않는다 — 사용자가 주차를 고르거나 "최근 결과 열기"(큐비와 동일)
       await loadKeywords();
     } catch (e: any) { setLoadErr(String(e)); setOnline(false); }
   })(); }, [apiBase]);
@@ -96,8 +99,8 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const prevCellOf = (country: string, product: string) => (prev?.cells || []).find((c: Cell) => c.country === country && c.product === product && c.keyword_type === kwType);
   const kwFor = (product: string, country: string) => keywords.filter((k) => k.product === product && k.enabled && (!k.countries.length || k.countries.includes(country)));
 
-  if (online === false) return <div className="appShell"><div style={{ padding: 30 }}>honeyComb 백엔드(/api/hc)에 연결할 수 없습니다.<div style={{ fontSize: 12, color: "var(--sec)", margin: "6px 0 10px" }}>{loadErr} — backend/honeycomb 폴더의 파일(hc_provider.py·hc_mock_data.json.gz)이 빠졌거나 라우터 등록에 실패했을 수 있습니다. 로그 창의 "[main] honeycomb router skip" 줄을 확인하세요.</div><button className="btnSecondary" onClick={onHome}>홈</button></div></div>;
-  if (!cfg) return <div className="appShell"><div style={{ padding: 30, color: "var(--sec)" }}>honeyComb 불러오는 중…</div></div>;
+  if (online === false) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><EmptyState tone="error" title="honeyComb 백엔드(/api/hc)에 연결할 수 없습니다" desc={<span>{loadErr} — backend/honeycomb 폴더의 파일이 모두 있는지, 프로그램 로그 창에 오류가 없는지 확인하세요.</span>} action={<button className="btnSecondary" onClick={onHome}>홈으로</button>} /></div></div>;
+  if (!cfg) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><Loading label="honeyComb 불러오는 중…" /></div></div>;
 
   const cts = cfg.countries.filter((c: any) => ctrys.has(c.code)), prs = cfg.products.filter((p: any) => prods.has(p.slug));
   const checked = cells.filter((c) => ["top1", "topn", "low", "absent"].includes(c.status));
@@ -141,11 +144,12 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
       <aside className="sidebar">
         <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🍯 honey<span style={{ color: HONEY }}>C</span>omb</div>
         <div className="brandSub">Google Shopping이라는 벌집 속에서, 우리 제품은 어떤 위치에 있는지 살펴봐요</div>
-        <div className={`connBadge ${cfg.provider === "serpapi" ? "ok" : "bad"}`}><span className="connDot" />{cfg.provider === "serpapi" ? "SERP API 연결됨 · 실수집 가능" : "SERP API 키 없음 — 목업만 표시"}</div>
+        <div className={`connBadge ${cfg.provider === "serpapi" ? "ok" : "bad"}`}><span className="connDot" />{cfg.provider === "serpapi" ? "SERP API 연결됨 · 수집 가능" : "SERP API 키 없음 — 저장된 결과만 조회"}</div>
         <div className="sideScroll">
           <div className="sideLabel">주차(run)</div>
           <div style={{ padding: "0 10px 8px" }}>
             <select value={runId} onChange={(e) => setRunId(e.target.value)} style={{ ...inp, width: "100%" }}>
+              <option value="">{runs.length ? `이력 선택 (${runs.length})` : "저장된 이력 없음"}</option>
               {runs.map((r) => <option key={r.run_id} value={r.run_id}>{r.week} · {r.at}</option>)}
             </select>
           </div>
@@ -165,7 +169,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
           <p style={{ padding: "0 10px 8px", fontSize: 11.5, color: "var(--sec)", lineHeight: 1.5 }}>1위 = position 1 · 상단 = position ≤ {cfg.top_n}(둘째 줄까지) · gl/hl 지정 · 비로그인 데스크톱. 속성은 검색 결과 카드·제품 상세 창에서 보이는 것만 판정하고, 검색 결과에 아예 나오지 않는 속성은 '확인 불가'로 표시해요. 광고(Sponsored) 카드는 순위 계산에서 제외하고 자연 결과부터 셉니다.</p>
         </div>
         <div className="sideFoot">
-          {runState && <button className="btnSecondary" style={{ color: "#B42318", border: "1px solid #B42318", background: "#fff" }} onClick={async () => { if (window.confirm("수집을 멈출까요? 지금까지 조회한 결과는 저장됩니다.")) await fetch(api("/api/hc/run/cancel"), J({})); }}>■ 멈춤</button>}
+          {runState && <button className="btnDanger" onClick={async () => { if (window.confirm("수집을 멈출까요? 지금까지 조회한 결과는 저장됩니다.")) await fetch(api("/api/hc/run/cancel"), J({})); }}>■ 멈춤</button>}
           <button className="btnPrimary" style={{ background: HONEY_DARK }} disabled={cfg.provider !== "serpapi" || !!runState}
             title={cfg.provider !== "serpapi" ? "설정(/desktop/settings)에 SerpApi 키를 넣으면 활성화" : "선택된 국가×제품×사용 중 키워드를 Google Shopping 에서 조회"}
             onClick={async () => {
@@ -185,7 +189,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
           {estimate && <span className="emailNotice">예상 호출 {estimate.searches}회{withDetail ? ` + 상세 최대 ${estimate.detail_max}회` : ""} · 국가 {estimate.countries} × 제품 {estimate.products} × 키워드 {estimate.keywords_enabled}</span>}
           <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
           <a className="btnSecondary" href={api(`/api/hc/report.xlsx?run_id=${runId}`)}>📊 Excel 내려받기</a>
-          {cfg.provider !== "serpapi" && <span className="emailNotice">SerpApi 키가 없어 목업 데이터만 보입니다 — 설정에서 키 입력</span>}
+          {cfg.provider !== "serpapi" && <span className="emailNotice">SerpApi 키가 없어 새로 수집할 수 없습니다 — 설정(/desktop/settings)에서 키 입력</span>}
           {msg && <span className="emailNotice" style={{ color: HONEY_DARK }}>{msg}</span>}
         </div>
       </aside>
@@ -198,22 +202,28 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
               <button className={`tabBtn ${tab === "attrs" ? "on" : ""}`} onClick={() => setTab("attrs")}>보이는 속성 확인</button>
               <button className={`tabBtn ${tab === "keywords" ? "on" : ""}`} onClick={() => setTab("keywords")}>키워드 관리 <span style={{ color: "var(--sec)", fontWeight: 500 }}>{keywords.length}</span></button>
             </div>
-            <div className="toolRow"><span style={{ fontSize: 12, color: "var(--sec)" }}>{runSafe.at ? `${runSafe.week} · ${runSafe.at} · ${runSafe.source?.startsWith("mock") ? "목업 데이터(Final Report 7/23·7/27 이관)" : runSafe.source}` : "아직 수집 결과가 없습니다 — 왼쪽 아래 \"수집 실행\""}</span></div>
+            <div className="toolRow"><span style={{ fontSize: 12, color: "var(--sec)" }}>{runSafe.at ? `${runSafe.week} · ${runSafe.at} · ${runSafe.source || ""}` : runs.length ? `이력 ${runs.length}건 — 주차를 선택하세요` : "아직 수집 결과가 없습니다"}</span></div>
           </div>
         </header>
 
         <div className="contentScroll">
           <div className="panelStack">
+            {!run && !runState && (
+              runs.length
+                ? <EmptyState title="표시할 주차(run)를 선택하세요" desc={`저장된 수집 이력 ${runs.length}건 — 과거 결과는 자동으로 열지 않습니다.`}
+                    action={<button className="btnSecondary" onClick={() => setRunId(runs[runs.length - 1].run_id)}>최근 결과 열기 ({runs[runs.length - 1].at})</button>} />
+                : <EmptyState title="아직 수집 이력이 없습니다" desc={cfg.provider === "serpapi" ? "왼쪽 아래 \"수집 실행\"을 누르면 Google Shopping 노출 현황을 조회합니다." : "SerpApi 키를 설정하면 수집할 수 있습니다. 다른 PC 에서 내보낸 결과 JSON 은 %APPDATA%\\ABCTool\\hc_runs 에 넣으면 보입니다."} />
+            )}
             {runState && (
               <div className="card" style={{ padding: "12px 16px" }}>
-                <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${runState.total ? (runState.done / runState.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
+                <div style={{ height: 8, background: "var(--gray-soft)", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${runState.total ? (runState.done / runState.total) * 100 : 0}%`, background: HONEY, transition: "width .3s" }} /></div>
                 <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>🍯 Google Shopping 조회 중 · {runState.done}/{runState.total} 키워드×국가{runState.cancel ? " · 멈추는 중…" : ""} · SerpApi 호출이 실제로 발생하고 있습니다</div>
                 {runState.cells?.length > 0 && (
                   <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
                     <thead><tr><th style={th}>국가</th><th style={th}>제품</th><th style={th}>키워드</th><th style={th}>상태</th><th style={th}>position</th><th style={th}>1위 판매처</th></tr></thead>
                     <tbody>{[...runState.cells].reverse().slice(0, 12).map((c: any, i: number) => (
                       <tr key={i}><td style={td}>{c.country}</td><td style={td}>{cfg.products.find((p: any) => p.slug === c.product)?.label || c.product}</td><td style={td}>{c.keyword}</td>
-                        <td style={td}>{c.status === "조회 중" ? <span style={{ color: HONEY_DARK, fontWeight: 700 }}>조회 중…</span> : c.status === "error" ? <span style={{ color: "#B42318" }}>실패 · {c.error}</span> : <Badge st={c.status} />}</td>
+                        <td style={td}>{c.status === "조회 중" ? <span style={{ color: HONEY_DARK, fontWeight: 700 }}>조회 중…</span> : c.status === "error" ? <span style={{ color: "var(--red-ink)" }}>실패 · {c.error}</span> : <Badge st={c.status} />}</td>
                         <td style={td}>{c.position != null ? `#${c.position}` : "—"}</td><td style={td}>{c.first_store || "—"}</td></tr>))}</tbody>
                   </table>)}
               </div>
@@ -316,7 +326,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                     </table>
                   </>)}
                   {selCell && selCell.attrs && Object.keys(selCell.attrs).length > 0 ? (() => { const obs = Object.entries(selCell.attrs).filter(([, v]) => v !== "na"); const na = Object.values(selCell.attrs).filter((v) => v === "na").length; return (<>
-                    <b style={{ fontSize: 12.5 }}>보이는 속성 확인 <span style={{ color: "var(--sec)", fontWeight: 500 }}>키워드 “{selCell.keyword}” 결과 카드·제품 상세 창에서 — 보임 <span style={{ color: "#15803D", fontWeight: 700 }}>{obs.filter(([, v]) => v === "entered").length}</span> · 안 보임 <span style={{ color: "#B42318", fontWeight: 700 }}>{obs.filter(([, v]) => v === "missed").length}</span> / 확인 가능 {obs.length}{na ? ` · 확인 불가 ${na}` : ""}</span></b>
+                    <b style={{ fontSize: 12.5 }}>보이는 속성 확인 <span style={{ color: "var(--sec)", fontWeight: 500 }}>키워드 “{selCell.keyword}” 결과 카드·제품 상세 창에서 — 보임 <span style={{ color: "#15803D", fontWeight: 700 }}>{obs.filter(([, v]) => v === "entered").length}</span> · 안 보임 <span style={{ color: "var(--red-ink)", fontWeight: 700 }}>{obs.filter(([, v]) => v === "missed").length}</span> / 확인 가능 {obs.length}{na ? ` · 확인 불가 ${na}` : ""}</span></b>
                     <div style={{ height: 8 }} />
                     <AttrTable attrs={attrs} cell={selCell} />
                   </>); })() : selCell?.competitor_benchmark ? (() => { const cb = selCell.competitor_benchmark!; const obs = Object.entries(cb.attrs).filter(([, v]) => v !== "na"); return (<>
@@ -347,7 +357,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                       {attrs.map((a) => (<tr key={akey(a)}>
                         <td style={{ ...td, color: "var(--sec)" }}>{a.no}{a.sub ? "·" : ""}</td><td style={{ ...td, color: "var(--sec)" }}>{a.category}</td><td style={td}>{a.name}</td><td style={{ ...td, color: "var(--sec)" }}>{OBS[a.observe]}</td>
                         {cts.map((c: any) => { const cell = cellOf(c.code, attrProduct); const v = cell?.attrs?.[akey(a)] || (a.observe === "feed" ? "na" : "");
-                          return <td key={c.code} style={{ ...td, textAlign: "center", color: v === "entered" ? "#15803D" : v === "missed" ? "#B42318" : "var(--ter)", fontWeight: v ? 700 : 400 }} title={`${c.label} · ${v === "entered" ? "보임" : v === "missed" ? "안 보임" : v === "na" ? "확인 불가" : "아직 조회 안 함"}`}>{v === "entered" ? "✓" : v === "missed" ? "✗" : v === "na" ? "—" : "·"}</td>; })}
+                          return <td key={c.code} style={{ ...td, textAlign: "center", color: v === "entered" ? "#15803D" : v === "missed" ? "var(--red-ink)" : "var(--ter)", fontWeight: v ? 700 : 400 }} title={`${c.label} · ${v === "entered" ? "보임" : v === "missed" ? "안 보임" : v === "na" ? "확인 불가" : "아직 조회 안 함"}`}>{v === "entered" ? "✓" : v === "missed" ? "✗" : v === "na" ? "—" : "·"}</td>; })}
                       </tr>))}
                     </tbody>
                   </table>

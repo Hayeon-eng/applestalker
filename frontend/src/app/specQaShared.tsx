@@ -3,13 +3,15 @@
    [2026-07 분할] QubiSpecQa.tsx(48KB)를 46KB 이하 3분할하면서, 결과 패널·사전·기준표가
    함께 쓰는 최소 단위(툴팁·diff·색상·게이지·판정과정)를 여기로 모았다. */
 import { useState } from "react";
+import { SEV, BLUE } from "./qubiShared";
+import { scoreColor, Meter } from "./uiShared";
 
 export function InfoTip({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
     <span style={{ position: "relative", display: "inline-block", marginLeft: 6 }}>
       <span onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        style={{ cursor: "pointer", color: "#0A66E0", fontSize: 11, userSelect: "none" }}>ⓘ</span>
+        style={{ cursor: "pointer", color: "var(--blue)", fontSize: 11, userSelect: "none" }}>ⓘ</span>
       {open && (
         <>
           <span onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }} />
@@ -44,27 +46,15 @@ export function MiniDiff({ expected, actual }: { expected: string; actual: strin
       {out.map((t, k) => t.t === "same"
         ? <span key={k}>{t.s}</span>
         : t.t === "del"
-          ? <span key={k} style={{ textDecoration: "line-through", color: "#B42318", background: "#FDECEA", borderRadius: 3 }}>{t.s}</span>
-          : <span key={k} style={{ textDecoration: "underline", color: "#067647", background: "#EAF7EE", fontWeight: 700, borderRadius: 3 }}>{t.s}</span>)}
+          ? <span key={k} style={{ textDecoration: "line-through", color: "var(--red-ink)", background: "var(--red-soft)", borderRadius: 3 }}>{t.s}</span>
+          : <span key={k} style={{ textDecoration: "underline", color: "var(--green-ink)", background: "var(--green-soft)", fontWeight: 700, borderRadius: 3 }}>{t.s}</span>)}
     </span>
   );
 }
 
-export const C = { crit: "#D8362F", warn: "#E0A008", pass: "#1F9E5C", na: "#98A2B3", blue: "#1B57C4" };
-export const scoreColor = (s: number | null) => (s == null ? C.na : s < 50 ? C.crit : s < 80 ? C.warn : C.pass);
-
-export function Meter({ pct }: { pct: number | null }) {
-  const v = pct == null ? 0 : pct;
-  const color = scoreColor(pct);
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 130 }}>
-      <span style={{ flex: 1, height: 6, background: "#EEF1F6", borderRadius: 999, minWidth: 70 }}>
-        <span style={{ display: "block", width: `${v}%`, height: "100%", background: color, borderRadius: 999 }} />
-      </span>
-      <b style={{ fontSize: 12.5, color }}>{pct == null ? "—" : `${pct}%`}</b>
-    </span>
-  );
-}
+// [2026-10 통일] 색은 qubiShared.SEV 토큰을 그대로 가리킨다(별도 hex 금지). 기존 이름(C.crit 등)은 호환용 별칭.
+export const C = { crit: SEV.fail.c, warn: SEV.warn.c, pass: SEV.pass.c, na: SEV.na.c, blue: BLUE };
+export { scoreColor, Meter };
 
 /* ── Rule Trace: "판정 과정 보기" — Browser→Attribute→Dictionary→Rule→Exception→Result ── */
 export function RuleTrace({ trace }: { trace: any[] }) {
@@ -72,7 +62,7 @@ export function RuleTrace({ trace }: { trace: any[] }) {
   if (!trace?.length) return null;
   return (
     <div style={{ marginTop: 6 }}>
-      <button onClick={() => setOpen(!open)} style={{ background: "none", border: "none", padding: 0, fontSize: 11, color: "#0A66E0", cursor: "pointer" }}>
+      <button onClick={() => setOpen(!open)} style={{ background: "none", border: "none", padding: 0, fontSize: 11, color: "var(--blue)", cursor: "pointer" }}>
         {open ? "▲ 판정 과정 접기" : "▼ 판정 과정 보기"}
       </button>
       {open && (

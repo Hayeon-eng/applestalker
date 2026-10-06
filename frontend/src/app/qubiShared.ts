@@ -11,8 +11,20 @@ export type SiteRow = { sitecode: string; country?: string; lang?: string; url: 
 export type CatalogItem = { category: string; label: string; ex_value: string; ex_unit: string };
 export type Product = { code: string; label: string; spec_only?: boolean };
 
-export const SEV = { fail: { ko: "오류", c: "#D8362F" }, warn: { ko: "확인", c: "#E0A008" }, pass: { ko: "정상", c: "#1F9E5C" }, na: { ko: "해당없음", c: "#98A2B3" } } as const;
-export const HONEY = "#E0A008";
+// [2026-10 통일] 판정 4단계 — 색은 globals.css 의 --red/--amber/--green/--gray 와 같은 값이어야 한다(한쪽만 바꾸지 말 것).
+//   c   : 아이콘·막대·굵은 글자 (원색)
+//   ink : 연한 배경 위 글자 (진한 톤)
+//   soft: 연한 배경
+//   tl  : 신호등 키(TL_EMOJI/TL_COLOR 인덱스) — na 는 신호등 없음(TL_NONE)
+export const SEV = {
+  fail: { ko: "오류",     c: "var(--red)",   ink: "var(--red-ink)",   soft: "var(--red-soft)",   tl: "red" },
+  warn: { ko: "확인",     c: "var(--amber)", ink: "var(--amber-ink)", soft: "var(--amber-soft)", tl: "yellow" },
+  pass: { ko: "정상",     c: "var(--green)", ink: "var(--green-ink)", soft: "var(--green-soft)", tl: "green" },
+  na:   { ko: "해당없음", c: "var(--gray)",  ink: "var(--gray-ink)",  soft: "var(--gray-soft)",  tl: "" },
+} as const;
+export type SevKey = keyof typeof SEV;
+export const BLUE = "var(--blue)";          // 액션·선택 색 — 하드코딩 금지
+export const HONEY = "#E0A008";             // honeyComb 브랜드색(알파 접미사 `${HONEY}22` 로 쓰여 hex 유지) — 값은 --amber 와 동일
 export const PAGE_TYPES = ["PDP", "Compare", "Buying"];
 // [2026-09] Buying 추가(폰만) — 스키마 검사 없이 HTML/SEO 검사만(백엔드 runner.schema_set_for → None).
 // 레지스트리에 없으면 백엔드가 PDP URL 에서 {pdp}buy/ 를 파생해 크롤(404 → Not Checked).
@@ -27,7 +39,7 @@ export const family = (code: string) => (code || "").includes("buds") ? "M12" : 
 
 export const tierOf = (c: { fail: number; warn: number }) => (c.fail > 0 ? "bad" : c.warn > 0 ? "mid" : "good");
 export const inputStyle = { fontSize: 12, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6 } as const;
-export const sel = (v: string, on: boolean) => ({ fontSize: 12, padding: "4px 10px", borderRadius: 999, cursor: "pointer", border: on ? "1px solid #0A66E0" : "1px solid var(--line)", background: on ? "#0A66E0" : "#fff", color: on ? "#fff" : "var(--label)" });
+export const sel = (v: string, on: boolean) => ({ fontSize: 12, padding: "4px 10px", borderRadius: 999, cursor: "pointer", border: on ? "1px solid var(--blue)" : "1px solid var(--line)", background: on ? "var(--blue)" : "#fff", color: on ? "#fff" : "var(--label)" });
 
 // 내부 계산 토큰을 사람이 읽는 말로 (QuickView·DATA QA 상세 등 findings 텍스트 공유)
 export const TERM_MAP: Record<string, string> = {
@@ -46,8 +58,11 @@ export function humanizeTerm(s: string): string {
 }
 
 // DATA QA 신호등 색/이모지 (공유)
-export const TL_COLOR: Record<string, string> = { green: "#1F9E5C", yellow: "#E0A008", red: "#D8362F" };
+export const TL_COLOR: Record<string, string> = { green: "var(--green)", yellow: "var(--amber)", red: "var(--red)" };
 export const TL_EMOJI: Record<string, string> = { green: "🟢", yellow: "🟡", red: "🔴" };
+// 미판정/해당없음 이모지 — 반드시 이 상수만 쓸 것(이모지 선택자 U+FE0F 가 붙은 변형이 섞이면 폰트마다 크기가 달라진다)
+export const TL_NONE = "⚪";
+export const tlEmoji = (tl?: string | null) => (tl && TL_EMOJI[tl]) || TL_NONE;
 
 // ── 신호등 판정 (QA Bee 전체 공유) ──────────────────────────────
 // Data QA(스키마): 점수 기준 — 80%↑ green / 50–79% yellow / 그 미만 red.

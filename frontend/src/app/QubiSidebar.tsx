@@ -1,5 +1,6 @@
 "use client";
 import { useRef } from "react";
+import { toast } from "./uiShared";
 import { QubiUrlList } from "./QubiUrlList";
 
 /* QubiSidebar — QubiApp에서 분리된 좌측 사이드바(URL 관리·검수 이력).
@@ -28,7 +29,7 @@ export function QubiSidebar(props: any) {
             <input ref={histFileRef} type="file" accept=".json" hidden onChange={async (e) => {
               const f = e.target.files?.[0]; if (!f) return;
               try { const txt = await f.text(); const r = await (await fetch(`${apiBase}/api/qb/history/import`, { method: "POST", headers: { "Content-Type": "application/json" }, body: txt })).json();
-                alert(`이력 가져오기: 추가 ${r.added} · 이미 있음 ${r.skipped}`); onHistoryChanged?.(); } catch { alert("가져오기 실패 — 큐비 이력 JSON 인지 확인"); }
+                toast(`이력 가져오기: 추가 ${r.added} · 이미 있음 ${r.skipped}`, "warn"); onHistoryChanged?.(); } catch { toast("가져오기 실패 — 큐비 이력 JSON 인지 확인", "err"); }
               e.currentTarget.value = ""; }} />
           </div>
           {history.length === 0 && <p style={{ padding: "2px 10px", fontSize: 11.5, color: "var(--sec)" }}>아직 저장된 검수가 없어요</p>}

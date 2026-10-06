@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "./uiShared";
 import { CRITERIA } from "./shared";
 
 /* [2026-09 신규] Drawer 에 보이는 CRITERIA 그대로 보내서 서버에서 서식만 입힌 xlsx 로 받는다 —
@@ -64,7 +65,7 @@ export function CriteriaDrawer({
             className="badge c2"
             style={{ marginLeft: "auto", cursor: "pointer", border: "none", fontSize: 11.5 }}
             disabled={downloading}
-            onClick={async () => { setDownloading(true); const ok = await downloadCriteriaXlsx(apiBase || ""); setDownloading(false); if (!ok) alert("다운로드에 실패했습니다."); }}
+            onClick={async () => { setDownloading(true); const ok = await downloadCriteriaXlsx(apiBase || ""); setDownloading(false); if (!ok) toast("다운로드에 실패했습니다.", "err"); }}
           >
             {downloading ? "받는 중…" : "⬇ Excel로 받기"}
           </button>

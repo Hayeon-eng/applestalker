@@ -209,7 +209,8 @@ export const siteShortName = (s?: string) => SITE_META[s || ""]?.short || s || "
 export const siteClass = (s?: string) => SITE_META[s || ""]?.cls || "competitor";
 export const levelKo = (l?: string) => l === "High" ? "높음" : l === "Medium" ? "보통" : "낮음";
 export const levelClass = (l?: string) => l === "High" ? "high" : l === "Medium" ? "med" : "low";
-export const severityEmoji = (l?: string) => l === "High" ? "🔴" : l === "Medium" ? "🟠" : "🟢";
+// [2026-10 통일] 중간 단계는 큐비 신호등과 같은 🟡(기존 🟠)
+export const severityEmoji = (l?: string) => l === "High" ? "🔴" : l === "Medium" ? "🟡" : "🟢";
 export const isLegacySamsungUsUrl = (site?: string, url?: string) =>
   site === "samsung" && /https?:\/\/www\.samsung\.com\/us\//i.test(url || "");
 

@@ -44,7 +44,7 @@ export function QubiRunPanel(props: any) {
 
             {/* 사이트 개별 체크박스(접이식) */}
             <details style={{ marginBottom: 8 }}>
-              <summary style={{ fontSize: 11.5, color: "#0A66E0", cursor: "pointer" }}>사이트 개별 선택 {selectedSites.size > 0 ? `(${selectedSites.size}개 선택됨)` : ""}</summary>
+              <summary style={{ fontSize: 11.5, color: "var(--blue)", cursor: "pointer" }}>사이트 개별 선택 {selectedSites.size > 0 ? `(${selectedSites.size}개 선택됨)` : ""}</summary>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, maxHeight: 180, overflowY: "auto" }}>
                 {allSites.map((s, i) => {
                   const on = selectedSites.has(s.sitecode);
@@ -52,7 +52,7 @@ export function QubiRunPanel(props: any) {
                     <label key={s.sitecode + i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, border: "1px solid var(--line)", borderRadius: 6, padding: "3px 8px", cursor: "pointer", background: on ? "#E8F0FE" : "#fff" }}>
                       <input type="checkbox" checked={on} onChange={() => { setSelectedRegions(new Set()); setSelectedSites((prev) => { const n = new Set(prev); n.has(s.sitecode) ? n.delete(s.sitecode) : n.add(s.sitecode); return n; }); }} />
                       {s.sitecode}<span style={{ color: "var(--sec)" }}>{s.region}</span>
-                      {isUnlaunched?.(s.sitecode) && <span style={{ color: "#B54708", fontWeight: 600 }}>미출시</span>}
+                      {isUnlaunched?.(s.sitecode) && <span style={{ color: "var(--amber-ink)", fontWeight: 600 }}>미출시</span>}
                     </label>
                   );
                 })}
@@ -63,7 +63,7 @@ export function QubiRunPanel(props: any) {
                 제품 필터 배지 대신 여기서 한 곳에 모아 확인. */}
             {(unlaunchedSites.length > 0 || unregisteredLaunchCodes.length > 0) && (
               <details style={{ marginBottom: 8 }}>
-                <summary style={{ fontSize: 11.5, color: "#B54708", cursor: "pointer" }}>
+                <summary style={{ fontSize: 11.5, color: "var(--amber-ink)", cursor: "pointer" }}>
                   🚫 미출시 사이트 ({unlaunchedSites.length + unregisteredLaunchCodes.length}개)
                 </summary>
                 {unlaunchedSites.length > 0 && (
@@ -103,7 +103,7 @@ export function QubiRunPanel(props: any) {
                     runByRegion(tab === "schema" ? "data" : "spec");
                   }
                 }}
-                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: tab === "schema" ? "#1B4FD8" : HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: tab === "schema" ? "var(--blue)" : HONEY, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
                 {tab === "schema" ? "▶ Data QA 검수 실행" : "▶ Spec QA 검수 실행"} · {targetCodes.length}개 사이트{selectedSites.size ? " (선택)" : selectedRegions.size ? " (권역)" : " (전체)"}
               </button>
               <button
@@ -115,7 +115,7 @@ export function QubiRunPanel(props: any) {
             </>) : (
               <button
                 onClick={async () => { if (window.confirm("검수를 멈출까요? 끝난 페이지까지는 결과로 저장됩니다.")) { await fetch(`${props.apiBase || ""}/api/qb/run-cancel`, { method: "POST" }); } }}
-                style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #B42318", background: "#fff", color: "#B42318", fontWeight: 700, cursor: "pointer" }}>
+                style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--red-ink)", background: "#fff", color: "var(--red-ink)", fontWeight: 700, cursor: "pointer" }}>
                 ■ 멈춤 {progress.active ? `(${progress.done}/${progress.total})` : ""}
               </button>
             )}
@@ -130,7 +130,7 @@ export function QubiRunPanel(props: any) {
             )}
             {!busy && failedSitecodes.length > 0 && (
               <div style={{ marginTop: 10, padding: "8px 10px", background: "#FEF3F2", border: "1px solid #FDA29B", borderRadius: 8 }}>
-                <span style={{ fontSize: 12, color: "#B42318" }}>❗ 수집 실패 {failedSitecodes.length}개 사이트: {failedSitecodes.slice(0, 8).join(", ")}{failedSitecodes.length > 8 ? ` 외 ${failedSitecodes.length - 8}개` : ""}</span>
+                <span style={{ fontSize: 12, color: "var(--red-ink)" }}>❗ 수집 실패 {failedSitecodes.length}개 사이트: {failedSitecodes.slice(0, 8).join(", ")}{failedSitecodes.length > 8 ? ` 외 ${failedSitecodes.length - 8}개` : ""}</span>
                 <button
                   onClick={() => {
                     if (window.confirm(`수집 실패한 ${failedSitecodes.length}개 사이트만 재시도할까요? (동시성 낮춰서 재시도하는 걸 권장 — QB_BROWSER_CONCURRENCY 값 확인)`)) {
@@ -139,14 +139,14 @@ export function QubiRunPanel(props: any) {
                       runByRegion("all", failedSitecodes);
                     }
                   }}
-                  style={{ marginLeft: 10, padding: "4px 10px", borderRadius: 6, border: "1px solid #B42318", background: "#fff", color: "#B42318", fontWeight: 600, fontSize: 11.5, cursor: "pointer" }}>
+                  style={{ marginLeft: 10, padding: "4px 10px", borderRadius: 6, border: "1px solid var(--red-ink)", background: "#fff", color: "var(--red-ink)", fontWeight: 600, fontSize: 11.5, cursor: "pointer" }}>
                   🔄 실패한 사이트만 재시도
                 </button>
               </div>
             )}
             {progress.active && (
               <div style={{ marginTop: 10 }}>
-                <div style={{ height: 8, background: "#F0F1F3", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: tab === "schema" ? "#1B4FD8" : HONEY, transition: "width .3s" }} /></div>
+                <div style={{ height: 8, background: "var(--gray-soft)", borderRadius: 999, overflow: "hidden" }}><div style={{ height: "100%", width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: tab === "schema" ? "var(--blue)" : HONEY, transition: "width .3s" }} /></div>
                 <div style={{ fontSize: 11.5, color: "var(--sec)", marginTop: 4 }}>
                   🐝 {progress.label} · {progress.done}/{progress.total} 페이지
                   {liveEtaSeconds != null && ` · 남은 시간 약 ${fmtEta(liveEtaSeconds)}`}

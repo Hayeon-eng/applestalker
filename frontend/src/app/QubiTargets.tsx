@@ -4,6 +4,7 @@
    · 여기서는 ① 다시 해석, ② 해석 결과 보기(읽기 전용, source 별), ③ 예외 등록(cn 등 finder 미지원), ④ 크롤 제외 토글만 한다.
    · 사람이 정의하는 '대상'(제품 × 국가 × 페이지타입)은 메인 화면의 제품/사이트/페이지타입 칩이 담당한다. */
 import { useEffect, useRef, useState } from "react";
+import { Loading } from "./uiShared";
 
 const J = (b: any) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
 const SRC: Record<string, { label: string; cls: string; help: string }> = {
@@ -44,7 +45,7 @@ export function QubiTargets({ apiBase }: { apiBase: string }) {
   const removeException = async (e: any) => { await fetch(api("/api/qb/targets/exception/remove"), J({ sitecode: e.sitecode, url: e.url })); load(); };
   const toggleExclude = async (e: any) => { await fetch(api("/api/qb/targets/exclude"), J({ sitecode: e.sitecode, url: e.url, excluded: !e.excluded })); load(); };
 
-  if (!data) return <div className="sideLabel">대상 관리 <span style={{ color: "var(--sec)" }}>불러오는 중…</span></div>;
+  if (!data) return <div className="sideLabel">대상 관리 <Loading inline /></div>;
   const entries: any[] = data.entries || [];
   const bySrc = data.stats?.by_source || {};
   const shown = entries.filter((e) => (filter === "all" || e.source === filter) && (!q || `${e.sitecode} ${e.product} ${e.url}`.toLowerCase().includes(q.toLowerCase())));

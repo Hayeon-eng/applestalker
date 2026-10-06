@@ -1,4 +1,12 @@
 :root {
+  /* ── [2026-10 통일] 판정 색 토큰 — A(Apple Stalker)·B(QA Bee)·C(honeyComb) 공용. TS 쪽 qubiShared.SEV/TL_COLOR 와 같은 값.
+        red=오류/High/🔴 · amber=확인/Medium/🟡 · green=정상/Low/🟢 · gray=해당없음/⚪
+        -ink: 연한 배경 위 글자색(진한 톤) · -soft: 연한 배경 */
+  --red: #D8362F;    --red-ink: #B42318;    --red-soft: #FDECEC;
+  --amber: #E0A008;  --amber-ink: #B54708;  --amber-soft: #FEF3C7;
+  --green: #1F9E5C;  --green-ink: #067647;  --green-soft: #DCFCE7;
+  --gray: #98A2B3;   --gray-ink: #6B7280;   --gray-soft: #EEF0F3;
+
   /* ── 사이트 구분 (채도 낮게) */
   --samsung: #1B4FD8;
   --samsung-soft: #EFF4FF;
@@ -10,21 +18,21 @@
   --competitor-soft: #F5F3FF;
   --competitor-border: #DDD6FE;
 
-  /* ── 중요도 (High/Med/Low) */
-  --high: #C0392B;
-  --high-soft: #FDECEC;
-  --med: #B45309;
-  --med-soft: #FEF3E2;
-  --low: #15803D;
-  --low-soft: #ECFDF5;
+  /* ── 중요도 (High/Med/Low) — 공용 토큰을 가리킴 */
+  --high: var(--red-ink);
+  --high-soft: var(--red-soft);
+  --med: var(--amber-ink);
+  --med-soft: var(--amber-soft);
+  --low: var(--green-ink);
+  --low-soft: var(--green-soft);
 
-  /* ── 분석 티어 (우수/보통/미흡) */
-  --tier-good: #166534;
-  --tier-good-soft: #DCFCE7;
-  --tier-mid: #92400E;
-  --tier-mid-soft: #FEF3C7;
-  --tier-bad: #991B1B;
-  --tier-bad-soft: #FEE2E2;
+  /* ── 분석 티어 (우수/보통/미흡) — 공용 토큰을 가리킴 */
+  --tier-good: var(--green-ink);
+  --tier-good-soft: var(--green-soft);
+  --tier-mid: var(--amber-ink);
+  --tier-mid-soft: var(--amber-soft);
+  --tier-bad: var(--red-ink);
+  --tier-bad-soft: var(--red-soft);
 
   /* ── 기본 UI */
   --bg: #F8F9FB;
@@ -109,6 +117,28 @@ input, select { font-family: inherit; }
   padding: 8px 14px; font-size: 12px; font-weight: 600; text-align: center; }
 .btnSecondary:hover { background: rgba(0,0,0,.10); }
 .btnSecondary:disabled { opacity: .45; cursor: default; }
+/* [2026-10 통일] 위험/중단 버튼 — "멈춤"·"삭제" 등. 인라인 색 지정 대신 이 클래스만 쓴다 */
+.btnDanger { background: #fff; color: var(--red-ink); border: 1px solid var(--red-ink); border-radius: 10px;
+  padding: 8px 14px; font-size: 12px; font-weight: 700; text-align: center; cursor: pointer; }
+.btnDanger:hover:not(:disabled) { background: var(--red-soft); }
+.btnDanger:disabled { opacity: .45; cursor: default; }
+/* [2026-10 통일] 공용 토스트(alert 대체) — uiShared.toast() 가 body 에 붙인다 */
+.abcToastWrap { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.abcToast { pointer-events: auto; max-width: 520px; font-size: 12.5px; line-height: 1.5; padding: 10px 14px; border-radius: 10px;
+  background: #111318; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.25); border-left: 4px solid var(--blue);
+  animation: abcToastIn .18s ease-out; white-space: pre-line; }
+.abcToast.ok { border-left-color: var(--green); }
+.abcToast.warn { border-left-color: var(--amber); }
+.abcToast.err { border-left-color: var(--red); }
+@keyframes abcToastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* [2026-10 통일] 로딩/빈 상태 */
+.abcLoading { font-size: 12.5px; color: var(--sec); padding: 14px 16px; display: flex; align-items: center; gap: 8px; }
+.abcLoading::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line2); border-top-color: var(--blue);
+  animation: abcSpin .8s linear infinite; flex-shrink: 0; }
+@keyframes abcSpin { to { transform: rotate(360deg); } }
+.abcEmpty { text-align: center; padding: 28px 16px; color: var(--sec); font-size: 12.5px; line-height: 1.6; }
+.abcEmpty b { display: block; font-size: 14px; color: var(--label2); margin-bottom: 4px; }
 .emailNotice { font-size: 11px; color: var(--sec); padding: 2px 4px; }
 
 /* URL 추가 */

@@ -14,7 +14,7 @@ const VAL_KO: Record<string, { label: string; desc: string }> = {
   dictionary: { label: "표기 자유", desc: "나라마다 표기가 다른 항목(칩셋명 등) — 정답 표기나 등록된 현지 표기가 보이면 정상. 다르게 서술돼 있어도 오류 아님(전작 칩명이 잘못 들어간 경우만 오류)" },
   option_match: { label: "옵션 노출", desc: "나열된 옵션 중 페이지에 보이는 것을 확인 — 일부가 안 보여도 오류 아님(국가별 미출시 가능). 목록에 없는 엉뚱한 옵션 값이 이 항목과 함께 적혀 있을 때만 오류" },
 };
-const PRI_COLOR: Record<string, string> = { Critical: "#D8362F", High: "#B54708", Medium: "#0A66E0", Low: "#667085" };
+const PRI_COLOR: Record<string, string> = { Critical: "var(--red)", High: "var(--amber-ink)", Medium: "var(--blue)", Low: "#667085" };
 
 /* ── V2 검수 기준 스펙표 — Rule DB 뷰어 + 엑셀 업로드 (구 SpecTable 대체) ── */
 export function SpecV2RuleTable({ product, api, flash }:
@@ -46,9 +46,9 @@ export function SpecV2RuleTable({ product, api, flash }:
   };
   // 등급 → 색점 + 사람 설명 (개발자용 'Critical/High' 대신)
   const PRI_DOT: Record<string, { c: string; ko: string; why: string }> = {
-    Critical: { c: "#D8362F", ko: "필수", why: "틀리면 바로 오류 — 반드시 정확해야 하는 핵심 스펙" },
-    High: { c: "#B54708", ko: "중요", why: "제품 대표 스펙 — 노출 위치에서 꼭 맞아야 함" },
-    Medium: { c: "#0A66E0", ko: "권장", why: "있으면 좋은 상세 스펙" },
+    Critical: { c: "var(--red)", ko: "필수", why: "틀리면 바로 오류 — 반드시 정확해야 하는 핵심 스펙" },
+    High: { c: "var(--amber-ink)", ko: "중요", why: "제품 대표 스펙 — 노출 위치에서 꼭 맞아야 함" },
+    Medium: { c: "var(--blue)", ko: "권장", why: "있으면 좋은 상세 스펙" },
     Low: { c: "#667085", ko: "참고", why: "부가 정보 — 없어도 큰 문제 아님" },
   };
   // 기준값을 자연어 '이래야 정상'으로
@@ -117,7 +117,7 @@ export function SpecV2RuleTable({ product, api, flash }:
               (재업로드 시 자동 복원). 검수 이력·모니터링 URL·Global 사전도 그대로 유지된다.
               [2026-07 신규] 삭제 직전 상태도 이제 버전 이력에 남아, 실수로 지워도 🕐 이력에서
               되돌릴 수 있다. */}
-          <button disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px", color: "#B42318", borderColor: "#FECDCA" }}
+          <button disabled={busy} className="btnSecondary" style={{ fontSize: 11.5, padding: "5px 10px", color: "var(--red-ink)", borderColor: "#FECDCA" }}
             onClick={async () => {
               if (!window.confirm(`'${product}'의 Rule DB(룰 ${rules.length}개)를 삭제할까요?\n\n제품 용어사전(Dictionary)·검수 이력·모니터링 URL·공통(Global) 사전은 그대로 유지됩니다.\n삭제 직전 상태는 🕐 이력에 남아 나중에 되돌릴 수 있어요.`)) return;
               setBusy(true);
@@ -148,7 +148,7 @@ export function SpecV2RuleTable({ product, api, flash }:
         이 표가 "정답지"예요. 각 항목이 페이지에 <b>이래야 정상</b>이라는 기준입니다. 값 수정은 엑셀을 고쳐 업로드하세요(화면 직접 편집 안 함 — 이력 관리를 엑셀로 일원화).
       </p>
       <div style={{ fontSize: 10.5, color: "var(--sec)", marginBottom: 8 }}>
-        등급: <span style={{ color: "#D8362F" }}>●</span> 필수(틀리면 즉시 오류) · <span style={{ color: "#B54708" }}>●</span> 중요 · <span style={{ color: "#0A66E0" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고
+        등급: <span style={{ color: "var(--red)" }}>●</span> 필수(틀리면 즉시 오류) · <span style={{ color: "var(--amber-ink)" }}>●</span> 중요 · <span style={{ color: "var(--blue)" }}>●</span> 권장 · <span style={{ color: "#667085" }}>●</span> 참고
       </div>
       {/* [2026-07 FIX] 같은 검사 방식(validation)을 쓰는 행마다 똑같은 긴 설명 문단이
           매번 반복 출력되어 표가 지저분해지는 문제 — 실제 검증 방식은 5종류뿐이라
@@ -186,13 +186,13 @@ export function SpecV2RuleTable({ product, api, flash }:
                     <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginLeft: 13 }}>{r.category}</span>
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)" }}>
-                    <b style={{ color: "#067647" }}>{normalText(r)}</b>
+                    <b style={{ color: "var(--green-ink)" }}>{normalText(r)}</b>
                     <span title={valDesc} style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginTop: 2, lineHeight: 1.5, cursor: "help", borderBottom: "1px dotted var(--line)", width: "fit-content" }}>{VAL_KO[r.validation]?.label || r.validation}</span>
                   </td>
                   <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line)", color: "var(--sec)", fontSize: 11.5 }}>
                     <b style={{ color: pri.c }}>{pri.ko}</b>
                     <span> · {(PAGE_KO[r.page]?.ko) || r.page}</span>
-                    <span style={{ display: "block", fontSize: 10.5, color: "#98A2B3", marginTop: 2 }}>
+                    <span style={{ display: "block", fontSize: 10.5, color: "var(--gray)", marginTop: 2 }}>
                       {(PAGE_KO[r.page]?.tip) || r.page}{r.exception ? " · ※ 국가/조건 예외 있음" : ""}
                     </span>
                   </td>

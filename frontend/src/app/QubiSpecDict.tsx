@@ -2,6 +2,7 @@
 /* QubiSpecDict.tsx — Spec QA Dictionary 화면 (제품 단위 Dictionary Review + 상시 사전 패널)
    [2026-07 분할] QubiSpecQa.tsx에서 분리 — 판정 화면과 독립적인 사전 관리 영역. */
 import { useEffect, useState } from "react";
+import { Loading } from "./uiShared";
 
 /* ── Dictionary Review 승인 행: 제품 단위로 집계된 그룹(빈도순) 1건 ──
    기존 CandidateCard(페이지별·1건씩)를 대체 — "GPU (15)"처럼 이미 여러 페이지에서
@@ -41,7 +42,7 @@ function GroupedCandidateRow({ cand, attributes, product, api, flash, onDone }:
     } catch { flash("추가 실패 — 서버 확인"); } finally { setBusy(false); }
   };
   const confBadge = cand.confidence === "high"
-    ? { bg: "#EAF7EE", fg: "#067647", label: "High" }
+    ? { bg: "var(--green-soft)", fg: "var(--green-ink)", label: "High" }
     : { bg: "#FFFAEB", fg: "#93540A", label: "Medium" };
   return (
     <div style={{ border: "1px solid var(--line)", borderRadius: 10, marginTop: 6, overflow: "hidden" }}>
@@ -49,7 +50,7 @@ function GroupedCandidateRow({ cand, attributes, product, api, flash, onDone }:
         <span style={{ fontFamily: "monospace", background: "#F2F4F7", padding: "1px 7px", borderRadius: 5, fontSize: 12.5, fontWeight: 700 }}>{cand.alias}</span>
         <span style={{ fontSize: 11.5, color: "var(--sec)" }}>({cand.count}개 페이지 반복)</span>
         <span style={{ fontSize: 10.5, fontWeight: 700, background: confBadge.bg, color: confBadge.fg, borderRadius: 5, padding: "1px 6px" }}>{confBadge.label}</span>
-        <span style={{ marginLeft: "auto", fontSize: 11, color: "#0A66E0" }}>{expanded ? "▲" : "▼"}</span>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--blue)" }}>{expanded ? "▲" : "▼"}</span>
       </div>
       {expanded && (
         <div style={{ padding: "9px 11px", borderTop: "1px solid var(--line)" }}>
@@ -59,13 +60,13 @@ function GroupedCandidateRow({ cand, attributes, product, api, flash, onDone }:
           <div style={{ fontSize: 11.5, background: "#fff", border: "1px dashed #D6BB6A", borderRadius: 7, padding: "5px 9px" }}>
             {ai == null && <span style={{ color: "var(--sec)" }}>✨ AI 제안 확인 중…</span>}
             {ai && ai.available && ai.attribute && (
-              <span>✨ <b>AI 제안</b>: 이 표현은 <b style={{ color: "#0A66E0" }}>{ai.attribute}</b>{ai.confidence != null ? ` (신뢰도 ${ai.confidence}%)` : ""}
-                <button onClick={() => setRep(ai.attribute)} style={{ marginLeft: 8, fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid #0A66E0", background: "#fff", color: "#0A66E0", cursor: "pointer" }}>제안 적용</button>
+              <span>✨ <b>AI 제안</b>: 이 표현은 <b style={{ color: "var(--blue)" }}>{ai.attribute}</b>{ai.confidence != null ? ` (신뢰도 ${ai.confidence}%)` : ""}
+                <button onClick={() => setRep(ai.attribute)} style={{ marginLeft: 8, fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid var(--blue)", background: "#fff", color: "var(--blue)", cursor: "pointer" }}>제안 적용</button>
                 {ai.reason && <span style={{ display: "block", color: "var(--sec)", fontSize: 10.5, marginTop: 2 }}>{ai.reason}</span>}
               </span>
             )}
             {ai && ai.available && !ai.attribute && <span style={{ color: "var(--sec)" }}>✨ AI가 마땅한 항목을 못 찾았어요 — 직접 선택해주세요.</span>}
-            {ai && !ai.available && <span style={{ color: "#98A2B3", fontStyle: "italic" }}>✨ AI 번역 제안 — 준비 중 (API 키 연결 시 활성화)</span>}
+            {ai && !ai.available && <span style={{ color: "var(--gray)", fontStyle: "italic" }}>✨ AI 번역 제안 — 준비 중 (API 키 연결 시 활성화)</span>}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 7, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11.5, color: "var(--sec)" }}>예상 Canonical</span>
@@ -73,14 +74,14 @@ function GroupedCandidateRow({ cand, attributes, product, api, flash, onDone }:
               <option value="">— 항목 선택 —</option>
               {attributes.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
-            <button onClick={add} disabled={busy} style={{ fontSize: 11.5, fontWeight: 700, padding: "5px 10px", borderRadius: 7, border: "none", background: "#0A66E0", color: "#fff", cursor: "pointer" }}>Dictionary 추가</button>
+            <button onClick={add} disabled={busy} style={{ fontSize: 11.5, fontWeight: 700, padding: "5px 10px", borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", cursor: "pointer" }}>Dictionary 추가</button>
             <button onClick={onDone} style={{ fontSize: 11.5, padding: "5px 10px", borderRadius: 7, border: "1px solid var(--line)", background: "#fff", cursor: "pointer" }}>무시</button>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "var(--sec)", marginLeft: "auto", cursor: "pointer" }}>
               <input type="checkbox" checked={productOnly} onChange={(e) => setProductOnly(e.target.checked)} />
               이 제품({product})에만 적용
             </label>
           </div>
-          <div style={{ fontSize: 10, color: "#98A2B3", marginTop: 4 }}>
+          <div style={{ fontSize: 10, color: "var(--gray)", marginTop: 4 }}>
             기본은 <b>전체 제품 공통</b>으로 저장돼요 — Weight·Storage처럼 신모델이 나와도 번역이 재사용되는 표현이 대부분이라서요.
             이번 세대에만 있는 고유 기능명 등은 위 체크박스로 이 제품에만 한정할 수 있어요.
           </div>
@@ -123,7 +124,7 @@ export function DictionaryReviewSection({ results, product, api, flash }:
         <span style={{ fontSize: 15 }}>📖</span>
         <b style={{ fontSize: 13 }}>Dictionary Review</b>
         <span style={{ fontSize: 11.5, color: "var(--sec)" }} title="검수 사전에 없는데 페이지에 자주 나온 표현을 모은 참고 목록입니다. 스펙 오류가 아니라 '사전에 추가할지 검토하세요'라는 안내예요. 제품명 자체는 목록에서 제외됩니다.">사전 미등록 표현 {cands.length}건 — 보조 기능(스펙 오류 아님) ⓘ</span>
-        <span style={{ marginLeft: "auto", fontSize: 11, color: "#0A66E0" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--blue)" }}>{open ? "▲ 접기" : "▼ 펼치기"}</span>
       </div>
       {open && (
         <div style={{ padding: "4px 14px 12px", borderTop: "1px solid var(--line)" }}>
@@ -192,7 +193,7 @@ export function DictionaryPanel({ product, api }: { product: string; api: (p: st
           style={{ width: "100%", fontSize: 12.5, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, boxSizing: "border-box" }} />
       </div>
       <div style={{ overflow: "auto", padding: "6px 14px 12px" }}>
-        {!data && <p style={{ fontSize: 12, color: "var(--sec)" }}>불러오는 중…</p>}
+        {!data && <Loading inline />}
         {data && entries.length === 0 && <p style={{ fontSize: 12, color: "var(--sec)" }}>등록된 표현이 없어요.</p>}
         {filtered.map(([rep, aliases]) => {
           const al = aliases as string[];
@@ -209,7 +210,7 @@ export function DictionaryPanel({ product, api }: { product: string; api: (p: st
                     <span key={a} style={{ display: "inline-block", background: "#F2F4F7", borderRadius: 5, padding: "1px 7px", margin: "1px 4px 1px 0", fontSize: 11.5 }}>{a}</span>
                   ))}
                   {/* AI 제안 자리 — 키 연결 후 활성화. 지금은 안내만. */}
-                  <div style={{ marginTop: 6, fontSize: 10.5, color: "#98A2B3", fontStyle: "italic" }}>
+                  <div style={{ marginTop: 6, fontSize: 10.5, color: "var(--gray)", fontStyle: "italic" }}>
                     ✨ AI 번역 제안 — 준비 중 (연결 시 이 항목의 새 언어 표현을 자동 추천)
                   </div>
                 </div>

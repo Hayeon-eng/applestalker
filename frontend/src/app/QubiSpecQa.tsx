@@ -42,18 +42,18 @@ function ErrorCard({ it }: { it: any }) {
   const label = it.matched_alias || it.attribute;
   return (
     <div style={{ background: "#FEF3F2", border: "1px solid #FECDCA", borderRadius: 10, padding: "11px 13px", marginTop: 8 }}>
-      <div style={{ fontSize: 13, fontWeight: 800, color: "#B42318" }}>🔴 {it.attribute}
-        <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, background: "#fff", border: "1px solid #FECDCA", borderRadius: 5, padding: "1px 6px", color: "#B42318" }}>{it.priority}</span>
+      <div style={{ fontSize: 13, fontWeight: 800, color: "var(--red-ink)" }}>🔴 {it.attribute}
+        <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, background: "#fff", border: "1px solid #FECDCA", borderRadius: 5, padding: "1px 6px", color: "var(--red-ink)" }}>{it.priority}</span>
       </div>
       {/* 주변 카피 맥락 + 단어 단위 diff (빨간 취소선 → 초록 밑줄) */}
       <div style={{ marginTop: 8, fontSize: 13, background: "#fff", border: "1px solid #FEE4E2", borderRadius: 8, padding: "8px 10px" }}>
         <span style={{ color: "var(--sec)", fontSize: 11.5 }}>{label}: </span>
         {foundStr
           ? <MiniDiff expected={expStr} actual={foundStr} />
-          : <span><span style={{ textDecoration: "line-through", color: "#B42318", background: "#FDECEA", borderRadius: 3 }}>(페이지에 없음)</span> → <span style={{ textDecoration: "underline", color: "#067647", background: "#EAF7EE", fontWeight: 700, borderRadius: 3 }}>{expStr}</span></span>}
+          : <span><span style={{ textDecoration: "line-through", color: "var(--red-ink)", background: "var(--red-soft)", borderRadius: 3 }}>(페이지에 없음)</span> → <span style={{ textDecoration: "underline", color: "var(--green-ink)", background: "var(--green-soft)", fontWeight: 700, borderRadius: 3 }}>{expStr}</span></span>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "72px 1fr", gap: "3px 10px", fontSize: 11.5, marginTop: 8, color: "var(--sec)" }}>
-        {it.fix_guide && <><span>권장 수정</span><b style={{ color: "#067647" }}>{it.fix_guide}</b></>}
+        {it.fix_guide && <><span>권장 수정</span><b style={{ color: "var(--green-ink)" }}>{it.fix_guide}</b></>}
         <span>수정 위치</span>
         <span>{it.section ? `${it.page} › ${it.section}` : it.page}</span>
       </div>
@@ -96,7 +96,7 @@ function CategoryCard({ cat, items }: { cat: any; items: any[] }) {
         <b style={{ fontSize: 13 }}>{cat.category}</b>
         <Meter pct={cat.score} />
         <span style={{ fontSize: 11.5, color: "var(--sec)" }}>Rule Pass <b style={{ color: cat.fail ? C.crit : C.pass }}>{cat.pass} / {cat.pass + cat.fail}</b>{cat.warn ? ` · 확인 ${cat.warn}` : ""}</span>
-        <span style={{ marginLeft: "auto", fontSize: 11, color: "#0A66E0" }}>{open ? "▲" : "▼"}</span>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--blue)" }}>{open ? "▲" : "▼"}</span>
       </div>
       {open && (
         <div style={{ padding: "4px 13px 12px", borderTop: "1px solid var(--line)" }}>
@@ -151,13 +151,13 @@ export function SpecOverallBanner({ results }: { results: any[] }) {
       <b style={{ fontSize: 20, color: TL_COLOR[overall] }}>{score ?? "—"}{score != null ? "%" : ""}</b>
       <span style={{ fontSize: 11.5, color: "var(--sec)" }}>
         사이트 {rows.length}곳{rows.length === 1 ? ` (${rows[0].sitecode || rows[0].country || rows[0].url || "미상"}${rows[0].market_product || rows[0].product ? " · " + (rows[0].market_product || rows[0].product) : ""})` : ""} · 🔴 오류 {agg.crit} · 🟡 확인 {agg.warn} · ✅ 정상 {agg.pass}
-        <span style={{ display: "block", fontSize: 10.5, color: "#98A2B3" }}>점수 = 정상 ÷ (정상+오류) — 확인·미노출은 반영하지 않아요</span>
+        <span style={{ display: "block", fontSize: 10.5, color: "var(--gray)" }}>점수 = 정상 ÷ (정상+오류) — 확인·미노출은 반영하지 않아요</span>
       </span>
       {rows.length >= 1 && (
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
           {sites.slice(0, MAX).map((st: any, i: number) => (
             <span key={st.code + i} style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "3px 9px",
-              background: (TL_COLOR[st.tl] || "#98A2B3") + "1A", color: TL_COLOR[st.tl] || "#98A2B3" }}>
+              background: (TL_COLOR[st.tl] || "var(--gray)") + "1A", color: TL_COLOR[st.tl] || "var(--gray)" }}>
               {TL_EMOJI[st.tl]} {st.code}{st.pct != null ? ` ${st.pct}%` : ""}
             </span>
           ))}
@@ -218,7 +218,7 @@ export function SpecSiteOverview({ ctx: c }: { ctx: any }) {
           권역별 점수 {open ? "▾" : "▸"}
         </button>
       </div>
-      <div style={{ fontSize: 10.5, color: "#98A2B3", marginTop: 4 }}>점수 = 정상 ÷ (정상+오류) — 확인·미노출은 반영하지 않아요 · 상세 오류·확인 현황은 화면 아래 "스펙 QA 상세"에서</div>
+      <div style={{ fontSize: 10.5, color: "var(--gray)", marginTop: 4 }}>점수 = 정상 ÷ (정상+오류) — 확인·미노출은 반영하지 않아요 · 상세 오류·확인 현황은 화면 아래 "스펙 QA 상세"에서</div>
       {open && (
         <div className="qbiPopIn" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
           {regions.map((r) => (
@@ -296,7 +296,7 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
             {/* 페이지 타입 헤더 — 요청1: PDP/Compare를 별개 블록으로 */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 4px", borderBottom: "2px solid var(--line)" }}>
               <span>{TL_EMOJI[ptTl]}</span>
-              <b style={{ fontSize: 13, background: "#E8F0FE", color: "#1B57C4", borderRadius: 6, padding: "2px 9px" }}>{PAGE_TYPE_LABEL[pt] || pt}</b>
+              <b style={{ fontSize: 13, background: "#E8F0FE", color: "var(--blue)", borderRadius: 6, padding: "2px 9px" }}>{PAGE_TYPE_LABEL[pt] || pt}</b>
               <span style={{ fontSize: 11.5, color: "var(--sec)" }}>{ptRows.length}개 페이지 · 🔴 {ptAgg.crit} · 🟡 {ptAgg.warn}</span>
             </div>
             {regionOrder.map((region) => {
@@ -324,13 +324,13 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
                       <div key={key} style={{ borderBottom: "1px solid var(--line)" }}>
                         <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px 8px 16px", cursor: "pointer", fontSize: 12.5 }}>
-                          <span>{noRuleset ? "⚪️" : TL_EMOJI[tl]}</span>
+                          <span>{noRuleset ? "⚪" : TL_EMOJI[tl]}</span>
                           <b style={{ minWidth: 130 }}>{prod || r.sitecode}</b>
                           <span style={{ fontSize: 10.5, color: "var(--sec)" }}>{r.sitecode}</span>
                           {noRuleset
                             ? <span style={{ marginLeft: "auto", color: "var(--sec)" }}>기준 없음 — 현재값 참고용</span>
                             : <span style={{ marginLeft: "auto" }}>🔴 오류 {s.critical ?? 0} · 🟡 확인 {s.warning ?? 0} · ✅ 정상 {s.pass ?? 0}</span>}
-                          <span style={{ fontSize: 11, color: "#0A66E0" }}>{expanded === key ? "▲" : "▼"}</span>
+                          <span style={{ fontSize: 11, color: "var(--blue)" }}>{expanded === key ? "▲" : "▼"}</span>
                         </div>
                         {expanded === key && (
                           <div className="qbiPopIn" style={{ padding: "0 4px 10px 16px" }}>
@@ -370,7 +370,7 @@ export function SpecV2Panel({ row, product, api, flash }:
     const pairs: any[] = sv.raw_pairs || [];
     return (
       <div style={{ border: "1px solid #E4E7EC", borderRadius: 12, overflow: "hidden", marginTop: 14 }}>
-        <div style={{ background: "#F9FAFB", padding: "9px 14px", borderLeft: "3px solid #98A2B3" }}>
+        <div style={{ background: "#F9FAFB", padding: "9px 14px", borderLeft: "3px solid var(--gray)" }}>
           <b style={{ fontSize: 12.5, color: "var(--label)" }}>현재값 {row.sitecode ? `— ${row.sitecode}` : ""}</b>
           <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: 8 }}>
             검수 기준(Rule DB) 없음 — 판정 없이 페이지에서 읽힌 값만 참고용으로 표시 ({s.raw_count ?? pairs.length}개)

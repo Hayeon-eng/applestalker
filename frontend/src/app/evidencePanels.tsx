@@ -52,10 +52,10 @@ function InlineDiff({ before, after }: { before: string; after: string }) {
       {toks.map((t, i) => {
         if (t.t === "same") return <span key={i}>{t.s}</span>;
         if (t.t === "del") return (
-          <span key={i} style={{ textDecoration: "line-through", color: "var(--high)", background: "#FDECEA", borderRadius: 3 }}>{t.s}</span>
+          <span key={i} style={{ textDecoration: "line-through", color: "var(--high)", background: "var(--red-soft)", borderRadius: 3 }}>{t.s}</span>
         );
         return (
-          <span key={i} style={{ textDecoration: "underline", textDecorationColor: "var(--tier-good)", color: "var(--tier-good)", background: "#EAF7EE", fontWeight: 700, borderRadius: 3 }}>{t.s}</span>
+          <span key={i} style={{ textDecoration: "underline", textDecorationColor: "var(--tier-good)", color: "var(--tier-good)", background: "var(--green-soft)", fontWeight: 700, borderRadius: 3 }}>{t.s}</span>
         );
       })}
     </p>

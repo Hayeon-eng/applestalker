@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Loading } from "./uiShared";
 import {
   MetricTab, MetricView, SiteKey, Change, Report, UrlRow, PageLite, PageDetail,
   METRICS, TIER_META,
@@ -306,7 +307,7 @@ export function PagesTab({
             선정 이유: {representative.reason}{!autoMode && " (수동 선택됨 — 다른 페이지를 골랐습니다)"}
           </p>
         )}
-        {loadingPage && <p className="muted">불러오는 중…</p>}
+        {loadingPage && <Loading inline />}
         {!loadingPage && !selectedPage && (
           <p className="muted">위 목록에서 페이지를 선택하면 DATA/COPY/VISUAL 상세 근거가 표시됩니다.</p>
         )}
