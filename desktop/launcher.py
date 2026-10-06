@@ -8,6 +8,9 @@ exe(PyInstaller) 진입점. Render 없이 PC 에서 A(Apple Stalker)·B(QA Bee)�
   4) FastAPI(backend.main.app) + 정적 프론트(frontend_out) + 비밀번호 게이트(Next middleware 대체) + 설정 API/페이지
   5) 주간 자동 실행(스케줄러 스레드): config.schedule.mode == "auto" 일 때 지정 요일·시각에 크롤 → (옵션) 메일 자동 발송
   6) uvicorn 기동 후 기본 브라우저를 http://127.0.0.1:<port>/ 로 연다.
+  7) [2026-10] API 키 임베드: desktop/embedded_keys.py(커밋 안 함, make_embedded_keys.py 로 생성)가 있으면
+     config.json 의 키가 비어 있을 때 그 값을 쓴다 → 팀원 PC 의 config.json 에는 키가 남지 않는다(값은 /api/settings 에도 안 내려감).
+  8) [2026-10] /api/settings/reset-history: 큐비(DB)·공통페이지(static_runs)·honeyComb(hc_runs)·Apple Stalker(DB) 이력 초기화.
 """
 # (from __future__ import annotations 제거 — FastAPI 가 함수 내부 import 한 Request 타입을 문자열로 받으면 쿼리 파라미터로 오인)
 import json
@@ -52,6 +55,41 @@ DEFAULT_CONFIG = {
 SHARED_KEYS = ("site_password", "admin_password", "gemini_api_key", "serpapi_key", "schedule", "database_url", "port", "ca_bundle_path", "ssl_verify")
 
 
+# ── [2026-10] 임베드 키 ──────────────────────────────────────────────
+_EMB_X = b"ABCTool-embedded-keys-2026"   # make_embedded_keys.py 와 같은 값(난독화용 — 비밀 아님)
+
+
+def _unwrap(s: str) -> str:
+    import base64
+    try:
+        x = base64.b85decode(s.encode("ascii"))
+        return bytes(c ^ _EMB_X[i % len(_EMB_X)] for i, c in enumerate(x)).decode("utf-8")
+    except Exception:
+        return ""
+
+
+def _embedded_keys() -> dict:
+    """desktop/embedded_keys.py 가 있으면 {gemini_api_key, serpapi_key} 를 풀어 돌려준다. 없으면 {}.
+    exe 안(RES_DIR/desktop) → 저장소(BASE_DIR/desktop) 순으로 찾는다. 값은 로그·API 응답 어디에도 찍지 않는다."""
+    import importlib.util
+    for cand in (RES_DIR / "desktop" / "embedded_keys.py", BASE_DIR / "desktop" / "embedded_keys.py"):
+        if cand.exists():
+            try:
+                spec = importlib.util.spec_from_file_location("embedded_keys", str(cand))
+                mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)  # type: ignore
+                raw = getattr(mod, "_K", {}) or {}
+                out = {k: _unwrap(v) for k, v in raw.items() if v}
+                return {k: v for k, v in out.items() if v}
+            except Exception as e:
+                print(f"[launcher] embedded_keys 읽기 실패({e}) — config.json 키만 사용")
+    return {}
+
+
+def effective_key(cfg: dict, name: str) -> str:
+    """config.json 값이 있으면 그것, 없으면 임베드 값. (우선순위: 이 PC 의 config.json > 임베드)"""
+    return (cfg.get(name) or "") or _embedded_keys().get(name, "")
+
+
 def _bundled_default() -> dict:
     for cand in (RES_DIR / "desktop" / "config.default.json", BASE_DIR / "desktop" / "config.default.json", BASE_DIR / "config.default.json"):
         if cand.exists():
@@ -94,12 +132,13 @@ def apply_env(cfg: dict):
     os.environ.setdefault("SITE_PASSWORD", cfg.get("site_password") or "")
     os.environ["ADMIN_PASSWORD"] = cfg.get("admin_password") or "0108"
     os.environ["DATABASE_URL"] = cfg.get("database_url") or f"sqlite:///{(DATA_DIR / 'abc_tool.db').as_posix()}"
-    if cfg.get("gemini_api_key"):
-        os.environ["GEMINI_API_KEY"] = cfg["gemini_api_key"]
-    if cfg.get("serpapi_key"):
-        os.environ["SERPAPI_KEY"] = cfg["serpapi_key"]
-    elif "SERPAPI_KEY" in os.environ and not cfg.get("serpapi_key"):
-        os.environ.pop("SERPAPI_KEY", None)
+    # [2026-10] 키: config.json > 임베드(embedded_keys.py). 둘 다 없으면 환경변수에서 제거(이전 값이 남지 않게)
+    for cfg_key, env_key in (("gemini_api_key", "GEMINI_API_KEY"), ("serpapi_key", "SERPAPI_KEY")):
+        v = effective_key(cfg, cfg_key)
+        if v:
+            os.environ[env_key] = v
+        else:
+            os.environ.pop(env_key, None)
     os.environ.setdefault("HC_RUNS_DIR", str(DATA_DIR / "hc_runs"))
     em = cfg.get("email") or {}
     os.environ["EMAIL_REPORT_ENABLED"] = "true" if em.get("enabled") else "false"
@@ -212,8 +251,9 @@ def build_app(cfg: dict):
         secrets = {
             "site_password_set": bool(c.get("site_password")),
             "admin_password_set": bool(c.get("admin_password")),
-            "gemini_api_key_set": bool(c.get("gemini_api_key")),
-            "serpapi_key_set": bool(c.get("serpapi_key")),
+            "gemini_api_key_set": bool(effective_key(c, "gemini_api_key")),
+            "serpapi_key_set": bool(effective_key(c, "serpapi_key")),
+            "keys_embedded": bool(_embedded_keys()),   # 프로그램에 내장된 키를 쓰는 중인지(값은 안 내려감)
             "database_url_set": bool(c.get("database_url")),
             "smtp_set": bool(c.get("email", {}).get("sender") and c.get("email", {}).get("password")),
         }
@@ -242,6 +282,53 @@ def build_app(cfg: dict):
     def settings_page():
         return (RES_DIR / "desktop" / "settings.html").read_text(encoding="utf-8") if (RES_DIR / "desktop" / "settings.html").exists() \
             else (BASE_DIR / "desktop" / "settings.html").read_text(encoding="utf-8")
+
+    @app.post("/api/settings/reset-history")
+    async def reset_history(request: Request):
+        """[2026-10] 이력 초기화 — body {qubi?: bool, static?: bool, honeycomb?: bool, apple?: bool}
+        · qubi     : 큐비 검수 이력(DB QbHistory)
+        · static   : 공통페이지 QA 결과 JSON(QB_STATIC_DIR)
+        · honeycomb: honeyComb 수집 결과 JSON(HC_RUNS_DIR, raw/ 포함)
+        · apple    : Apple Stalker 크롤 이력(crawl_runs·page_snapshots·detected_changes) — URL 목록은 유지
+        화면 비밀번호(site_password)가 설정돼 있으면 body.password 로 확인한다."""
+        import shutil
+        body = await request.json(); cfg = load_config()
+        if (cfg.get("site_password") or "") and body.get("password") != cfg.get("site_password"):
+            return JSONResponse({"ok": False, "error": "화면 비밀번호가 올바르지 않습니다"}, status_code=403)
+        done = {}
+        try:
+            if body.get("qubi") or body.get("apple"):
+                from database import SessionLocal
+                import models
+                db = SessionLocal()
+                try:
+                    if body.get("qubi"):
+                        done["qubi"] = db.query(models.QbHistory).delete(synchronize_session=False)
+                    if body.get("apple"):
+                        n = 0
+                        for name in ("DetectedChange", "PageSnapshot", "CrawlRun"):
+                            m = getattr(models, name, None)
+                            if m is not None:
+                                n += db.query(m).delete(synchronize_session=False)
+                        done["apple"] = n
+                    db.commit()
+                finally:
+                    db.close()
+            def _clear_dir(d: Path):
+                n = 0
+                if d.exists():
+                    for f in d.iterdir():
+                        if f.is_file() and f.suffix == ".json": f.unlink(); n += 1
+                        elif f.is_dir() and f.name == "raw": shutil.rmtree(f, ignore_errors=True)
+                return n
+            if body.get("static"):
+                done["static"] = _clear_dir(Path(os.environ.get("QB_STATIC_DIR", str(DATA_DIR / "static_runs"))))
+            if body.get("honeycomb"):
+                done["honeycomb"] = _clear_dir(Path(os.environ.get("HC_RUNS_DIR", str(DATA_DIR / "hc_runs"))))
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e), "done": done}, status_code=500)
+        print(f"[launcher] 이력 초기화: {done}")
+        return {"ok": True, "done": done}
 
     @app.post("/api/settings/run-now")
     async def run_now():

@@ -27,6 +27,8 @@ python -m pip install -r requirements.txt pyinstaller
 # playwright 는 requirements 에 있지만 chromium 은 설치하지 않는다(렌더 기본 OFF)
 
 Write-Host "== 3) exe 빌드"
+# [2026-10] 팀 공용 API 키(난독화) — desktop\embedded_keys.py 가 있으면 exe 에 포함(저장소에는 없음 — make_embedded_keys.py 로 생성)
+if (Test-Path "$root\desktop\embedded_keys.py") { Write-Host "   · embedded_keys.py 포함 (팀 공용 API 키 내장 빌드)" } else { Write-Host "   · embedded_keys.py 없음 → 키 없는 빌드 (config.json 으로 키 공급)" }
 Set-Location "$root\desktop"
 if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
 if (Test-Path "build") { Remove-Item -Recurse -Force "build" }

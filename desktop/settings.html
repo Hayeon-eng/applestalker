@@ -27,7 +27,13 @@ button{font:inherit;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;
 </div>
 <div class="card"><h2>접속·키 <span class="hint" style="margin:0">— 이 PC 를 쓰는 누구나 볼 수 있는 화면이라 값 자체는 여기 두지 않습니다</span></h2>
   <div id="secretStatus"></div>
-  <div class="warn" style="margin-top:10px"><b>🔒 관리자만 변경할 수 있습니다.</b> 화면 비밀번호·관리자 비밀번호·Gemini API 키·SerpApi 키·DB 주소·SMTP 계정은 이 화면(팀원 누구나 열 수 있음)에서 바꾸지 않고, 관리자가 <code id="cfgPath2"></code> 파일을 직접 열어 수정합니다. 저장 후 프로그램을 다시 시작하면 적용됩니다.<br>배포되는 프로그램(exe)에는 이 값들이 들어 있지 않습니다 — 키가 필요한 PC 는 관리자에게 config.json 을 따로 받아 exe 옆에 두세요.</div>
+  <div class="warn" style="margin-top:10px"><b>🔒 관리자만 변경할 수 있습니다.</b> 화면 비밀번호·관리자 비밀번호·Gemini API 키·SerpApi 키·DB 주소·SMTP 계정은 이 화면(팀원 누구나 열 수 있음)에서 바꾸지 않고, 관리자가 <code id="cfgPath2"></code> 파일을 직접 열어 수정합니다. 저장 후 프로그램을 다시 시작하면 적용됩니다.<br>관리자가 로컬에서 빌드한 프로그램에는 팀 공용 API 키가 내장돼 있어 config.json 에 키를 적지 않아도 됩니다(위 "설정됨" 표시). GitHub 자동 빌드 exe 에는 키가 없습니다.</div>
+</div>
+<div class="card"><h2>이력 초기화 <span class="hint" style="margin:0">— 이 PC 에 저장된 과거 결과를 지웁니다(되돌릴 수 없음)</span></h2>
+  <div class="row"><label><input type="checkbox" id="rsQubi" style="width:auto" checked> 🐝 큐비 검수 이력 (DB)</label><label><input type="checkbox" id="rsStatic" style="width:auto" checked> 🐝 공통페이지 QA 결과 (static_runs)</label></div>
+  <div class="row"><label><input type="checkbox" id="rsHc" style="width:auto" checked> 🍯 honeyComb 수집 결과 (hc_runs)</label><label><input type="checkbox" id="rsApple" style="width:auto"> 🍎 Apple Stalker 크롤 이력 (URL 목록은 유지)</label></div>
+  <div class="hint">저장 위치: <code id="dataDir"></code>. 다른 사람과 공유하려면 지우기 전에 큐비 사이드바 "⬇ 이력 내보내기"로 JSON 을 받아 두세요.</div>
+  <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><input id="rsPw" type="password" placeholder="화면 비밀번호(설정된 경우)" style="max-width:220px"><button class="s" style="color:#B42318;border:1px solid #B42318;background:#fff" onclick="resetHistory()">선택한 이력 지우기</button></div>
 </div>
 <div class="card">
   <div style="display:flex;gap:8px"><button class="p" onclick="save()">저장</button><a class="s" style="padding:9px 14px;border-radius:10px;text-decoration:none;color:#374151" href="/">← 도구로 돌아가기</a></div>
@@ -40,7 +46,14 @@ fetch('/api/settings').then(r=>r.json()).then(d=>{C=d.config;$('cfgPath').textCo
  const s=C.schedule,e=C.email;$('mode').value=s.mode;$('weekday').value=s.weekday;$('hour').value=s.hour;$('minute').value=s.minute;$('runA').checked=!!s.run_apple_stalker;$('runB').checked=!!s.run_qubi;$('staticDaily').checked=s.static_daily!==false;$('staticHour').value=s.static_hour??8;$('runC').checked=!!s.run_honeycomb;$('cDetail').checked=!!s.honeycomb_detail;
  $('emEnabled').checked=!!e.enabled;$('emAuto').checked=!!e.auto_send_after_run;
  $('secretStatus').innerHTML=SECRET_LABELS.map(([k,label])=>{const on=!!(d.secrets&&d.secrets[k]);return `<div class="statusRow"><span>${label}</span><span class="pill ${on?'on':'off'}">${on?'설정됨':'미설정'}</span></div>`;}).join('')
-   + `<div class="statusRow"><span>DB</span><span class="pill on">${d.database||'(sqlite)'}</span></div>`});
+   + `<div class="statusRow"><span>DB</span><span class="pill on">${d.database||'(sqlite)'}</span></div>`
+   + (d.secrets&&d.secrets.keys_embedded?`<div class="hint" style="margin-top:6px">API 키는 프로그램에 내장된 팀 공용 키를 쓰고 있습니다 — config.json 에 키를 적으면 그 값이 우선합니다.</div>`:'');
+ $('dataDir').textContent=d.data_dir||''});
+async function resetHistory(){const body={qubi:$('rsQubi').checked,static:$('rsStatic').checked,honeycomb:$('rsHc').checked,apple:$('rsApple').checked,password:$('rsPw').value};
+ if(!body.qubi&&!body.static&&!body.honeycomb&&!body.apple){$('msg').textContent='지울 항목을 선택하세요';return}
+ if(!confirm('선택한 이력을 모두 지웁니다. 되돌릴 수 없습니다. 계속할까요?'))return;
+ const r=await (await fetch('/api/settings/reset-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+ $('msg').textContent=r.ok?'이력 초기화 완료 — '+Object.entries(r.done||{}).map(([k,v])=>`${k} ${v}건`).join(', ')+' (도구 화면을 새로고침하세요)':'실패: '+(r.error||'')}
 async function save(){const body={schedule:{mode:$('mode').value,weekday:+$('weekday').value,hour:+$('hour').value,minute:+$('minute').value,run_apple_stalker:$('runA').checked,run_qubi:$('runB').checked,static_daily:$('staticDaily').checked,static_hour:+$('staticHour').value||8,run_honeycomb:$('runC').checked,honeycomb_detail:$('cDetail').checked},
  email:{enabled:$('emEnabled').checked,auto_send_after_run:$('emAuto').checked}};
  const r=await (await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();$('msg').textContent=r.ok?'저장됨 — '+(r.note||''):'저장 실패'}
