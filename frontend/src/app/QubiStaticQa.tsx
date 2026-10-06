@@ -3,7 +3,7 @@
    91개 사이트 × 7종 공통 페이지(Home · All about Galaxy · Switch to Galaxy · Galaxy AI · Samsung Health · One UI · Find your Galaxy)를
    매일 한 번 "전형적 오류"만 본다. DATA QA 처럼 위에서 페이지를 고르고, 아래에서 상태별 상세를 본다. 백엔드 /api/qb/static/* */
 import { useEffect, useState } from "react";
-import { sel as selStyle, SEV } from "./qubiShared";
+import { sel as selStyle, SEV, TL_EMOJI, TL_COLOR, tlByScore } from "./qubiShared";
 
 const ORDER = ["정상", "파싱 실패", "오적용", "미해결 참조", "페이지 없음", "접근 실패", "기타"];
 const COLOR: Record<string, string> = { "정상": "#DCFCE7", "파싱 실패": "#FEE2E2", "오적용": "#FEF3C7", "미해결 참조": "#FEF3C7", "페이지 없음": "#E5E7EB", "접근 실패": "#F3F4F6", "기타": "#FFF7ED" };
@@ -30,6 +30,7 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
   const [status, setStatus] = useState<any>(null);
   const [page, setPage] = useState<string>("all");          // 페이지 필터(DATA QA 의 제품 칩과 같은 역할)
   const [stFilter, setStFilter] = useState<string>("all");  // 상태 필터
+  const [region, setRegion] = useState<string>("all");      // [2026-09 신규] 권역(subs)별 수집
   const [sel, setSel] = useState<any>(null);
 
   const load = async () => {
@@ -41,7 +42,10 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
   };
   useEffect(() => { load(); }, [apiBase]);
   const start = async () => {
-    const body = page === "all" ? {} : { pages: [page] };
+    const body: any = page === "all" ? {} : { pages: [page] };
+    if (region !== "all" && meta?.site_list) {
+      body.sitecodes = meta.site_list.filter((s: any) => s.subs === region).map((s: any) => s.sitecode);
+    }
     const r = await fetch(api("/api/qb/static/run"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (r.status === 409) { alert("이미 검수 중입니다"); return; }
     setStatus({ done: 0, total: 0 }); const t = setInterval(async () => { const st = await (await fetch(api("/api/qb/static/status"))).json(); setStatus(st); if (!st.running) { clearInterval(t); setStatus(null); load(); } }, 1500);
@@ -66,11 +70,21 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
         <span style={selStyle("all", page === "all")} onClick={() => { setPage("all"); setSel(null); }}>전체 {pages.length}종</span>
         {pages.map((p) => <span key={p.key} style={selStyle(p.key, page === p.key)} onClick={() => { setPage(p.key); setSel(null); }} >{p.label}</span>)}
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          {!!meta.site_list?.length && (() => {
+            const counts: Record<string, number> = {};
+            meta.site_list.forEach((s: any) => { counts[s.subs] = (counts[s.subs] || 0) + 1; });
+            const regions = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+            return (
+              <select value={region} onChange={(e) => setRegion(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} title="선택한 권역의 사이트만 검수합니다">
+                <option value="all">전체 권역 ({meta.site_list.length}개국)</option>
+                {regions.map((rg) => <option key={rg} value={rg}>{rg} ({counts[rg]}개국)</option>)}
+              </select>
+            );
+          })()}
           {runs.length > 0 && <select value={run?.run_id || ""} onChange={(e) => openRun(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }}>
             {runs.map((r) => <option key={r.run_id} value={r.run_id}>{r.at}</option>)}</select>}
-          {!status ? <button className="btnPrimary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={start}>{`▶ 지금 검수${page !== "all" ? " (선택한 페이지만)" : ""}`}</button>
+          {!status ? <button className="btnPrimary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={start}>{`▶ 지금 검수${page !== "all" || region !== "all" ? " (선택 범위만)" : ""}`}</button>
             : <button style={{ padding: "6px 12px", fontSize: 12, borderRadius: 8, border: "1px solid #B42318", background: "#fff", color: "#B42318", fontWeight: 700, cursor: "pointer" }} onClick={async () => { if (window.confirm("검수를 멈출까요? 끝난 페이지까지는 저장됩니다.")) await fetch(api("/api/qb/static/cancel"), { method: "POST" }); }}>■ 멈춤</button>}
-          {run && <a className="btnSecondary" style={{ padding: "6px 12px", fontSize: 12 }} href={api(`/api/qb/static/report.xlsx?run_id=${run.run_id}`)}>Excel</a>}
         </span>
       </div>
 
@@ -100,7 +114,11 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
         <div className="card">
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
             <b style={{ fontSize: 14 }}>페이지·권역별 비율</b>
-            <span style={{ fontSize: 12, color: "var(--sec)" }}>정상 {run.insight.overall.ok_pct}% · 오류 {run.insight.overall.err_pct}% (전체 {run.insight.overall.total})</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+              <span>{TL_EMOJI[tlByScore(run.insight.overall.ok_pct)]}</span>
+              <b style={{ color: TL_COLOR[tlByScore(run.insight.overall.ok_pct)] }}>{run.insight.overall.ok_pct}%</b>
+            </span>
+            <span style={{ fontSize: 12, color: "var(--sec)" }}>오류 {run.insight.overall.err_pct}% (전체 {run.insight.overall.total})</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>

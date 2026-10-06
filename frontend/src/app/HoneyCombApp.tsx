@@ -8,7 +8,8 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 type Cell = { country: string; product: string; keyword: string; keyword_type: string; position: number | null; status: string;
-  first_store?: string | null; scom_exposed?: string | null; attrs: Record<string, string>; attr_values?: Record<string, any>; feed: Record<string, string> };
+  first_store?: string | null; scom_exposed?: string | null; attrs: Record<string, string>; attr_values?: Record<string, any>; feed: Record<string, string>;
+  competitor_benchmark?: { position: number; title: string; merchant: string; price?: string; link?: string; attrs: Record<string, string>; attr_values?: Record<string, any> } | null };
 type Attr = { no: number; sub?: boolean; category: string; name: string; code: string; observe: string };
 type Keyword = { id: string; product: string; text: string; type: string; subtype?: string; countries: string[]; enabled: boolean; note?: string };
 
@@ -318,6 +319,15 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                     <b style={{ fontSize: 12.5 }}>보이는 속성 확인 <span style={{ color: "var(--sec)", fontWeight: 500 }}>키워드 “{selCell.keyword}” 결과 카드·제품 상세 창에서 — 보임 <span style={{ color: "#15803D", fontWeight: 700 }}>{obs.filter(([, v]) => v === "entered").length}</span> · 안 보임 <span style={{ color: "#B42318", fontWeight: 700 }}>{obs.filter(([, v]) => v === "missed").length}</span> / 확인 가능 {obs.length}{na ? ` · 확인 불가 ${na}` : ""}</span></b>
                     <div style={{ height: 8 }} />
                     <AttrTable attrs={attrs} cell={selCell} />
+                  </>); })() : selCell?.competitor_benchmark ? (() => { const cb = selCell.competitor_benchmark!; const obs = Object.entries(cb.attrs).filter(([, v]) => v !== "na"); return (<>
+                    <b style={{ fontSize: 12.5, color: "#93540A" }}>⚠ 우리 제품이 안 보여요 — 대신 1위 <span style={{ color: "var(--label)" }}>{cb.merchant}</span>는 이렇게 노출 중</b>
+                    <div style={{ fontSize: 11.5, color: "var(--sec)", margin: "2px 0 8px" }}>{cb.title}{cb.price ? ` · ${cb.price}` : ""} — 참고용 벤치마크(추가 조회 없이 카드 정보만)</div>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead><tr><th style={th}>속성</th><th style={th}>노출 여부</th><th style={th}>노출 내용</th></tr></thead>
+                      <tbody>{obs.filter(([, v]) => v === "entered").map(([code]) => { const a = attrs.find((x) => akey(x) === code); return (
+                        <tr key={code}><td style={td}>{a?.name || code}</td><td style={td}><Mark v="entered" /></td><td style={{ ...td, maxWidth: 320 }}><AttrValue v={cb.attr_values?.[code]} /></td></tr>
+                      ); })}</tbody>
+                    </table>
                   </>); })() : <p style={{ fontSize: 12, color: "var(--sec)" }}>보이는 속성 확인 결과가 없습니다(수집 시 채워집니다).</p>}
                 </div>);
               })()}

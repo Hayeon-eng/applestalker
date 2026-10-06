@@ -293,7 +293,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
     return `${base}${base.endsWith("?") ? "" : "&"}` + secs.map((s) => `sections=${encodeURIComponent(s)}`).join("&");
   };
   const downloadXlsx = async () => {
-    if (!results.length) { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
+    if (!results.length && tab !== "static") { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
     await downloadBlob(`/api/qb/report.xlsx${reportQs()}`, null, `qubi_qa_report${runId ? `_${runId}` : ""}.xlsx`); // [2026-07] 파일명에 run_id — 어느 검수의 리포트인지 파일만 봐도 구분
   };
   // [2026-09 FIX] 예전엔 "지금 보는 탭"만 복사됐고 공통페이지 QA는 아예 복사가 안 됐다 —

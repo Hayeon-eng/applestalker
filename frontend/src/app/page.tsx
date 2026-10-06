@@ -569,7 +569,7 @@ export default function Page() {
         onNavigateSite={(site) => { setMainTab("pages"); setFocusSite((p) => ({ site, n: (p?.n ?? 0) + 1 })); }} />
 
       {/* ── 기준 설명 Drawer */}
-      <CriteriaDrawer open={drawerOpen} section={drawerSection} onClose={() => setDrawerOpen(false)} />
+      <CriteriaDrawer open={drawerOpen} section={drawerSection} onClose={() => setDrawerOpen(false)} apiBase={API} />
     </div>
   );
 }
