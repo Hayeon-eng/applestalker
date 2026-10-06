@@ -10,6 +10,68 @@ import {
 import { ChangeDrilldown, CurrentStatusDrilldown, type CurrentFindingSelection } from "./evidencePanels";
 import { FindingList, sitesFromBlocks, compactSummary } from "./sectionCommon";
 import { WatchPointPanel, buildDashboardDigest } from "./overviewWidgets";
+import type { Session } from "./sharedCore";
+import { SEV, TL_EMOJI } from "./qubiShared";
+
+/* ── [2026-10] 이번 수집 요약 — "뭘 했고, 그래서 무슨 뜻인지"를 LLM 없이 사실만으로 4줄.
+   모든 숫자는 /api/runs(세션)와 /api/latest-report(changes)에서 그대로 집계한다. 추측 문장 없음. ── */
+function CrawlDigest({ report, session, changes, onJumpToMetric }: {
+  report: Report; session: Session | null; changes: Change[]; onJumpToMetric: (m: MetricTab, change?: Change) => void;
+}) {
+  const sites = session?.sites?.length ? session.sites : Array.from(new Set(changes.map((c) => c.site || "").filter(Boolean)));
+  const pages = session?.pages ?? null;
+  const n = changes.length;
+  const lv = { High: 0, Medium: 0, Low: 0 } as Record<string, number>;
+  changes.forEach((c) => { if (c.level) lv[c.level] = (lv[c.level] || 0) + 1; });
+  const bySite: Record<string, number> = {};
+  changes.forEach((c) => { const k = c.site || "unknown"; bySite[k] = (bySite[k] || 0) + 1; });
+  const byCat = report.by_category || {};
+  const dur = session?.duration_seconds;
+  const durText = dur == null ? "" : dur < 60 ? `${dur}초` : `${Math.round(dur / 60)}분`;
+  const tl = lv.High > 0 ? "red" : lv.Medium > 0 ? "yellow" : "green";
+  // "그래서 무슨 뜻인가" — 규칙으로만 결정
+  const meaning = n === 0
+    ? "변경 없음 — 이번 수집 상태가 기준점(baseline)으로 저장됐습니다. 다음 수집부터 여기서 벗어나는 것만 변경으로 잡힙니다."
+    : lv.High > 0
+      ? `High ${lv.High}건은 가격·스키마·핵심 카피처럼 노출/판매에 직접 닿는 변화입니다 — 아래 "우선 확인" 목록부터 보세요.`
+      : lv.Medium > 0
+        ? "High 는 없고 Medium 이 있습니다 — 당장 조치보다는 다음 수집에서 같은 방향으로 계속 바뀌는지 확인하면 됩니다."
+        : "Low 변경만 있습니다 — 문구·순서 조정 수준이라 추세 참고용입니다.";
+  const samsungN = bySite["samsung"] || 0;
+  const compN = n - samsungN;
+  return (
+    <div className="card" style={{ padding: "12px 16px", borderLeft: `4px solid ${tl === "red" ? SEV.fail.c : tl === "yellow" ? SEV.warn.c : SEV.pass.c}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 18 }}>{TL_EMOJI[tl]}</span>
+        <b style={{ fontSize: 13.5 }}>이번 수집에서 한 일</b>
+        <span style={{ fontSize: 12, color: "var(--sec)" }}>{report.timestamp}{durText ? ` · 소요 ${durText}` : ""}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 10 }}>
+        {[
+          ["확인한 사이트", `${sites.length}개`, sites.map((s) => siteShortName(s as SiteKey)).join(" · ")],
+          ["읽은 페이지", pages == null ? "—" : `${pages}쪽`, "이전 스냅샷과 1:1 비교"],
+          ["감지한 변경", `${n}건`, n ? `High ${lv.High} · Medium ${lv.Medium} · Low ${lv.Low}` : "변경 없음"],
+          ["누가 바뀌었나", n ? `경쟁사 ${compN} · Samsung ${samsungN}` : "—", Object.entries(bySite).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([s, c]) => `${siteShortName(s as SiteKey)} ${c}`).join(" · ")],
+        ].map(([k, v, sub]) => (
+          <div key={k as string} style={{ background: "var(--rail)", borderRadius: 10, padding: "8px 10px" }}>
+            <div style={{ fontSize: 10.5, color: "var(--sec)", fontWeight: 600 }}>{k}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.2, marginTop: 2 }}>{v}</div>
+            <div style={{ fontSize: 11, color: "var(--sec)", marginTop: 2, wordBreak: "keep-all" }}>{sub || "\u00a0"}</div>
+          </div>
+        ))}
+      </div>
+      {n > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          {Object.entries(byCat).filter(([, c]) => c > 0).map(([cat, c]) => (
+            <span key={cat} className="badge" style={{ cursor: "pointer" }} title="이 영역 탭으로 이동"
+              onClick={() => onJumpToMetric(cat === "카피" ? "copy" : cat === "비주얼" ? "visual" : "data")}>{cat} {c}</span>
+          ))}
+        </div>
+      )}
+      <p style={{ fontSize: 12.5, margin: "10px 0 0", lineHeight: 1.55 }}><b>그래서:</b> {meaning}</p>
+    </div>
+  );
+}
 
 /* ════════════════════════════════════════════════════
    Overview 탭 — 순서: ①변화N건+액션 ②사이트별 현황/변경 요약 ③지표별 분석 ④변경점목록
@@ -183,10 +245,10 @@ function MetricSection({
 }
 
 export function Overview({
-  report, metricTab, dcv, changes, allChanges, selectedChange, setSelectedChange,
+  report, session, metricTab, dcv, changes, allChanges, selectedChange, setSelectedChange,
   urls, totalUrls, urlQuery, setUrlQuery, onOpenDrawer, onJumpToMetric,
 }: {
-  report: Report | null; metricTab: MetricView; dcv?: Report["dcv"];
+  report: Report | null; session?: Session | null; metricTab: MetricView; dcv?: Report["dcv"];
   changes: Change[]; allChanges: Change[];
   selectedChange: Change | null; setSelectedChange: (c: Change | null) => void;
   urls: UrlRow[]; totalUrls: number; urlQuery: string; setUrlQuery: (s: string) => void;
@@ -223,6 +285,8 @@ export function Overview({
 
   return (
     <div className="panelStack">
+      {/* ⓪ [2026-10] 이번 수집 요약 — 전체요약 탭에서만, 사실 집계 4칸 + "그래서" 한 줄 */}
+      {report && metricTab === "all" && <CrawlDigest report={report} session={session || null} changes={allChanges} onJumpToMetric={onJumpToMetric} />}
       {/* ① 전체 요약 카드 — 변화 N건 + High 변화 액션 제시 (탭 범위에 맞는 건수) */}
       <div className="summaryCard">
         <div className="summaryTop">

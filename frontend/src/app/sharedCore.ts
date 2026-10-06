@@ -12,6 +12,8 @@ export type SiteKey = string;
 export type CrawlProgress = {
   active: boolean; site?: string; total: number; done: number;
   currentUrl?: string; error?: string;
+  phase?: "crawl" | "analyzing";   // [2026-10] 수집 100% 뒤 "분석 정리" 단계 표시
+  llm?: boolean;                    // 분석에 Gemini 사용 여부(false = 규칙 기반)
 };
 export type Change = {
   id: number; url: string; site?: string; level?: "High" | "Medium" | "Low";
@@ -27,6 +29,7 @@ export type AnalysisBlock = {
 };
 export type Report = {
   has_data?: boolean; timestamp?: string; has_changes?: boolean;
+  run_id?: string; session?: string;
   changes?: Change[]; by_category?: Record<string, number>;
   category_summary?: Record<string, string>;
   dcv?: Record<MetricTab, Record<string, AnalysisBlock>>;
@@ -35,6 +38,7 @@ export type Report = {
 export type Session = {
   session: string; run_ids: string[]; sites: string[];
   pages: number; changes: number; timestamp: string;
+  duration_seconds?: number | null;   // [2026-10] 세션 소요 시간
 };
 export type PageLite = { url: string; title: string; word_count: number; page_height_px?: number | null; rendered_by?: string | null };
 export type PageWireframe = {

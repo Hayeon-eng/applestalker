@@ -50,6 +50,7 @@ export default function Page() {
   useEffect(() => { fetch(API + "/api/site-keys").then((r) => r.json()).then((d) => setSiteKeys(d.site_keys || [])).catch(() => {}); }, []);
   const newUrlRef = useRef<HTMLInputElement>(null);
   const esRef = useRef<EventSource | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);   // [2026-10] SSE 끊김 시 폴링 폴백
 
   const load = useCallback(async () => {
     try {
@@ -90,33 +91,54 @@ export default function Page() {
   }, []);
 
   // ── 크롤 진행률 SSE 연결 (수집 실행 버튼 눌렀을 때 + 이미 다른 곳에서 크롤 중일 때 둘 다 사용) ──
+  // [2026-10 FIX] 수집이 끝났는데 결과가 안 뜨던 원인 두 가지를 함께 막는다.
+  //  1) SSE 가 끊기면(onerror) 예전엔 그냥 닫고 끝 → crawling=true 로 굳고 load() 도 안 불렸다. 이제 폴링으로 완료를 확인한다.
+  //  2) 수집 바 100% 뒤 백엔드가 "분석 정리"(Gemini 호출 시 사이트당 수 분)를 하는 동안 화면이 침묵했다 → analyzing 단계를 표시한다.
+  const finishCrawl = useCallback(async () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (esRef.current) { esRef.current.close(); esRef.current = null; }
+    setProgress((p) => ({ ...p, active: false, phase: undefined }));
+    setCrawling(false);
+    await load();
+    setMainTab("overview");
+    toast("수집이 끝났습니다 — 최신 결과를 불러왔습니다", "ok");
+  }, [load]);
+  const startPollingFallback = useCallback(() => {
+    if (pollRef.current) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const r = await fetch(API + "/api/crawl-status", { cache: "no-store" });
+        const j = await r.json();
+        if (!j.crawling) finishCrawl();
+      } catch { /* 백엔드 재시작 중 등 — 다음 틱에 다시 */ }
+    }, 3000);
+  }, [finishCrawl]);
   const connectProgress = useCallback(() => {
     if (esRef.current) return; // 이미 연결됨
-    setProgress({ active: true, total: 0, done: 0 });
+    setProgress({ active: true, total: 0, done: 0, phase: "crawl" });
     const es = new EventSource(API + "/api/crawl-progress");
     esRef.current = es;
     es.onmessage = (ev) => {
       try {
         const d = JSON.parse(ev.data);
         if (d.type === "start") {
-          setProgress((p) => ({ ...p, active: true, site: d.site, total: d.total || 0, done: 0 }));
+          setProgress((p) => ({ ...p, active: true, site: d.site, total: d.total || 0, done: 0, phase: "crawl" }));
         } else if (d.type === "page_done") {
-          setProgress((p) => ({ ...p, active: true, done: p.done + 1, currentUrl: d.url,
+          setProgress((p) => ({ ...p, active: true, done: p.done + 1, currentUrl: d.url, phase: "crawl",
             error: d.status === "error" ? d.error : undefined }));
+        } else if (d.type === "analyzing") {
+          setProgress((p) => ({ ...p, active: true, currentUrl: undefined, phase: "analyzing", llm: !!d.llm, site: d.site || p.site }));
         } else if (d.type === "done") {
           setProgress((p) => ({ ...p, currentUrl: undefined }));
         } else if (d.type === "status" && d.crawling === false) {
-          es.close(); esRef.current = null;
-          setProgress((p) => ({ ...p, active: false }));
-          setCrawling(false);
-          load();
+          finishCrawl();
         }
       } catch { /* heartbeat 등 무시 */ }
     };
-    es.onerror = () => { es.close(); esRef.current = null; setProgress((p) => ({ ...p, active: false })); };
-  }, [load]);
+    es.onerror = () => { es.close(); esRef.current = null; startPollingFallback(); };   // 끊기면 폴링으로 이어받는다
+  }, [finishCrawl, startPollingFallback]);
 
-  useEffect(() => () => { esRef.current?.close(); }, []);
+  useEffect(() => () => { esRef.current?.close(); if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -378,12 +400,14 @@ export default function Page() {
           <button className="btnSecondary" style={{ marginTop: 6, fontSize: 12 }} disabled={!online || crawling} onClick={() => setShowPick((v) => !v)}>
             {showPick ? "▾ 선택 수집 닫기" : "▸ 특정 사이트만 수집"}
           </button>
+          <button className="btnSecondary" style={{ marginTop: 6, fontSize: 12 }} disabled={!online} title="최신 수집 결과를 다시 불러옵니다(수집이 끝났는데 화면이 안 바뀔 때)"
+            onClick={async () => { await load(); toast("최신 결과를 다시 불러왔습니다", "ok"); }}>↻ 결과 새로고침</button>
           {showPick && (
             <div style={{ marginTop: 6, padding: 8, background: "#fff", border: "1px solid var(--line)", borderRadius: 8 }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
                 {siteKeys.map((k) => { const on = pickSites.has(k); return (
                   <span key={k} onClick={() => { const n = new Set(pickSites); on ? n.delete(k) : n.add(k); setPickSites(n); }}
-                    style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, cursor: "pointer", border: on ? "1px solid #2554E6" : "1px solid var(--line)", background: on ? "#2554E6" : "#fff", color: on ? "#fff" : "var(--label)" }}>{k}</span>); })}
+                    style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, cursor: "pointer", border: on ? "1px solid var(--blue)" : "1px solid var(--line)", background: on ? "var(--blue)" : "#fff", color: on ? "#fff" : "var(--label)" }}>{k}</span>); })}
               </div>
               <button className="btnPrimary" style={{ fontSize: 12, padding: "6px 10px" }} disabled={!pickSites.size || crawling}
                 onClick={() => { startCrawl(Array.from(pickSites)); setShowPick(false); }}>선택 {pickSites.size}개 수집</button>
@@ -457,14 +481,16 @@ export default function Page() {
             <div className="progressWrap">
               <div className="progressTopRow">
                 <span className="progressTitle">
-                  🔄 수집 중{progress.site ? ` — ${siteName(progress.site)}` : ""}
+                  {progress.phase === "analyzing"
+                    ? `🧮 분석 정리 중${progress.site ? ` — ${siteName(progress.site)}` : ""} · ${progress.llm ? "Gemini 보강 포함(사이트당 수십 초~수 분)" : "규칙 기반(수 초)"}`
+                    : `🔄 수집 중${progress.site ? ` — ${siteName(progress.site)}` : ""}`}
                 </span>
-                <span className="progressCount">{progress.done}{progress.total ? ` / ${progress.total}` : ""}</span>
+                <span className="progressCount">{progress.phase === "analyzing" ? "페이지 수집 완료" : `${progress.done}${progress.total ? ` / ${progress.total}` : ""}`}</span>
               </div>
               <div className="progressBar">
                 <div
                   className="progressFill"
-                  style={{ width: progress.total ? `${Math.min(100, (progress.done / progress.total) * 100)}%` : "8%" }}
+                  style={{ width: progress.phase === "analyzing" ? "100%" : progress.total ? `${Math.min(100, (progress.done / progress.total) * 100)}%` : "8%", opacity: progress.phase === "analyzing" ? .6 : 1 }}
                 />
               </div>
               {progress.currentUrl && <p className="progressLabel">{shortUrl(progress.currentUrl)}</p>}
@@ -521,6 +547,7 @@ export default function Page() {
           {mainTab === "overview" ? (
             <Overview
               report={report}
+              session={runs.find((s) => report?.run_id && s.run_ids.includes(report.run_id)) || null}
               metricTab={metricTab}
               dcv={report?.dcv}
               changes={metricChanges}

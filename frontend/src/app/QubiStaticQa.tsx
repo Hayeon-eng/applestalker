@@ -233,6 +233,29 @@ function Detail({ sel, onClose }: { sel: any; onClose: () => void }) {
             </div>)}
         </div>
       )}
+      {/* [2026-10] 수정 코드 — as-is(지금 소스) → to-be(고친 소스). auto=true 는 그대로 반영 가능, false 는 위치만 짚어줌 */}
+      {(sel.code_fixes || []).length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+            <b style={{ fontSize: 12.5 }}>수정 코드 — as-is → to-be</b>
+            <span style={{ fontSize: 11, color: "var(--sec)" }}>{sel.code_fixes.filter((f: any) => f.auto).length}건은 그대로 반영 가능 · {sel.code_fixes.filter((f: any) => !f.auto).length}건은 위치만 표시(값은 담당자가 결정)</span>
+          </div>
+          {sel.code_fixes.map((f: any, i: number) => (
+            <div key={i} style={{ border: "1px solid var(--line)", borderRadius: 10, padding: "8px 10px", marginBottom: 8, background: "#fff" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
+                <SevPill sev={f.auto ? "pass" : "warn"} label={f.auto ? "그대로 반영" : "확인 후 수정"} size={11} />
+                <b style={{ fontSize: 12 }}>{f.label}</b>{f.block && <span style={{ fontSize: 11, color: "var(--sec)" }}>블록 {f.block}</span>}
+                <span style={{ fontSize: 11, color: "var(--sec)" }}>{f.note}</span>
+                <button className="btnSecondary" style={{ marginLeft: "auto", fontSize: 11, padding: "3px 8px" }} disabled={!f.to_be}
+                  onClick={async () => { try { await navigator.clipboard.writeText(f.to_be || ""); toast("to-be 코드를 복사했습니다", "ok"); } catch { toast("복사 실패 — 직접 선택해 복사하세요", "warn"); } }}>to-be 복사</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: f.to_be ? "1fr 1fr" : "1fr", gap: 8 }}>
+                <pre style={{ margin: 0, fontSize: 11.5, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-all", background: SEV.fail.soft, borderLeft: `3px solid ${SEV.fail.c}`, borderRadius: 6, padding: "6px 8px", fontFamily: "var(--mono)" }}><span style={{ color: SEV.fail.ink, fontWeight: 700 }}>as-is</span>{"\n"}{f.as_is}</pre>
+                {f.to_be && <pre style={{ margin: 0, fontSize: 11.5, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-all", background: SEV.pass.soft, borderLeft: `3px solid ${SEV.pass.c}`, borderRadius: 6, padding: "6px 8px", fontFamily: "var(--mono)" }}><span style={{ color: SEV.pass.ink, fontWeight: 700 }}>to-be</span>{"\n"}{f.to_be}</pre>}
+              </div>
+            </div>))}
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
         <div>
           <b>스키마 블록 {sel.blocks}개 · 읽기 실패 {(sel.parse_errors || []).filter((p: any) => p.severity !== "warn").length}</b>
