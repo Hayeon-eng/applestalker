@@ -2,7 +2,8 @@
 /* RegionOverview.tsx — [2026-10] 🌍 권역별 OVERVIEW
    세계지도(world-atlas 50m, d3-geo)에서 국가를 세 툴의 최신 신호등으로 칠하고, 클릭하면 그 법인(subs) 국가들로 줌인(CSS transition)
    + 오른쪽 패널에 법인 상세. 총괄(EHQ/MENA/…) 칩으로 한 단계 위 줌. 아래 "목록으로 보기" 토글은 같은 데이터의 표.
-   데이터: GET /api/overview/regions (backend/overview_regions.py). 신호등·색은 qubiShared 공용. 추정값 없음 — 없으면 회색. */
+   데이터: GET /api/overview/regions (backend/overview_regions.py). 신호등·색은 qubiShared 공용. 추정값 없음 — 없으면 회색.
+   지도: public/world/head.json + arcs-N.json + geom-N.json (world-atlas countries-50m 을 40KB 이하로 분할 — 원본 740KB 가 업로드 제한 47KB 에 걸려서). */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
@@ -51,10 +52,25 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
   useEffect(() => {
     (async () => {
       try {
-        const [d, w] = await Promise.all([
-          fetch(api("/api/overview/regions"), { cache: "no-store" }).then((r) => r.json()),
-          fetch("/world-50m.json", { cache: "force-cache" }).then((r) => r.json()),
+        // 지도 데이터(world-atlas 50m, 740KB)는 업로드 제한(47KB) 때문에 public/world/ 에 40KB 이하 조각(head + arcs-N + geom-N)으로 나눠 두었다 — 여기서 재조립
+        // 런처는 없는 경로에 index.html 을 돌려주므로(SPA 폴백) JSON 대신 HTML 이 오면 "어느 파일이 없는지"를 바로 알려준다
+        const getJson = async (url: string, cache: RequestCache) => {
+          const r = await fetch(url, { cache });
+          const ct = r.headers.get("content-type") || "";
+          if (!r.ok || !ct.includes("json")) {
+            const hint = url.startsWith("/world/") ? "프론트 빌드가 오래됐습니다 — frontend 에서 npm run build 후 desktop/frontend_out 갱신(또는 build.ps1)"
+              : "백엔드가 옛 코드입니다 — backend/main.py·overview_regions.py 반영 후 프로그램 재시작";
+            throw new Error(`${url} → ${r.status} ${ct.split(";")[0] || "응답 없음"}\n${hint}`);
+          }
+          return r.json();
+        };
+        const [d, head] = await Promise.all([getJson(api("/api/overview/regions"), "no-store"), getJson("/world/head.json", "force-cache")]);
+        const get = (name: string) => getJson(`/world/${name}.json`, "force-cache");
+        const [arcParts, geomParts] = await Promise.all([
+          Promise.all(Array.from({ length: head.arcs_parts || 0 }, (_, i) => get(`arcs-${i + 1}`))),
+          Promise.all(Array.from({ length: head.geom_parts || 0 }, (_, i) => get(`geom-${i + 1}`))),
         ]);
+        const w = { ...head, arcs: arcParts.flat(), objects: { countries: { ...head.objects.countries, geometries: geomParts.flat() } } };
         setData(d);
         const fc = feature(w, w.objects.countries) as unknown as FeatureCollection;
         fc.features = fc.features.filter((f) => String(f.id) !== ANTARCTICA && (f.properties as any)?.name !== "Ashmore and Cartier Is.");   // 호주와 같은 id(036)를 가진 무인도 제외
@@ -108,7 +124,7 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, [subsBy]);
 
-  if (err) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><EmptyState tone="error" title="권역 OVERVIEW 를 불러오지 못했습니다" desc={err} action={<button className="btnSecondary" onClick={onHome}>홈으로</button>} /></div></div>;
+  if (err) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><EmptyState tone="error" title="권역 OVERVIEW 를 불러오지 못했습니다" desc={<span style={{ whiteSpace: "pre-line" }}>{err}</span>} action={<button className="btnSecondary" onClick={onHome}>홈으로</button>} /></div></div>;
   if (!data || !geo) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><Loading label="세계지도와 세 툴의 최신 결과를 모으는 중…" /></div></div>;
 
   const selSubs = level.kind === "subs" ? subsBy[level.subs] : null;
