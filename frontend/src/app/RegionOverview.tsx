@@ -64,18 +64,41 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
           }
           return r.json();
         };
-        const [d, head] = await Promise.all([getJson(api("/api/overview/regions"), "no-store"), getJson("/world/head.json", "force-cache")]);
-        const get = (name: string) => getJson(`/world/${name}.json`, "force-cache");
-        const [arcParts, geomParts] = await Promise.all([
-          Promise.all(Array.from({ length: head.arcs_parts || 0 }, (_, i) => get(`arcs-${i + 1}`))),
-          Promise.all(Array.from({ length: head.geom_parts || 0 }, (_, i) => get(`geom-${i + 1}`))),
-        ]);
-        const w = { ...head, arcs: arcParts.flat(), objects: { countries: { ...head.objects.countries, geometries: geomParts.flat() } } };
+        const d = await getJson(api("/api/overview/regions"), "no-store");
+        // 지도 데이터: ① 빌드에 포함된 public/world/ 조각 → ② 없으면 CDN(world-atlas 원본) — 저장소에 조각 파일을 안 올렸을 때의 예비 경로(인터넷 필요)
+        let w: any;
+        try {
+          const head = await getJson("/world/head.json", "force-cache");
+          const get = (name: string) => getJson(`/world/${name}.json`, "force-cache");
+          const [arcParts, geomParts] = await Promise.all([
+            Promise.all(Array.from({ length: head.arcs_parts || 0 }, (_, i) => get(`arcs-${i + 1}`))),
+            Promise.all(Array.from({ length: head.geom_parts || 0 }, (_, i) => get(`geom-${i + 1}`))),
+          ]);
+          w = { ...head, arcs: arcParts.flat(), objects: { countries: { ...head.objects.countries, geometries: geomParts.flat() } } };
+        } catch (localErr: any) {
+          try {
+            w = await getJson("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json", "force-cache");
+            toast("지도 파일이 빌드에 없어 인터넷(CDN)에서 받았습니다 — frontend/public/world 폴더를 저장소에 올리면 오프라인에서도 뜹니다", "warn", 6000);
+          } catch {
+            throw new Error(`${String(localErr?.message || localErr).split("\n")[0]}\n빌드에 지도 파일(frontend/public/world/ 22개)이 없고, 인터넷(cdn.jsdelivr.net)도 닫혀 있습니다.\n→ GitHub 의 frontend/public/world 폴더에 head.json·arcs-1~20.json·geom-1.json 이 있는지 확인하고 Actions 를 다시 돌리세요.`);
+          }
+        }
         setData(d);
         const fc = feature(w, w.objects.countries) as unknown as FeatureCollection;
         fc.features = fc.features.filter((f) => String(f.id) !== ANTARCTICA && (f.properties as any)?.name !== "Ashmore and Cartier Is.");   // 호주와 같은 id(036)를 가진 무인도 제외
         setGeo(fc);
-      } catch (e: any) { setErr(String(e?.message || e)); }
+      } catch (e: any) {
+        // 진단: 런처가 지금 어느 프론트 폴더를 서빙 중인지(exe 내장인지, 지도 파일이 있는지) 함께 보여준다
+        let diag = "";
+        try {
+          const fi = await fetch(api("/api/front-info"), { cache: "no-store" });
+          if (fi.ok && (fi.headers.get("content-type") || "").includes("json")) {
+            const j = await fi.json();
+            diag = `\n\n[서버 진단] ${j.frozen ? "exe 내장 프론트(빌드 시점에 묶임 → exe 재빌드 필요)" : "폴더 서빙"}: ${j.front_dir}\nindex.html 빌드 ${j.index_mtime || "없음"} · world/head.json ${j.world_head ? "있음" : "없음"} (조각 ${j.world_parts}개)`;
+          } else diag = "\n\n[서버 진단] /api/front-info 없음 → launcher.py 도 옛 버전";
+        } catch { /* 진단 실패는 무시 */ }
+        setErr(String(e?.message || e) + diag);
+      }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
