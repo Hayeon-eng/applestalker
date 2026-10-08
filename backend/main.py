@@ -514,6 +514,26 @@ async def trigger_all(payload: Dict[str, Any] = Body(default=None)):
     return {"status": "started", "sites": keys}
 
 
+@app.get("/api/overview/regions")
+def overview_regions():
+    """[2026-10] 권역별 OVERVIEW — 세 툴 최신 결과를 사이트코드→법인(subs)→총괄(region)로 묶은 신호등 + Apple Stalker 글로벌 카드."""
+    import overview_regions
+    data = overview_regions.build(SessionLocal)
+    apple = {"has_data": False}
+    try:
+        rep = latest_report()
+        if rep.get("has_data"):
+            ch = rep.get("changes") or []
+            apple = {"has_data": True, "timestamp": rep.get("timestamp"), "changes": len(ch),
+                     "high": sum(1 for c in ch if c.get("level") == "High"),
+                     "medium": sum(1 for c in ch if c.get("level") == "Medium"),
+                     "sites": sorted({c.get("site") for c in ch if c.get("site")}),
+                     "by_category": rep.get("by_category") or {}}
+    except Exception as e:
+        apple = {"has_data": False, "error": str(e)}
+    return {**data, "apple": apple}
+
+
 @app.get("/api/site-keys")
 def api_site_keys():
     """수집 대상 사이트(경쟁사) 목록 — 선택 수집 UI 용."""
