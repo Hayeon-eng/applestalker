@@ -1,5 +1,8 @@
 # desktop/build.ps1 — Windows 에서 ABC_Tool.exe 빌드 (GitHub Actions windows-latest 또는 로컬 PC)
 #   전제: Node 20+, Python 3.11+, 인터넷(npm/pip). 결과: desktop/dist/ABC_Tool/ABC_Tool.exe (+ config.example.json, README_실행.txt)
+#   [2026-10] -FrontOnly : 1) 프론트 빌드 → desktop\frontend_out 갱신까지만 하고 끝낸다 (python desktop\launcher.py 로 테스트할 때)
+#     예) powershell -ExecutionPolicy Bypass -File desktop\build.ps1 -FrontOnly
+param([switch]$FrontOnly)
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path "$PSScriptRoot\.."
 Set-Location $root
@@ -19,6 +22,8 @@ try {
 }
 if (Test-Path "$root\desktop\frontend_out") { Remove-Item -Recurse -Force "$root\desktop\frontend_out" }
 Copy-Item -Recurse "out" "$root\desktop\frontend_out"
+if (-not (Test-Path "$root\desktop\frontend_out\world\head.json")) { throw "frontend_out 에 world/head.json 이 없습니다 — frontend\public\world 폴더가 있는지 확인" }
+if ($FrontOnly) { Write-Host "== 완료(FrontOnly): desktop\frontend_out 갱신 — 런처를 재시작하면 반영됩니다"; exit 0 }
 
 Write-Host "== 2) 파이썬 의존성 + PyInstaller"
 Set-Location $root
