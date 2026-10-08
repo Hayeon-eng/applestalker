@@ -10,6 +10,7 @@ import {
 import { Landing, Overview, PagesTab, ProductTab, CriteriaDrawer, InsightChat } from "./sections";
 import QubiApp from "./QubiApp";
 import HoneyCombApp from "./HoneyCombApp"; // [2026-09] 🐝C honeyComb (목업)
+import RegionOverview from "./RegionOverview"; // [2026-10] 🌍 권역별 OVERVIEW
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -18,7 +19,7 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace
 ════════════════════════════════════════════════════ */
 export default function Page() {
   const [view, setView] = useState<View>("home");
-  const [appMode, setAppMode] = useState<"applestalker" | "qubi" | "honeycomb">("applestalker");
+  const [appMode, setAppMode] = useState<"applestalker" | "qubi" | "honeycomb" | "regions">("applestalker");
   const [mainTab, setMainTab] = useState<MainTab>("overview");
   const [metricTab, setMetricTab] = useState<MetricView>("all");
   const [online, setOnline] = useState<boolean | null>(null);
@@ -271,7 +272,12 @@ export default function Page() {
     return <Landing
       onEnterApple={() => { setAppMode("applestalker"); setView("dashboard"); }}
       onEnterQubi={() => { setAppMode("qubi"); setView("dashboard"); }}
-      onEnterHoneyComb={() => { setAppMode("honeycomb"); setView("dashboard"); }} />;
+      onEnterHoneyComb={() => { setAppMode("honeycomb"); setView("dashboard"); }}
+      onEnterRegions={() => { setAppMode("regions"); setView("dashboard"); }} />;
+  }
+
+  if (appMode === "regions") {
+    return <RegionOverview apiBase={API} onHome={() => setView("home")} onGo={(app) => { setAppMode(app); setView("dashboard"); }} />;
   }
 
   if (appMode === "honeycomb") {

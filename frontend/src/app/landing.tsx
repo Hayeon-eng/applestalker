@@ -4,7 +4,7 @@ import { toast } from "./uiShared";
 /* ════════════════════════════════════════════════════
    홈 랜딩 — 진입점 3개: 🍎 Apple Stalker / 🐝 큐비(QA Bee) / 🐝C honeyComb  (ABC Tool)
 ════════════════════════════════════════════════════ */
-export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb }: { onEnterApple: () => void; onEnterQubi: () => void; onEnterHoneyComb?: () => void }) {
+export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb, onEnterRegions }: { onEnterApple: () => void; onEnterQubi: () => void; onEnterHoneyComb?: () => void; onEnterRegions?: () => void }) {
   return (
     <div className="landingShell">
       <div className="landingInner">
@@ -55,6 +55,19 @@ export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb }: { onEnt
             <button className="landingCTA" style={{ marginTop: 12, background: "#8A5A00" }} onClick={onEnterHoneyComb}>🍯 벌집 열기</button>
           </div>
 
+        </div>
+
+        {/* [2026-10] 🌍 권역별 OVERVIEW — 세 툴 최신 결과를 세계지도 한 장에 */}
+        <div className="landingCard" style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }} onClick={onEnterRegions}>
+          <span style={{ fontSize: 36 }}>🌍</span>
+          <div style={{ flex: 1 }}>
+            <p className="landingCardTitle" style={{ margin: 0, lineHeight: 1.25 }}>
+              <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--sec)" }}>세 도구를 한 장에</span>
+              <span style={{ fontSize: 20, fontWeight: 800 }}>권역별 OVERVIEW</span>
+            </p>
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--sec)" }}>세계지도에서 법인(53개)·총괄(9개) 단위로 큐비 Data/Spec QA · 공통페이지 QA · honeyComb 최신 신호등을 보고, 눌러서 줌인</p>
+          </div>
+          <button className="landingCTA" style={{ background: "var(--blue)", maxWidth: 180 }} onClick={(e) => { e.stopPropagation(); onEnterRegions?.(); }}>🌍 지도 열기</button>
         </div>
 
         {/* [2026-09-14] 이메일 자동 발송 설정 — 각 사용자 PC 에서 켠다(발송은 각자 설정). exe 는 설정 페이지, 웹은 안내 */}
