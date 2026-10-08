@@ -132,6 +132,22 @@ input, select { font-family: inherit; }
 .abcToast.warn { border-left-color: var(--amber); }
 .abcToast.err { border-left-color: var(--red); }
 @keyframes abcToastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* [2026-10] 권역 OVERVIEW 커맨드센터 룩 — 중립 톤(보라 X). 그라데이션 무대 + 유리 카드 + 글로우 핫스팟 */
+.rgStage { background:
+  radial-gradient(900px 420px at 18% 12%, rgba(255,255,255,.95), transparent 60%),
+  radial-gradient(700px 380px at 85% 85%, rgba(255,255,255,.8), transparent 60%),
+  radial-gradient(500px 300px at 70% 15%, rgba(27,79,216,.07), transparent 65%),
+  linear-gradient(160deg, #EEF1F6 0%, #E3E8F0 55%, #DEE4EE 100%); }
+.rgGlass { background: rgba(255,255,255,.66); backdrop-filter: blur(12px) saturate(1.2); -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid rgba(255,255,255,.85); box-shadow: 0 10px 30px rgba(20,30,60,.08), inset 0 1px 0 rgba(255,255,255,.9); border-radius: 14px; }
+.rgGlass:hover { background: rgba(255,255,255,.8); }
+.rgNo { position: absolute; top: 10px; right: 12px; font-size: 10.5px; letter-spacing: .12em; color: var(--ter); font-weight: 600; }
+.rgLabel { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--sec); font-weight: 700; }
+.rgBig { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.rgGlow { filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 14px currentColor); }
+@keyframes rgPulse { 0% { r: 7; opacity: .55; } 100% { r: 22; opacity: 0; } }
+.rgPulse { animation: rgPulse 2.2s ease-out infinite; }
+.rgMapWrap { border-radius: 18px; overflow: hidden; position: relative; box-shadow: inset 0 0 80px rgba(255,255,255,.6); }
 /* [2026-10 통일] 로딩/빈 상태 */
 .abcLoading { font-size: 12.5px; color: var(--sec); padding: 14px 16px; display: flex; align-items: center; gap: 8px; }
 .abcLoading::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line2); border-top-color: var(--blue);

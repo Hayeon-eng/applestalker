@@ -1,7 +1,8 @@
 "use client";
-/* RegionOverview.tsx — [2026-10] 🌍 권역별 OVERVIEW
-   세계지도(world-atlas 50m, d3-geo)에서 국가를 세 툴의 최신 신호등으로 칠하고, 클릭하면 그 법인(subs) 국가들로 줌인(CSS transition)
-   + 오른쪽 패널에 법인 상세. 총괄(EHQ/MENA/…) 칩으로 한 단계 위 줌. 아래 "목록으로 보기" 토글은 같은 데이터의 표.
+/* RegionOverview.tsx — [2026-10] 🌍 권역별 OVERVIEW  (2026-10-08 커맨드센터형으로 단순화)
+   구성: ① 위 KPI 5장(툴별 숫자 하나 + 신호등) ② 가운데 지도 + 총괄 9개 말풍선 카드(🔴🟡🟢 법인 수 + 가장 급한 법인 한 줄, 지시선)
+         ③ 아래 "지금 봐야 할 것" 한 줄(🔴 법인만) ④ 카드/국가 클릭 → 그 범위로 줌인(CSS transition) + 오른쪽 상세 패널, Esc/빈 곳 → 뒤로
+   세계지도는 world-atlas 50m + d3-geo. 국가 색 = 담당 사이트코드들의 worst 신호등.
    데이터: GET /api/overview/regions (backend/overview_regions.py). 신호등·색은 qubiShared 공용. 추정값 없음 — 없으면 회색.
    지도: public/world/head.json + arcs-N.json + geom-N.json (world-atlas countries-50m 을 40KB 이하로 분할 — 원본 740KB 가 업로드 제한 47KB 에 걸려서). */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -47,6 +48,7 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
   const [onlyRed, setOnlyRed] = useState(false);
   const [showList, setShowList] = useState(false);
+  const [hoverRegion, setHoverRegion] = useState<string | null>(null);   // 절충안: 평소 단색, 호버/줌인한 권역만 색칠
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
@@ -152,86 +154,162 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
 
   const selSubs = level.kind === "subs" ? subsBy[level.subs] : null;
   const selRegion = level.kind === "region" ? data.regions.find((r) => r.region === level.region) : level.kind === "subs" ? data.regions.find((r) => r.region === selSubs?.region) : null;
-  const hasAny = data.distribution.red + data.distribution.yellow + data.distribution.green > 0;
   const hov = hover ? countryInfo(hover.id) : null;
   const hovFeat = hover ? geo.features.find((f) => String(f.id) === hover.id) : null;
-  const visibleSubs = data.subs.filter((s) => (!onlyRed || s.overall === "red") && (level.kind !== "region" || s.region === level.region));
+  const zoomed = level.kind !== "all";
+  const hovRegionName = hoverRegion || (hover ? countryInfo(hover.id).region : null);
+  const MONO_MINE = "#C9CFDA", MONO_OTHER = "#E4E8EF";   // 단색 지도: 우리 사이트 있는 나라 / 없는 나라
+  const sevKey = (tl: TL) => tl === "red" ? "fail" : tl === "yellow" ? "warn" : tl === "green" ? "pass" : "na";
+
+  // ── KPI 5장: 툴마다 "숫자 하나" ──────────────────────────────────────────
+  const sitesWith = (k: "data" | "spec" | "static" | "hc") => data.sites.filter((s) => s.tools[k].tl);
+  const avg = (xs: number[]) => xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+  const dataSites = sitesWith("data"), specSites = sitesWith("spec"), staticSites = sitesWith("static"), hcSites = sitesWith("hc");
+  const kpis: { key: string; label: string; big: string; sub: string; tl: TL; app: "qubi" | "honeycomb" | "applestalker" }[] = [
+    { key: "data", label: "Data QA", big: dataSites.length ? `${avg(dataSites.map((s) => s.tools.data.score))}%` : "—", sub: dataSites.length ? `${dataSites.length}개 사이트 평균 정상률 · 🔴 ${dataSites.filter((s) => s.tools.data.tl === "red").length}` : "검수 전", tl: worst(...dataSites.map((s) => s.tools.data.tl)), app: "qubi" },
+    { key: "spec", label: "Spec QA", big: specSites.length ? `C ${specSites.reduce((a, s) => a + (s.tools.spec.critical || 0), 0)}` : "—", sub: specSites.length ? `Critical 합계 · Warning ${specSites.reduce((a, s) => a + (s.tools.spec.warning || 0), 0)} · ${specSites.length}개 사이트` : "검수 전", tl: worst(...specSites.map((s) => s.tools.spec.tl)), app: "qubi" },
+    { key: "static", label: "공통페이지 QA", big: staticSites.length ? `${(() => { const p = staticSites.reduce((a, s) => a + (s.tools.static.pass || 0), 0), q = staticSites.reduce((a, s) => a + (s.tools.static.pass || 0) + (s.tools.static.warn || 0) + (s.tools.static.fail || 0), 0); return q ? Math.round(100 * p / q) : 0; })()}%` : "—", sub: staticSites.length ? `전체 정상률 · 오류(파싱 실패) ${staticSites.reduce((a, s) => a + (s.tools.static.fail || 0), 0)}쪽 · ${staticSites.length}개 사이트` : "검수 전", tl: worst(...staticSites.map((s) => s.tools.static.tl)), app: "qubi" },
+    { key: "hc", label: "honeyComb", big: hcSites.length ? `${hcSites.filter((s) => s.tools.hc.tl === "red").length}/${hcSites.length}` : "—", sub: hcSites.length ? `미노출 국가 / 조사 국가 · ${hcSites[0]?.tools.hc.week || ""}` : "수집 전", tl: worst(...hcSites.map((s) => s.tools.hc.tl)), app: "honeycomb" },
+    { key: "apple", label: "Apple Stalker", big: data.apple?.has_data ? `${data.apple.changes}건` : "—", sub: data.apple?.has_data ? `변경 · High ${data.apple.high} · Medium ${data.apple.medium} · ${data.apple.timestamp?.slice(0, 10) || ""}` : "수집 전", tl: data.apple?.has_data ? (data.apple.high > 0 ? "red" : data.apple.medium > 0 ? "yellow" : "green") : null, app: "applestalker" },
+  ];
+
+  // ── 총괄 말풍선 카드: 중심점(투영 좌표) + 좌/우 칼럼 배치 ─────────────────
+  const regionCards = data.regions.map((r) => {
+    const ids = new Set(data.sites.filter((s) => s.region === r.region).flatMap((s) => SITE_GEO[s.sitecode] || []));
+    const feats = geo.features.filter((f) => ids.has(String(f.id)));
+    const c = feats.length ? path.centroid({ type: "FeatureCollection", features: feats } as any) : [W / 2, H / 2];
+    const subsList = r.subs.map((n) => subsBy[n]).filter(Boolean);
+    const cnt = { red: 0, yellow: 0, green: 0, none: 0 }; subsList.forEach((s) => { cnt[s.overall || "none"]++; });
+    // 가장 급한 법인 한 줄 — 🔴 우선, 그 다음 🟡; 이유는 worst 툴
+    const urgent = [...subsList].sort((a, b) => (ORDER[b.overall!] || 0) - (ORDER[a.overall!] || 0))[0];
+    const why = urgent && urgent.overall ? (() => { const tk = TOOLS.find((tt) => urgent.tools[tt.key] === urgent.overall); const s = urgent.sitecodes.map((sc) => siteBy[sc]).find((x) => tk && x?.tools[tk.key]?.tl === urgent.overall); return tk && s ? `${urgent.subs} · ${tk.label} ${toolText(s.tools[tk.key], tk.key)}` : urgent.subs; })() : null;
+    return { r, cx: c[0], cy: c[1], cnt, why, n: subsList.length };
+  });
+  const leftCards = regionCards.filter((k) => k.cx < W / 2).sort((a, b) => a.cy - b.cy);
+  const rightCards = regionCards.filter((k) => k.cx >= W / 2).sort((a, b) => a.cy - b.cy);
+  const CARD_W = 19, CARD_H = 15; // %
+  const slot = (i: number, n: number) => 4 + (i * (100 - 8 - CARD_H)) / Math.max(1, n - 1);
+
+  // ── 지금 봐야 할 것: 🔴 법인 + 이유 ─────────────────────────────────────
+  const urgentSubs = data.subs.filter((s) => s.overall === "red").map((s) => {
+    const tk = TOOLS.find((tt) => s.tools[tt.key] === "red")!;
+    const site = s.sitecodes.map((sc) => siteBy[sc]).find((x) => x?.tools[tk.key]?.tl === "red");
+    return { s, tk, text: site ? `${tk.label} ${toolText(site.tools[tk.key], tk.key)} (${site.sitecode})` : tk.label };
+  });
+
+  const Card = ({ k, side, i, n }: { k: typeof regionCards[number]; side: "L" | "R"; i: number; n: number }) => {
+    const top = slot(i, n), left = side === "L" ? 1.5 : 100 - 1.5 - CARD_W;
+    const on = hovRegionName === k.r.region;
+    const bigN = k.cnt.red || k.cnt.yellow; const bigTl: TL = k.cnt.red ? "red" : k.cnt.yellow ? "yellow" : k.cnt.green ? "green" : null;
+    const no = String(regionCards.findIndex((x) => x.r.region === k.r.region) + 1).padStart(2, "0");
+    return (
+      <div className="rgGlass" onClick={(e) => { e.stopPropagation(); setLevel({ kind: "region", region: k.r.region }); }}
+        onMouseEnter={() => setHoverRegion(k.r.region)} onMouseLeave={() => setHoverRegion(null)}
+        style={{ position: "absolute", left: `${left}%`, top: `${top}%`, width: `${CARD_W}%`, padding: "10px 12px 9px", cursor: "pointer", zIndex: 3, transform: on ? "translateY(-2px) scale(1.02)" : "none", transition: "transform .2s, background .2s", borderLeft: `3px solid ${fill(k.r.overall)}` }}>
+        <span className="rgNo">{no}</span>
+        <div className="rgLabel">{k.r.region}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
+          <span className="rgBig" style={{ color: bigTl ? SEV[sevKey(bigTl)].ink : "var(--ter)" }}>{bigTl ? (bigTl === "green" ? "OK" : bigN) : "—"}</span>
+          <span style={{ fontSize: 11, color: "var(--sec)", fontWeight: 600 }}>{bigTl === "red" ? "법인 오류" : bigTl === "yellow" ? "법인 확인" : bigTl === "green" ? `법인 ${k.n} 모두 정상` : "미검수"}</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 4, fontSize: 11, color: "var(--sec)" }}>
+          <span>🔴 {k.cnt.red}</span><span>🟡 {k.cnt.yellow}</span><span>🟢 {k.cnt.green}</span>{k.cnt.none > 0 && <span>⚪ {k.cnt.none}</span>}<span style={{ marginLeft: "auto", color: "var(--ter)" }}>법인 {k.n}</span>
+        </div>
+        {k.why && k.cnt.red + k.cnt.yellow > 0 && <div style={{ fontSize: 11, color: "var(--label)", marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", borderTop: "1px solid rgba(0,0,0,.06)", paddingTop: 5 }}>↳ {k.why}</div>}
+      </div>);
+  };
 
   return (
-    <div className="appShell" style={{ flexDirection: "column", overflow: "auto" }}>
+    <div className="appShell rgStage" style={{ flexDirection: "column", overflow: "auto" }}>
+      {/* 헤더 — 제목 · 빵부스러기 · 필터 */}
       <header className="topbar" style={{ position: "sticky", top: 0, zIndex: 5 }}>
         <div className="topbarRow" style={{ gap: 12 }}>
           <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🌍 권역 OVERVIEW</div>
-          {/* 빵부스러기 */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
-            <span onClick={() => setLevel({ kind: "all" })} style={{ cursor: "pointer", color: level.kind === "all" ? "var(--label)" : BLUE, fontWeight: level.kind === "all" ? 700 : 500 }}>전체</span>
+            <span onClick={() => setLevel({ kind: "all" })} style={{ cursor: "pointer", color: zoomed ? BLUE : "var(--label)", fontWeight: zoomed ? 500 : 700 }}>전체</span>
             {selRegion && <><span style={{ color: "var(--ter)" }}>›</span><span onClick={() => setLevel({ kind: "region", region: selRegion.region })} style={{ cursor: "pointer", color: level.kind === "region" ? "var(--label)" : BLUE, fontWeight: level.kind === "region" ? 700 : 500 }}>{selRegion.region}</span></>}
             {selSubs && <><span style={{ color: "var(--ter)" }}>›</span><b>{selSubs.subs}</b><span style={{ color: "var(--sec)" }}>{selSubs.countries.join(" · ")}</span></>}
+            {zoomed && <span style={{ color: "var(--ter)", fontSize: 11 }}>· Esc 또는 빈 곳 클릭 → 뒤로</span>}
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}>
-            <span style={{ color: "var(--sec)" }}>법인 {data.subs.length} · 🔴 {data.distribution.red} 🟡 {data.distribution.yellow} 🟢 {data.distribution.green} ⚪ {data.distribution.none}</span>
+            <span style={{ color: "var(--sec)" }}>{data.generated_at.slice(0, 16)}</span>
             <span onClick={() => setOnlyRed((v) => !v)} style={{ cursor: "pointer", padding: "3px 10px", borderRadius: 999, border: `1px solid ${onlyRed ? SEV.fail.c : "var(--line)"}`, background: onlyRed ? SEV.fail.soft : "#fff", color: onlyRed ? SEV.fail.ink : "var(--label)", fontWeight: 600 }}>🔴 빨강만</span>
-            <button className="btnSecondary" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setShowList((v) => !v)}>{showList ? "지도만" : "☰ 목록으로 보기"}</button>
+            <button className="btnSecondary" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setShowList((v) => !v)}>{showList ? "목록 닫기" : "☰ 목록"}</button>
           </div>
-        </div>
-        {/* 총괄 칩 */}
-        <div className="topbarRow2" style={{ gap: 6, flexWrap: "wrap" }}>
-          {data.regions.map((r) => { const on = level.kind !== "all" && (level.kind === "region" ? level.region : selSubs?.region) === r.region; return (
-            <span key={r.region} onClick={() => setLevel(on && level.kind === "region" ? { kind: "all" } : { kind: "region", region: r.region })}
-              style={{ cursor: "pointer", fontSize: 12, padding: "3px 10px", borderRadius: 999, border: on ? `1px solid ${BLUE}` : "1px solid var(--line)", background: on ? BLUE : "#fff", color: on ? "#fff" : "var(--label)", display: "inline-flex", gap: 5, alignItems: "center" }}>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: fill(r.overall), display: "inline-block" }} />{r.region}<span style={{ opacity: .7 }}>{r.subs.length}</span>
-            </span>); })}
         </div>
       </header>
 
-      <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: selSubs || level.kind === "region" ? "minmax(0,1.6fr) minmax(300px,1fr)" : "1fr", gap: 12, alignItems: "start" }}>
-        {/* 지도 */}
-        <div className="card" style={{ padding: 8, position: "relative", overflow: "hidden", background: "var(--rail)" }}>
-          {!hasAny && <div style={{ position: "absolute", top: 12, left: 12, right: 12, zIndex: 2 }}><EmptyState title="아직 검수·수집 결과가 없습니다" desc="큐비 검수, 공통페이지 QA, honeyComb 수집을 한 번 돌리면 지도가 색칠됩니다. 지금은 사이트 범위만 회색으로 표시." /></div>}
-          <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", cursor: level.kind === "all" ? "default" : "zoom-out" }}
+      {/* ① KPI 5장 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0,1fr))", gap: 10, padding: "12px 16px 0" }}>
+        {kpis.map((k) => (
+          <div key={k.key} className="rgGlass" onClick={() => onGo(k.app)} style={{ position: "relative", padding: "12px 14px 10px", cursor: "pointer", borderTop: `3px solid ${fill(k.tl)}` }} title={`${k.label} 열기`}>
+            <span className="rgNo">{String(kpis.indexOf(k) + 1).padStart(2, "0")}</span>
+            <div className="rgLabel" style={{ display: "flex", alignItems: "center", gap: 6 }}>{emoji(k.tl)} {k.label}</div>
+            <div className="rgBig" style={{ marginTop: 6, color: k.tl ? SEV[sevKey(k.tl)].ink : "var(--ter)" }}>{k.big}</div>
+            <div style={{ fontSize: 11, color: "var(--sec)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.sub}</div>
+          </div>))}
+      </div>
+
+      {/* ② 지도 + 말풍선 카드 (줌인하면 카드 대신 오른쪽 패널) */}
+      <div style={{ padding: "12px 16px 0", display: "grid", gridTemplateColumns: zoomed ? "minmax(0,1.7fr) minmax(300px,1fr)" : "1fr", gap: 12, alignItems: "start" }}>
+        <div className="rgMapWrap" style={{ padding: 0 }}>
+          <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", cursor: zoomed ? "zoom-out" : "default" }}
             onClick={(e) => { if ((e.target as Element).tagName === "svg" || (e.target as Element).getAttribute("data-bg")) setLevel((l) => l.kind === "subs" ? { kind: "region", region: subsBy[l.subs]?.region || "" } : { kind: "all" }); }}>
             <rect data-bg="1" x={0} y={0} width={W} height={H} fill="transparent" />
             <g style={{ transform: `translate(${transform.tx}px, ${transform.ty}px) scale(${transform.k})`, transformOrigin: "0 0", transition: "transform .7s cubic-bezier(.2,.8,.2,1)" }}>
-              <path d={path({ type: "Sphere" } as any) || ""} fill="#fff" stroke="var(--line)" strokeWidth={0.8 / transform.k} />
+              <path d={path({ type: "Sphere" } as any) || ""} fill="rgba(255,255,255,.55)" stroke="rgba(255,255,255,.9)" strokeWidth={1.2 / transform.k} />
               {geo.features.map((f) => {
                 const id = String(f.id); const ci = countryInfo(id); const mine = ci.scs.length > 0;
-                const inFocus = focusIds.has(id); const dim = level.kind !== "all" && !inFocus;
+                const inFocus = focusIds.has(id); const dim = zoomed && !inFocus;
                 const red = onlyRed && ci.tl !== "red";
+                const lit = mine && ((zoomed && inFocus) || (!zoomed && hovRegionName != null && ci.region === hovRegionName));   // 색이 켜지는 조건
                 return <path key={id} d={path(f as Feature<Geometry>) || ""}
-                  fill={mine ? fill(red ? null : ci.tl) : "var(--gray-soft)"}
-                  fillOpacity={mine ? (dim ? .25 : 1) : (dim ? .3 : .6)}
+                  fill={lit ? fill(red ? null : ci.tl) : mine ? MONO_MINE : MONO_OTHER}
+                  fillOpacity={dim ? .35 : 1}
                   stroke={hover?.id === id ? "var(--label)" : "#fff"} strokeWidth={(hover?.id === id ? 1.4 : .5) / transform.k}
                   style={{ cursor: mine ? "pointer" : "default", transition: "fill .3s, fill-opacity .3s" }}
                   onMouseMove={(e) => mine && setHover({ id, x: e.clientX, y: e.clientY })} onMouseLeave={() => setHover(null)}
                   onClick={(e) => { e.stopPropagation(); mine && pick(id); }} />;
               })}
-              {/* 작은 나라 점 — 폴리곤이 작아 클릭이 어려운 곳 */}
               {geo.features.filter((f) => { const id = String(f.id); if (!(idx[id] || []).length) return false; const b = path.bounds(f as any); return (b[1][0] - b[0][0]) * (b[1][1] - b[0][1]) < 60; }).map((f) => {
-                const id = String(f.id); const ci = countryInfo(id); const c = path.centroid(f as any); const dim = level.kind !== "all" && !focusIds.has(id);
-                return <circle key={"dot" + id} cx={c[0]} cy={c[1]} r={4.5 / Math.sqrt(transform.k)} fill={fill(onlyRed && ci.tl !== "red" ? null : ci.tl)} stroke="#fff" strokeWidth={1 / transform.k} opacity={dim ? .3 : 1}
+                const id = String(f.id); const ci = countryInfo(id); const c = path.centroid(f as any); const dim = zoomed && !focusIds.has(id);
+                const lit = (zoomed && focusIds.has(id)) || (!zoomed && hovRegionName != null && ci.region === hovRegionName);
+                return <circle key={"dot" + id} cx={c[0]} cy={c[1]} r={4.5 / Math.sqrt(transform.k)} fill={lit ? fill(onlyRed && ci.tl !== "red" ? null : ci.tl) : MONO_MINE} stroke="#fff" strokeWidth={1 / transform.k} opacity={dim ? .35 : 1}
                   style={{ cursor: "pointer" }} onMouseMove={(e) => setHover({ id, x: e.clientX, y: e.clientY })} onMouseLeave={() => setHover(null)} onClick={(e) => { e.stopPropagation(); pick(id); }} />;
+              })}
+              {/* 총괄 중심점 + 지시선(전체 보기일 때만) */}
+              {!zoomed && [...leftCards.map((k, i) => ({ k, side: "L" as const, i, n: leftCards.length })), ...rightCards.map((k, i) => ({ k, side: "R" as const, i, n: rightCards.length }))].map(({ k, side, i, n }) => {
+                const topPct = slot(i, n) + CARD_H / 2; const ax = side === "L" ? (1.5 + CARD_W) / 100 * W : (100 - 1.5 - CARD_W) / 100 * W; const ay = topPct / 100 * H;
+                const col = k.r.overall ? TL_COLOR[k.r.overall] : "var(--gray)"; const on = hovRegionName === k.r.region;
+                return <g key={"ld" + k.r.region} style={{ pointerEvents: "none", color: col }}>
+                  <path d={`M${ax},${ay} C${(ax + k.cx) / 2},${ay} ${(ax + k.cx) / 2},${k.cy} ${k.cx},${k.cy}`} fill="none" stroke={col} strokeWidth={on ? 1.4 : .8} opacity={on ? .9 : .35} style={{ transition: "opacity .25s" }} />
+                  {k.r.overall && <circle className="rgPulse" cx={k.cx} cy={k.cy} r={7} fill="none" stroke={col} strokeWidth={1.5} />}
+                  <circle className="rgGlow" cx={k.cx} cy={k.cy} r={on ? 6.5 : 5} fill={col} stroke="#fff" strokeWidth={1.5} style={{ transition: "r .2s" }} />
+                </g>;
               })}
             </g>
           </svg>
-          <div style={{ position: "absolute", left: 14, bottom: 10, display: "flex", gap: 10, fontSize: 11, color: "var(--sec)" }}>
-            {(["green", "yellow", "red", null] as TL[]).map((tl) => <span key={String(tl)}><span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: fill(tl), verticalAlign: -1, marginRight: 3 }} />{tl === "green" ? "정상" : tl === "yellow" ? "확인" : tl === "red" ? "오류" : "데이터 없음"}</span>)}
+          {!zoomed && leftCards.map((k, i) => <Card key={k.r.region} k={k} side="L" i={i} n={leftCards.length} />)}
+          {!zoomed && rightCards.map((k, i) => <Card key={k.r.region} k={k} side="R" i={i} n={rightCards.length} />)}
+          <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 8, display: "flex", gap: 10, fontSize: 11, color: "var(--sec)", background: "rgba(255,255,255,.85)", padding: "3px 10px", borderRadius: 999 }}>
+            {(["green", "yellow", "red", null] as TL[]).map((tl) => <span key={String(tl)}><span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: fill(tl), verticalAlign: -1, marginRight: 3 }} />{tl === "green" ? "정상" : tl === "yellow" ? "확인" : tl === "red" ? "오류" : "미검수"}</span>)}
+            <span style={{ color: "var(--ter)" }}>· 카드에 마우스 → 그 권역 색칠 · 클릭 → 줌인</span>
           </div>
-          <div style={{ position: "absolute", right: 14, top: 10, fontSize: 11, color: "var(--ter)" }}>국가 클릭 → 법인으로 줌 · 빈 곳/Esc → 뒤로 · {data.generated_at}</div>
           {hover && hov && hovFeat && (
             <div style={{ position: "fixed", left: hover.x + 14, top: hover.y + 14, zIndex: 50, background: "#111318", color: "#fff", borderRadius: 10, padding: "8px 10px", fontSize: 12, pointerEvents: "none", minWidth: 200, boxShadow: "0 8px 24px rgba(0,0,0,.25)" }}>
               <div style={{ fontWeight: 700 }}>{(hovFeat.properties as any)?.name} <span style={{ opacity: .7, fontWeight: 400 }}>{hov.subs} · {hov.region}</span></div>
               {hov.sites.map((s) => (
                 <div key={s.sitecode} style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
                   <span>{emoji(s.overall)}</span><b style={{ minWidth: 60 }}>{s.sitecode}</b>
-                  {TOOLS.map((t) => <span key={t.key} title={t.label} style={{ opacity: s.tools[t.key].tl ? 1 : .4 }}>{emoji(s.tools[t.key].tl)}</span>)}
+                  {TOOLS.map((tt) => <span key={tt.key} title={tt.label} style={{ opacity: s.tools[tt.key].tl ? 1 : .4 }}>{emoji(s.tools[tt.key].tl)}</span>)}
                   <span style={{ opacity: .7 }}>{s.latest_at ? s.latest_at.slice(0, 10) : "검수 전"}</span>
                 </div>))}
             </div>)}
         </div>
 
-        {/* 오른쪽 패널 */}
-        {(selSubs || level.kind === "region") && (
-          <div className="card" style={{ position: "sticky", top: 96 }}>
+        {/* 줌인 시 오른쪽 패널 */}
+        {zoomed && (
+          <div className="rgGlass" style={{ position: "sticky", top: 60, padding: 14 }}>
             {selSubs ? (
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -240,30 +318,30 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
                   <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ter)" }}>{selSubs.latest_at ? `최신 ${selSubs.latest_at.slice(0, 16)}` : "검수 전"}</span>
                 </div>
                 <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
-                  {TOOLS.map((t) => (
-                    <div key={t.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: "var(--rail)", borderRadius: 8, fontSize: 12.5 }}>
-                      <span>{emoji(selSubs.tools[t.key])}</span><b style={{ minWidth: 80 }}>{t.label}</b>
-                      <span style={{ color: "var(--sec)", flex: 1 }}>{selSubs.sitecodes.map((sc) => siteBy[sc]).filter((s) => s?.tools[t.key]?.tl).map((s) => `${s.sitecode} ${toolText(s.tools[t.key], t.key)}`).join(" · ") || "데이터 없음"}</span>
-                      <button className="btnSecondary" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => { onGo(t.app); toast(`${t.label} 탭에서 ${selSubs.sitecodes.join(", ")} 를 확인하세요`, "info"); }}>이동 →</button>
+                  {TOOLS.map((tt) => (
+                    <div key={tt.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: "var(--rail)", borderRadius: 8, fontSize: 12.5 }}>
+                      <span>{emoji(selSubs.tools[tt.key])}</span><b style={{ minWidth: 84 }}>{tt.label}</b>
+                      <span style={{ color: "var(--sec)", flex: 1 }}>{selSubs.sitecodes.map((sc) => siteBy[sc]).filter((s) => s?.tools[tt.key]?.tl).map((s) => `${s.sitecode} ${toolText(s.tools[tt.key], tt.key)}`).join(" · ") || "데이터 없음"}</span>
+                      <button className="btnSecondary" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => { onGo(tt.app); toast(`${tt.label} 탭에서 ${selSubs.sitecodes.join(", ")} 를 확인하세요`, "info"); }}>이동 →</button>
                     </div>))}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 12 }}>사이트코드</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                  {selSubs.sitecodes.map((sc) => { const s = siteBy[sc]; return <span key={sc} style={{ fontSize: 12, padding: "3px 9px", borderRadius: 999, background: s?.overall ? SEV[s.overall === "red" ? "fail" : s.overall === "yellow" ? "warn" : "pass"].soft : "var(--gray-soft)", color: s?.overall ? SEV[s.overall === "red" ? "fail" : s.overall === "yellow" ? "warn" : "pass"].ink : "var(--gray-ink)", fontWeight: 700 }}>{sc}</span>; })}
+                  {selSubs.sitecodes.map((sc) => { const s = siteBy[sc]; const k = sevKey(s?.overall || null); return <span key={sc} style={{ fontSize: 12, padding: "3px 9px", borderRadius: 999, background: SEV[k].soft, color: SEV[k].ink, fontWeight: 700 }}>{sc}</span>; })}
                 </div>
               </>
             ) : selRegion && (
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 22 }}>{emoji(selRegion.overall)}</span>
-                  <div><div style={{ fontSize: 16, fontWeight: 800 }}>{selRegion.region}</div><div style={{ fontSize: 12, color: "var(--sec)" }}>법인 {selRegion.subs.length}개 — 클릭하면 줌인</div></div>
+                  <div><div style={{ fontSize: 16, fontWeight: 800 }}>{selRegion.region}</div><div style={{ fontSize: 12, color: "var(--sec)" }}>법인 {selRegion.subs.length}개 — 급한 순. 클릭하면 줌인</div></div>
                 </div>
                 <div style={{ display: "grid", gap: 4, marginTop: 10 }}>
-                  {visibleSubs.map((s) => (
+                  {data.subs.filter((s) => s.region === selRegion.region && (!onlyRed || s.overall === "red")).map((s) => (
                     <div key={s.subs} onClick={() => setLevel({ kind: "subs", subs: s.subs })} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, cursor: "pointer", background: "var(--rail)", fontSize: 12.5 }}>
                       <span>{emoji(s.overall)}</span><b style={{ minWidth: 90 }}>{s.subs}</b>
                       <span style={{ color: "var(--sec)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sitecodes.join(" · ")}</span>
-                      {TOOLS.map((t) => <span key={t.key} title={t.label} style={{ opacity: s.tools[t.key] ? 1 : .35 }}>{emoji(s.tools[t.key])}</span>)}
+                      {TOOLS.map((tt) => <span key={tt.key} title={tt.label} style={{ opacity: s.tools[tt.key] ? 1 : .35 }}>{emoji(s.tools[tt.key])}</span>)}
                     </div>))}
                 </div>
               </>
@@ -272,23 +350,24 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
         )}
       </div>
 
-      {/* Apple Stalker 글로벌 카드 */}
-      <div style={{ padding: "0 16px 12px" }}>
-        <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", fontSize: 12.5 }}>
-          <span style={{ fontSize: 18 }}>🍎</span><b>Apple Stalker</b>
-          {data.apple?.has_data
-            ? <span style={{ color: "var(--sec)" }}>{data.apple.timestamp} · 변경 {data.apple.changes}건 (High {data.apple.high} · Medium {data.apple.medium}) · {data.apple.sites?.length}개 사이트 — 권역 개념이 없는 경쟁사 모니터링이라 지도에는 안 올립니다</span>
-            : <span style={{ color: "var(--sec)" }}>아직 수집 결과 없음</span>}
-          <button className="btnSecondary" style={{ marginLeft: "auto", fontSize: 12, padding: "4px 10px" }} onClick={() => onGo("applestalker")}>열기 →</button>
+      {/* ③ 지금 봐야 할 것 */}
+      <div style={{ padding: "12px 16px" }}>
+        <div className="rgGlass" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12.5 }}>
+          <span className="rgLabel" style={{ whiteSpace: "nowrap" }}>지금 봐야 할 것</span>
+          {urgentSubs.length === 0
+            ? <span style={{ color: "var(--sec)" }}>🔴 법인 없음{data.distribution.none === data.subs.length ? " — 아직 검수 결과가 없습니다. 큐비 검수 · 공통페이지 QA · honeyComb 수집을 한 번 돌리면 지도가 채워집니다." : data.distribution.yellow ? ` · 🟡 ${data.distribution.yellow}곳은 지도에서 확인` : " · 모든 법인 정상"}</span>
+            : urgentSubs.slice(0, 8).map(({ s, text }) => (
+              <span key={s.subs} onClick={() => setLevel({ kind: "subs", subs: s.subs })} style={{ cursor: "pointer", padding: "4px 10px", borderRadius: 999, background: SEV.fail.soft, color: SEV.fail.ink, fontWeight: 600 }}>🔴 {s.subs} <span style={{ fontWeight: 500 }}>— {text}</span></span>))}
+          {urgentSubs.length > 8 && <span style={{ color: "var(--sec)" }}>외 {urgentSubs.length - 8}곳 (☰ 목록)</span>}
         </div>
       </div>
 
-      {/* 목록 */}
+      {/* ④ 목록(토글) */}
       {showList && (
         <div style={{ padding: "0 16px 20px" }}>
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="rgGlass" style={{ padding: 0, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-              <thead><tr style={{ background: "var(--rail)" }}>{["총괄", "법인", "국가", "종합", ...TOOLS.map((t) => t.label), "최신"].map((h) => <th key={h} style={{ textAlign: "left", padding: "8px 10px", fontSize: 11.5, color: "var(--sec)", fontWeight: 600 }}>{h}</th>)}</tr></thead>
+              <thead><tr style={{ background: "var(--rail)" }}>{["총괄", "법인", "국가", "종합", ...TOOLS.map((tt) => tt.label), "최신"].map((h) => <th key={h} style={{ textAlign: "left", padding: "8px 10px", fontSize: 11.5, color: "var(--sec)", fontWeight: 600 }}>{h}</th>)}</tr></thead>
               <tbody>
                 {data.subs.filter((s) => !onlyRed || s.overall === "red").map((s) => (
                   <tr key={s.subs} onClick={() => setLevel({ kind: "subs", subs: s.subs })} style={{ cursor: "pointer", borderTop: "1px solid var(--line)", background: selSubs?.subs === s.subs ? "var(--samsung-soft)" : undefined }}>
@@ -296,7 +375,7 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
                     <td style={{ padding: "7px 10px", fontWeight: 700 }}>{s.subs}</td>
                     <td style={{ padding: "7px 10px", color: "var(--sec)" }}>{s.countries.join(" · ")} <span style={{ color: "var(--ter)" }}>({s.sitecodes.join(", ")})</span></td>
                     <td style={{ padding: "7px 10px", fontSize: 15 }}>{emoji(s.overall)}</td>
-                    {TOOLS.map((t) => <td key={t.key} style={{ padding: "7px 10px" }}>{emoji(s.tools[t.key])} <span style={{ color: "var(--sec)", fontSize: 11.5 }}>{s.sitecodes.map((sc) => siteBy[sc]).filter((x) => x?.tools[t.key]?.tl).map((x) => toolText(x.tools[t.key], t.key)).slice(0, 2).join(" / ")}</span></td>)}
+                    {TOOLS.map((tt) => <td key={tt.key} style={{ padding: "7px 10px" }}>{emoji(s.tools[tt.key])} <span style={{ color: "var(--sec)", fontSize: 11.5 }}>{s.sitecodes.map((sc) => siteBy[sc]).filter((x) => x?.tools[tt.key]?.tl).map((x) => toolText(x.tools[tt.key], tt.key)).slice(0, 2).join(" / ")}</span></td>)}
                     <td style={{ padding: "7px 10px", color: "var(--ter)", fontSize: 11.5 }}>{s.latest_at ? s.latest_at.slice(0, 10) : "—"}</td>
                   </tr>))}
               </tbody>
