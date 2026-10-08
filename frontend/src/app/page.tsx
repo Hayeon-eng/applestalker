@@ -52,6 +52,10 @@ export default function Page() {
   const newUrlRef = useRef<HTMLInputElement>(null);
   const esRef = useRef<EventSource | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);   // [2026-10] SSE 끊김 시 폴링 폴백
+  const loadedReportRef = useRef<Report | null>(null);                    // load() 직후 어느 탭을 열지 정하기 위해 보관
+  const firstLoadDone = useRef(false);
+  // [2026-10] 변경 0건이면 '현황/변경점 분석'은 "변경 없음" 한 줄뿐이라 볼 게 없다 → 현재 점수가 있는 'Site별 분석'을 먼저 연다
+  const tabForReport = (rep: Report | null): MainTab => (rep && (rep.changes || []).length === 0 ? "pages" : "overview");
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +71,8 @@ export default function Page() {
       const jRep = rRep ? await rRep.json() : null;
       const jUrls = rUrls ? await rUrls.json() : null;
       setReport(jRep?.has_data ? jRep : null);
+      loadedReportRef.current = jRep?.has_data ? jRep : null;
+      if (!firstLoadDone.current) { firstLoadDone.current = true; setMainTab(tabForReport(loadedReportRef.current)); }   // 첫 진입도 같은 규칙
       setActiveSessionId(jRep?.run_id || null);
       setRuns(rRuns ? (await rRuns.json()).sessions || [] : []);
       const nextUrls = jUrls?.urls || [];
@@ -101,8 +107,9 @@ export default function Page() {
     setProgress((p) => ({ ...p, active: false, phase: undefined }));
     setCrawling(false);
     await load();
-    setMainTab("overview");
-    toast("수집이 끝났습니다 — 최신 결과를 불러왔습니다", "ok");
+    const rep = loadedReportRef.current;
+    setMainTab(tabForReport(rep));
+    toast(rep && (rep.changes || []).length === 0 ? "수집 완료 — 변경 0건이라 현재 점수(Site별 분석)를 먼저 보여드립니다" : "수집이 끝났습니다 — 최신 결과를 불러왔습니다", "ok");
   }, [load]);
   const startPollingFallback = useCallback(() => {
     if (pollRef.current) return;
@@ -152,7 +159,7 @@ export default function Page() {
       setReport(j?.has_data ? j : null);
       setSelectedChange(null);
       setSelectedPage(null);
-      setMainTab("overview"); // 이력 데이터는 '현황/변경점 분석' 탭에 표시되므로 그쪽으로 전환
+      setMainTab(tabForReport(j?.has_data ? j : null)); // 변경 0건 이력은 Site별 분석(현재 점수)으로, 아니면 현황/변경점 분석으로
     } catch {
       toast("수집 이력을 불러오지 못했습니다. 네트워크 상태를 확인해주세요.", "err");
     } finally {
