@@ -556,6 +556,10 @@ def _site_issues(site: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
+def _tile_sev(reds: int, yellows: int) -> int:
+    return 1 if reds else 2 if yellows else 0
+
+
 def _tool_tiles(sites: List[Dict[str, Any]], issues: List[Dict[str, Any]], apple: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Summary 타일 — 툴마다 그 툴에 맞는 대표 지표(크게) + 통일 기준(작게: 문제 사이트 수 / 검수 사이트 수)."""
     def checked(tool):
@@ -570,36 +574,41 @@ def _tool_tiles(sites: List[Dict[str, Any]], issues: List[Dict[str, Any]], apple
         tiles.append({"key": "apple", "letter": "A", "name": "appleStalker", "sub": "경쟁사 페이지 변경",
                       "metric": f"{apple.get('changes', 0)}건", "metric_label": f"이번 수집 변경 (High {apple.get('high', 0)})",
                       "note": f"변경 사이트 {len(apple.get('sites') or [])}곳 · 삼성 변경 {'있음' if 'samsung' in (apple.get('sites') or []) else '없음'}",
-                      "cause": (apple.get("issues") or [{}])[0].get("short", ""), "go": {"app": "applestalker"}})
+                      "cause": (apple.get("issues") or [{}])[0].get("short", ""), "go": {"app": "applestalker"},
+                      "sev": 1 if apple.get("high") else 2 if apple.get("changes") else 0})
     dc = checked("data")
     if dc:
         sc = [((s["tools"]["data"]).get("score")) for s in dc if s["tools"]["data"].get("score") is not None]
+        yel = [s for s in dc if s["tools"]["data"].get("tl") == "yellow"]
         tiles.append({"key": "data", "letter": "B", "name": "qaBee · DATA QA", "sub": "스키마·메타 데이터",
                       "metric": f"{round(sum(sc) / len(sc))}%" if sc else "—", "metric_label": "AEO 퀄리티 평균",
                       "note": f"기준 미달 사이트 {len(red('data'))} / {len(dc)}곳", "cause": top_cause("data"),
-                      "go": {"app": "qubi", "tab": "schema"}})
+                      "go": {"app": "qubi", "tab": "schema"}, "sev": _tile_sev(len(red("data")), len(yel))})
     spc = checked("spec")
     if spc:
         crit = sum((s["tools"]["spec"].get("critical") or 0) for s in spc)
+        yel = [s for s in spc if s["tools"]["spec"].get("tl") == "yellow"]
         tiles.append({"key": "spec", "letter": "B", "name": "qaBee · 스펙 QA", "sub": "PDP·Compare 스펙 표기",
                       "metric": f"{crit}건", "metric_label": "스펙 오류 항목",
                       "note": f"오류 사이트 {len(red('spec'))} / {len(spc)}곳", "cause": top_cause("spec"),
-                      "go": {"app": "qubi", "tab": "copy"}})
+                      "go": {"app": "qubi", "tab": "copy"}, "sev": _tile_sev(len(red("spec")), len(yel))})
     stc = checked("static")
     if stc:
         sc = [s["tools"]["static"].get("score") for s in stc if s["tools"]["static"].get("score") is not None]
+        yel = [s for s in stc if s["tools"]["static"].get("tl") == "yellow"]
         tiles.append({"key": "static", "letter": "B", "name": "qaBee · 공통페이지 QA", "sub": "Home·Switch to Galaxy 등",
                       "metric": f"{round(sum(sc) / len(sc))}%" if sc else "—", "metric_label": "정상 페이지 비율",
                       "note": f"오류 사이트 {len(red('static'))} / {len(stc)}곳", "cause": top_cause("static"),
-                      "go": {"app": "qubi", "tab": "static"}})
+                      "go": {"app": "qubi", "tab": "static"}, "sev": _tile_sev(len(red("static")), len(yel))})
     hcc = checked("hc")
     if hcc:
         t1 = sum((s["tools"]["hc"].get("top1") or 0) for s in hcc)
         tot = sum(sum((s["tools"]["hc"].get(k) or 0) for k in ("top1", "topn", "low", "absent")) for s in hcc)
+        yel = [s for s in hcc if s["tools"]["hc"].get("tl") == "yellow"]
         tiles.append({"key": "hc", "letter": "C", "name": "honeyComb", "sub": "Google Shopping 노출",
                       "metric": f"{round(100 * t1 / tot)}%" if tot else "—", "metric_label": "삼성닷컴 1위 비율",
                       "note": f"미노출 있는 국가 {len(red('hc'))} / {len(hcc)}개국", "cause": top_cause("hc"),
-                      "go": {"app": "honeycomb"}})
+                      "go": {"app": "honeycomb"}, "sev": _tile_sev(len(red("hc")), len(yel))})
     return tiles
 
 
@@ -612,14 +621,19 @@ def region_insights(ov: Dict[str, Any], apple: Optional[Dict[str, Any]] = None) 
         by_subs.setdefault(i["subs"], []).append(i)
     for v in by_subs.values():
         v.sort(key=lambda x: x["sev"])
-    # 사이트 표 — 빨간 도구 많은 순
+    # 사이트 표 — 빨간 도구 많은 순. 칸은 3가지 상태를 구분한다: 이슈(sev1·2) / 정상(검수했고 문제 없음) / 미검수(—).
     site_rows = []
     for s in sites:
         iss = [i for i in issues if i["sitecode"] == (s.get("sitecode") or "")]
         if not iss:
             continue
+        cells: Dict[str, Any] = {}
+        for tool in ("data", "spec", "static", "hc"):
+            hit = next((i for i in iss if i["tool"] == tool), None)
+            tl = ((s.get("tools") or {}).get(tool) or {}).get("tl")
+            cells[tool] = {"sev": hit["sev"], "short": hit["short"]} if hit else {"sev": 0, "short": "정상"} if tl == "green" else None
         site_rows.append({"sitecode": s.get("sitecode"), "subs": s.get("subs"), "region": s.get("region"), "country": s.get("country"),
-                          "red": sum(1 for i in iss if i["sev"] == 1), "cells": {i["tool"]: {"sev": i["sev"], "short": i["short"]} for i in iss},
+                          "red": sum(1 for i in iss if i["sev"] == 1), "cells": cells,
                           "details": sorted(iss, key=lambda x: x["sev"])})
     site_rows.sort(key=lambda r: (-r["red"], -len(r["details"]), r["sitecode"] or ""))
     # 급한 이슈 — 여러 권역 공통(R2) 먼저, 그다음 개별 🔴 이슈(도구가 골고루 보이게), appleStalker 변경 1건
