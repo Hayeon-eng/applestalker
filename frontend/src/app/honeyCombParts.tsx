@@ -55,25 +55,40 @@ export function AppleCompareCard({ ap, attrName, prodLabel }: { ap: any; attrNam
                     </div>
                     <div style={{ fontSize: 10.5, color: "var(--gray)", marginTop: 6 }}>빨간 숫자 = Apple보다 10%p 이상 낮음</div>
                     {/* [2026-11] 속성별 상세 비교 — 접기/펴기. Apple 은 보이는데 삼성은 안 보이는 칸까지 */}
-                    {!!ap.by_attr?.length && (
+                    {!!ap.by_attr?.length && (() => {
+                      // [2026-11] 51개 속성을 한 번에 쏟아내지 않는다 — '차이가 있는 속성'만 기본으로 보여주고, 나머지(둘 다 0%/미관측)는 접어 둔다.
+                      const interesting = ap.by_attr.filter((x: any) => (x.gap || 0) !== 0 || x.apple_only.length || x.samsung_only.length || x.samsung || x.apple);
+                      const rest = ap.by_attr.length - interesting.length;
+                      const Row = ({ x }: { x: any }) => (
+                        <tr style={{ background: x.apple_only.length ? "#FFF5F5" : undefined }}>
+                          <td style={{ ...td, color: "var(--sec)" }}>{x.group}</td>
+                          <td style={td}>{nm(x.key)}</td>
+                          <td style={{ ...td, color: tone(x.samsung, x.apple), fontWeight: 700 }}>{f(x.samsung)}</td>
+                          <td style={td}>{f(x.apple)}</td>
+                          <td style={{ ...td, fontSize: 11.5 }} title={x.apple_only.map(pl).join(", ")}>{x.apple_only.length ? `${x.apple_only.slice(0, 3).map(pl).join(" · ")}${x.apple_only.length > 3 ? ` 외 ${x.apple_only.length - 3}칸` : ""}` : "—"}</td>
+                          <td style={{ ...td, fontSize: 11.5, color: "var(--sec)" }} title={x.samsung_only.map(pl).join(", ")}>{x.samsung_only.length ? `${x.samsung_only.slice(0, 2).map(pl).join(" · ")}${x.samsung_only.length > 2 ? ` 외 ${x.samsung_only.length - 2}칸` : ""}` : "—"}</td>
+                        </tr>);
+                      return (
                       <details style={{ marginTop: 10 }}>
                         <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>속성별 상세 비교 <span style={{ fontWeight: 400, color: "var(--sec)" }}>— Apple만 보이는 속성 {ap.by_attr.filter((x: any) => x.apple_only.length).length}개 · 차이 큰 순</span></summary>
                         <div style={{ overflowX: "auto", marginTop: 6 }}>
                           <table style={{ borderCollapse: "collapse", minWidth: 640, width: "100%" }}>
                             <thead><tr><th style={th}>영역</th><th style={th}>속성</th><th style={th}>삼성</th><th style={th}>Apple</th><th style={th}>Apple만 보이는 칸</th><th style={th}>삼성만 보이는 칸</th></tr></thead>
-                            <tbody>{ap.by_attr.map((x: any) => (
-                              <tr key={x.key} style={{ background: x.apple_only.length ? "#FFF5F5" : undefined }}>
-                                <td style={{ ...td, color: "var(--sec)" }}>{x.group}</td>
-                                <td style={td}>{nm(x.key)}<span style={{ color: "var(--ter)", fontSize: 10.5, marginLeft: 4 }}>{x.key}</span></td>
-                                <td style={{ ...td, color: tone(x.samsung, x.apple), fontWeight: 700 }}>{f(x.samsung)}</td>
-                                <td style={td}>{f(x.apple)}</td>
-                                <td style={{ ...td, fontSize: 11.5 }} title={x.apple_only.map(pl).join(", ")}>{x.apple_only.length ? `${x.apple_only.slice(0, 3).map(pl).join(" · ")}${x.apple_only.length > 3 ? ` 외 ${x.apple_only.length - 3}칸` : ""}` : "—"}</td>
-                                <td style={{ ...td, fontSize: 11.5, color: "var(--sec)" }} title={x.samsung_only.map(pl).join(", ")}>{x.samsung_only.length ? `${x.samsung_only.slice(0, 2).map(pl).join(" · ")}${x.samsung_only.length > 2 ? ` 외 ${x.samsung_only.length - 2}칸` : ""}` : "—"}</td>
-                              </tr>))}</tbody>
+                            <tbody>{interesting.map((x: any) => <Row key={x.key} x={x} />)}</tbody>
                           </table>
                         </div>
+                        {!interesting.length && <div style={{ fontSize: 12, color: "var(--sec)", padding: "8px 0" }}>삼성·Apple 모두 관측된 속성이 없습니다.</div>}
+                        {rest > 0 && (
+                          <details style={{ marginTop: 6 }}>
+                            <summary style={{ cursor: "pointer", fontSize: 11.5, color: "var(--sec)" }}>둘 다 관측되지 않은 속성 {rest}개 더 보기</summary>
+                            <div style={{ overflowX: "auto", marginTop: 4 }}>
+                              <table style={{ borderCollapse: "collapse", minWidth: 640, width: "100%" }}><tbody>
+                                {ap.by_attr.filter((x: any) => !interesting.includes(x)).map((x: any) => <Row key={x.key} x={x} />)}
+                              </tbody></table>
+                            </div>
+                          </details>)}
                         <div style={{ fontSize: 10.5, color: "var(--gray)", marginTop: 4 }}>노출률 = 공식몰 카드·상세 창에서 실제로 확인한 칸 중 보인 비율('확인 안 함'·검색으로 볼 수 없는 속성 제외) · 같은 국가·제품 칸끼리 비교</div>
-                      </details>)}
+                      </details>); })()}
                   </div>);
 }
 
