@@ -12,6 +12,7 @@ import QubiApp from "./QubiApp";
 import HoneyCombApp from "./HoneyCombApp"; // [2026-09] 🐝C honeyComb (목업)
 import RegionOverview from "./RegionOverview"; // [2026-10] 🌍 권역별 OVERVIEW
 import { InsightCtx } from "./insightUi"; // [2026-11] 공통 인사이트
+import type { NavTarget } from "./navTarget";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -21,6 +22,7 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace
 export default function Page() {
   const [view, setView] = useState<View>("home");
   const [appMode, setAppMode] = useState<"applestalker" | "qubi" | "honeycomb" | "regions">("applestalker");
+  const [nav, setNav] = useState<NavTarget | null>(null);   // [2026-11 E1] 권역 화면 → 해당 앱·화면 이동 대상
   const [mainTab, setMainTab] = useState<MainTab>("overview");
   const [metricTab, setMetricTab] = useState<MetricView>("all");
   const [online, setOnline] = useState<boolean | null>(null);
@@ -285,15 +287,15 @@ export default function Page() {
   }
 
   if (appMode === "regions") {
-    return <RegionOverview apiBase={API} onHome={() => setView("home")} onGo={(app) => { setAppMode(app); setView("dashboard"); }} />;
+    return <RegionOverview apiBase={API} onHome={() => setView("home")} onGo={(app, target) => { setNav(target || null); setAppMode(app); setView("dashboard"); }} />;
   }
 
   if (appMode === "honeycomb") {
-    return <HoneyCombApp apiBase={API} onHome={() => setView("home")} />;
+    return <HoneyCombApp apiBase={API} onHome={() => setView("home")} nav={nav} />;
   }
 
   if (appMode === "qubi") {
-    return <QubiApp apiBase={API} onHome={() => setView("home")} />;
+    return <QubiApp apiBase={API} onHome={() => setView("home")} nav={nav} />;
   }
 
   return (

@@ -204,3 +204,6 @@ button.priorityRow:hover { background: var(--bg); }
 .insAct { color: var(--blue, #1D4ED8); font-weight: 700; }
 .insEmpty { color: var(--sec); }
 .insBasis { font-size: 10.5px; color: var(--gray, #8A94A6); margin: 6px 0 0; border-top: 1px dashed var(--line); padding-top: 5px; }
+
+/* [2026-11 E1] 권역 OVERVIEW 에서 이동해 온 사이트 행 표시 (qubiNav.FOCUS_ROW 와 함께) */
+.qbFocusRow > div:first-child::after { content: "이동한 사이트"; flex: none; margin-left: 8px; font-size: 10.5px; font-weight: 700; color: #8A5A00; background: #FCE3A6; border-radius: 999px; padding: 1px 8px; }

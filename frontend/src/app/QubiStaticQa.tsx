@@ -31,7 +31,7 @@ const Pill = ({ s, n, on, onClick }: { s: string; n?: number; on?: boolean; onCl
 const tlOf = (v: any) => tlByScore(v?.score ?? null);
 // [2026-11 C3] 이력은 좌측 사이드바 한 곳에서만 고른다(우측 '이력 선택' 드롭다운 제거).
 //   openReq: 사이드바에서 고른 run_id · onRuns: 이력 목록을 사이드바로 올려보냄
-export function QubiStaticQa({ apiBase, openReq, onRuns, onRunLoaded }: { apiBase: string; openReq?: { id: string; n: number } | null; onRuns?: (runs: any[]) => void; onRunLoaded?: (run: any) => void }) {
+export function QubiStaticQa({ apiBase, openReq, onRuns, onRunLoaded }: { apiBase: string; openReq?: { id: string; n: number; sitecode?: string | null; page?: string | null } | null; onRuns?: (runs: any[]) => void; onRunLoaded?: (run: any) => void }) {
   const api = (p: string) => `${apiBase}${p}`;
   const [meta, setMeta] = useState<any>(null);
   const [runs, setRuns] = useState<any[]>([]);
@@ -51,7 +51,7 @@ export function QubiStaticQa({ apiBase, openReq, onRuns, onRunLoaded }: { apiBas
   };
   const openLatest = async () => { if (runs.length) await openRun(runs[0].run_id); };
   useEffect(() => { load(); }, [apiBase]);
-  useEffect(() => { if (openReq?.id) openRun(openReq.id); // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (openReq?.id) openRun(openReq.id, openReq); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openReq?.n]);
   const start = async () => {
     const body: any = page === "all" ? {} : { pages: [page] };
@@ -62,7 +62,15 @@ export function QubiStaticQa({ apiBase, openReq, onRuns, onRunLoaded }: { apiBas
     if (r.status === 409) { toast("이미 검수 중입니다", "warn"); return; }
     setStatus({ done: 0, total: 0 }); const t = setInterval(async () => { const st = await (await fetch(api("/api/qb/static/status"))).json(); setStatus(st); if (!st.running) { clearInterval(t); setStatus(null); await load(); const rs = (await (await fetch(api("/api/qb/static/runs"))).json()).runs || []; if (rs.length) openRun(rs[0].run_id); } }, 1500);
   };
-  const openRun = async (id: string) => { const d = await (await fetch(api(`/api/qb/static/runs/${id}`))).json(); setRun(d); onRunLoaded?.(d); setSel(null); };
+  // [2026-11 E1] focus(권역 화면에서 넘어온 사이트·페이지)가 있으면 그 페이지로 필터하고 해당 칸 상세를 바로 연다
+  const openRun = async (id: string, focus?: { sitecode?: string | null; page?: string | null }) => {
+    const d = await (await fetch(api(`/api/qb/static/runs/${id}`))).json(); setRun(d); onRunLoaded?.(d); setSel(null);
+    if (focus?.page) setPage(focus.page);
+    if (focus?.sitecode) {
+      const r = (d.results || []).find((x: any) => x.sitecode === focus.sitecode && (!focus.page || x.page === focus.page));
+      if (r) setSel(r);
+    }
+  };
 
   if (!meta) return <Loading label="공통페이지 QA 불러오는 중…" />;
   const pages: any[] = meta.pages;

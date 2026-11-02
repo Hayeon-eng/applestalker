@@ -1,5 +1,6 @@
 "use client";
-import { InsightBox } from "./insightUi";
+import { RegionIssueList, IssueDetail } from "./regionIssues";
+import type { NavTarget } from "./navTarget";
 /* RegionOverview.tsx — [2026-10] 🌍 권역별 OVERVIEW  (2026-10-08 커맨드센터형으로 단순화)
    구성: ① 위 KPI 5장(툴별 숫자 하나 + 신호등) ② 가운데 지도 + 총괄 9개 말풍선 카드(🔴🟡🟢 법인 수 + 가장 급한 법인 한 줄, 지시선)
          ③ 아래 "지금 봐야 할 것" 한 줄(🔴 법인만) ④ 카드/국가 클릭 → 그 범위로 줌인(CSS transition) + 오른쪽 상세 패널, Esc/빈 곳 → 뒤로
@@ -40,7 +41,8 @@ function toolText(t: Tool, key: string): string {
   return "";
 }
 
-export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: string; onHome: () => void; onGo: (app: "applestalker" | "qubi" | "honeycomb") => void }) {
+export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: string; onHome: () => void; onGo: (app: "applestalker" | "qubi" | "honeycomb", target?: NavTarget) => void }) {
+  const goTo = (t: NavTarget) => onGo(t.app, t);   // [2026-11 E1] 세부 이슈 → 해당 앱·화면
   const api = (p: string) => (apiBase === "/" ? "" : apiBase.replace(/\/$/, "")) + p;
   const [data, setData] = useState<Data | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
@@ -220,8 +222,9 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
         {data?.insights?.by_region?.[k.r.region] ? (
           <div style={{ fontSize: 11, color: "var(--label)", marginTop: 5, borderTop: "1px solid rgba(0,0,0,.06)", paddingTop: 5, lineHeight: 1.45 }}
             title={data.insights.by_region[k.r.region].line}>
-            {data.insights.by_region[k.r.region].text.replace(`${k.r.region} `, "")}
-            <div style={{ color: "var(--blue)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>→ {data.insights.by_region[k.r.region].action}</div>
+            <b>{data.insights.by_region[k.r.region].short}</b>
+            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{data.insights.by_region[k.r.region].first}</div>
+            <div style={{ color: "var(--ter)", fontSize: 10.5 }}>눌러서 법인별 세부 보기</div>
           </div>
         ) : k.why && k.cnt.red + k.cnt.yellow > 0 && <div style={{ fontSize: 11, color: "var(--label)", marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", borderTop: "1px solid rgba(0,0,0,.06)", paddingTop: 5 }}>↳ {k.why}</div>}
       </div>);
@@ -261,7 +264,7 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
       {/* [2026-11 E1] 가장 중요한 창 — 숫자만이 아니라 '크리티컬 이슈 → 할 일' 3줄 + 판단 기준 */}
       {data.insights && (
         <div style={{ padding: "10px 16px 0" }}>
-          <InsightBox title="지금 가장 급한 이슈" items={data.insights.top} basis={data.insights.basis} empty="오류 법인 없음" style={{ marginTop: 0, background: "rgba(255,255,255,.85)" }} />
+          <RegionIssueList ins={data.insights} onGo={goTo} />
         </div>)}
 
       {/* ② 지도 + 말풍선 카드 (줌인하면 카드 대신 오른쪽 패널) */}
@@ -336,9 +339,16 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
                     <div key={tt.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: "var(--rail)", borderRadius: 8, fontSize: 12.5 }}>
                       <span>{emoji(selSubs.tools[tt.key])}</span><b style={{ minWidth: 84 }}>{tt.label}</b>
                       <span style={{ color: "var(--sec)", flex: 1 }}>{selSubs.sitecodes.map((sc) => siteBy[sc]).filter((s) => s?.tools[tt.key]?.tl).map((s) => `${s.sitecode} ${toolText(s.tools[tt.key], tt.key)}`).join(" · ") || "데이터 없음"}</span>
-                      <button className="btnSecondary" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => { onGo(tt.app); toast(`${tt.label} 탭에서 ${selSubs.sitecodes.join(", ")} 를 확인하세요`, "info"); }}>이동 →</button>
+                      <button className="btnSecondary" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => { const d = (data.insights?.by_subs?.[selSubs.subs] || []).find((x: any) => x.tool === tt.key);
+                        if (d?.go) goTo({ ...d.go, n: Date.now() }); else { onGo(tt.app); toast(`${tt.label} 탭에서 ${selSubs.sitecodes.join(", ")} 를 확인하세요`, "info"); } }}>이동 →</button>
                     </div>))}
                 </div>
+                {/* [2026-11 E1] 이 법인의 사이트별 세부 이슈 + 해당 화면 이동 */}
+                {(data.insights?.by_subs?.[selSubs.subs] || []).length > 0 && (
+                  <div style={{ marginTop: 10, background: "rgba(255,255,255,.7)", borderRadius: 8, padding: "4px 2px" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, padding: "4px 8px" }}>세부 이슈 {(data.insights.by_subs[selSubs.subs] || []).length}건</div>
+                    {data.insights.by_subs[selSubs.subs].map((d: any, j: number) => <IssueDetail key={j} d={d} onGo={goTo} />)}
+                  </div>)}
                 <div style={{ fontSize: 12, color: "var(--sec)", marginTop: 12 }}>사이트코드</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
                   {selSubs.sitecodes.map((sc) => { const s = siteBy[sc]; const k = sevKey(s?.overall || null); return <span key={sc} style={{ fontSize: 12, padding: "3px 9px", borderRadius: 999, background: SEV[k].soft, color: SEV[k].ink, fontWeight: 700 }}>{sc}</span>; })}

@@ -1,5 +1,6 @@
 "use client";
 import { InsightBox } from "./insightUi";
+import { FOCUS_ROW } from "./qubiNav";
 /* QubiSpecQa.tsx — Spec QA [V2] 렌더 블록 (Rule 기반 Spec Validation 결과 화면)
    QA 담당자가 30초 안에 ①어떤 Rule이 실패했는지 ②왜 ③어떻게 고치는지 이해하는 것이 목표.
    Data QA(QubiDataQa) 카드 스타일과 얼라인: 색 헤더 스트립 + 테두리 카드.
@@ -249,7 +250,7 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
   if (rows.length === 1) {
     const r0 = rows[0];
     return (
-      <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
+      <div className="card qbiPopIn" data-qb-site={r0.sitecode} style={{ marginTop: 16, padding: 14 }}>
         <SpecOverallBanner results={rows} />
         {r0.page_type !== "Compare" && (
           <SpecV2Panel row={r0} product={r0.market_product || c.product} api={c.api} flash={c.flash} />
@@ -324,7 +325,7 @@ export function SpecQaDetails({ ctx: c }: { ctx: any }) {
                     const key = `spec:${pt}|${region}|${r.sitecode}|${i}`;
                     const prod = r.market_product || r.product || "";
                     return (
-                      <div key={key} style={{ borderBottom: "1px solid var(--line)" }}>
+                      <div key={key} data-qb-site={r.sitecode} data-qb-key={key} className={c.focusSite && c.focusSite === r.sitecode ? "qbFocusRow" : undefined} style={{ borderBottom: "1px solid var(--line)", ...(c.focusSite && c.focusSite === r.sitecode ? FOCUS_ROW : {}) }}>{/* [2026-11 E1] 권역 화면에서 이동해 온 사이트 강조 */}
                         <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px 8px 16px", cursor: "pointer", fontSize: 12.5 }}>
                           <span>{noRuleset ? "⚪" : TL_EMOJI[tl]}</span>

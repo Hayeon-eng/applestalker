@@ -7,6 +7,7 @@
 ════════════════════════════════════════════════════════════════════ */
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { InsightBox } from "./insightUi";
+import type { NavTarget } from "./navTarget";
 import { Loading, EmptyState, toast } from "./uiShared";
 // [2026-11] 용량(47KB) 제한으로 타입·상수·속성 표·Apple 비교 카드·키워드 탭은 honeyCombParts.tsx 로 분리
 import {
@@ -15,7 +16,7 @@ import {
 } from "./honeyCombParts";
 
 
-export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onHome: () => void }) {
+export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string; onHome: () => void; nav?: NavTarget | null }) {
   const api = (p: string) => `${apiBase}${p}`;
   const [cfg, setCfg] = useState<any>(null);
   const [attrs, setAttrs] = useState<Attr[]>([]);
@@ -31,6 +32,14 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const [prods, setProds] = useState<Set<string>>(new Set());
   const [ctrys, setCtrys] = useState<Set<string>>(new Set());
   const [sel, setSel] = useState<{ country: string; product: string } | null>(null);
+  // [2026-11 E1] 권역 화면에서 넘어오면 해당 주차·국가·제품 칸을 바로 연다
+  useEffect(() => {
+    if (!nav || nav.app !== "honeycomb") return;
+    setTab("grid");
+    if (nav.run_id) setRunId(nav.run_id);
+    if (nav.country && nav.product) setSel({ country: nav.country, product: nav.product });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nav?.n]);
   const [view, setView] = useState<"hex" | "kw">("hex");           // 노출 현황: 제품 벌집 / 키워드별 순위
   const [kwFocus, setKwFocus] = useState<string | null>(null);        // 특정 키워드로 벌집 보기
   const [attrProduct, setAttrProduct] = useState("");

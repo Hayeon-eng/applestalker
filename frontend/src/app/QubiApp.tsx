@@ -4,6 +4,8 @@
  * 탭: [스키마 QA] [스펙 QA] · 제품×페이지타입 선택 · 입력 3종(붙여넣기/파일/링크)
  * 스펙 관리(메인 표) · 스키마 룰 추가(타입 드롭다운) · Quick View + 권역 신호등
  */
+import { useSpecInsights, useQubiNav } from "./qubiNav";
+import type { NavTarget } from "./navTarget";
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Finding, PageResult, SiteRow, CatalogItem, Product, SEV, HONEY, PAGE_TYPES, pageTypesFor, family, tierOf, inputStyle, sel } from "./qubiShared";
 import { CriteriaPanel, ScorePanel, QuickView } from "./QubiSections";
@@ -13,7 +15,7 @@ import { QubiSidebar } from "./QubiSidebar";
 import { QubiStaticQa, StaticV2Criteria, StaticV2Score } from "./QubiStaticQa"; // [2026-09] 공통페이지 QA
 import { QubiRunPanel } from "./QubiRunPanel";
 
-export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; onHome?: () => void }) {
+export default function QubiApp({ apiBase = "", onHome, nav }: { apiBase?: string; onHome?: () => void; nav?: NavTarget | null }) {
   const [tab, setTab] = useState<"schema" | "copy" | "static">("schema");
   // [2026-07 과제3] 마지막으로 실행한 QA 축(all/data/spec) — 탭별 독립 실행 표시용
   const [qaMode, setQaMode] = useState<"all" | "data" | "spec">("all");
@@ -435,27 +437,16 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const quickRows = useMemo(() => rows.filter((x) => qCountry === "전체" || x.r.country === qCountry), [rows, qCountry]);
 
   // QubiSections.tsx 로 분리한 렌더 블록에 상태·핸들러를 한 번에 주입
-  // [2026-11 C1] 스펙 QA 상단 인사이트 — 현재 결과를 백엔드 insight_rules 로 보내 같은 문장을 받는다(화면·메일 단일 소스).
-  const [specInsights, setSpecInsights] = useState<any>(null);
+  const specInsights = useSpecInsights(tab, results, api);   // [2026-11 C1] → qubiNav.ts
   const [staticRuns, setStaticRuns] = useState<any[]>([]);                       // [2026-11 C3]
   const [staticInsights, setStaticInsights] = useState<any>(null);
-  const [staticOpen, setStaticOpen] = useState<{ id: string; n: number } | null>(null);
-  useEffect(() => {
-    if (tab !== "copy") return;
-    const rows = (results || []).filter((r: any) => r.spec_v2 || r.compare_v2);
-    if (!rows.length) { setSpecInsights(null); return; }
-    const slim = (v: any) => v ? { summary: { score: v.summary?.score }, items: (v.items || []).filter((i: any) => i.status === "fail" || i.status === "warn")
-      .map((i: any) => ({ attribute: i.attribute || i.label || i.rule_id, status: i.status, expected: i.expected, unit: i.unit, page: i.page })) } : null;
-    const body = rows.map((r: any) => ({ sitecode: r.sitecode, region: r.region, page_type: r.page_type, spec_v2: slim(r.spec_v2), compare_v2: slim(r.compare_v2) }));
-    let alive = true;
-    fetch(api("/api/qb/insights"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tab: "spec", results: body }) })
-      .then((x) => (x.ok ? x.json() : null)).then((j) => { if (alive) setSpecInsights(j); }).catch(() => { if (alive) setSpecInsights(null); });
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, results]);
+  const [staticOpen, setStaticOpen] = useState<{ id: string; n: number; sitecode?: string | null; page?: string | null } | null>(null);
+
+  const [focusSite, setFocusSite] = useState<string | null>(null);   // [2026-11 E1] 이동해 온 사이트 행 강조
+  useQubiNav(nav, { setTab, openHistory, openStatic: setStaticOpen, scrollToRegion, flash, setFocusSite, setExpanded: setQaExpandedSite });
 
   const ctx = {
-    specInsights, staticInsights,
+    specInsights, staticInsights, focusSite,
     tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash, qaExpandedSite, setQaExpandedSite, overview,
     showScore, scoreRef, regionRefs, scrollToRegion,
     specProduct, setSpecProduct, products, newProd, setNewProd, addProduct, v2Products, isV2,

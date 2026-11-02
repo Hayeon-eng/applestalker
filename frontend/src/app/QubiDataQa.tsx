@@ -1,5 +1,6 @@
 "use client";
 import { InsightBox } from "./insightUi";
+import { FOCUS_ROW } from "./qubiNav";
 /* QubiDataQa.tsx — DATA QA(스키마·HTML) 상세/종합/전사이트 렌더 블록.
    QubiSections에서 분리(파일 크기 축소). 상태는 ctx로 주입받음. */
 import { useState, Fragment } from "react";
@@ -443,7 +444,7 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
     const hq = r0.html_qa;
     const findings = r0.schema?.findings || [];
     return (
-      <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
+      <div className="card qbiPopIn" data-qb-site={r0.sitecode} style={{ marginTop: 16, padding: 14 }}>
         <OverallBanner hq={hq} row={r0} />
         <HtmlQaDetail hq={hq} findings={findings} seo={r0.seo} />
       </div>
@@ -501,7 +502,7 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
                 const key = region + "|" + r.sitecode + "|" + (r.product || r.market_product || "") + "|" + (r.page_type || "") + i;
                 const prod = r.product || r.market_product || "";
                 return (
-                  <div key={key} style={{ borderBottom: "1px solid var(--line)" }}>
+                  <div key={key} data-qb-site={r.sitecode} data-qb-key={key} className={c.focusSite && c.focusSite === r.sitecode ? "qbFocusRow" : undefined} style={{ borderBottom: "1px solid var(--line)", ...(c.focusSite && c.focusSite === r.sitecode ? FOCUS_ROW : {}) }}>{/* [2026-11 E1] 권역 화면에서 이동해 온 사이트 강조 */}
                     <div onClick={() => c.setQaExpandedSite(expanded === key ? null : key)}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 4px 8px 16px", cursor: "pointer", fontSize: 12.5 }}>
                       <span>{TL_EMOJI[tl] || TL_NONE}</span>
