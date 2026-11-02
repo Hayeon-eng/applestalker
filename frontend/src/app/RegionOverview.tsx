@@ -157,14 +157,6 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, [subsBy]);
 
-  if (err) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><EmptyState tone="error" title="권역 OVERVIEW 를 불러오지 못했습니다" desc={<span style={{ whiteSpace: "pre-line" }}>{err}</span>} action={<button className="btnSecondary" onClick={onHome}>홈으로</button>} /></div></div>;
-  if (!data || !geo) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><Loading label="세계지도와 세 툴의 최신 결과를 모으는 중…" /></div></div>;
-
-  const selSubs = level.kind === "subs" ? subsBy[level.subs] : null;
-  const selRegion = level.kind === "region" ? data.regions.find((r) => r.region === level.region) : level.kind === "subs" ? data.regions.find((r) => r.region === selSubs?.region) : null;
-  const hov = hover ? countryInfo(hover.id) : null;
-  const hovFeat = hover ? geo.features.find((f) => String(f.id) === hover.id) : null;
-  const zoomed = level.kind !== "all";
   // 툴 선택 시: 그 툴 문제가 있는 나라 → 툴 색(🔴 진하게 · 🟡 옅게)
   const toolFocus = useMemo(() => {
     const m = new Map<string, number>();
@@ -175,8 +167,17 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
     }
     return m;
   }, [tool, data]);
-  const toolColor = tool ? TOOL_THEME[letterOf(tool)].color : "";
   const hoverIds = useMemo(() => new Set(hoverSite ? (SITE_GEO[hoverSite.sitecode] || []) : []), [hoverSite]);
+
+  if (err) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><EmptyState tone="error" title="권역 OVERVIEW 를 불러오지 못했습니다" desc={<span style={{ whiteSpace: "pre-line" }}>{err}</span>} action={<button className="btnSecondary" onClick={onHome}>홈으로</button>} /></div></div>;
+  if (!data || !geo) return <div className="appShell"><div style={{ padding: 30, width: "100%" }}><Loading label="세계지도와 세 툴의 최신 결과를 모으는 중…" /></div></div>;
+
+  const selSubs = level.kind === "subs" ? subsBy[level.subs] : null;
+  const selRegion = level.kind === "region" ? data.regions.find((r) => r.region === level.region) : level.kind === "subs" ? data.regions.find((r) => r.region === selSubs?.region) : null;
+  const hov = hover ? countryInfo(hover.id) : null;
+  const hovFeat = hover ? geo.features.find((f) => String(f.id) === hover.id) : null;
+  const zoomed = level.kind !== "all";
+  const toolColor = tool ? TOOL_THEME[letterOf(tool)].color : "";
   const hoverColor = hoverSite ? TOOL_THEME[letterOf(hoverSite.tool)].color : "";
   const showOnMap = (sc: string) => {   // 지도로 부드럽게 스크롤 → 그 법인으로 확대
     mapRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
