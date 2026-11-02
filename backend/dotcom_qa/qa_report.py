@@ -152,6 +152,22 @@ def build_email_draft(page_results, when="", sections=None, static_run=None):
         else:
             continue
         total_fail += fail
+        # [2026-11] 섹션 맨 위에 화면 상단 바와 같은 인사이트(무엇이 문제 → 할 일) + 판단 기준
+        ins_html = ""
+        try:
+            import insight_rules as _ir
+            if tab == "schema" and page_results:
+                _i = _ir.qb_data_insights(page_results)
+            elif tab == "copy" and page_results:
+                _i = _ir.qb_spec_insights(page_results)
+            elif tab == "static" and static_run and static_run.get("results"):
+                _i = _ir.qb_static_insights(static_run.get("results"))
+            else:
+                _i = None
+            if _i:
+                ins_html = "<div style='margin-top:8px'>" + _ir.email_box_html(_i.get("top"), _i.get("basis", ""), "요약", "미흡 항목 없음") + "</div>"
+        except Exception as _e:
+            print(f"[qa_report] insight skip: {_e}")
         if not blocks:
             # [2026-09 FIX] "결과 없음"과 "실행했는데 오류 없음"은 다른 상태 — 검수를 아예 안 돌렸는데도
             # "오류가 발견되지 않았습니다"로 보이면 실제로 확인이 안 된 영역을 통과한 것처럼 오해하게 된다.
@@ -161,12 +177,12 @@ def build_email_draft(page_results, when="", sections=None, static_run=None):
         section_htmls.append(
             "<div style='margin-top:18px'>"
             "<div style='font-size:13px;font-weight:800;color:#101318;border-bottom:2px solid #1B2A4A;padding-bottom:4px'>" + escape(labels[tab]) + "</div>"
-            + blocks + "</div>")
+            + ins_html + blocks + "</div>")
     qa_label = " + ".join(section_labels) if section_labels else "QA"
     body = "".join(section_htmls) or "<p>선택한 항목이 없습니다.</p>"
     return ("<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'>"
             "<div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'>"
-            "<div style='font-size:12px;color:#667085;font-weight:700'>큐비 🐝 — " + escape(qa_label) + " 리포트</div>"
+            "<div style='font-size:12px;color:#667085;font-weight:700'>qaBee 🐝 — " + escape(qa_label) + " 리포트</div>"
             "<h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + "</h1>"
             "<div style='font-size:13px;color:#667085'>선택 영역 오류 " + str(total_fail) + "건</div>"
             "<div style='margin-top:14px'>" + body + "</div></div></div>")

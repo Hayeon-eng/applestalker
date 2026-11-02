@@ -299,6 +299,12 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
 
         # ── ① 구조 페어 (Section→Attribute→Value) — 라벨 동반 근거, Compare 귀속 ──
         pair_verdict = None  # (status, found, message, pair)
+        # [2026-11 C2] 전작 정답과 '정확히 같은' 값은 비교 모듈(전작 컬럼)일 가능성이 높다.
+        #   컬럼 제품명을 못 읽은 경우(product_hint 없음·body 로 분류된 위젯) 그 값을 대상 제품 오기재로
+        #   확정(High)하던 오탐(PPT 6번: Fold6 239g·12.1mm → Fold8 오류)을 막기 위해, 즉시 FAIL 대신
+        #   '확인 필요' 후보로 보류하고 나머지 페어·본문에서 현 제품 정답을 계속 찾는다.
+        #   정답이 다른 곳에 있으면 PASS, 끝까지 없으면 WARN(전작 컬럼 여부 확인).
+        prev_candidate = None
         for p in pairs:
             if p["section"] not in allowed_secs and p["section"] != "body":
                 continue
@@ -342,9 +348,12 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             #     비교 가능한 토큰이 없으면 오기재 증거가 아니므로 판정 보류.
             prev_hit = _prev_text_value_in(prev_models, rule, v_norm)
             if prev_hit:
-                pair_verdict = ("fail", p["value"],
-                                f"전작 값 혼입 — '{rule['attribute']}'에 전작({prev_hit[0]})의 값 '{prev_hit[1]}'이 표기됨", p)
-                break
+                if prev_candidate is None:
+                    prev_candidate = ("warn", p["value"],
+                                      f"확인 필요 — '{rule['attribute']}'에 전작({prev_hit[0]})의 값 '{prev_hit[1]}'이 표기됨 "
+                                      f"(비교 모듈의 전작 컬럼이면 정상, 현 제품 자리라면 수정)", p)
+                trace.append({"step": "pair", "detail": f"'{p['label']}' → 전작({prev_hit[0]}) 값 — 비교 모듈 가능성, 보류 후 계속 탐색"})
+                continue
             if rule["validation"] == "numeric_exact":
                 # [V3.2] 숫자 룰의 페어 불일치도 "실제 다른 숫자"가 있을 때만 오류다.
                 # Compare 표에서 라벨 셀 텍스트("커버 디스플레이 크기", "무게")가 값으로
@@ -357,8 +366,12 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                 cu = svm.canon_unit(rule.get("unit", ""))
                 prev_vals = svm.prev_accepted_for(prev_models, None, cu, any_model=True) or []
                 if pn in prev_vals:
-                    pair_verdict = ("fail", p["value"],
-                                    f"전작 값 혼입 의심 — '{rule['attribute']}'에 전작 정답 {pn:g}{rule.get('unit','')}이 표기됨 (현 제품 정답: {rule['expected']})", p)
+                    if prev_candidate is None:
+                        prev_candidate = ("warn", p["value"],
+                                          f"확인 필요 — '{rule['attribute']}'에 전작 정답 {pn:g}{rule.get('unit','')}이 표기됨 "
+                                          f"(현 제품 정답: {rule['expected']}). 비교 모듈의 전작 컬럼이면 정상", p)
+                    trace.append({"step": "pair", "detail": f"'{p['label']}' → {pn:g} = 전작 정답 — 비교 모듈 가능성, 보류 후 계속 탐색"})
+                    continue
                 elif pn in unit_union.get(cu, set()):
                     pair_verdict = ("warn", p["value"],
                                     f"확인 필요 — 같은 단위의 다른 스펙 정답값 {pn:g}{rule.get('unit','')}이 이 항목에 표기됨 (행/값 배치 확인)", p)
@@ -388,6 +401,9 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             trace.append({"step": "pair", "detail":
                           f"'{p['label']}' → '{p['value'][:40]}' — 정답 미포함이나 오기재 증거 아님(서술 상이), 판정 보류"})
             break
+
+        if pair_verdict is None and prev_candidate is not None:   # [2026-11 C2] 정답을 못 찾았을 때만 '확인 필요'
+            pair_verdict = prev_candidate
 
         # Dictionary 후보 수집 (V2 유지)
         for p in pairs:
@@ -422,6 +438,11 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                 trace.append({"step": "value-scan", "detail": d})
             if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
                 res = {"status": "pass", "found": pair_verdict[1], "confidence": "high", "message": "OK"}
+            elif res["status"] == "na" and pair_verdict is not None and pair_verdict is prev_candidate:
+                # [2026-11 C2] 현 제품 정답이 페이지 어디에도 없고 전작 값만 라벨과 함께 있음 → 전작 값 혼입(기존 P4 규칙 유지)
+                res = {"status": "fail", "found": pair_verdict[1], "confidence": "high",
+                       "message": f"전작 값 혼입 — 현 제품 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule.get('unit') else ''}은 없고 "
+                                  f"전작 값 '{pair_verdict[1][:30]}'만 표기됨"}
             elif res["status"] == "na" and pair_verdict and pair_verdict[0] == "warn":
                 res = {"status": "warn", "found": pair_verdict[1], "confidence": "medium",
                        "message": pair_verdict[2]}

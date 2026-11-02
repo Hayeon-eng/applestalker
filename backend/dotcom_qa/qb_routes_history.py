@@ -127,6 +127,7 @@ def qb_overview():
     # region -> {최신 검수에서 집계한 값}. 이력은 최신순이라, 어떤 region을 이미 봤으면 그게 최신.
     region_latest: Dict[str, Dict[str, Any]] = {}
     seen_regions: set = set()
+    latest_rows: List[Dict[str, Any]] = []   # [2026-11 C1] 인사이트 계산용 — 권역별 최신 검수 행
     for r in rows:
         try:
             results = json.loads(r.results)
@@ -153,6 +154,7 @@ def qb_overview():
             if region in seen_regions:
                 continue  # 더 최신 run에서 이미 확정됨
             seen_regions.add(region)
+            latest_rows.extend(x for x in results if (x.get("region") or "기타") == region and x.get("html_qa"))
             avg = round(sum(scores) / len(scores), 1) if scores else None
             acc = applyacc_here.get(region, [0, 0])
             apply_pct = round(100 * acc[0] / acc[1], 1) if acc[1] else None
@@ -177,8 +179,23 @@ def qb_overview():
             dist["yellow"] += 1
         else:
             dist["red"] += 1
+    try:
+        import insight_rules
+        insights = insight_rules.qb_data_insights(latest_rows)
+    except Exception as e:
+        insights = {"top": [], "basis": "", "error": str(e)}
     return {"total_avg_aeo": total_avg, "total_apply_pct": total_apply, "region_count": len(regions),
-            "regions": regions, "distribution": dist}
+            "regions": regions, "distribution": dist, "insights": insights}
+
+
+@qb_router.post("/insights")
+def qb_insights(payload: Dict[str, Any] = Body(default={})):
+    """[2026-11 C1] 현재 화면의 검수 결과(행 목록) → 상단 바 인사이트. tab = schema | spec."""
+    import insight_rules
+    rows = payload.get("results") or []
+    if (payload.get("tab") or "schema") == "spec":
+        return insight_rules.qb_spec_insights(rows)
+    return insight_rules.qb_data_insights(rows)
 
 
 @qb_router.get("/history/{run_id}")

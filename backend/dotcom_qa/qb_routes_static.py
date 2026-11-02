@@ -42,7 +42,10 @@ def _list() -> List[Dict[str, Any]]:
     for f in sorted((f for f in os.listdir(STORE) if f.endswith(".json")), reverse=True):
         try:
             d = json.load(open(os.path.join(STORE, f), encoding="utf-8"))
-            out.append({"run_id": d["run_id"], "at": d["at"], "summary": d["summary"], "duration_seconds": d.get("duration_seconds")})
+            out.append({"run_id": d["run_id"], "at": d["at"], "summary": d["summary"], "duration_seconds": d.get("duration_seconds"),
+                        # [2026-11 C3] 사이드바 이력 표시용(페이지 수·오류 수) — 결과 행에서 직접 센다
+                        "pages": len(d.get("results") or []),
+                        "errors": sum(1 for r in (d.get("results") or []) if r.get("status") in ("파싱 실패", "오적용", "미해결 참조", "기타"))})
         except Exception:
             continue
     return out
@@ -108,6 +111,7 @@ def static_latest():
         for r in d.get("results", []):
             r["guide"] = static_guide.cell_guide(r)
         d["insight"] = static_guide.summarize(d.get("results", []), static_qa.load_sites())
+        d["insights"] = _static_insights(d.get("results", []))
     return {"run": d}
 
 
@@ -119,7 +123,17 @@ def static_run_get(run_id: str):
     for r in d.get("results", []):
         r["guide"] = static_guide.cell_guide(r)
     d["insight"] = static_guide.summarize(d.get("results", []), static_qa.load_sites())
+    d["insights"] = _static_insights(d.get("results", []))
     return d
+
+
+def _static_insights(results):
+    """[2026-11 C1·Q4] 공통페이지 QA 상단 인사이트 (insight_rules 단일 소스)."""
+    try:
+        import insight_rules
+        return insight_rules.qb_static_insights(results)
+    except Exception as e:
+        return {"top": [], "basis": "", "error": str(e)}
 
 
 @qb_router.get("/static/summary/{run_id}")

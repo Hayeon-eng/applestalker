@@ -401,6 +401,7 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
     label_fail = None
     lone_mismatch = None
     prev_fail = None
+    prev_label = None   # [2026-11 C2] 라벨 동반 전작 값 — 현 제품 정답이 없을 때만 FAIL
 
     for h in hits:
         if h.get("delta"):
@@ -445,7 +446,9 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
         elif h["value"] in prev_all and label_in_block and label_in_block(h["block"]):
             # [V3.2] 모델명 없이도 전작 정답값이 이 항목 라벨과 함께 적혀 있으면
             # 전작 값 혼입(예: Fold7 페이지에 "무게 239g") — 오기재로 승격
-            label_fail = label_fail or h
+            # [2026-11 C2] 단, 현 제품 정답도 페이지에 함께 있으면 비교 모듈(전작 컬럼)로 보고 제외한다
+            #   (PPT 6번: Fold8 PDP 비교 위젯의 Fold6 239g·12.1mm 가 High 오류로 뜨던 오탐).
+            prev_label = prev_label or h
         else:
             other_model = mentions_other_galaxy_model(h["block_norm"], target_tokens or [])
             if label_in_block and label_in_block(h["block"]) and not other_model:
@@ -476,6 +479,14 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                 "message": (f"오기재 — 정답 {'/'.join(accepted_str)}{unit}이 아닌 "
                             f"{_fmt_num(h['value'])}{unit}이 항목 라벨과 함께 표기됨"),
                 "detail": detail + [f"labeled wrong value @ '{h['block'][:60]}'"]}
+    if prev_label and not exact_pass_hit:
+        h = prev_label
+        return {"status": "fail", "found": h["block"][:120], "confidence": "high",
+                "message": (f"전작 값 혼입 — 현 제품 정답 {'/'.join(accepted_str)}{unit}은 없고 "
+                            f"전작 정답 {_fmt_num(h['value'])}{unit}이 항목 라벨과 함께 표기됨"),
+                "detail": detail + [f"labeled predecessor value @ '{h['block'][:60]}'"]}
+    if prev_label:
+        detail.append(f"전작 정답 {_fmt_num(prev_label['value'])}{unit}도 함께 표기됨 — 현 제품 정답이 있어 비교 모듈(전작 컬럼)로 판단, 판정 제외")
     if exact_pass_hit:
         st = {"status": "pass", "found": exact_pass_hit["text"], "confidence": "high",
               "message": "OK", "detail": detail}
