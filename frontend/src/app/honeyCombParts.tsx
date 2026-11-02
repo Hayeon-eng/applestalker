@@ -29,7 +29,11 @@ export const Badge = ({ st }: { st: string }) => <span className="badge" style={
 export const Mark = ({ v }: { v: string }) => v === "entered" ? <span style={{ color: "#15803D", fontWeight: 700 }}>✓ 보임</span> : v === "missed" ? <span style={{ color: "var(--red-ink)", fontWeight: 700 }}>✗ 안 보임</span> : v === "unchecked" ? <span style={{ color: "var(--sec)" }}>○ 확인 안 함</span> : <span style={{ color: "var(--ter)" }}>· 확인 불가</span>;
 
 /* ── [2026-11 D3·8-3] Apple 비교 카드 — 전체·국가별 1위 비율과 속성 영역별 노출 ── */
-export function AppleCompareCard({ ap }: { ap: any }) {
+export const APPLE_ONLY = { marginLeft: 6, fontSize: 10, fontWeight: 700, color: "#B42318", background: "#FDE8E8", borderRadius: 999, padding: "1px 6px" } as const;
+
+export function AppleCompareCard({ ap, attrName, prodLabel }: { ap: any; attrName?: (key: string) => string; prodLabel?: (slug: string) => string }) {
+  const nm = (k: string) => (attrName ? attrName(k) : k);
+  const pl = (t: string) => { const [c, sl] = t.split(" "); return `${c} ${prodLabel ? prodLabel(sl).replace("Galaxy ", "") : sl}`; };
 
                 const f = (v: any) => (v == null ? "—" : `${v}%`);
                 const tone = (a: any, b: any) => (a != null && b != null && b - a >= 10 ? "var(--red-ink)" : undefined);
@@ -50,6 +54,26 @@ export function AppleCompareCard({ ap }: { ap: any }) {
                       </div>
                     </div>
                     <div style={{ fontSize: 10.5, color: "var(--gray)", marginTop: 6 }}>빨간 숫자 = Apple보다 10%p 이상 낮음</div>
+                    {/* [2026-11] 속성별 상세 비교 — 접기/펴기. Apple 은 보이는데 삼성은 안 보이는 칸까지 */}
+                    {!!ap.by_attr?.length && (
+                      <details style={{ marginTop: 10 }}>
+                        <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>속성별 상세 비교 <span style={{ fontWeight: 400, color: "var(--sec)" }}>— Apple만 보이는 속성 {ap.by_attr.filter((x: any) => x.apple_only.length).length}개 · 차이 큰 순</span></summary>
+                        <div style={{ overflowX: "auto", marginTop: 6 }}>
+                          <table style={{ borderCollapse: "collapse", minWidth: 640, width: "100%" }}>
+                            <thead><tr><th style={th}>영역</th><th style={th}>속성</th><th style={th}>삼성</th><th style={th}>Apple</th><th style={th}>Apple만 보이는 칸</th><th style={th}>삼성만 보이는 칸</th></tr></thead>
+                            <tbody>{ap.by_attr.map((x: any) => (
+                              <tr key={x.key} style={{ background: x.apple_only.length ? "#FFF5F5" : undefined }}>
+                                <td style={{ ...td, color: "var(--sec)" }}>{x.group}</td>
+                                <td style={td}>{nm(x.key)}<span style={{ color: "var(--ter)", fontSize: 10.5, marginLeft: 4 }}>{x.key}</span></td>
+                                <td style={{ ...td, color: tone(x.samsung, x.apple), fontWeight: 700 }}>{f(x.samsung)}</td>
+                                <td style={td}>{f(x.apple)}</td>
+                                <td style={{ ...td, fontSize: 11.5 }} title={x.apple_only.map(pl).join(", ")}>{x.apple_only.length ? `${x.apple_only.slice(0, 3).map(pl).join(" · ")}${x.apple_only.length > 3 ? ` 외 ${x.apple_only.length - 3}칸` : ""}` : "—"}</td>
+                                <td style={{ ...td, fontSize: 11.5, color: "var(--sec)" }} title={x.samsung_only.map(pl).join(", ")}>{x.samsung_only.length ? `${x.samsung_only.slice(0, 2).map(pl).join(" · ")}${x.samsung_only.length > 2 ? ` 외 ${x.samsung_only.length - 2}칸` : ""}` : "—"}</td>
+                              </tr>))}</tbody>
+                          </table>
+                        </div>
+                        <div style={{ fontSize: 10.5, color: "var(--gray)", marginTop: 4 }}>노출률 = 공식몰 카드·상세 창에서 실제로 확인한 칸 중 보인 비율('확인 안 함'·검색으로 볼 수 없는 속성 제외) · 같은 국가·제품 칸끼리 비교</div>
+                      </details>)}
                   </div>);
 }
 
@@ -132,19 +156,29 @@ export function AttrValue({ v }: { v: any }) {
   return <span style={{ fontSize: 11.5 }} title={s.length > 140 ? s : undefined}>{s.length > 140 ? s.slice(0, 140) + "…" : s}</span>;
 }
 
-export function AttrTable({ attrs, cell }: { attrs: Attr[]; cell: Cell }) {
+// [2026-11] apple: 같은 국가·제품의 Apple 공식몰 칸(선택 시) — 'Apple 만 보임' 속성을 빨갛게 표시
+export function AttrTable({ attrs, cell, apple, appleLabel }: { attrs: Attr[]; cell: Cell; apple?: Cell | null; appleLabel?: string }) {
   const cats = [...new Set(attrs.map((a) => a.category))];
+  const cols = apple ? 6 : 5;
   return (
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead><tr><th style={th}>#</th><th style={th}>속성</th><th style={th}>보이는 곳</th><th style={th}>화면</th><th style={th}>노출 내용 <span style={{ fontWeight: 400, color: "var(--sec)" }}>실제 관측값</span></th></tr></thead>
+      <thead><tr><th style={th}>#</th><th style={th}>속성</th><th style={th}>보이는 곳</th><th style={th}>삼성</th>
+        {apple && <th style={th}>Apple <span style={{ fontWeight: 400, color: "var(--sec)" }}>{appleLabel}</span></th>}
+        <th style={th}>노출 내용 <span style={{ fontWeight: 400, color: "var(--sec)" }}>실제 관측값</span></th></tr></thead>
       <tbody>
         {cats.map((cat) => (<Fragment key={cat}>
-          <tr><td colSpan={5} style={{ ...td, background: "var(--rail)", fontWeight: 700, fontSize: 11.5, color: "var(--label2)" }}>{cat}</td></tr>
-          {attrs.filter((a) => a.category === cat).map((a) => { const v = cell.attrs[akey(a)] || "na";
-            return (<tr key={akey(a)} style={{ background: v === "missed" ? "var(--high-soft)" : undefined }}>
-              <td style={{ ...td, color: "var(--sec)" }}>{a.no}{a.sub ? "·" : ""}</td><td style={td}>{a.name}</td><td style={{ ...td, color: "var(--sec)" }}>{OBS[a.observe]}</td>
+          <tr><td colSpan={cols} style={{ ...td, background: "var(--rail)", fontWeight: 700, fontSize: 11.5, color: "var(--label2)" }}>{cat}</td></tr>
+          {attrs.filter((a) => a.category === cat).map((a) => { const v = cell.attrs[akey(a)] || "na"; const av = apple?.attrs?.[akey(a)];
+            const appleOnly = av === "entered" && v === "missed";
+            return (<tr key={akey(a)} style={{ background: appleOnly ? "#FDE8E8" : v === "missed" ? "var(--high-soft)" : undefined }}>
+              <td style={{ ...td, color: "var(--sec)" }}>{a.no}{a.sub ? "·" : ""}</td>
+              <td style={td}>{a.name}{appleOnly && <span style={APPLE_ONLY}>Apple만 보임</span>}</td>
+              <td style={{ ...td, color: "var(--sec)" }}>{OBS[a.observe]}</td>
               <td style={td}><Mark v={v} /></td>
-              <td style={{ ...td, maxWidth: 320 }}>{v === "entered" ? <AttrValue v={cell.attr_values?.[akey(a)]} /> : <span style={{ color: "var(--sec)" }}>—</span>}</td>
+              {apple && <td style={td}>{av ? <Mark v={av} /> : <span style={{ color: "var(--ter)" }}>—</span>}</td>}
+              <td style={{ ...td, maxWidth: 320 }}>{v === "entered" ? <AttrValue v={cell.attr_values?.[akey(a)]} />
+                : appleOnly ? <span style={{ color: "var(--sec)" }}>Apple: <AttrValue v={apple?.attr_values?.[akey(a)]} /></span>
+                : <span style={{ color: "var(--sec)" }}>—</span>}</td>
             </tr>); })}
         </Fragment>))}
       </tbody>

@@ -30,7 +30,7 @@ export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb, onEnterRe
             <span className="landingLogo" style={{ fontSize: 40 }}>🐝</span>
             <p className="landingCardTitle" style={{ marginTop: 6, lineHeight: 1.25 }}>
               <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--sec)" }}>QA의 사촌</span>
-              <span style={{ fontSize: 22, fontWeight: 800 }}>qa<span style={{ color: "#E0A008" }}>B</span>ee</span>
+              <span style={{ fontSize: 22, fontWeight: 800 }}>qa<span style={{ color: "#7C3AED" }}>B</span>ee</span>
             </p>
             <ul className="landingFactList" style={{ flex: 1 }}>
               <li>삼성닷컴 제품 페이지를 <b>붕붕 돌며 QA</b> — 91개 사이트</li>

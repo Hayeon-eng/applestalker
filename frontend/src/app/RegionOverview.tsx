@@ -1,5 +1,6 @@
 "use client";
-import { RegionIssueList, IssueDetail } from "./regionIssues";
+import { SummaryTiles, IssuesAndSites, IssueDetail } from "./regionIssues";
+import { TOOL_THEME, letterOf } from "./toolTheme";
 import type { NavTarget } from "./navTarget";
 /* RegionOverview.tsx — [2026-10] 🌍 권역별 OVERVIEW  (2026-10-08 커맨드센터형으로 단순화)
    구성: ① 위 KPI 5장(툴별 숫자 하나 + 신호등) ② 가운데 지도 + 총괄 9개 말풍선 카드(🔴🟡🟢 법인 수 + 가장 급한 법인 한 줄, 지시선)
@@ -51,7 +52,11 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
   const [onlyRed, setOnlyRed] = useState(false);
   const [showList, setShowList] = useState(false);
-  const [hoverRegion, setHoverRegion] = useState<string | null>(null);   // 절충안: 평소 단색, 호버/줌인한 권역만 색칠
+  const [hoverRegion, setHoverRegion] = useState<string | null>(null);
+  // [2026-11] Summary 타일 선택(tool)·표/이슈 호버(hoverSite) → 지도가 즉시 반응
+  const [tool, setTool] = useState<string | null>(null);
+  const [hoverSite, setHoverSite] = useState<{ sitecode: string; tool: string } | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);   // 절충안: 평소 단색, 호버/줌인한 권역만 색칠
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
@@ -160,6 +165,23 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
   const hov = hover ? countryInfo(hover.id) : null;
   const hovFeat = hover ? geo.features.find((f) => String(f.id) === hover.id) : null;
   const zoomed = level.kind !== "all";
+  // 툴 선택 시: 그 툴 문제가 있는 나라 → 툴 색(🔴 진하게 · 🟡 옅게)
+  const toolFocus = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!tool || tool === "apple") return null;
+    for (const r of (data?.insights?.sites || [])) {
+      const c = r.cells?.[tool]; if (!c) continue;
+      for (const id of (SITE_GEO[r.sitecode] || [])) m.set(id, Math.min(m.get(id) ?? 9, c.sev));
+    }
+    return m;
+  }, [tool, data]);
+  const toolColor = tool ? TOOL_THEME[letterOf(tool)].color : "";
+  const hoverIds = useMemo(() => new Set(hoverSite ? (SITE_GEO[hoverSite.sitecode] || []) : []), [hoverSite]);
+  const hoverColor = hoverSite ? TOOL_THEME[letterOf(hoverSite.tool)].color : "";
+  const showOnMap = (sc: string) => {   // 지도로 부드럽게 스크롤 → 그 법인으로 확대
+    mapRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const subs = siteBy[sc]?.subs; if (subs) setTimeout(() => setLevel({ kind: "subs", subs }), 380);
+  };
   const hovRegionName = hoverRegion || (hover ? countryInfo(hover.id).region : null);
   const MONO_MINE = "#C9CFDA", MONO_OTHER = "#E4E8EF";   // 단색 지도: 우리 사이트 있는 나라 / 없는 나라
   const sevKey = (tl: TL) => tl === "red" ? "fail" : tl === "yellow" ? "warn" : tl === "green" ? "pass" : "na";
@@ -250,6 +272,8 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
         </div>
       </header>
 
+      {/* [2026-11 E1 v2] Summary(툴별 지표+통일 기준 주석) → 급한 이슈(설명형) → 사이트별 현황. 백엔드가 구버전이면 기존 KPI 5장 */}
+      {data.insights?.summary ? <SummaryTiles ins={data.insights} tool={tool} setTool={setTool} onGo={goTo} /> : (<>
       {/* ① KPI 5장 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0,1fr))", gap: 10, padding: "12px 16px 0" }}>
         {kpis.map((k) => (
@@ -261,15 +285,11 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
           </div>))}
       </div>
 
-      {/* [2026-11 E1] 가장 중요한 창 — 숫자만이 아니라 '크리티컬 이슈 → 할 일' 3줄 + 판단 기준 */}
-      {data.insights && (
-        <div style={{ padding: "10px 16px 0" }}>
-          <RegionIssueList ins={data.insights} onGo={goTo} />
-        </div>)}
+      </>)}
 
       {/* ② 지도 + 말풍선 카드 (줌인하면 카드 대신 오른쪽 패널) */}
       <div style={{ padding: "12px 16px 0", display: "grid", gridTemplateColumns: zoomed ? "minmax(0,1.7fr) minmax(300px,1fr)" : "1fr", gap: 12, alignItems: "start" }}>
-        <div className="rgMapWrap" style={{ padding: 0 }}>
+        <div className="rgMapWrap" ref={mapRef} style={{ padding: 0, scrollMarginTop: 70 }}>
           <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", cursor: zoomed ? "zoom-out" : "default" }}
             onClick={(e) => { if ((e.target as Element).tagName === "svg" || (e.target as Element).getAttribute("data-bg")) setLevel((l) => l.kind === "subs" ? { kind: "region", region: subsBy[l.subs]?.region || "" } : { kind: "all" }); }}>
             <rect data-bg="1" x={0} y={0} width={W} height={H} fill="transparent" />
@@ -280,20 +300,29 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
                 const inFocus = focusIds.has(id); const dim = zoomed && !inFocus;
                 const red = onlyRed && ci.tl !== "red";
                 const lit = mine && ((zoomed && inFocus) || (!zoomed && hovRegionName != null && ci.region === hovRegionName));   // 색이 켜지는 조건
+                const tf = toolFocus && !zoomed ? toolFocus.get(id) : undefined;     // [2026-11] 툴 선택 반응
+                const hv = hoverIds.has(id);
                 return <path key={id} d={path(f as Feature<Geometry>) || ""}
-                  fill={lit ? fill(red ? null : ci.tl) : mine ? MONO_MINE : MONO_OTHER}
-                  fillOpacity={dim ? .35 : 1}
-                  stroke={hover?.id === id ? "var(--label)" : "#fff"} strokeWidth={(hover?.id === id ? 1.4 : .5) / transform.k}
-                  style={{ cursor: mine ? "pointer" : "default", transition: "fill .3s, fill-opacity .3s" }}
+                  fill={hv ? hoverColor : tf != null ? toolColor : lit ? fill(red ? null : ci.tl) : mine ? MONO_MINE : MONO_OTHER}
+                  fillOpacity={hv ? 1 : tf != null ? (tf === 1 ? .95 : .5) : toolFocus && !zoomed ? .3 : dim ? .35 : 1}
+                  stroke={hv ? "#fff" : hover?.id === id ? "var(--label)" : "#fff"} strokeWidth={(hv ? 2 : hover?.id === id ? 1.4 : .5) / transform.k}
+                  style={{ cursor: mine ? "pointer" : "default", transition: "fill .45s ease, fill-opacity .45s ease, stroke-width .2s" }}
                   onMouseMove={(e) => mine && setHover({ id, x: e.clientX, y: e.clientY })} onMouseLeave={() => setHover(null)}
                   onClick={(e) => { e.stopPropagation(); mine && pick(id); }} />;
               })}
               {geo.features.filter((f) => { const id = String(f.id); if (!(idx[id] || []).length) return false; const b = path.bounds(f as any); return (b[1][0] - b[0][0]) * (b[1][1] - b[0][1]) < 60; }).map((f) => {
                 const id = String(f.id); const ci = countryInfo(id); const c = path.centroid(f as any); const dim = zoomed && !focusIds.has(id);
                 const lit = (zoomed && focusIds.has(id)) || (!zoomed && hovRegionName != null && ci.region === hovRegionName);
-                return <circle key={"dot" + id} cx={c[0]} cy={c[1]} r={4.5 / Math.sqrt(transform.k)} fill={lit ? fill(onlyRed && ci.tl !== "red" ? null : ci.tl) : MONO_MINE} stroke="#fff" strokeWidth={1 / transform.k} opacity={dim ? .35 : 1}
+                const tf = toolFocus && !zoomed ? toolFocus.get(id) : undefined; const hv = hoverIds.has(id);
+                return <circle key={"dot" + id} cx={c[0]} cy={c[1]} r={(hv ? 6.5 : 4.5) / Math.sqrt(transform.k)} fill={hv ? hoverColor : tf != null ? toolColor : lit ? fill(onlyRed && ci.tl !== "red" ? null : ci.tl) : MONO_MINE} stroke="#fff" strokeWidth={1 / transform.k} opacity={dim ? .35 : 1}
                   style={{ cursor: "pointer" }} onMouseMove={(e) => setHover({ id, x: e.clientX, y: e.clientY })} onMouseLeave={() => setHover(null)} onClick={(e) => { e.stopPropagation(); pick(id); }} />;
               })}
+              {/* [2026-11] 표·이슈에 마우스를 올린 사이트 — 툴 색 파동 */}
+              {hoverSite && geo.features.filter((f) => hoverIds.has(String(f.id))).map((f) => { const c = path.centroid(f as any);
+                return <g key={"ping" + f.id} style={{ pointerEvents: "none" }}>
+                  <circle className="rgPing" cx={c[0]} cy={c[1]} r={6} fill="none" stroke={hoverColor} strokeWidth={2.2 / transform.k} />
+                  <circle cx={c[0]} cy={c[1]} r={4 / Math.sqrt(transform.k)} fill={hoverColor} stroke="#fff" strokeWidth={1.2 / transform.k} />
+                </g>; })}
               {/* 총괄 중심점 + 지시선(전체 보기일 때만) */}
               {!zoomed && [...leftCards.map((k, i) => ({ k, side: "L" as const, i, n: leftCards.length })), ...rightCards.map((k, i) => ({ k, side: "R" as const, i, n: rightCards.length }))].map(({ k, side, i, n }) => {
                 const topPct = slot(i, n) + CARD_H / 2; const ax = side === "L" ? (1.5 + CARD_W) / 100 * W : (100 - 1.5 - CARD_W) / 100 * W; const ay = topPct / 100 * H;
@@ -308,6 +337,12 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
           </svg>
           {!zoomed && leftCards.map((k, i) => <Card key={k.r.region} k={k} side="L" i={i} n={leftCards.length} />)}
           {!zoomed && rightCards.map((k, i) => <Card key={k.r.region} k={k} side="R" i={i} n={rightCards.length} />)}
+          {toolFocus && !zoomed && (
+            <div style={{ position: "absolute", left: 12, top: 10, zIndex: 4, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 999,
+              background: TOOL_THEME[letterOf(tool || "")].soft, color: TOOL_THEME[letterOf(tool || "")].ink, border: `1px solid ${toolColor}` }}>
+              {TOOL_THEME[letterOf(tool || "")].icon} {(data.insights?.summary || []).find((t: any) => t.key === tool)?.name} 문제 국가 {toolFocus.size}곳 표시 중
+              <span role="button" style={{ marginLeft: 8, cursor: "pointer", opacity: .7 }} onClick={() => setTool(null)}>✕</span>
+            </div>)}
           <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 8, display: "flex", gap: 10, fontSize: 11, color: "var(--sec)", background: "rgba(255,255,255,.85)", padding: "3px 10px", borderRadius: 999 }}>
             {(["green", "yellow", "red", null] as TL[]).map((tl) => <span key={String(tl)}><span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: fill(tl), verticalAlign: -1, marginRight: 3 }} />{tl === "green" ? "정상" : tl === "yellow" ? "확인" : tl === "red" ? "오류" : "미검수"}</span>)}
             <span style={{ color: "var(--ter)" }}>· 카드에 마우스 → 그 권역 색칠 · 클릭 → 줌인</span>
@@ -374,6 +409,11 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
         )}
       </div>
 
+      {/* [2026-11] ③ 급한 이슈 + 사이트별 현황 (지도 아래) — 행·이슈 호버 시 지도에서 그 나라가 툴 색으로 파동, [지도] = 확대.
+          백엔드가 구버전이면 기존 "지금 봐야 할 것" 한 줄 */}
+      {data.insights?.summary ? (
+        <div style={{ paddingBottom: 12 }}><IssuesAndSites ins={data.insights} tool={tool} setTool={setTool} onGo={goTo} onHoverSite={setHoverSite} onShowOnMap={showOnMap} /></div>
+      ) : (<>
       {/* ③ 지금 봐야 할 것 */}
       <div style={{ padding: "12px 16px" }}>
         <div className="rgGlass" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12.5 }}>
@@ -385,6 +425,8 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
           {urgentSubs.length > 8 && <span style={{ color: "var(--sec)" }}>외 {urgentSubs.length - 8}곳 (☰ 목록)</span>}
         </div>
       </div>
+
+      </>)}
 
       {/* ④ 목록(토글) */}
       {showList && (

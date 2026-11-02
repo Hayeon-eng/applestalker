@@ -43,6 +43,7 @@ export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string
   const [view, setView] = useState<"hex" | "kw">("hex");           // 노출 현황: 제품 벌집 / 키워드별 순위
   const [kwFocus, setKwFocus] = useState<string | null>(null);        // 특정 키워드로 벌집 보기
   const [attrProduct, setAttrProduct] = useState("");
+  const [attrApple, setAttrApple] = useState("");   // [2026-11] 국가 비교 표에서 함께 볼 Apple 모델("" = 끔)
   const [online, setOnline] = useState<boolean | null>(null);
   const [loadErr, setLoadErr] = useState("");
   const [kwForm, setKwForm] = useState<Partial<Keyword>>({ type: "brand", subtype: "A1", countries: [], enabled: true });
@@ -90,6 +91,15 @@ export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string
   // [2026-11 D3] Apple 비교 셀(keyword_type=competitor)은 벌집·표에서 제외 — Apple 수치는 'Apple 비교' 카드로만 본다
   const allCells: Cell[] = (runSafe.cells || []).filter((c: Cell) => (c.keyword_type || "brand") !== "competitor");
   const cells = useMemo(() => allCells.filter((c) => c.keyword_type === kwType && prods.has(c.product) && ctrys.has(c.country)), [allCells, kwType, prods, ctrys]);
+  // [2026-11] 같은 국가·제품의 Apple 공식몰 칸 — 모델 선택(attrApple)이 없으면 그 제품의 첫 Apple 모델
+  const appleCells: Cell[] = (runSafe.cells || []).filter((c: Cell) => c.keyword_type === "competitor");
+  const appleModelsFor = (product: string) => [...new Set(appleCells.filter((c) => c.product === product).map((c) => c.keyword))];
+  const appleCellOf = (country: string, product: string, model?: string) => {
+    const m = model || appleModelsFor(product)[0];
+    return appleCells.find((c) => c.country === country && c.product === product && c.keyword === m) || null;
+  };
+  const attrName = (key: string) => attrs.find((a) => akey(a) === key)?.name || key;
+  const prodLabel = (slug: string) => cfg?.products?.find((p: any) => p.slug === slug)?.label || slug;
   const cellOf = (country: string, product: string) => {
     if (kwFocus) return allCells.find((c) => c.country === country && c.product === product && c.keyword === kwFocus) || null;
     const r = cells.filter((c) => c.country === country && c.product === product); return r.length ? r.reduce((a, b) => ((a.position ?? 99) <= (b.position ?? 99) ? a : b)) : null;
@@ -262,7 +272,7 @@ export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string
               </div>
               {/* [2026-11 D1] 숫자만이 아니라 '무엇이 부족 → 무엇을 할지' (화면·메일 공통 문장) */}
               {run?.insights && <InsightBox title="이번 주 요약" items={run.insights.top} basis={run.insights.basis} empty="부족·열세 항목 없음" style={{ marginTop: 0, background: "#fff" }} />}
-              {run?.insights?.apple && <AppleCompareCard ap={run.insights.apple} />}
+              {run?.insights?.apple && <AppleCompareCard ap={run.insights.apple} attrName={attrName} prodLabel={prodLabel} />}
 
               <div className="card">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
@@ -350,7 +360,8 @@ export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string
                   {selCell && selCell.attrs && Object.keys(selCell.attrs).length > 0 ? (() => { const obs = Object.entries(selCell.attrs).filter(([, v]) => v === "entered" || v === "missed"); const na = Object.values(selCell.attrs).filter((v) => v === "na").length; return (<>
                     <b style={{ fontSize: 12.5 }}>보이는 속성 확인 <span style={{ color: "var(--sec)", fontWeight: 500 }}>키워드 “{selCell.keyword}” 결과 카드·제품 상세 창에서 — 보임 <span style={{ color: "#15803D", fontWeight: 700 }}>{obs.filter(([, v]) => v === "entered").length}</span> · 안 보임 <span style={{ color: "var(--red-ink)", fontWeight: 700 }}>{obs.filter(([, v]) => v === "missed").length}</span> / 확인 가능 {obs.length}{na ? ` · 확인 불가 ${na}` : ""}{(() => { const u = Object.values(selCell.attrs).filter((v) => v === "unchecked").length; return u ? ` · 확인 안 함 ${u}(상세 미조회)` : ""; })()}</span></b>
                     <div style={{ height: 8 }} />
-                    <AttrTable attrs={attrs} cell={selCell} />
+                    {(() => { const am = appleModelsFor(selCell.product); const ac = am.length ? appleCellOf(selCell.country, selCell.product, attrApple && am.includes(attrApple) ? attrApple : am[0]) : null;
+                      return <AttrTable attrs={attrs} cell={selCell} apple={ac?.attrs ? ac : null} appleLabel={ac ? `${ac.keyword}${ac.position ? ` · ${ac.position}위` : " · 공식몰 미노출"}` : ""} />; })()}
                   </>); })() : selCell?.competitor_benchmark ? (() => { const cb = selCell.competitor_benchmark!; const obs = Object.entries(cb.attrs).filter(([, v]) => v === "entered" || v === "missed"); return (<>
                     <b style={{ fontSize: 12.5, color: "#93540A" }}>⚠ 우리 제품이 안 보여요 — 대신 1위 <span style={{ color: "var(--label)" }}>{cb.merchant}</span>는 이렇게 노출 중</b>
                     <div style={{ fontSize: 11.5, color: "var(--sec)", margin: "2px 0 8px" }}>{cb.title}{cb.price ? ` · ${cb.price}` : ""} — 참고용 벤치마크(추가 조회 없이 카드 정보만)</div>
@@ -370,7 +381,11 @@ export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
                   <b style={{ fontSize: 14 }}>보이는 속성 확인 — 국가 비교</b>
                   <div style={{ display: "flex", gap: 5 }}>{cfg.products.map((p: any) => <span key={p.slug} style={chip(attrProduct === p.slug)} onClick={() => setAttrProduct(p.slug)}>{p.label.replace("Galaxy ", "")}</span>)}</div>
-                  <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: "auto" }}>✓ 화면에 보임 · ✗ 안 보임 · — 검색 결과에서는 볼 수 없는 속성 · 기준 키워드: {kwFocus || "제품별 가장 잘 나온 결과"}</span>
+                  {appleModelsFor(attrProduct).length > 0 && (
+                    <div style={{ display: "flex", gap: 5, alignItems: "center" }}><span style={{ fontSize: 11.5, color: "var(--sec)" }}>Apple과 비교</span>
+                      <span style={chip(!attrApple)} onClick={() => setAttrApple("")}>끔</span>
+                      {appleModelsFor(attrProduct).map((m) => <span key={m} style={chip(attrApple === m)} onClick={() => setAttrApple(m)}>{m}</span>)}</div>)}
+                  <span style={{ fontSize: 11.5, color: "var(--sec)", marginLeft: "auto" }}>✓ 화면에 보임 · ✗ 안 보임 · — 검색 결과에서는 볼 수 없는 속성{attrApple ? " · 칸 = 삼성 | Apple · 빨간 칸 = Apple만 보임" : ""} · 기준 키워드: {kwFocus || "제품별 가장 잘 나온 결과"}</span>
                 </div>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ borderCollapse: "collapse", minWidth: 760 }}>
@@ -379,7 +394,13 @@ export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string
                       {attrs.map((a) => (<tr key={akey(a)}>
                         <td style={{ ...td, color: "var(--sec)" }}>{a.no}{a.sub ? "·" : ""}</td><td style={{ ...td, color: "var(--sec)" }}>{a.category}</td><td style={td}>{a.name}</td><td style={{ ...td, color: "var(--sec)" }}>{OBS[a.observe]}</td>
                         {cts.map((c: any) => { const cell = cellOf(c.code, attrProduct); const v = cell?.attrs?.[akey(a)] || (a.observe === "feed" ? "na" : "");
-                          return <td key={c.code} style={{ ...td, textAlign: "center", color: v === "entered" ? "#15803D" : v === "missed" ? "var(--red-ink)" : "var(--ter)", fontWeight: v ? 700 : 400 }} title={`${c.label} · ${v === "entered" ? "보임" : v === "missed" ? "안 보임" : v === "na" ? "확인 불가" : "아직 조회 안 함"}`}>{v === "entered" ? "✓" : v === "missed" ? "✗" : v === "na" ? "—" : "·"}</td>; })}
+                          const sym = (x: string) => (x === "entered" ? "✓" : x === "missed" ? "✗" : x === "na" ? "—" : x === "unchecked" ? "○" : "·");
+                          const word = (x: string) => (x === "entered" ? "보임" : x === "missed" ? "안 보임" : x === "na" ? "확인 불가" : x === "unchecked" ? "확인 안 함" : "아직 조회 안 함");
+                          const av = attrApple ? (appleCellOf(c.code, attrProduct, attrApple)?.attrs?.[akey(a)] || "") : null;
+                          const appleOnly = av === "entered" && v === "missed";
+                          return <td key={c.code} style={{ ...td, textAlign: "center", background: appleOnly ? "#FDE8E8" : undefined, color: v === "entered" ? "#15803D" : v === "missed" ? "var(--red-ink)" : "var(--ter)", fontWeight: v ? 700 : 400 }}
+                            title={`${c.label} · 삼성 ${word(v)}${av != null ? ` · Apple ${word(av)}` : ""}`}>
+                            {sym(v)}{av != null && <span style={{ color: av === "entered" ? "#15803D" : "var(--ter)", fontWeight: 500 }}> | {sym(av)}</span>}</td>; })}
                       </tr>))}
                     </tbody>
                   </table>

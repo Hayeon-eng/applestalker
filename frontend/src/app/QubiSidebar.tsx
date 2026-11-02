@@ -11,7 +11,7 @@ export function QubiSidebar(props: any) {
   const histFileRef = useRef<HTMLInputElement>(null);
   return (
       <aside className="sidebar">
-        <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🐝 qa<span style={{ color: "#E0A008" }}>B</span>ee</div>
+        <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🐝 qa<span style={{ color: "#7C3AED" }}>B</span>ee</div>
         <div className="brandSub">닷컴을 붕붕 날아다니며, 스키마와 스펙이 제대로 올라갔는지 콕콕 검수해요</div>
         <div className={`connBadge ${online === true ? "ok" : "bad"}`}><span className="connDot" />{online === null ? "확인 중" : online ? "백엔드 연결됨" : "연결 안 됨"}</div>
 
