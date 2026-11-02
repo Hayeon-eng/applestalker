@@ -435,7 +435,27 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   const quickRows = useMemo(() => rows.filter((x) => qCountry === "전체" || x.r.country === qCountry), [rows, qCountry]);
 
   // QubiSections.tsx 로 분리한 렌더 블록에 상태·핸들러를 한 번에 주입
+  // [2026-11 C1] 스펙 QA 상단 인사이트 — 현재 결과를 백엔드 insight_rules 로 보내 같은 문장을 받는다(화면·메일 단일 소스).
+  const [specInsights, setSpecInsights] = useState<any>(null);
+  const [staticRuns, setStaticRuns] = useState<any[]>([]);                       // [2026-11 C3]
+  const [staticInsights, setStaticInsights] = useState<any>(null);
+  const [staticOpen, setStaticOpen] = useState<{ id: string; n: number } | null>(null);
+  useEffect(() => {
+    if (tab !== "copy") return;
+    const rows = (results || []).filter((r: any) => r.spec_v2 || r.compare_v2);
+    if (!rows.length) { setSpecInsights(null); return; }
+    const slim = (v: any) => v ? { summary: { score: v.summary?.score }, items: (v.items || []).filter((i: any) => i.status === "fail" || i.status === "warn")
+      .map((i: any) => ({ attribute: i.attribute || i.label || i.rule_id, status: i.status, expected: i.expected, unit: i.unit, page: i.page })) } : null;
+    const body = rows.map((r: any) => ({ sitecode: r.sitecode, region: r.region, page_type: r.page_type, spec_v2: slim(r.spec_v2), compare_v2: slim(r.compare_v2) }));
+    let alive = true;
+    fetch(api("/api/qb/insights"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tab: "spec", results: body }) })
+      .then((x) => (x.ok ? x.json() : null)).then((j) => { if (alive) setSpecInsights(j); }).catch(() => { if (alive) setSpecInsights(null); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, results]);
+
   const ctx = {
+    specInsights, staticInsights,
     tab, product, pageType, rules, showRules, showRuleAdd, rulesRef, rulesFlash, qaExpandedSite, setQaExpandedSite, overview,
     showScore, scoreRef, regionRefs, scrollToRegion,
     specProduct, setSpecProduct, products, newProd, setNewProd, addProduct, v2Products, isV2,
@@ -448,7 +468,8 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
   return (
     <div className="appShell">
       {/* ── 사이드바 ── */}
-      <QubiSidebar onHome={onHome} online={online} apiBase={apiBase} onHistoryChanged={() => { loadHistory(); loadOverview(); }} downloadTemplate={downloadTemplate} uploadTemplate={uploadTemplate} xlsxFileRef={xlsxFileRef} sitesOpen={sitesOpen} setSitesOpen={setSitesOpen} entries={entries} removeUrl={removeUrl} history={history} openHistory={openHistory} removeHistory={removeHistory} />
+      <QubiSidebar onHome={onHome} online={online} apiBase={apiBase} onHistoryChanged={() => { loadHistory(); loadOverview(); }} downloadTemplate={downloadTemplate} uploadTemplate={uploadTemplate} xlsxFileRef={xlsxFileRef} sitesOpen={sitesOpen} setSitesOpen={setSitesOpen} entries={entries} removeUrl={removeUrl} history={history} openHistory={openHistory} removeHistory={removeHistory}
+        tab={tab} staticRuns={staticRuns} onOpenStatic={(id: string) => setStaticOpen((p) => ({ id, n: (p?.n ?? 0) + 1 }))} />
 
       {/* ── 메인 ── */}
       <div className="mainArea">
@@ -497,7 +518,7 @@ export default function QubiApp({ apiBase = "", onHome }: { apiBase?: string; on
         <div className="contentScroll" style={{ padding: "20px 28px 80px" }}>
           {tab === "static" ? (<>
             <h2 style={{ fontSize: 18, margin: "0 0 12px" }}>공통페이지 QA <span style={{ fontSize: 12, fontWeight: 400, color: "var(--sec)" }}>Home · Switch to Galaxy 등 공통 페이지 7종 × 91 국가 — 스키마가 있는지, 제대로 읽히는지, Google 리치결과 기본 요건을 갖췼는지(매일)</span></h2>
-            <QubiStaticQa apiBase={apiBase} />
+            <QubiStaticQa apiBase={apiBase} openReq={staticOpen} onRuns={setStaticRuns} onRunLoaded={(d: any) => setStaticInsights(d?.insights || null)} />
             <StaticV2Criteria show={showRules} panelRef={rulesRef} />
             <StaticV2Score show={showScore} panelRef={scoreRef} />
           </>) : (<>

@@ -9,35 +9,35 @@ export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb, onEnterRe
     <div className="landingShell">
       <div className="landingInner">
         <h1 className="landingTitle" style={{ marginBottom: 6 }}>어떤 도구를 여시겠어요?</h1>
-        <p className="landingSub">🍎 무엇이 바뀌었나 · 🐝 맞게 올라갔나 · 🐝C 검색창에 뜨는가 — ABC 세 도구를 한 곳에서.</p>
+        <p className="landingSub">🍎 무엇이 바뀌었나 · 🐝 맞게 올라갔나 · 🍯 검색창에 뜨는가 — ABC 세 도구를 한 곳에서.</p>
 
         <div className="landingCardGrid">
           <div className="landingCard" style={{ display: "flex", flexDirection: "column" }}>
             <span className="landingLogo" style={{ fontSize: 40 }}>🍎</span>
             <p className="landingCardTitle" style={{ marginTop: 6, lineHeight: 1.25 }}>
               <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--sec)" }}>경쟁사 추적</span>
-              <span style={{ fontSize: 22, fontWeight: 800 }}>Apple Stalker</span>
+              <span style={{ fontSize: 22, fontWeight: 800 }}>apple<span style={{ color: "#E5484D" }}>S</span>talker</span>
             </p>
             <ul className="landingFactList" style={{ flex: 1 }}>
               <li>경쟁사 닷컴 <b>변화 감지</b> — Samsung + Apple/Pixel/Xiaomi/OPPO/Sony/Dell 등</li>
               <li>데이터·스키마 / 카피 / 프로모션 / 비주얼 <b>3축 분석</b></li>
               <li>변경점 · 현황 비교 · 리포트(PPTX/Excel/메일)</li>
             </ul>
-            <button className="landingCTA" style={{ marginTop: 12 }} onClick={onEnterApple}>🍎 애플스토커 깨우기</button>
+            <button className="landingCTA" style={{ marginTop: 12 }} onClick={onEnterApple}>🍎 appleStalker 깨우기</button>
           </div>
 
           <div className="landingCard" style={{ display: "flex", flexDirection: "column" }}>
             <span className="landingLogo" style={{ fontSize: 40 }}>🐝</span>
             <p className="landingCardTitle" style={{ marginTop: 6, lineHeight: 1.25 }}>
               <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--sec)" }}>QA의 사촌</span>
-              <span style={{ fontSize: 22, fontWeight: 800 }}>큐비</span>
+              <span style={{ fontSize: 22, fontWeight: 800 }}>qa<span style={{ color: "#E0A008" }}>B</span>ee</span>
             </p>
             <ul className="landingFactList" style={{ flex: 1 }}>
               <li>삼성닷컴 제품 페이지를 <b>붕붕 돌며 QA</b> — 91개 사이트</li>
               <li><b>스키마 QA</b> — JSON-LD 속성·값을 스펙과 대조</li>
               <li><b>스펙 QA</b> — 스펙 값·고유명사 정확성(번역 대응)</li>
             </ul>
-            <button className="landingCTA" style={{ marginTop: 12, background: "var(--amber)" }} onClick={onEnterQubi}>🐝 큐비 부르기</button>
+            <button className="landingCTA" style={{ marginTop: 12, background: "var(--amber)" }} onClick={onEnterQubi}>🐝 qaBee 부르기</button>
           </div>
 
           {/* [2026-09] C · honeyComb — Google Shopping 노출 순위 · GMC 속성 역추적 (목업 단계) */}
@@ -65,7 +65,7 @@ export function Landing({ onEnterApple, onEnterQubi, onEnterHoneyComb, onEnterRe
               <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--sec)" }}>세 도구를 한 장에</span>
               <span style={{ fontSize: 20, fontWeight: 800 }}>권역별 OVERVIEW</span>
             </p>
-            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--sec)" }}>세계지도에서 법인(53개)·총괄(9개) 단위로 큐비 Data/Spec QA · 공통페이지 QA · honeyComb 최신 신호등을 보고, 눌러서 줌인</p>
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--sec)" }}>세계지도에서 법인(53개)·총괄(9개) 단위로 qaBee Data/Spec QA · 공통페이지 QA · honeyComb 최신 신호등을 보고, 눌러서 줌인</p>
           </div>
           <button className="landingCTA" style={{ background: "var(--blue)", maxWidth: 180 }} onClick={(e) => { e.stopPropagation(); onEnterRegions?.(); }}>🌍 지도 열기</button>
         </div>

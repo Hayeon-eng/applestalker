@@ -20,6 +20,17 @@ export const metricScoreBreakdown = (metric: MetricTab, block?: AnalysisBlock): 
   const f: any = block?.facts || {};
   let allComponents: ScoreComponent[];
 
+  // [2026-11 A7] 수집 페이지(이미지)가 0개면 '0점'이 아니라 '근거 없음'(null). 백엔드 insight_rules 와 같은 기준.
+  const noPages = metric === "data" ? !(f.schema?.total_pages > 0)
+    : metric === "copy" ? !(Array.isArray(f.copy_richness?.all_pages) && f.copy_richness.all_pages.length > 0)
+    : !(f.image_diversity?.total_images > 0);
+  if (noPages) {
+    const labels = metric === "data" ? ["Schema", "H-tag", "Structured", "역할적합성", "Product 완성도", "@id 연결성"]
+      : metric === "copy" ? ["Copy richness", "CTA coverage", "Word coverage", "FAQ 품질", "intent 충족", "중복 회피"]
+      : ["ALT ratio", "Image diversity", "Coverage"];
+    const empty = labels.map((label) => ({ label, value: null }));
+    return { components: empty.slice(0, 3), allComponents: empty, total: null };
+  }
   if (metric === "data") {
     const schema = typeof f.schema?.coverage_pct === "number" ? Math.round(f.schema.coverage_pct) : null;
     const h1 = typeof f.html_structure?.h_tag_coverage?.h1_coverage_pct === "number"

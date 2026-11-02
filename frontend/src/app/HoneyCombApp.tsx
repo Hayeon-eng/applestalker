@@ -6,30 +6,14 @@
    · 백엔드 /api/hc/* (backend/honeycomb). provider 가 mock → 실수집으로 바뀌어도 화면은 그대로
 ════════════════════════════════════════════════════════════════════ */
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { InsightBox } from "./insightUi";
 import { Loading, EmptyState, toast } from "./uiShared";
+// [2026-11] 용량(47KB) 제한으로 타입·상수·속성 표·Apple 비교 카드·키워드 탭은 honeyCombParts.tsx 로 분리
+import {
+  type Cell, type Attr, type Keyword, HONEY, HONEY_DARK, STATUS, COLOR, TXT, OBS, akey, hexPts, J, chip, th, td, inp, Badge, Mark,
+  AttrTable, AttrValue, AppleCompareCard, KeywordsTab,
+} from "./honeyCombParts";
 
-type Cell = { country: string; product: string; keyword: string; keyword_type: string; position: number | null; status: string;
-  first_store?: string | null; scom_exposed?: string | null; attrs: Record<string, string>; attr_values?: Record<string, any>; feed: Record<string, string>;
-  competitor_benchmark?: { position: number; title: string; merchant: string; price?: string; link?: string; attrs: Record<string, string>; attr_values?: Record<string, any> } | null };
-type Attr = { no: number; sub?: boolean; category: string; name: string; code: string; observe: string };
-type Keyword = { id: string; product: string; text: string; type: string; subtype?: string; countries: string[]; enabled: boolean; note?: string };
-
-const HONEY = "#E0A008", HONEY_DARK = "#8A5A00";
-const STATUS: Record<string, string> = { top1: "1순위", topn: "상단 노출", low: "8위 밖 노출", absent: "미노출", unranked: "순위 기록 없음", unchecked: "아직 조회 안 함" };
-// [2026-10 통일] 순위 등급색 — 1위/상단/미노출은 공용 토큰(초록/노랑/빨강), 하단은 구분용 주황 하나만 추가
-const COLOR: Record<string, string> = { top1: "var(--green)", topn: "var(--amber)", low: "#E07A1F", absent: "var(--red)", unranked: "var(--gray)", unchecked: "var(--gray-soft)", error: "#F3F4F6" };
-const TXT: Record<string, string> = { top1: "#fff", topn: "#3A2A0F", low: "#fff", absent: "#fff", unranked: "#fff", unchecked: "#6B7280", error: "#9CA3AF" };
-const OBS: Record<string, string> = { card: "검색 결과 카드", detail: "제품 상세 창", feed: "검색 결과에 안 나옴" };
-const akey = (a: Attr) => a.code + (a.sub ? `#${a.no}` : "");
-const hexPts = (cx: number, cy: number, r: number) =>
-  [0, 1, 2, 3, 4, 5].map((i) => { const a = (Math.PI / 180) * (60 * i - 30); return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
-const J = (b: any) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
-const chip = (on: boolean): React.CSSProperties => ({ fontSize: 12, padding: "4px 10px", borderRadius: 999, cursor: "pointer", border: on ? `1px solid ${HONEY}` : "1px solid var(--line)", background: on ? HONEY : "#fff", color: on ? "#fff" : "var(--label)", fontWeight: on ? 700 : 500 });
-const th: React.CSSProperties = { textAlign: "left", fontSize: 11.5, color: "var(--sec)", fontWeight: 600, padding: "6px 8px", borderBottom: "1px solid var(--line)", whiteSpace: "nowrap" };
-const td: React.CSSProperties = { fontSize: 12, padding: "6px 8px", borderBottom: "1px solid var(--line)", verticalAlign: "top" };
-const inp: React.CSSProperties = { fontSize: 12, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6 };
-const Badge = ({ st }: { st: string }) => <span className="badge" style={{ background: COLOR[st], color: TXT[st] }}>{STATUS[st] || st}</span>;
-const Mark = ({ v }: { v: string }) => v === "entered" ? <span style={{ color: "#15803D", fontWeight: 700 }}>✓ 보임</span> : v === "missed" ? <span style={{ color: "var(--red-ink)", fontWeight: 700 }}>✗ 안 보임</span> : <span style={{ color: "var(--ter)" }}>· 확인 불가</span>;
 
 export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onHome: () => void }) {
   const api = (p: string) => `${apiBase}${p}`;
@@ -55,16 +39,22 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const [kwForm, setKwForm] = useState<Partial<Keyword>>({ type: "brand", subtype: "A1", countries: [], enabled: true });
   const [msg, setMsg] = useState("");
   const [runState, setRunState] = useState<any>(null);
-  const [withDetail, setWithDetail] = useState(false);
+  const [withDetail, setWithDetail] = useState(true);           // [2026-11 D4] 상세 조회 기본 ON(사용자 결정)
+  const [appleSel, setAppleSel] = useState<Set<string>>(new Set()); // [2026-11 D3] 비교할 Apple 모델
+  const [acct, setAcct] = useState<any>(null);                     // [2026-11 B2] SerpApi 잔여 검색 수
+  const loadAcct = async () => { try { setAcct(await (await fetch(api("/api/hc/serpapi/account"))).json()); } catch { /* */ } };
+  useEffect(() => { loadAcct(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBase]);
   const [estimate, setEstimate] = useState<any>(null);
   useEffect(() => { (async () => {
     try {
       const qs = new URLSearchParams({ detail: String(withDetail) });
       Array.from(ctrys).forEach((c) => qs.append("countries", c));
       Array.from(prods).forEach((p) => qs.append("products", p));
+      Array.from(appleSel).forEach((m) => qs.append("apple_models", m));
       setEstimate(await (await fetch(api(`/api/hc/run-estimate?${qs.toString()}`))).json());
     } catch { /* */ }
-  })(); }, [withDetail, keywords, ctrys, prods]);
+  })(); }, [withDetail, keywords, ctrys, prods, appleSel]);
   const STATUS_X: Record<string, string> = { ...STATUS, error: "조회 실패" };
 
   const loadKeywords = async () => { try { const d = await (await fetch(api("/api/hc/keywords"))).json(); setKeywords(d.keywords || []); if (d.taxonomy) setTaxonomy(d.taxonomy); } catch { /* */ } };
@@ -88,7 +78,8 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
 
   // [2026-09] run 이 하나도 없어도(수집 전) 화면은 뜬다 — 빈 run 으로 렌더
   const runSafe = run || { run_id: "", week: "", at: "", source: "", cells: [] as Cell[] };
-  const allCells: Cell[] = runSafe.cells || [];
+  // [2026-11 D3] Apple 비교 셀(keyword_type=competitor)은 벌집·표에서 제외 — Apple 수치는 'Apple 비교' 카드로만 본다
+  const allCells: Cell[] = (runSafe.cells || []).filter((c: Cell) => (c.keyword_type || "brand") !== "competitor");
   const cells = useMemo(() => allCells.filter((c) => c.keyword_type === kwType && prods.has(c.product) && ctrys.has(c.country)), [allCells, kwType, prods, ctrys]);
   const cellOf = (country: string, product: string) => {
     if (kwFocus) return allCells.find((c) => c.country === country && c.product === product && c.keyword === kwFocus) || null;
@@ -105,7 +96,8 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   const cts = cfg.countries.filter((c: any) => ctrys.has(c.code)), prs = cfg.products.filter((p: any) => prods.has(p.slug));
   const checked = cells.filter((c) => ["top1", "topn", "low", "absent"].includes(c.status));
   const top1 = cells.filter((c) => c.status === "top1").length, topn = cells.filter((c) => c.status === "topn").length;
-  const rates = cells.filter((c) => c.attrs && Object.keys(c.attrs).length).map((c) => { const v = Object.values(c.attrs).filter((x) => x !== "na"); return v.filter((x) => x === "entered").length / v.length; });
+  // [2026-11 D4] '확인 안 함'(상세 미조회)은 분모에서 제외 — 실제로 확인한 속성 중 보이는 비율
+  const rates = cells.filter((c) => c.attrs && Object.keys(c.attrs).length).map((c) => { const v = Object.values(c.attrs).filter((x) => x === "entered" || x === "missed"); return v.length ? v.filter((x) => x === "entered").length / v.length : null; }).filter((x): x is number => x != null);
   const stores: Record<string, number> = {}; checked.forEach((c) => { if (c.first_store) stores[c.first_store] = (stores[c.first_store] || 0) + 1; });
   const others = Object.entries(stores).filter(([k]) => !/samsung/i.test(k)).sort((a, b) => b[1] - a[1]);
   const prevTop1 = prev ? (prev.cells || []).filter((c: Cell) => c.keyword_type === kwType && prods.has(c.product) && ctrys.has(c.country) && c.status === "top1").length : null;
@@ -145,6 +137,13 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
         <div className="brand" style={{ cursor: "pointer" }} onClick={onHome} title="홈으로">🍯 honey<span style={{ color: HONEY }}>C</span>omb</div>
         <div className="brandSub">Google Shopping이라는 벌집 속에서, 우리 제품은 어떤 위치에 있는지 살펴봐요</div>
         <div className={`connBadge ${cfg.provider === "serpapi" ? "ok" : "bad"}`}><span className="connDot" />{cfg.provider === "serpapi" ? "SERP API 연결됨 · 수집 가능" : "SERP API 키 없음 — 저장된 결과만 조회"}</div>
+        {/* [2026-11 B2] SerpApi Account API(무료, 월 한도 차감 없음)로 남은 검색 수 표시 */}
+        {cfg.provider === "serpapi" && acct && (
+          <div style={{ margin: "4px 10px 0", fontSize: 11.5, color: acct.ok ? "var(--label2)" : "var(--sec)" }} title={acct.ok ? `요금제 ${acct.plan || "-"} · 이번 달 사용 ${acct.this_month_usage ?? "-"}회${acct.hourly_limit ? ` · 시간당 한도 ${acct.hourly_limit}회` : ""}` : acct.reason}>
+            {acct.ok
+              ? <>남은 검색 <b style={{ color: (acct.plan_searches_left ?? acct.total_searches_left ?? 0) < 100 ? "var(--red-ink)" : HONEY_DARK }}>{acct.total_searches_left ?? acct.plan_searches_left ?? "-"}회</b>{acct.searches_per_month ? ` / 월 ${acct.searches_per_month}회` : ""} <span role="button" style={{ cursor: "pointer", color: "var(--blue)" }} onClick={loadAcct}>↻</span></>
+              : <>남은 검색 확인 불가 · {acct.reason}</>}
+          </div>)}
         <div className="sideScroll">
           <div className="sideLabel">주차(run)</div>
           <div style={{ padding: "0 10px 8px" }}>
@@ -161,6 +160,15 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
           <div style={{ padding: "0 10px 8px", display: "flex", flexWrap: "wrap", gap: 5 }}>
             {cfg.countries.map((c: any) => <span key={c.code} style={chip(ctrys.has(c.code))} onClick={() => { const s = new Set(ctrys); s.has(c.code) ? s.delete(c.code) : s.add(c.code); setCtrys(s); }}>{c.code}</span>)}
           </div>
+          {!!cfg.competitors?.length && (<>
+            <div className="sideLabel" style={{ marginTop: 10 }}>Apple 비교 <span style={{ color: "var(--sec)", fontWeight: 400 }}>— 모델 선택 시 국가당 1회 추가 조회</span></div>
+            <div style={{ padding: "0 10px 8px", display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {cfg.competitors.map((m: any) => (
+                <span key={m.model} style={chip(appleSel.has(m.model))}
+                  title={`비교 대상: ${(m.compare_to || []).map((sl: string) => cfg.products.find((p: any) => p.slug === sl)?.label || sl).join(", ")}`}
+                  onClick={() => { const s2 = new Set(appleSel); s2.has(m.model) ? s2.delete(m.model) : s2.add(m.model); setAppleSel(s2); }}>{m.model}</span>))}
+            </div>
+          </>)}
           <div className="sideLabel" style={{ marginTop: 10 }}>노출 상태 범례</div>
           <div style={{ padding: "0 10px 8px", display: "grid", gridTemplateColumns: "14px 1fr", gap: "5px 8px", fontSize: 11.5, color: "var(--label2)", alignItems: "center" }}>
             {Object.keys(STATUS).map((s) => [<i key={s + "i"} style={{ display: "block", width: 14, height: 14, background: COLOR[s], clipPath: "polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)" }} />, <span key={s}>{STATUS[s]} <span style={{ color: "var(--sec)" }}>— {cfg.status_legend?.[s]}</span></span>])}
@@ -173,20 +181,21 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
           <button className="btnPrimary" style={{ background: HONEY_DARK }} disabled={cfg.provider !== "serpapi" || !!runState}
             title={cfg.provider !== "serpapi" ? "설정(/desktop/settings)에 SerpApi 키를 넣으면 활성화" : "선택된 국가×제품×사용 중 키워드를 Google Shopping 에서 조회"}
             onClick={async () => {
-              if (!window.confirm(`Google Shopping 조회를 시작합니다.\n예상 API 호출: 검색 ${estimate?.searches ?? "?"}회${withDetail ? ` + 상세 최대 ${estimate?.detail_max}회` : ""} (월 한도에서 차감)\n계속할까요?`)) return;
-              const r = await fetch(api("/api/hc/run"), J({ detail: withDetail, countries: Array.from(ctrys), products: Array.from(prods) }));
+              const left = acct?.ok ? (acct.total_searches_left ?? acct.plan_searches_left) : null;
+              if (!window.confirm(`Google Shopping 조회를 시작합니다.\n예상 API 호출: 검색 ${estimate?.searches ?? "?"}회${estimate?.apple_searches ? ` (Apple ${estimate.apple_searches}회 포함)` : ""}${withDetail ? ` + 상세 최대 ${estimate?.detail_max}회` : ""} (월 한도에서 차감)${left != null ? `\n남은 검색: ${left}회` : ""}\n계속할까요?`)) return;
+              const r = await fetch(api("/api/hc/run"), J({ detail: withDetail, countries: Array.from(ctrys), products: Array.from(prods), apple_models: Array.from(appleSel) }));
               if (!r.ok) { setMsg((await r.json()).detail || "실행 실패"); return; }
               setRunState({ running: true, done: 0, total: 0, cells: [] });
               const t = setInterval(async () => {
                 const st = await (await fetch(api("/api/hc/run-status"))).json(); setRunState(st);
-                if (!st.running) { clearInterval(t); setRunState(null); if (st.error) setMsg(`수집 실패: ${st.error}`);
+                if (!st.running) { clearInterval(t); setRunState(null); loadAcct(); if (st.error) setMsg(`수집 실패: ${st.error}`);
                   const rs = (await (await fetch(api("/api/hc/runs"))).json()).runs || []; setRuns(rs); if (rs.length) setRunId(rs[rs.length - 1].run_id); }
               }, 2000);
             }}>{runState ? `수집 중 ${runState.done}/${runState.total}` : "수집 실행"}</button>
-          <label className="emailNotice" style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }} title="우리 카드가 잡힌 셀마다 상세 1회 추가 조회(설명·이미지·영상 등 속성 역추적). 호출 수가 최대 2배">
+          <label className="emailNotice" style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }} title="공식몰 카드가 잡힌 셀마다 상세 1회 추가 조회(설명·이미지·영상 등 속성 역추적). 호출 수가 최대 2배 · 끄면 상세 창 속성은 '확인 안 함'으로 표시">
             <input type="checkbox" checked={withDetail} onChange={(e) => setWithDetail(e.target.checked)} /> 상세 조회(속성 역추적) 포함
           </label>
-          {estimate && <span className="emailNotice">예상 호출 {estimate.searches}회{withDetail ? ` + 상세 최대 ${estimate.detail_max}회` : ""} · 국가 {estimate.countries} × 제품 {estimate.products} × 키워드 {estimate.keywords_enabled}</span>}
+          {estimate && <span className="emailNotice">예상 호출 {estimate.searches}회{withDetail ? ` + 상세 최대 ${estimate.detail_max}회` : ""} · 국가 {estimate.countries} × 제품 {estimate.products} × 키워드 {estimate.keywords_enabled}{estimate.apple_models ? ` · Apple ${estimate.apple_models}모델` : ""}</span>}
           <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
           <a className="btnSecondary" href={api(`/api/hc/report.xlsx?run_id=${runId}`)}>📊 Excel 내려받기</a>
           {cfg.provider !== "serpapi" && <span className="emailNotice">SerpApi 키가 없어 새로 수집할 수 없습니다 — 설정(/desktop/settings)에서 키 입력</span>}
@@ -233,7 +242,8 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                 {[[checked.length ? `${Math.round((100 * top1) / checked.length)}%` : "—", `1위 비율 · ${top1}/${checked.length}칸`, prevTop1 == null ? "" : `지난주 대비 ${prevTop1 > top1 ? "▼" : prevTop1 < top1 ? "▲" : "="} ${Math.abs(top1 - prevTop1)}`],
                   [checked.length ? `${Math.round((100 * (top1 + topn)) / checked.length)}%` : "—", `상단(8위 안) 노출 비율`, ""],
                   [rates.length ? `${Math.round((100 * rates.reduce((a, b) => a + b, 0)) / rates.length)}%` : "—", "검색 결과에서 확인할 수 있는 속성 중 실제로 보이는 비율", ""],
-                  [others.length ? others.map(([k]) => k).join(" · ") : "없음", "우리 대신 1위에 오른 판매처", ""],
+                  // [2026-11 D2] 전체 나열 대신 상위 3곳 + 칸 수, 나머지는 '외 N곳'(마우스 오버로 전체)
+                  [others.length ? others.slice(0, 3).map(([k, n]) => `${k} ${n}칸`).join(" · ") + (others.length > 3 ? ` 외 ${others.length - 3}곳` : "") : "없음", "우리 대신 1위에 오른 판매처", ""],
                 ].map(([v, l, d], i) => (
                   <div key={i} className="card" style={{ padding: "12px 16px" }}>
                     <div style={{ fontSize: String(v).length > 8 ? 13.5 : 24, fontWeight: 800, lineHeight: 1.15, color: String(v).length > 8 ? HONEY_DARK : "var(--label)" }}>{v}</div>
@@ -241,6 +251,9 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                     {d && <div style={{ fontSize: 11, color: HONEY_DARK, marginTop: 4 }}>{d}</div>}
                   </div>))}
               </div>
+              {/* [2026-11 D1] 숫자만이 아니라 '무엇이 부족 → 무엇을 할지' (화면·메일 공통 문장) */}
+              {run?.insights && <InsightBox title="이번 주 요약" items={run.insights.top} basis={run.insights.basis} empty="부족·열세 항목 없음" style={{ marginTop: 0, background: "#fff" }} />}
+              {run?.insights?.apple && <AppleCompareCard ap={run.insights.apple} />}
 
               <div className="card">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
@@ -281,13 +294,13 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                     {cts.map((c: any, ci: number) => {
                       const cx = padL + W * (ci + 0.5) + off; const cell = cellOf(c.code, p.slug); const st = cell?.status || "unchecked";
                       const pc = prevCellOf(c.code, p.slug); const changed = cell && pc && pc.status !== cell.status; const isSel = sel?.country === c.code && sel?.product === p.slug;
-                      const obs = cell?.attrs ? Object.values(cell.attrs).filter((v) => v !== "na") : []; const ent = obs.filter((v) => v === "entered").length;
+                      const obs = cell?.attrs ? Object.values(cell.attrs).filter((v) => v === "entered" || v === "missed") : []; const ent = obs.filter((v) => v === "entered").length;
                       return (<g key={c.code} style={{ cursor: "pointer" }} onClick={() => setSel({ country: c.code, product: p.slug })}>
                         <polygon points={hexPts(cx, cy, R - 2)} fill={COLOR[st]} stroke={isSel ? "#111318" : "#fff"} strokeWidth={isSel ? 3 : 2} />
                         {changed && <polygon points={hexPts(cx, cy, R - 2)} fill="none" stroke="#111318" strokeWidth={2} strokeDasharray="4 3" />}
                         {cell?.position != null ? <text x={cx} y={cy - 8} textAnchor="middle" fontSize={24} fontWeight={800} fill={TXT[st]}>#{cell.position}</text>
                           : <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11.5} fontWeight={700} fill={TXT[st]}>{st === "unranked" ? "순위 기록 없음" : st === "absent" ? "미노출" : "아직 조회 안 함"}</text>}
-                        {cell?.first_store && <text x={cx} y={cy + 12} textAnchor="middle" fontSize={10.5} fill={TXT[st]}>{/samsung/i.test(cell.first_store) ? "1위 S.com" : `1위 ${cell.first_store}`}</text>}
+                        {cell?.first_store && <text x={cx} y={cy + 12} textAnchor="middle" fontSize={10.5} fill={TXT[st]}>{/samsung/i.test(cell.first_store) ? "1위 S.com" : `1위 ${cell.first_store.length > 14 ? cell.first_store.slice(0, 13) + "…" : cell.first_store}`}</text>}
                         {obs.length > 0 && <text x={cx} y={cy + 27} textAnchor="middle" fontSize={10} fill={TXT[st]}>속성 {ent}/{obs.length} 보임</text>}
                         <title>{`${c.label} · ${p.label}\n${cell?.keyword || ""}\n${STATUS[st]}`}</title>
                       </g>);
@@ -310,7 +323,7 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                   <table style={{ width: "100%", borderCollapse: "collapse", margin: "6px 0 14px" }}>
                     <thead><tr><th style={th}>키워드</th><th style={th}>유형</th><th style={th}>상태</th><th style={th}>position</th><th style={th}>1위 판매처</th><th style={th}>S.com</th><th style={th}>보이는 속성(보임/확인 가능)</th></tr></thead>
                     <tbody>
-                      {kws.map((k) => { const r = pairCells.find((x) => x.keyword === k.text); const obs = r?.attrs ? Object.values(r.attrs).filter((v) => v !== "na") : [];
+                      {kws.map((k) => { const r = pairCells.find((x) => x.keyword === k.text); const obs = r?.attrs ? Object.values(r.attrs).filter((v) => v === "entered" || v === "missed") : [];
                         return (<tr key={k.id}><td style={td}>{k.text}</td><td style={td}>{k.subtype || "A1"}</td><td style={td}><Badge st={r?.status || "unchecked"} /></td>
                           <td style={td}>{r?.position != null ? `#${r.position}` : "—"}</td><td style={td}>{r?.first_store || "—"}</td><td style={td}>{r?.scom_exposed || "—"}</td>
                           <td style={td}>{obs.length ? `${obs.filter((v) => v === "entered").length}/${obs.length}` : "—"}</td></tr>); })}
@@ -325,11 +338,11 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
                         <td style={td}>{it.is_samsung_store ? <span className="badge samsung">우리 스토어</span> : ""}</td></tr>))}</tbody>
                     </table>
                   </>)}
-                  {selCell && selCell.attrs && Object.keys(selCell.attrs).length > 0 ? (() => { const obs = Object.entries(selCell.attrs).filter(([, v]) => v !== "na"); const na = Object.values(selCell.attrs).filter((v) => v === "na").length; return (<>
-                    <b style={{ fontSize: 12.5 }}>보이는 속성 확인 <span style={{ color: "var(--sec)", fontWeight: 500 }}>키워드 “{selCell.keyword}” 결과 카드·제품 상세 창에서 — 보임 <span style={{ color: "#15803D", fontWeight: 700 }}>{obs.filter(([, v]) => v === "entered").length}</span> · 안 보임 <span style={{ color: "var(--red-ink)", fontWeight: 700 }}>{obs.filter(([, v]) => v === "missed").length}</span> / 확인 가능 {obs.length}{na ? ` · 확인 불가 ${na}` : ""}</span></b>
+                  {selCell && selCell.attrs && Object.keys(selCell.attrs).length > 0 ? (() => { const obs = Object.entries(selCell.attrs).filter(([, v]) => v === "entered" || v === "missed"); const na = Object.values(selCell.attrs).filter((v) => v === "na").length; return (<>
+                    <b style={{ fontSize: 12.5 }}>보이는 속성 확인 <span style={{ color: "var(--sec)", fontWeight: 500 }}>키워드 “{selCell.keyword}” 결과 카드·제품 상세 창에서 — 보임 <span style={{ color: "#15803D", fontWeight: 700 }}>{obs.filter(([, v]) => v === "entered").length}</span> · 안 보임 <span style={{ color: "var(--red-ink)", fontWeight: 700 }}>{obs.filter(([, v]) => v === "missed").length}</span> / 확인 가능 {obs.length}{na ? ` · 확인 불가 ${na}` : ""}{(() => { const u = Object.values(selCell.attrs).filter((v) => v === "unchecked").length; return u ? ` · 확인 안 함 ${u}(상세 미조회)` : ""; })()}</span></b>
                     <div style={{ height: 8 }} />
                     <AttrTable attrs={attrs} cell={selCell} />
-                  </>); })() : selCell?.competitor_benchmark ? (() => { const cb = selCell.competitor_benchmark!; const obs = Object.entries(cb.attrs).filter(([, v]) => v !== "na"); return (<>
+                  </>); })() : selCell?.competitor_benchmark ? (() => { const cb = selCell.competitor_benchmark!; const obs = Object.entries(cb.attrs).filter(([, v]) => v === "entered" || v === "missed"); return (<>
                     <b style={{ fontSize: 12.5, color: "#93540A" }}>⚠ 우리 제품이 안 보여요 — 대신 1위 <span style={{ color: "var(--label)" }}>{cb.merchant}</span>는 이렇게 노출 중</b>
                     <div style={{ fontSize: 11.5, color: "var(--sec)", margin: "2px 0 8px" }}>{cb.title}{cb.price ? ` · ${cb.price}` : ""} — 참고용 벤치마크(추가 조회 없이 카드 정보만)</div>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -366,62 +379,9 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
             )}
 
             {tab === "keywords" && (<>
-              {taxonomy && (
-                <div className="card" style={{ padding: "14px 20px" }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                    <b style={{ fontSize: 14 }}>키워드 분류 기준</b>
-                    <span style={{ fontSize: 12, color: "var(--sec)" }}>제품명 키워드만 사용합니다 — "우리 제품이 1위여야 하는 검색어". 제품당 1~2개(1개 추가 = 국가 수만큼 API 호출 증가)</span>
-                    <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--blue)", cursor: "pointer" }} onClick={() => setShowTax((v) => !v)}>{showTax ? "접기" : "펼치기"}</span>
-                  </div>
-                  {showTax && (<>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginTop: 10 }}>
-                      {(["brand"] as const).filter((k) => taxonomy[k]).map((k) => { const t = taxonomy[k]; return (
-                        <div key={k} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "10px 14px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="badge samsung">A</span><b style={{ fontSize: 13 }}>{t.label}</b></div>
-                          <div style={{ fontSize: 12, color: "var(--label2)", margin: "6px 0 2px" }}><b>목적·KPI</b> — {t.goal}</div>
-                          <div style={{ fontSize: 12, color: "var(--label2)", marginBottom: 8 }}><b>분류 규칙</b> — {t.rule}</div>
-                          <table style={{ width: "100%", borderCollapse: "collapse" }}><tbody>
-                            {Object.entries(t.subtypes || {}).map(([code, st]: any) => (
-                              <tr key={code}><td style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: "var(--label2)" }}>{code} {st.label}</td><td style={{ ...td, color: "var(--sec)" }}>{st.desc}</td><td style={{ ...td, fontStyle: "italic" }}>{st.ex}</td></tr>))}
-                          </tbody></table>
-                        </div>); })}
-                    </div>
-                    <div style={{ marginTop: 10, fontSize: 12, color: "var(--label2)" }}><b>작성 규칙</b>
-                      <ul style={{ margin: "4px 0 0 16px", padding: 0, lineHeight: 1.6 }}>{(taxonomy.writing_rules || []).map((r: string, i: number) => <li key={i}>{r}</li>)}</ul>
-                    </div>
-                  </>)}
-                </div>
-              )}
-              <div className="card">
-                <b style={{ fontSize: 14 }}>키워드 추가 · 수정</b>
-                <p style={{ fontSize: 12, color: "var(--sec)", margin: "4px 0 10px" }}>제품별 Google Shopping 검색어(제품명 키워드)를 관리합니다. 제품당 사용 중 키워드는 2개까지 — 키워드 1개가 늘면 국가 수(6)만큼 API 호출이 늘어납니다. 국가를 비우면 전 국가에 적용됩니다.</p>
-                <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 200px 1fr auto", gap: 8, alignItems: "center" }}>
-                  <select value={kwForm.product || ""} onChange={(e) => setKwForm({ ...kwForm, product: e.target.value })} style={inp}>
-                    <option value="">제품 선택</option>{cfg.products.map((p: any) => <option key={p.slug} value={p.slug}>{p.label}</option>)}
-                  </select>
-                  <input value={kwForm.text || ""} onChange={(e) => setKwForm({ ...kwForm, text: e.target.value, subtype: "A1", type: "brand" })} placeholder='제품명 키워드 (예: "Galaxy Z Fold8 Ultra")' style={inp} title="제품명 키워드만 등록할 수 있습니다" />
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{cfg.countries.map((c: any) => { const on = (kwForm.countries || []).includes(c.code); return <span key={c.code} style={{ ...chip(on), fontSize: 11, padding: "2px 7px" }} onClick={() => setKwForm({ ...kwForm, countries: on ? (kwForm.countries || []).filter((x) => x !== c.code) : [...(kwForm.countries || []), c.code] })}>{c.code}</span>; })}</div>
-                  <input value={kwForm.note || ""} onChange={(e) => setKwForm({ ...kwForm, note: e.target.value })} placeholder="메모(선택)" style={inp} />
-                  <button className="btnPrimary" style={{ background: HONEY_DARK, padding: "7px 14px" }} onClick={saveKeyword}>🔒 추가</button>
-                </div>
-                {msg && <p style={{ fontSize: 12, color: HONEY_DARK, marginTop: 8 }}>{msg}</p>}
-              </div>
-              <div className="card">
-                <b style={{ fontSize: 14 }}>등록된 키워드 <span style={{ color: "var(--sec)", fontWeight: 500 }}>{keywords.length}개 · 사용 중 {keywords.filter((k) => k.enabled).length}</span></b>
-                <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
-                  <thead><tr><th style={th}>제품</th><th style={th}>키워드</th><th style={th}>유형</th><th style={th}>국가</th><th style={th}>상태</th><th style={th}>메모</th><th style={th}></th></tr></thead>
-                  <tbody>
-                    {[...keywords].sort((a, b) => a.product.localeCompare(b.product) || a.type.localeCompare(b.type)).map((k) => (<tr key={k.id} style={{ opacity: k.enabled ? 1 : 0.5 }}>
-                      <td style={td}>{cfg.products.find((p: any) => p.slug === k.product)?.label || k.product}</td><td style={td}>{k.text}</td>
-                      <td style={td}><span className="badge samsung" title={taxonomy?.brand?.subtypes?.[k.subtype || ""]?.desc || ""}>{k.subtype || "A"} · {taxonomy?.brand?.subtypes?.[k.subtype || ""]?.label || "제품명"}</span></td>
-                      <td style={td}>{k.countries?.length ? k.countries.join(", ") : "전 국가"}</td>
-                      <td style={td}><span role="button" style={{ cursor: "pointer", color: k.enabled ? "#15803D" : "var(--sec)", fontWeight: 600 }} onClick={() => toggleKeyword(k)}>{k.enabled ? "사용 중" : "꺼짐"}</span></td>
-                      <td style={{ ...td, color: "var(--sec)" }}>{k.note || ""}</td>
-                      <td style={td}><span role="button" style={{ cursor: "pointer", color: "var(--sec)", marginRight: 10 }} onClick={() => setKwForm({ ...k })}>수정</span><span role="button" style={{ cursor: "pointer", color: "var(--high)" }} onClick={() => removeKeyword(k.id)}>삭제</span></td>
-                    </tr>))}
-                  </tbody>
-                </table>
-              </div>
+              <KeywordsTab cfg={cfg} taxonomy={taxonomy} showTax={showTax} setShowTax={setShowTax} keywords={keywords}
+                kwForm={kwForm} setKwForm={setKwForm} msg={msg} toggleKeyword={toggleKeyword}
+                saveKeyword={saveKeyword} removeKeyword={removeKeyword} />
             </>)}
           </div>
         </div>
@@ -430,35 +390,3 @@ export default function HoneyCombApp({ apiBase, onHome }: { apiBase: string; onH
   );
 }
 
-function AttrValue({ v }: { v: any }) {
-  if (v == null || v === "") return <span style={{ color: "var(--sec)" }}>—</span>;
-  if (Array.isArray(v)) {
-    return <ul style={{ margin: 0, paddingLeft: 16 }}>{v.slice(0, 6).map((x, i) => <li key={i} style={{ fontSize: 11.5 }}>{String(x)}</li>)}{v.length > 6 && <li style={{ fontSize: 11, color: "var(--sec)" }}>외 {v.length - 6}개</li>}</ul>;
-  }
-  const s = String(v);
-  if (/^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(s)) {
-    return <a href={s} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 6 }}><img src={s} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: 4, border: "1px solid var(--line)" }} /><span style={{ fontSize: 11, color: "var(--sec)", wordBreak: "break-all" }}>이미지 보기</span></a>;
-  }
-  if (/^https?:\/\//i.test(s)) return <a href={s} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, wordBreak: "break-all" }}>{s.length > 60 ? s.slice(0, 60) + "…" : s}</a>;
-  return <span style={{ fontSize: 11.5 }} title={s.length > 140 ? s : undefined}>{s.length > 140 ? s.slice(0, 140) + "…" : s}</span>;
-}
-
-function AttrTable({ attrs, cell }: { attrs: Attr[]; cell: Cell }) {
-  const cats = [...new Set(attrs.map((a) => a.category))];
-  return (
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead><tr><th style={th}>#</th><th style={th}>속성</th><th style={th}>보이는 곳</th><th style={th}>화면</th><th style={th}>노출 내용 <span style={{ fontWeight: 400, color: "var(--sec)" }}>실제 관측값</span></th></tr></thead>
-      <tbody>
-        {cats.map((cat) => (<Fragment key={cat}>
-          <tr><td colSpan={5} style={{ ...td, background: "var(--rail)", fontWeight: 700, fontSize: 11.5, color: "var(--label2)" }}>{cat}</td></tr>
-          {attrs.filter((a) => a.category === cat).map((a) => { const v = cell.attrs[akey(a)] || "na";
-            return (<tr key={akey(a)} style={{ background: v === "missed" ? "var(--high-soft)" : undefined }}>
-              <td style={{ ...td, color: "var(--sec)" }}>{a.no}{a.sub ? "·" : ""}</td><td style={td}>{a.name}</td><td style={{ ...td, color: "var(--sec)" }}>{OBS[a.observe]}</td>
-              <td style={td}><Mark v={v} /></td>
-              <td style={{ ...td, maxWidth: 320 }}>{v === "entered" ? <AttrValue v={cell.attr_values?.[akey(a)]} /> : <span style={{ color: "var(--sec)" }}>—</span>}</td>
-            </tr>); })}
-        </Fragment>))}
-      </tbody>
-    </table>
-  );
-}

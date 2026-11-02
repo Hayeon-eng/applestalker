@@ -11,6 +11,7 @@ import { Landing, Overview, PagesTab, ProductTab, CriteriaDrawer, InsightChat } 
 import QubiApp from "./QubiApp";
 import HoneyCombApp from "./HoneyCombApp"; // [2026-09] 🐝C honeyComb (목업)
 import RegionOverview from "./RegionOverview"; // [2026-10] 🌍 권역별 OVERVIEW
+import { InsightCtx } from "./insightUi"; // [2026-11] 공통 인사이트
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -296,11 +297,12 @@ export default function Page() {
   }
 
   return (
+    <InsightCtx.Provider value={report?.insights || null}>
     <div className="appShell">
       {/* ── 좌측 레일 */}
       <aside className="sidebar">
         <div className="brand" style={{ cursor: "pointer" }} onClick={() => setView("home")} title="홈으로">
-          🍎 Apple Stalker
+          🍎 apple<span style={{ color: "#E5484D" }}>S</span>talker
         </div>
         <div className="brandSub">사과를 추격하며, 당사와 글로벌 경쟁사의 변화를 감지해 리포팅해요</div>
         <div className={`connBadge ${online === true ? "ok" : "bad"}`}>
@@ -612,5 +614,6 @@ export default function Page() {
       {/* ── 기준 설명 Drawer */}
       <CriteriaDrawer open={drawerOpen} section={drawerSection} onClose={() => setDrawerOpen(false)} apiBase={API} />
     </div>
+    </InsightCtx.Provider>
   );
 }

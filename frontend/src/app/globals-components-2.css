@@ -193,3 +193,14 @@ button.priorityRow:hover { background: var(--bg); }
   .productMatrixTable { overflow-x: auto; }
   .productMatrixRow { min-width: 840px; }
 }
+
+/* ── [2026-11] 공통 인사이트 박스 (insightUi.tsx) ───────────────── */
+.insBox { background: #F7F9FC; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+.insTitle { font-size: 12px; font-weight: 800; color: var(--label); margin: 0 0 6px; }
+.insLine { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; font-size: 12.5px; line-height: 1.55; margin: 3px 0; word-break: keep-all; }
+.insDot { font-size: 10px; flex: none; }
+.insText { color: var(--label); }
+.insArrow { color: var(--sec); flex: none; }
+.insAct { color: var(--blue, #1D4ED8); font-weight: 700; }
+.insEmpty { color: var(--sec); }
+.insBasis { font-size: 10.5px; color: var(--gray, #8A94A6); margin: 6px 0 0; border-top: 1px dashed var(--line); padding-top: 5px; }

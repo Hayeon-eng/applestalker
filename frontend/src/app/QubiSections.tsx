@@ -1,4 +1,5 @@
 "use client";
+import { InsightBox } from "./insightUi";
 /* QubiSections.tsx — QubiApp에서 분리한 큰 렌더 블록들(파일 크기 축소용).
    상태/핸들러는 QubiApp에서 ctx 객체로 주입받는다. */
 import { SEV, HONEY, tierOf, inputStyle, sel, humanizeTerm } from "./qubiShared";
@@ -305,10 +306,16 @@ export function QuickView({ ctx: c }: { ctx: any }) {
   return (
     <div style={{ position: "fixed", right: 20, bottom: 20, zIndex: 40, width: 380, maxHeight: "72vh", overflow: "auto", background: "#fff", border: "1px solid var(--line)", borderRadius: 14, boxShadow: "0 10px 30px rgba(0,0,0,.22)" }}>
       <div style={{ position: "sticky", top: 0, background: "#101318", color: "#fff", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderRadius: "14px 14px 0 0" }}>
-        <b style={{ fontSize: 13 }}>🐝 Quick View — {c.tab === "schema" ? "스키마" : "스펙"}</b>
+        <b style={{ fontSize: 13 }}>🐝 Quick View — {c.tab === "schema" ? "DATA QA" : c.tab === "copy" ? "스펙 QA" : "공통페이지 QA"}</b>
         <span role="button" onClick={() => c.setQuickOpen(false)} style={{ cursor: "pointer" }}>✕</span>
       </div>
       <div style={{ padding: 14 }}>
+        {/* [2026-11 B3] 화면 상단·메일과 같은 인사이트(현재 탭 기준) */}
+        {(() => {
+          const qi = c.tab === "schema" ? c.overview?.insights : c.tab === "copy" ? c.specInsights : c.staticInsights;
+          return qi ? <InsightBox items={qi.top} basis={qi.basis} empty="미흡 항목 없음" style={{ marginTop: 0, marginBottom: 12 }} /> : null;
+        })()}
+        {c.tab === "static" ? <p style={{ fontSize: 12, color: "var(--sec)" }}>공통페이지 상세 오류는 화면의 페이지×국가 표에서 확인하세요.</p> : <>
         <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--sec)", marginBottom: 6 }}>권역 신호등 <span style={{ fontWeight: 400 }}>— 좌 스키마 · 우 스펙</span></div>
         {Object.keys(c.regionTierBoth || {}).length === 0 && <p style={{ fontSize: 12, color: "var(--sec)" }}>검수를 실행하면 권역별 상태가 표시됩니다.</p>}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
@@ -345,6 +352,7 @@ export function QuickView({ ctx: c }: { ctx: any }) {
             </div>
           );
         })}
+        </>}
       </div>
     </div>
   );

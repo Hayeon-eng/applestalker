@@ -1,4 +1,5 @@
 "use client";
+import { InsightBox } from "./insightUi";
 /* QubiStaticQa — 🐝 큐비 · 공통페이지 QA 탭 [2026-09 · v2]
    91개 사이트 × 7종 공통 페이지(Home · All about Galaxy · Switch to Galaxy · Galaxy AI · Samsung Health · One UI · Find your Galaxy)를
    매일 한 번 "전형적 오류"만 본다. DATA QA 처럼 위에서 페이지를 고르고, 아래에서 상태별 상세를 본다. 백엔드 /api/qb/static/*
@@ -28,7 +29,9 @@ const Pill = ({ s, n, on, onClick }: { s: string; n?: number; on?: boolean; onCl
   <SevPill sev={SEV_OF[s] || "warn"} label={s === "정상" ? undefined : s} n={n} on={on} onClick={onClick} title={HELP[s]} />);
 // 집계 → 신호등 키(해당없음 제외 정상률 기준, Data QA 와 같은 80/50)
 const tlOf = (v: any) => tlByScore(v?.score ?? null);
-export function QubiStaticQa({ apiBase }: { apiBase: string }) {
+// [2026-11 C3] 이력은 좌측 사이드바 한 곳에서만 고른다(우측 '이력 선택' 드롭다운 제거).
+//   openReq: 사이드바에서 고른 run_id · onRuns: 이력 목록을 사이드바로 올려보냄
+export function QubiStaticQa({ apiBase, openReq, onRuns, onRunLoaded }: { apiBase: string; openReq?: { id: string; n: number } | null; onRuns?: (runs: any[]) => void; onRunLoaded?: (run: any) => void }) {
   const api = (p: string) => `${apiBase}${p}`;
   const [meta, setMeta] = useState<any>(null);
   const [runs, setRuns] = useState<any[]>([]);
@@ -42,12 +45,14 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
   const load = async () => {
     try {
       setMeta(await (await fetch(api("/api/qb/static/pages"))).json());
-      const rs = (await (await fetch(api("/api/qb/static/runs"))).json()).runs || []; setRuns(rs);
+      const rs = (await (await fetch(api("/api/qb/static/runs"))).json()).runs || []; setRuns(rs); onRuns?.(rs);
       // 자동으로 과거 결과를 열지 않는다 — 사용자가 "최근 결과 열기"나 이력 선택으로 연다(큐비 다른 탭과 동일)
     } catch { /* */ }
   };
   const openLatest = async () => { if (runs.length) await openRun(runs[0].run_id); };
   useEffect(() => { load(); }, [apiBase]);
+  useEffect(() => { if (openReq?.id) openRun(openReq.id); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openReq?.n]);
   const start = async () => {
     const body: any = page === "all" ? {} : { pages: [page] };
     if (region !== "all" && meta?.site_list) {
@@ -57,7 +62,7 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
     if (r.status === 409) { toast("이미 검수 중입니다", "warn"); return; }
     setStatus({ done: 0, total: 0 }); const t = setInterval(async () => { const st = await (await fetch(api("/api/qb/static/status"))).json(); setStatus(st); if (!st.running) { clearInterval(t); setStatus(null); await load(); const rs = (await (await fetch(api("/api/qb/static/runs"))).json()).runs || []; if (rs.length) openRun(rs[0].run_id); } }, 1500);
   };
-  const openRun = async (id: string) => { setRun(await (await fetch(api(`/api/qb/static/runs/${id}`))).json()); setSel(null); };
+  const openRun = async (id: string) => { const d = await (await fetch(api(`/api/qb/static/runs/${id}`))).json(); setRun(d); onRunLoaded?.(d); setSel(null); };
 
   if (!meta) return <Loading label="공통페이지 QA 불러오는 중…" />;
   const pages: any[] = meta.pages;
@@ -83,14 +88,12 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
             const regions = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
             return (
               <select value={region} onChange={(e) => setRegion(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} title="선택한 권역의 사이트만 검수합니다">
-                <option value="all">전체 권역 ({meta.site_list.length}개국)</option>
+                <option value="all">전체 권역 (자동 검수 {meta.site_list.length}개국)</option>
                 {regions.map((rg) => <option key={rg} value={rg}>{rg} ({counts[rg]}개국)</option>)}
               </select>
             );
           })()}
-          {runs.length > 0 && <select value={run?.run_id || ""} onChange={(e) => e.target.value && openRun(e.target.value)} style={{ fontSize: 12, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6 }} title="검수 이력">
-            <option value="">이력 선택 ({runs.length})</option>
-            {runs.map((r) => <option key={r.run_id} value={r.run_id}>{r.at}</option>)}</select>}
+          {/* [2026-11 C3] 이력 선택은 좌측 사이드바에서 (중복 제거) */}
           {!status ? <button className="btnPrimary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={start}>{`▶ 지금 검수${page !== "all" || region !== "all" ? " (선택 범위만)" : ""}`}</button>
             : <button className="btnDanger" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => { if (window.confirm("검수를 멈출까요? 끝난 페이지까지는 저장됩니다.")) await fetch(api("/api/qb/static/cancel"), { method: "POST" }); }}>■ 멈춤</button>}
         </span>
@@ -107,7 +110,7 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <b style={{ fontSize: 14 }}>{page === "all" ? "공통 페이지 전체" : pages.find((p) => p.key === page)?.label}</b>
-          <span style={{ fontSize: 12, color: "var(--sec)" }}>{meta.auto}개 국가 사이트{meta.manual?.length ? ` (직접 확인: ${meta.manual.join(", ")})` : ""} · {run ? `검수 ${run.at}` : runs.length ? `마지막 검수 ${runs[0].at}` : "아직 검수 전"}</span>
+          <span style={{ fontSize: 12, color: "var(--sec)" }}>{/* [2026-11] 국가 수 표기 통일: 자동 검수 N + 직접 확인 M = 전체 */}자동 검수 {meta.auto}개국{meta.manual?.length ? ` + 직접 확인 ${meta.manual.length}개국(${meta.manual.join(", ")}) = 전체 ${meta.sites}개국` : ""} · {run ? `검수 ${run.at}` : runs.length ? `마지막 검수 ${runs[0].at}` : "아직 검수 전"}</span>
           {run?.insight?.overall && (
             <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 18 }}>{tlEmoji(tlOf(run.insight.overall))}</span>
@@ -120,6 +123,8 @@ export function QubiStaticQa({ apiBase }: { apiBase: string }) {
           {ORDER.map((s) => <Pill key={s} s={s} n={count(s)} on={stFilter === s} onClick={() => setStFilter(stFilter === s ? "all" : s)} />)}
           {!run && <span style={{ fontSize: 12, color: "var(--sec)" }}>"지금 검수"를 누르면 약 {est}분 걸립니다(페이지당 1~2초).</span>}
         </div>
+        {/* [2026-11 C1·Q4] 100%가 아닐 때 어떤 페이지에서 어떤 오류가 몇 개 사이트인지 */}
+        {run?.insights && <InsightBox items={run.insights.top} basis={run.insights.basis} empty="오류 없음" />}
       </div>
 
       {!run && !status && (

@@ -9,6 +9,7 @@ import {
   productPageLabel, METRICS, metricScoreBreakdown, scoreTier, scoreTierEmoji, scoreTierLabel, metricPhrase, shortActionPhrase, detailedAction,
 } from "./shared";
 import { PageDrilldown } from "./sectionCommon";
+import { InsightLine, useInsights } from "./insightUi";
 import { buildPageRows, PageRow, roleRank, roleLabel } from "./pagesSection";
 
 const usefulCategories = (rows: PageRow[]) => PRODUCT_CATEGORY_ORDER.filter((cat) => rows.some((r) => r.product_category === cat));
@@ -59,6 +60,7 @@ export function ProductTab({
   selectedPage: PageDetail | null; loadingPage: boolean; onPick: (url: string) => void;
   onOpenDrawer: (id?: string) => void;
 }) {
+  const insPack = useInsights();
   const siteKeys = useMemo(
     () => orderedSiteKeys([...urls.map((u) => u.site_key || ""), ...Object.keys(pages)]),
     [pages, urls]
@@ -183,11 +185,18 @@ export function ProductTab({
                   </div>
                 ))}
                 <div className="worstBox">
-                  <p className="findingText" style={{ fontSize: 12 }}>종합 인사이트: {summaryLine}</p>
-                  <p className="findingText" style={{ fontSize: 12 }}>
-                    핵심 발견: {roleCells.map(({ role, cell }) => `${role.toUpperCase()} ${cell.label}`).join(" · ")}
+                  <p className="findingText" style={{ fontSize: 12, color: "var(--sec)" }}>
+                    수집 페이지: {roleCells.map(({ role, cell }) => `${role.toUpperCase()} ${cell.label}`).join(" · ")}
                   </p>
-                  <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>추천 액션: {priorityAction}</p>
+                  {/* [2026-11] 사이트 카드와 같은 인사이트(백엔드 단일 소스). 페이지 유형 누락은 맨 앞에 */}
+                  {insPack ? <>
+                    {roleAction && <p className="insLine"><span className="insText">{siteName(site)} 페이지 유형 누락</span><span className="insArrow">→</span><b className="insAct">{roleAction}</b></p>}
+                    {(insPack.by_site?.[site] || []).map((it, i) => <InsightLine key={i} it={it} />)}
+                    {!roleAction && !(insPack.by_site?.[site] || []).length && <p className="findingText" style={{ fontSize: 12 }}>부족·열세 항목 없음</p>}
+                  </> : <>
+                    <p className="findingText" style={{ fontSize: 12 }}>종합 인사이트: {summaryLine}</p>
+                    <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>추천 액션: {priorityAction}</p>
+                  </>}
                 </div>
               </div>
             );

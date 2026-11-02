@@ -1,4 +1,5 @@
 "use client";
+import { InsightBox } from "./insightUi";
 /* QubiDataQa.tsx — DATA QA(스키마·HTML) 상세/종합/전사이트 렌더 블록.
    QubiSections에서 분리(파일 크기 축소). 상태는 ctx로 주입받음. */
 import { useState, Fragment } from "react";
@@ -553,6 +554,8 @@ export function SiteOverview({ ctx: c }: { ctx: any }) {
           권역별 점수 {open ? "▾" : "▸"}
         </button>
       </div>
+      {/* [2026-11 C1] 100%가 아닐 때 무엇이 문제인지 — 누락 속성·영향 사이트·권역 */}
+      {ov.insights && <InsightBox items={ov.insights.top} basis={ov.insights.basis} empty="미흡 항목 없음" />}
       {open && (
         <div className="qbiPopIn" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
           {ov.regions.map((r: any) => (

@@ -11,6 +11,33 @@ import {
 import {
   compactSummary,
 } from "./sectionCommon";
+import { InsightLine, InsightBox, useInsights, type Insight, type InsightPack } from "./insightUi";
+
+/* [2026-11 A1·A2] 액션 표를 백엔드 인사이트로 구성.
+   - 변경 묶음(X1) · 삼성 부족/열세 · 경쟁사 우세만 넣는다.
+   - 경쟁사 '약점'은 삼성이 할 일이 아니므로 넣지 않는다(예전 "Samsung은 … 유지하면 됩니다" 행 제거). */
+const sevToLevel = (sev: number): PriorityLevel => (sev <= 1 ? "High" : sev === 2 ? "Medium" : "Low");
+function insightPriorityRows(ins: InsightPack, changes: Change[], metrics: MetricTab[]): PriorityIssue[] {
+  const inScope = (m?: string) => !m || metrics.includes(m as MetricTab);
+  const rows: PriorityIssue[] = [];
+  const push = (it: Insight, source: PriorityIssue["source"], i: number) => {
+    if (!inScope(it.metric) || !it.action) return;
+    const metric = (it.metric || "copy") as MetricTab;
+    const change = it.urls?.length ? changes.find((c) => c.site === it.site && it.urls!.includes(c.url)) : undefined;
+    rows.push({
+      id: `${source}-${it.rule}-${it.site}-${i}`, priority: sevToLevel(it.sev), site: (it.site || "samsung") as SiteKey,
+      area: metricAreaLabel(metric), issue: it.text, action: it.action, source, metric, change,
+    });
+  };
+  (ins.changes || []).forEach((it, i) => push(it, "change", i));
+  (ins.by_site?.samsung || []).forEach((it, i) => push(it, "insight", i));
+  Object.entries(ins.by_metric || {}).forEach(([, list]) =>
+    list.filter((it) => it.site !== "samsung" && ["D1", "C-adv", "V-adv"].includes(it.rule)).forEach((it, i) => push(it, "evidence", i)));
+  const seen = new Set<string>();
+  const order = { High: 0, Medium: 1, Low: 2 } as const;
+  return rows.filter((r) => (seen.has(r.issue) ? false : (seen.add(r.issue), true)))
+    .sort((a, b) => order[a.priority] - order[b.priority]);
+}
 
 type HealthState = "good" | "watch" | "risk" | "unknown";
 type PriorityLevel = "High" | "Medium" | "Low";
@@ -459,13 +486,14 @@ export function buildDashboardDigest({
     .slice(0, 4)
     .map((row) => `${siteShortName(row.site)}는 근거가 부족해 핵심 인사이트가 아니라 보조 확인으로 보세요.`);
 
+  // [2026-11 A4] 숫자 기준을 제목에 그대로 — 'High 13건'과 '전체 58건'을 같이 보여 다른 카드 숫자와 혼동이 없게
   const headline = !allSites.length
     ? "분석 데이터 없음"
     : highChangeCount > 0
-    ? `오늘 확인할 변화 ${highChangeCount}건`
+    ? `High 변경 ${highChangeCount}건 · 전체 ${changes.length}건`
     : changes.length > 0
-    ? `경쟁사 변화 ${changes.length}건 확인`
-    : "오늘의 경쟁사 인사이트";
+    ? `변경 ${changes.length}건 (High 없음)`
+    : "변경 없음";
   const lead = !allSites.length
     ? "관리 URL을 추가하거나 수집을 실행하면 인사이트와 액션이 표시됩니다."
     : `${metricTab === "all" ? "전체 분석" : METRICS[metricTab as MetricTab].label} 기준으로 Samsung 개선 포인트, 경쟁사 벤치마크, 근거 부족 항목을 분리했습니다.`;
@@ -505,6 +533,12 @@ export function WatchPointPanel({
 }) {
   const digest = buildDashboardDigest({ changes, dcv, metricTab, expectedSites });
   const jump = (metric: MetricTab, change?: Change) => onJumpToMetric?.(metric, change);
+  const ins = useInsights();
+  const scopeMetrics: MetricTab[] = metricTab === "all" ? ["data", "copy", "visual"] : [metricTab as MetricTab];
+  const priorityRows = ins ? insightPriorityRows(ins, changes, scopeMetrics) : digest.priorityRows;
+  const highN = changes.filter((c) => c.level === "High").length;
+  // 축 카드: 삼성 부족/열세 1줄(없으면 '부족·열세 없음')
+  const axisLine = (m: MetricTab) => ins?.by_metric?.[m]?.find((x) => x.site === "samsung");
 
   return (
     <>
@@ -534,9 +568,18 @@ export function WatchPointPanel({
                   </p>
                 ))}
               </div>
-              <p className="axisCardInsight">{h.insight}</p>
-              <hr className="axisCardHr" />
-              <p className="axisCardAct">우선 액션: {h.action}</p>
+              {ins ? (() => {
+                const l = axisLine(h.metric);
+                return <>
+                  <p className="axisCardInsight">{l ? l.text : "부족·열세 항목 없음"}</p>
+                  <hr className="axisCardHr" />
+                  <p className="axisCardAct">{l?.action ? `→ ${l.action}` : "→ 현재 구성 유지"}</p>
+                </>;
+              })() : <>
+                <p className="axisCardInsight">{h.insight}</p>
+                <hr className="axisCardHr" />
+                <p className="axisCardAct">우선 액션: {h.action}</p>
+              </>}
             </button>
           ))}
         </div>
@@ -544,14 +587,14 @@ export function WatchPointPanel({
 
       {/* ② 전체 액션 — 위 축 카드는 하이라이트 3건, 여기는 전체 목록 (용도가 다름) */}
       <div className="card">
-        <p className="cardTitle">전체 액션 ({digest.priorityRows.length}건)</p>
+        <p className="cardTitle">할 일 {priorityRows.length}건 <span className="cardTitleHint">— 변경 {changes.length}건(High {highN})과 점수 기준으로 정리</span></p>
         <div className="priorityTableWrap">
           <div className="priorityRow head">
-            <span>우선순위</span><span>Site</span><span>영역</span><span>판단</span><span>액션</span>
+            <span>우선순위</span><span>Site</span><span>영역</span><span>판단</span><span>할 일</span>
           </div>
-          {digest.priorityRows.length === 0 ? (
-            <div className="priorityEmpty">액션 없음 · 현재 구성을 유지</div>
-          ) : digest.priorityRows.map((row) => (
+          {priorityRows.length === 0 ? (
+            <div className="priorityEmpty">할 일 없음 · 현재 구성 유지</div>
+          ) : priorityRows.map((row) => (
             <button key={row.id} className="priorityRow" onClick={() => jump(row.metric, row.change)}>
               <span><span className={`sevBadge ${levelClass(row.priority)}`}>{levelKo(row.priority)}</span></span>
               <span><span className={`badge ${siteClass(row.site)}`}>{siteName(row.site)}</span></span>
@@ -598,6 +641,7 @@ const deltaMark = (d: number | null): string => d == null ? "" : d > 0 ? ` (▲+
 
 export function InsightChat({ dcv, changes, expectedSites = [], urls = [], onNavigateSite }: { dcv?: Report["dcv"]; changes: Change[]; expectedSites?: SiteKey[]; urls?: UrlRow[]; onNavigateSite?: (site: SiteKey) => void }) {
   const [open, setOpen] = useState(false);
+  const qvIns = useInsights();
   const [qaSite, setQaSite] = useState<string>("all");
   const [qaMetric, setQaMetric] = useState<string>("all");
   const [qaCategory, setQaCategory] = useState<string>("all");
@@ -677,6 +721,7 @@ export function InsightChat({ dcv, changes, expectedSites = [], urls = [], onNav
           {results && (
             <div className="qaResultWrap">
               <p className="qaResultLabel">{resultLabel}</p>
+              {qvIns && <p className="insBasis" style={{ marginTop: 0 }}>{qvIns.basis}</p>}
               {results.length === 0 ? (
                 <p className="muted">{resultLabel}</p>
               ) : results.map((r, i) => {
@@ -709,7 +754,12 @@ export function InsightChat({ dcv, changes, expectedSites = [], urls = [], onNav
                     })}
                     <p className="qaCompReason">→ 위 항목을 종합해 {METRICS[r.metric].label} {r.score == null ? "-" : `${r.score}점`}으로 판단</p>
                   </div>
-                  <p className="qaResultSummary">{r.health.summary}</p>
+                  {/* [2026-11 B3] Quick View 도 화면·메일과 같은 인사이트 문장 */}
+                  {qvIns && r.score != null ? (
+                    (qvIns.by_site_metric?.[r.site]?.[r.metric] || []).length
+                      ? <div className="qaResultSummary">{(qvIns.by_site_metric?.[r.site]?.[r.metric] || []).map((it, k) => <InsightLine key={k} it={it} />)}</div>
+                      : <p className="qaResultSummary">{r.site === "samsung" ? "부족·열세 항목 없음" : "삼성 대비 우세 항목 없음"}</p>
+                  ) : <p className="qaResultSummary">{r.health.summary}</p>}
                   {r.evidenceItems.length > 0 && (
                     <ul className="qaResultEvidence">
                       {r.evidenceItems.map((item, j) => (

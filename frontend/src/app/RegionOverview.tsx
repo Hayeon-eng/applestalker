@@ -1,4 +1,5 @@
 "use client";
+import { InsightBox } from "./insightUi";
 /* RegionOverview.tsx — [2026-10] 🌍 권역별 OVERVIEW  (2026-10-08 커맨드센터형으로 단순화)
    구성: ① 위 KPI 5장(툴별 숫자 하나 + 신호등) ② 가운데 지도 + 총괄 9개 말풍선 카드(🔴🟡🟢 법인 수 + 가장 급한 법인 한 줄, 지시선)
          ③ 아래 "지금 봐야 할 것" 한 줄(🔴 법인만) ④ 카드/국가 클릭 → 그 범위로 줌인(CSS transition) + 오른쪽 상세 패널, Esc/빈 곳 → 뒤로
@@ -18,7 +19,7 @@ type Tool = { tl: TL; [k: string]: any };
 type Site = { sitecode: string; country: string; subs: string; region: string; tools: Record<"data" | "spec" | "static" | "hc", Tool>; overall: TL; latest_at: string | null };
 type Subs = { subs: string; region: string; sitecodes: string[]; countries: string[]; tools: Record<string, TL>; overall: TL; latest_at: string | null };
 type Region = { region: string; subs: string[]; overall: TL; tools: Record<string, TL> };
-type Data = { generated_at: string; sites: Site[]; subs: Subs[]; regions: Region[]; distribution: Record<string, number>; apple: any };
+type Data = { generated_at: string; sites: Site[]; subs: Subs[]; regions: Region[]; distribution: Record<string, number>; apple: any; insights?: any };
 
 const W = 960, H = 480;
 const TOOLS: { key: "data" | "spec" | "static" | "hc"; label: string; app: "qubi" | "honeycomb" }[] = [
@@ -166,11 +167,11 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
   const avg = (xs: number[]) => xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
   const dataSites = sitesWith("data"), specSites = sitesWith("spec"), staticSites = sitesWith("static"), hcSites = sitesWith("hc");
   const kpis: { key: string; label: string; big: string; sub: string; tl: TL; app: "qubi" | "honeycomb" | "applestalker" }[] = [
-    { key: "data", label: "Data QA", big: dataSites.length ? `${avg(dataSites.map((s) => s.tools.data.score))}%` : "—", sub: dataSites.length ? `${dataSites.length}개 사이트 평균 정상률 · 🔴 ${dataSites.filter((s) => s.tools.data.tl === "red").length}` : "검수 전", tl: worst(...dataSites.map((s) => s.tools.data.tl)), app: "qubi" },
-    { key: "spec", label: "Spec QA", big: specSites.length ? `C ${specSites.reduce((a, s) => a + (s.tools.spec.critical || 0), 0)}` : "—", sub: specSites.length ? `Critical 합계 · Warning ${specSites.reduce((a, s) => a + (s.tools.spec.warning || 0), 0)} · ${specSites.length}개 사이트` : "검수 전", tl: worst(...specSites.map((s) => s.tools.spec.tl)), app: "qubi" },
+    { key: "data", label: "Data QA", big: dataSites.length ? `${avg(dataSites.map((s) => s.tools.data.score))}%` : "—", sub: dataSites.length ? `${dataSites.length}개 사이트 평균 AEO 퀄리티 · 🔴 ${dataSites.filter((s) => s.tools.data.tl === "red").length}개 사이트` : "검수 전", tl: worst(...dataSites.map((s) => s.tools.data.tl)), app: "qubi" },
+    { key: "spec", label: "Spec QA", big: specSites.length ? `오류 ${specSites.reduce((a, s) => a + (s.tools.spec.critical || 0), 0)}건` : "—", sub: specSites.length ? `스펙 오류 합계 · 확인 필요 ${specSites.reduce((a, s) => a + (s.tools.spec.warning || 0), 0)}건 · ${specSites.length}개 사이트` : "검수 전", tl: worst(...specSites.map((s) => s.tools.spec.tl)), app: "qubi" },
     { key: "static", label: "공통페이지 QA", big: staticSites.length ? `${(() => { const p = staticSites.reduce((a, s) => a + (s.tools.static.pass || 0), 0), q = staticSites.reduce((a, s) => a + (s.tools.static.pass || 0) + (s.tools.static.warn || 0) + (s.tools.static.fail || 0), 0); return q ? Math.round(100 * p / q) : 0; })()}%` : "—", sub: staticSites.length ? `전체 정상률 · 오류(파싱 실패) ${staticSites.reduce((a, s) => a + (s.tools.static.fail || 0), 0)}쪽 · ${staticSites.length}개 사이트` : "검수 전", tl: worst(...staticSites.map((s) => s.tools.static.tl)), app: "qubi" },
-    { key: "hc", label: "honeyComb", big: hcSites.length ? `${hcSites.filter((s) => s.tools.hc.tl === "red").length}/${hcSites.length}` : "—", sub: hcSites.length ? `미노출 국가 / 조사 국가 · ${hcSites[0]?.tools.hc.week || ""}` : "수집 전", tl: worst(...hcSites.map((s) => s.tools.hc.tl)), app: "honeycomb" },
-    { key: "apple", label: "Apple Stalker", big: data.apple?.has_data ? `${data.apple.changes}건` : "—", sub: data.apple?.has_data ? `변경 · High ${data.apple.high} · Medium ${data.apple.medium} · ${data.apple.timestamp?.slice(0, 10) || ""}` : "수집 전", tl: data.apple?.has_data ? (data.apple.high > 0 ? "red" : data.apple.medium > 0 ? "yellow" : "green") : null, app: "applestalker" },
+    { key: "hc", label: "honeyComb", big: hcSites.length ? `${hcSites.filter((s) => s.tools.hc.tl === "red").length}개국` : "—", sub: hcSites.length ? `미노출 제품이 있는 국가 (조사 ${hcSites.length}개국) · ${hcSites[0]?.tools.hc.week || ""}` : "수집 전", tl: worst(...hcSites.map((s) => s.tools.hc.tl)), app: "honeycomb" },
+    { key: "apple", label: "appleStalker", big: data.apple?.has_data ? `${data.apple.changes}건` : "—", sub: data.apple?.has_data ? `변경 · High ${data.apple.high} · Medium ${data.apple.medium} · ${data.apple.timestamp?.slice(0, 10) || ""}` : "수집 전", tl: data.apple?.has_data ? (data.apple.high > 0 ? "red" : data.apple.medium > 0 ? "yellow" : "green") : null, app: "applestalker" },
   ];
 
   // ── 총괄 말풍선 카드: 중심점(투영 좌표) + 좌/우 칼럼 배치 ─────────────────
@@ -215,7 +216,14 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
         <div style={{ display: "flex", gap: 8, marginTop: 4, fontSize: 11, color: "var(--sec)" }}>
           <span>🔴 {k.cnt.red}</span><span>🟡 {k.cnt.yellow}</span><span>🟢 {k.cnt.green}</span>{k.cnt.none > 0 && <span>⚪ {k.cnt.none}</span>}<span style={{ marginLeft: "auto", color: "var(--ter)" }}>법인 {k.n}</span>
         </div>
-        {k.why && k.cnt.red + k.cnt.yellow > 0 && <div style={{ fontSize: 11, color: "var(--label)", marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", borderTop: "1px solid rgba(0,0,0,.06)", paddingTop: 5 }}>↳ {k.why}</div>}
+        {/* [2026-11 E1] 권역 카드: '주원인 → 할 일' (insight_rules R1). 없으면 기존 한 줄 */}
+        {data?.insights?.by_region?.[k.r.region] ? (
+          <div style={{ fontSize: 11, color: "var(--label)", marginTop: 5, borderTop: "1px solid rgba(0,0,0,.06)", paddingTop: 5, lineHeight: 1.45 }}
+            title={data.insights.by_region[k.r.region].line}>
+            {data.insights.by_region[k.r.region].text.replace(`${k.r.region} `, "")}
+            <div style={{ color: "var(--blue)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>→ {data.insights.by_region[k.r.region].action}</div>
+          </div>
+        ) : k.why && k.cnt.red + k.cnt.yellow > 0 && <div style={{ fontSize: 11, color: "var(--label)", marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", borderTop: "1px solid rgba(0,0,0,.06)", paddingTop: 5 }}>↳ {k.why}</div>}
       </div>);
   };
 
@@ -249,6 +257,12 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
             <div style={{ fontSize: 11, color: "var(--sec)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.sub}</div>
           </div>))}
       </div>
+
+      {/* [2026-11 E1] 가장 중요한 창 — 숫자만이 아니라 '크리티컬 이슈 → 할 일' 3줄 + 판단 기준 */}
+      {data.insights && (
+        <div style={{ padding: "10px 16px 0" }}>
+          <InsightBox title="지금 가장 급한 이슈" items={data.insights.top} basis={data.insights.basis} empty="오류 법인 없음" style={{ marginTop: 0, background: "rgba(255,255,255,.85)" }} />
+        </div>)}
 
       {/* ② 지도 + 말풍선 카드 (줌인하면 카드 대신 오른쪽 패널) */}
       <div style={{ padding: "12px 16px 0", display: "grid", gridTemplateColumns: zoomed ? "minmax(0,1.7fr) minmax(300px,1fr)" : "1fr", gap: 12, alignItems: "start" }}>
@@ -355,7 +369,7 @@ export default function RegionOverview({ apiBase, onHome, onGo }: { apiBase: str
         <div className="rgGlass" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12.5 }}>
           <span className="rgLabel" style={{ whiteSpace: "nowrap" }}>지금 봐야 할 것</span>
           {urgentSubs.length === 0
-            ? <span style={{ color: "var(--sec)" }}>🔴 법인 없음{data.distribution.none === data.subs.length ? " — 아직 검수 결과가 없습니다. 큐비 검수 · 공통페이지 QA · honeyComb 수집을 한 번 돌리면 지도가 채워집니다." : data.distribution.yellow ? ` · 🟡 ${data.distribution.yellow}곳은 지도에서 확인` : " · 모든 법인 정상"}</span>
+            ? <span style={{ color: "var(--sec)" }}>🔴 법인 없음{data.distribution.none === data.subs.length ? " — 아직 검수 결과가 없습니다. qaBee 검수 · 공통페이지 QA · honeyComb 수집을 한 번 돌리면 지도가 채워집니다." : data.distribution.yellow ? ` · 🟡 ${data.distribution.yellow}곳은 지도에서 확인` : " · 모든 법인 정상"}</span>
             : urgentSubs.slice(0, 8).map(({ s, text }) => (
               <span key={s.subs} onClick={() => setLevel({ kind: "subs", subs: s.subs })} style={{ cursor: "pointer", padding: "4px 10px", borderRadius: 999, background: SEV.fail.soft, color: SEV.fail.ink, fontWeight: 600 }}>🔴 {s.subs} <span style={{ fontWeight: 500 }}>— {text}</span></span>))}
           {urgentSubs.length > 8 && <span style={{ color: "var(--sec)" }}>외 {urgentSubs.length - 8}곳 (☰ 목록)</span>}

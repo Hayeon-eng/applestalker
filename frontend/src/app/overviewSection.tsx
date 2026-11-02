@@ -5,8 +5,9 @@ import {
   MetricTab, MetricView, SiteKey, Change, AnalysisBlock, Report, UrlRow,
   METRICS, siteName, siteShortName, siteClass, levelKo, levelClass, severityEmoji, topSeverityChanges,
   groupByUrl, shortUrl, linesFromBlock, metricOneLiner, bucketOf, actionForChange, orderedSiteKeys,
-  metricScoreBreakdown, scoreTier, detailedAction, tagForLine,
+  metricScoreBreakdown, scoreTier, detailedAction, tagForLine, CATEGORY_BUCKETS,
 } from "./shared";
+import { InsightBox, InsightLine, useInsights } from "./insightUi";
 import { ChangeDrilldown, CurrentStatusDrilldown, type CurrentFindingSelection } from "./evidencePanels";
 import { FindingList, sitesFromBlocks, compactSummary } from "./sectionCommon";
 import { WatchPointPanel, buildDashboardDigest } from "./overviewWidgets";
@@ -29,29 +30,23 @@ function CrawlDigest({ report, session, changes, onJumpToMetric }: {
   const dur = session?.duration_seconds;
   const durText = dur == null ? "" : dur < 60 ? `${dur}초` : `${Math.round(dur / 60)}분`;
   const tl = lv.High > 0 ? "red" : lv.Medium > 0 ? "yellow" : "green";
-  // "그래서 무슨 뜻인가" — 규칙으로만 결정
-  const meaning = n === 0
-    ? "변경 없음 — 이번 수집 상태가 기준점(baseline)으로 저장됐습니다. 다음 수집부터 여기서 벗어나는 것만 변경으로 잡힙니다."
-    : lv.High > 0
-      ? `High ${lv.High}건은 가격·스키마·핵심 카피처럼 노출/판매에 직접 닿는 변화입니다 — 아래 "우선 확인" 목록부터 보세요.`
-      : lv.Medium > 0
-        ? "High 는 없고 Medium 이 있습니다 — 당장 조치보다는 다음 수집에서 같은 방향으로 계속 바뀌는지 확인하면 됩니다."
-        : "Low 변경만 있습니다 — 문구·순서 조정 수준이라 추세 참고용입니다.";
+  // [2026-11 A5·A8] 고정 템플릿("High 는 가격·스키마…") 대신 백엔드 인사이트 상위 3줄을 보여준다.
+  const ins = report.insights;;
   const samsungN = bySite["samsung"] || 0;
   const compN = n - samsungN;
   return (
     <div className="card" style={{ padding: "12px 16px", borderLeft: `4px solid ${tl === "red" ? SEV.fail.c : tl === "yellow" ? SEV.warn.c : SEV.pass.c}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 18 }}>{TL_EMOJI[tl]}</span>
-        <b style={{ fontSize: 13.5 }}>이번 수집에서 한 일</b>
+        <b style={{ fontSize: 13.5 }}>이번 수집 요약</b>
         <span style={{ fontSize: 12, color: "var(--sec)" }}>{report.timestamp}{durText ? ` · 소요 ${durText}` : ""}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 10 }}>
         {[
-          ["확인한 사이트", `${sites.length}개`, sites.map((s) => siteShortName(s as SiteKey)).join(" · ")],
-          ["읽은 페이지", pages == null ? "—" : `${pages}쪽`, "이전 스냅샷과 1:1 비교"],
+          ["수집 사이트", `${sites.length}개`, sites.map((s) => siteShortName(s as SiteKey)).join(" · ")],
+          ["비교한 페이지", pages == null ? "—" : `${pages}개`, "직전 수집과 비교"],
           ["감지한 변경", `${n}건`, n ? `High ${lv.High} · Medium ${lv.Medium} · Low ${lv.Low}` : "변경 없음"],
-          ["누가 바뀌었나", n ? `경쟁사 ${compN} · Samsung ${samsungN}` : "—", Object.entries(bySite).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([s, c]) => `${siteShortName(s as SiteKey)} ${c}`).join(" · ")],
+          ["변경한 곳", n ? `경쟁사 ${compN}건 · 삼성 ${samsungN}건` : "—", Object.entries(bySite).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([s, c]) => `${siteShortName(s as SiteKey)} ${c}건`).join(" · ")],
         ].map(([k, v, sub]) => (
           <div key={k as string} style={{ background: "var(--rail)", borderRadius: 10, padding: "8px 10px" }}>
             <div style={{ fontSize: 10.5, color: "var(--sec)", fontWeight: 600 }}>{k}</div>
@@ -64,11 +59,12 @@ function CrawlDigest({ report, session, changes, onJumpToMetric }: {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
           {Object.entries(byCat).filter(([, c]) => c > 0).map(([cat, c]) => (
             <span key={cat} className="badge" style={{ cursor: "pointer" }} title="이 영역 탭으로 이동"
-              onClick={() => onJumpToMetric(cat === "카피" ? "copy" : cat === "비주얼" ? "visual" : "data")}>{cat} {c}</span>
+              onClick={() => onJumpToMetric(CATEGORY_BUCKETS[cat] || "data")}>{cat} {c}</span>
           ))}
         </div>
       )}
-      <p style={{ fontSize: 12.5, margin: "10px 0 0", lineHeight: 1.55 }}><b>그래서:</b> {meaning}</p>
+      {ins ? <InsightBox items={ins.top} basis={ins.basis} empty={n === 0 ? "변경 없음, 부족 항목 없음" : undefined} />
+        : n === 0 && <p style={{ fontSize: 12.5, margin: "10px 0 0" }}>변경 없음 — 이번 수집이 다음 비교의 기준이 됩니다.</p>}
     </div>
   );
 }
@@ -86,6 +82,7 @@ function MetricSection({
   showHeading?: boolean; urlFilter?: string | null; onClearUrlFilter?: () => void;
 }) {
   const sites = sitesFromBlocks(siteBlocks, changes);
+  const secIns = useInsights();
   const changesBySite = (site: SiteKey) => changes.filter((c) => c.site === site);
   const [selectedFinding, setSelectedFinding] = useState<CurrentFindingSelection | null>(null);
   const currentEvidenceId = `current-evidence-${metric}`;
@@ -136,7 +133,12 @@ function MetricSection({
                     {breakdown.total == null ? "-" : breakdown.total}
                   </span>
                 </p>
-                {topLine ? (
+                {/* [2026-11 A11] 수집 범위 설명 반복 대신 이 사이트·이 지표의 '부족/우세 → 할 일' (근거는 아래 접힘) */}
+                {secIns && breakdown.total != null ? (
+                  (secIns.by_site_metric?.[site]?.[metric] || []).length
+                    ? (secIns.by_site_metric?.[site]?.[metric] || []).map((it, i) => <InsightLine key={i} it={it} />)
+                    : <p className="findingText" style={{ fontSize: 12 }}>{site === "samsung" ? "부족·열세 항목 없음" : "삼성 대비 우세 항목 없음"}</p>
+                ) : topLine ? (
                   <>
                     <p className="findingText" style={{ fontSize: 12 }}>{topLabel && <b>{topLabel}: </b>}{compactSummary(topLine, 130)}</p>
                     <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>
@@ -267,6 +269,7 @@ export function Overview({
   const displayedChanges = urlFilter ? changes.filter((c) => c.url === urlFilter) : changes;
   const expectedSites = orderedSiteKeys(urls.map((u) => u.site_key || ""));
   const boardDigest = buildDashboardDigest({ changes: scopedChanges, dcv, metricTab, expectedSites });
+  const insights = useInsights();
 
   // 상세보기 클릭 → 탭 이동 후, 해당 변경점 카드로 자동 스크롤
   useEffect(() => {
@@ -298,10 +301,15 @@ export function Overview({
             <p className="summaryDesc">
               {report
                 ? (metricTab === "all"
-                    ? `${boardDigest.lead} · 글로벌 경쟁사 변경 ${competitors}건 · Samsung 변경 ${samsung}건`
-                    : `${METRICS[metricTab].label}: ${boardDigest.lead} · ${metricOneLiner(metricTab, dcv?.[metricTab], changes, expectedSites)}`)
+                    ? `경쟁사 변경 ${competitors}건 · 삼성 변경 ${samsung}건`
+                    : `${METRICS[metricTab].label} · 경쟁사 변경 ${competitors}건 · 삼성 변경 ${samsung}건`)
                 : "관리 URL을 추가하거나 수집을 실행하면 현황판이 표시됩니다."}
             </p>
+            {/* [2026-11] 지표 탭: 기존 한 줄 통계(metricOneLiner) 대신 해당 지표 인사이트 3줄 */}
+            {report && metricTab !== "all" && (
+              insights ? <InsightBox items={insights.by_metric?.[metricTab]} basis={insights.basis} empty="부족·열세 항목 없음" />
+                : <p className="summaryDesc">{metricOneLiner(metricTab, dcv?.[metricTab], changes, expectedSites)}</p>
+            )}
           </div>
         </div>
 

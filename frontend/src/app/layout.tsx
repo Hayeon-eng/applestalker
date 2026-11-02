@@ -3,7 +3,7 @@ import './globals-components.css';
 import './globals-components-2.css';
 import type { Metadata } from 'next';
 export const metadata: Metadata = {
-  title: 'Apple Stalker',
+  title: 'ABC Tool — appleStalker · qaBee · honeyComb',
   description: '경쟁사 웹 변화 감지 · AEO 인텔리전스',
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {

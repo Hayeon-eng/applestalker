@@ -6,6 +6,7 @@ import {
   shortUrl, linesFromBlock, tagForLine, metricAverage, metricActionSentence, siteMetricScore,
   scoreTier, metricScoreBreakdown, ScoreTier, metricPhrase, shortActionPhrase, detailedAction, pageActionLines,
 } from "./shared";
+import { InsightLine, InsightBox, useInsights } from "./insightUi";
 
 
 const hasActionVerb = (line: string) => /하세요|보강|확인|점검|배치|비교|유지|분리/.test(line);
@@ -79,6 +80,8 @@ export function SiteScoreCard({
   selectedMetric?: MetricTab | null;
   worstText?: string;
 }) {
+  const insPack = useInsights();
+  const siteIns = insPack ? (insPack.by_site?.[site] || []) : null;
   const rows = SCORE_METRICS.map((m) => {
     const breakdown = metricScoreBreakdown(m, blocks[m]);
     const tier = scoreTier(breakdown.total);
@@ -129,8 +132,12 @@ export function SiteScoreCard({
         </button>
       ))}
       <div className="worstBox">
-        <p className="findingText" style={{ fontSize: 12 }}>종합 인사이트: {summaryLine}</p>
-        <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>우선 액션: {priorityAction}</p>
+        {/* [2026-11] 사이트 카드: 백엔드 인사이트(삼성=부족/열세, 경쟁사=삼성 대비 우세 지점) 최대 2줄 */}
+        {siteIns ? (siteIns.length ? siteIns.map((it, i) => <InsightLine key={i} it={it} />)
+          : <p className="findingText" style={{ fontSize: 12 }}>부족·열세 항목 없음</p>) : <>
+          <p className="findingText" style={{ fontSize: 12 }}>종합 인사이트: {summaryLine}</p>
+          <p className="findingText siteInsightAction" style={{ fontSize: 12 }}>우선 액션: {priorityAction}</p>
+        </>}
       </div>
     </div>
   );
@@ -237,17 +244,25 @@ export function PageDrilldown({ page, focusMetric = "data" }: { page: PageDetail
                 {METRICS[key].label}
               </summary>
               <div style={{ paddingTop: 8 }}>
+                {/* [2026-11 A10] 결론·할 일 3줄을 먼저, 긴 근거 나열은 접어둔다 */}
+                {page.insights ? (
+                  <InsightBox items={page.insights.by_metric?.[key]} basis={page.insights.basis} empty="이 페이지 기준 부족 항목 없음" style={{ marginTop: 0 }} />
+                ) : (
+                  <div className="pageActionBox">
+                    <p className="pageActionLabel">이 페이지 액션</p>
+                    {pageActionLines(key, block).map((a, i) => (
+                      <p key={i} className="pageActionItem">{a}</p>
+                    ))}
+                  </div>
+                )}
                 {linesFromBlock(block).length === 0 ? (
                   <p className="muted">근거 없음</p>
                 ) : (
-                  <FindingList metric={key} lines={linesFromBlock(block)} />
+                  <details style={{ marginTop: 8 }}>
+                    <summary style={{ fontSize: 12, color: "var(--sec)", cursor: "pointer" }}>세부 근거 보기</summary>
+                    <FindingList metric={key} lines={linesFromBlock(block)} />
+                  </details>
                 )}
-                <div className="pageActionBox">
-                  <p className="pageActionLabel">이 페이지 액션</p>
-                  {pageActionLines(key, block).map((a, i) => (
-                    <p key={i} className="pageActionItem">{a}</p>
-                  ))}
-                </div>
               </div>
             </details>
           ))}

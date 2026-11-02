@@ -11,6 +11,7 @@ import {
 } from "./shared";
 import { SiteScoreCard, PageDrilldown, compactSummary } from "./sectionCommon";
 import { CurrentStatusDrilldown } from "./evidencePanels";
+import { InsightBox, useInsights } from "./insightUi";
 
 export type PageRow = PageLite & {
   site: SiteKey;
@@ -127,6 +128,7 @@ export function PagesTab({
     [pages, urls, dcv]
   );
   const [selectedSite, setSelectedSite] = useState<SiteKey | "all">("all");
+  const insPack = useInsights();
   const visibleSiteKeys = useMemo(
     () => selectedSite === "all" ? siteKeys : siteKeys.filter((s) => s === selectedSite),
     [siteKeys, selectedSite]
@@ -302,7 +304,9 @@ export function PagesTab({
             <div key={m} className="sevRow">
               <span className={`badge ${m === "data" ? "c1" : m === "copy" ? "c2" : "c4"}`}>{METRICS[m].label}</span>
               <span className="sevDesc">
-                {metricOneLiner(m, dcv?.[m], allChanges.filter((c) => bucketOf(c) === m), siteKeys)}
+                {/* [2026-11 A9] 과밀한 통계 한 줄 → 해당 지표 인사이트 */}
+                {insPack ? <InsightBox items={insPack.by_metric?.[m]} empty="부족·열세 항목 없음" style={{ marginTop: 0 }} />
+                  : metricOneLiner(m, dcv?.[m], allChanges.filter((c) => bucketOf(c) === m), siteKeys)}
               </span>
             </div>
           ))}

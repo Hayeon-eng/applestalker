@@ -1,4 +1,5 @@
 "use client";
+import { InsightBox } from "./insightUi";
 /* QubiSpecQa.tsx — Spec QA [V2] 렌더 블록 (Rule 기반 Spec Validation 결과 화면)
    QA 담당자가 30초 안에 ①어떤 Rule이 실패했는지 ②왜 ③어떻게 고치는지 이해하는 것이 목표.
    Data QA(QubiDataQa) 카드 스타일과 얼라인: 색 헤더 스트립 + 테두리 카드.
@@ -219,6 +220,8 @@ export function SpecSiteOverview({ ctx: c }: { ctx: any }) {
         </button>
       </div>
       <div style={{ fontSize: 10.5, color: "var(--gray)", marginTop: 4 }}>점수 = 정상 ÷ (정상+오류) — 확인·미노출은 반영하지 않아요 · 상세 오류·확인 현황은 화면 아래 "스펙 QA 상세"에서</div>
+      {/* [2026-11 C1] 100%가 아닐 때 무엇이 문제인지 — 스펙 항목별 오류 사이트 수·정답 */}
+      {c.specInsights && <InsightBox items={c.specInsights.top} basis={c.specInsights.basis} empty="오류·확인 항목 없음" />}
       {open && (
         <div className="qbiPopIn" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
           {regions.map((r) => (

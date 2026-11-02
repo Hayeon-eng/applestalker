@@ -19,6 +19,7 @@ export type Change = {
   id: number; url: string; site?: string; level?: "High" | "Medium" | "Low";
   category?: string; field?: string; summary?: string; before?: string; after?: string;
   evidence?: Record<string, unknown>;
+  action?: string; insight?: string;   // [2026-11] 백엔드 insight_rules 가 붙인 할 일
 };
 export type AnalysisBlock = {
   facts?: Record<string, any>;
@@ -34,6 +35,7 @@ export type Report = {
   category_summary?: Record<string, string>;
   dcv?: Record<MetricTab, Record<string, AnalysisBlock>>;
   analysis?: { summary?: string };
+  insights?: import("./insightUi").InsightPack;   // [2026-11] 백엔드 insight_rules 결과
 };
 export type Session = {
   session: string; run_ids: string[]; sites: string[];
@@ -51,6 +53,7 @@ export type PageDetail = {
   data?: { facts?: any; narrative?: string[] };
   copy?: { facts?: any; narrative?: string[] };
   visual?: { facts?: any; narrative?: string[] };
+  insights?: { by_metric: Record<string, import("./insightUi").Insight[]>; basis: string };  // [2026-11 A10]
 };
 export type ProductCategory = "phone" | "tablet" | "audio" | "watch" | "laptop" | "ai_glass";
 export type UrlRow = { url: string; tier_level?: number; site_key?: string; page_role?: string; product_category?: ProductCategory | string; page_label?: string };
@@ -238,6 +241,9 @@ export const metricActionSentence = (metric: MetricTab) => {
 };
 
 export const actionForChange = (c: Change): string => {
+  // [2026-11 A1] 백엔드가 변경 내용(가격 문구·스키마 신규·본문 축소 등)을 보고 만든 할 일을 우선 사용.
+  //   아래 고정 문장은 인사이트가 없는 과거 응답용 폴백.
+  if (c.action) return c.action;
   const metric = bucketOf(c);
   const role = pageRoleKo(pageRoleFromUrl(c.url || ""));
   const isOurs = c.site === "samsung";
