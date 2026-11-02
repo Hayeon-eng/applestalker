@@ -417,37 +417,97 @@ TOOL_ACTION = {"data": "PDP 스키마 필수 속성 등록 필요", "spec": "PDP
                "static": "공통페이지 JSON-LD 수정 필요", "hc": "GMC 피드 등록·노출 점검 필요"}
 
 
-def region_insights(ov: Dict[str, Any]) -> Dict[str, Any]:
-    sites = ov.get("sites") or []
-    by_region: Dict[str, List[Dict[str, Any]]] = {}
-    for s in sites:
-        by_region.setdefault(s.get("region") or "(미분류)", []).append(s)
-    per_region: Dict[str, Dict[str, Any]] = {}
+def _site_issues(site: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """[2026-11 E1] 사이트 1곳 × 도구별 '무엇이 문제 → 할 일' + 화면 이동 대상(go). 🔴·🟡 도구만."""
     out: List[Dict[str, Any]] = []
-    tool_red_regions: Counter = Counter()
-    for reg, ss in by_region.items():
-        red_sites = [s for s in ss if s.get("overall") == "red"]
-        if not red_sites:
-            per_region[reg] = {"line": None}
+    sc, subs = site.get("sitecode") or "", site.get("subs") or "-"
+    who = f"{sc.upper()}({subs})"
+    t = site.get("tools") or {}
+    sevof = lambda tl: 1 if tl == "red" else 2
+    d = t.get("data") or {}
+    if d.get("tl") in ("red", "yellow"):
+        miss, l1 = d.get("missing") or [], d.get("l1_fail") or []
+        what = (f"{_join(miss, 2)} 필수 누락" if miss else f"{_join(l1, 2)} 미충족" if l1 else "권장 속성 미흡")
+        out.append(_ins("E-data", sevof(d["tl"]), f"{who} DATA QA {what} · AEO {d.get('score')}%",
+                        (f"{d.get('page_type') or 'PDP'} 스키마에 {miss[0].split(' ', 1)[-1]} 등록 필요" if miss
+                         else "H1·타이틀 가이드 기준 수정 필요" if l1 else "권장 속성 보강 필요"),
+                        tool="data", subs=subs, sitecode=sc, region=site.get("region"),
+                        go={"app": "qubi", "tab": "schema", "run_id": d.get("run_id"), "region": d.get("region"), "sitecode": sc}))
+    sp = t.get("spec") or {}
+    if sp.get("tl") in ("red", "yellow"):
+        fails = sp.get("fails") or []
+        if fails:
+            f0 = fails[0]
+            exp = f"정답 {f0.get('expected')}{(' ' + f0['unit']) if f0.get('unit') and f0['unit'] not in str(f0.get('expected')) else ''}"
+            more = f" 외 {len(fails) - 1}개" if len(fails) > 1 else ""
+            text = f"{who} 스펙 {f0.get('attribute')} 오류 ({exp}, 표기 {f0.get('found') or '-'}){more}"
+            act = f"{f0.get('page') or 'PDP'} {_join([x.get('attribute') for x in fails], 3)} 표기 수정 필요"
+        else:
+            text = f"{who} 스펙 확인 필요 {len(sp.get('warns') or [])}건 ({_join(sp.get('warns') or [], 3)})"
+            act = "표기 단위·형식 확인 필요"
+        out.append(_ins("E-spec", sevof(sp["tl"]), text, act, tool="spec", subs=subs, sitecode=sc, region=site.get("region"),
+                        go={"app": "qubi", "tab": "copy", "run_id": sp.get("run_id"), "region": sp.get("region"), "sitecode": sc}))
+    st = t.get("static") or {}
+    if st.get("tl") in ("red", "yellow"):
+        bad = [pg for pg in (st.get("pages") or []) if pg.get("sev") in ("fail", "warn")]
+        bad.sort(key=lambda pg: _STATIC_SEV.get(pg.get("status"), 3))
+        parts = [f"{pg.get('page')} {pg.get('status')}" + (f"({_PARSE_CAT_KO.get(pg['cause'], pg['cause'])})" if pg.get("cause") else "") for pg in bad]
+        top_status = bad[0].get("status") if bad else ""
+        out.append(_ins("E-static", sevof(st["tl"]), f"{who} 공통페이지 {_join(parts, 2)} · 정상률 {st.get('score')}%",
+                        _STATIC_ACTION.get(top_status, "JSON-LD 점검 필요"), tool="static", subs=subs, sitecode=sc, region=site.get("region"),
+                        go={"app": "qubi", "tab": "static", "run_id": st.get("run_id"), "sitecode": sc, "page": (bad[0].get("page_key") if bad else None)}))
+    h = t.get("hc") or {}
+    if h.get("tl") in ("red", "yellow"):
+        ab, lo = h.get("absent_products") or [], h.get("low_products") or []
+        prods = ab or lo
+        names = _join([x["label"] for x in prods], 3)
+        stores = _join(h.get("first_stores") or [], 2)
+        text = f"{who} honeyComb {names} {'미노출' if ab else '8위 밖'}" + (f" · 1위 {stores}" if stores else "")
+        out.append(_ins("E-hc", sevof(h["tl"]), text, f"{subs} GMC 피드 {names} 등록·승인 상태 확인 필요",
+                        tool="hc", subs=subs, sitecode=sc, region=site.get("region"),
+                        go={"app": "honeycomb", "run_id": h.get("run_id"), "country": h.get("code"),
+                            "product": prods[0]["slug"] if prods else None}))
+    return out
+
+
+def region_insights(ov: Dict[str, Any]) -> Dict[str, Any]:
+    """[2026-11 E1] 권역 OVERVIEW — 요약 3줄(펼치면 사이트별 세부 + 이동), 권역 카드, 법인 패널용 세부."""
+    sites = ov.get("sites") or []
+    issues = [i for s in sites for i in _site_issues(s)]
+    by_region: Dict[str, List[Dict[str, Any]]] = {}
+    for i in issues:
+        by_region.setdefault(i.get("region") or "(미분류)", []).append(i)
+    by_subs: Dict[str, List[Dict[str, Any]]] = {}
+    for i in issues:
+        by_subs.setdefault(i["subs"], []).append(i)
+    for v in by_subs.values():
+        v.sort(key=lambda x: x["sev"])
+    nreg = len({s.get("region") or "(미분류)" for s in sites})
+    out: List[Dict[str, Any]] = []
+    region_line: Dict[str, Any] = {}
+    tool_regions: Counter = Counter()
+    for reg, iss in by_region.items():
+        red = [i for i in iss if i["sev"] == 1]
+        if not red:
             continue
-        cause = Counter(k for s in red_sites for k, v in (s.get("tools") or {}).items() if v.get("tl") == "red")
+        cause = Counter(i["tool"] for i in red)
         for k in cause:
-            tool_red_regions[k] += 1
-        if not cause:
-            continue
+            tool_regions[k] += 1
         tool, n = cause.most_common(1)[0]
-        subs_cnt = Counter(s.get("subs") or "-" for s in red_sites if ((s.get("tools") or {}).get(tool) or {}).get("tl") == "red")
-        red_subs = sorted({s.get("subs") for s in red_sites})
-        it = _ins("R1", 1, f"{reg} 법인 {len(red_subs)}곳 오류, 주원인 {TOOL_KO[tool]} ({n}개 사이트)",
-                  f"{_join([k for k, _ in subs_cnt.most_common(3)])} {TOOL_ACTION[tool]}", region=reg, tool=tool)
-        per_region[reg] = {"line": it, "red_subs": len(red_subs), "cause": tool}
+        red_subs = sorted({i["subs"] for i in red})
+        samples = [i for i in red if i["tool"] == tool][:2]
+        snippet = " / ".join(x["text"] for x in samples)
+        it = _ins("R1", 1, f"{reg} 법인 {len(red_subs)}곳 오류 — 주원인 {TOOL_KO[tool]} {n}개 사이트: {snippet}",
+                  " · ".join(dict.fromkeys(x["action"] for x in samples)),
+                  region=reg, tool=tool, details=sorted(iss, key=lambda x: (x["sev"], x["tool"] != tool)))
+        region_line[reg] = {**it, "short": f"법인 {len(red_subs)}곳 오류 · 주원인 {TOOL_KO[tool]}",
+                            "first": samples[0]["text"] if samples else ""}
         out.append(it)
-    nreg = len(by_region)
-    for tool, k in tool_red_regions.most_common():
+    for tool, k in tool_regions.most_common():
         if nreg >= 2 and k * 2 >= nreg and k >= 2:
-            out.append(_ins("R2", 1, f"{TOOL_KO[tool]} 오류가 {k}개 권역 공통 (전체 {nreg}개 권역)",
-                            "본사 템플릿·공통 가이드 단위 수정 필요", tool=tool))
-    # 공통 이슈를 맨 앞에, 그다음 오류 법인 많은 권역 순
-    out.sort(key=lambda x: (0 if x["rule"] == "R2" else 1, -(per_region.get(x.get("region"), {}).get("red_subs") or 0)))
-    return {"top": out[:MAX_LINES], "all": out, "by_region": {k: v.get("line") for k, v in per_region.items()},
-            "basis": BASIS_REGION}
+            det = [i for i in issues if i["tool"] == tool and i["sev"] == 1]
+            regs = sorted({i.get("region") or "-" for i in det})
+            out.append(_ins("R2", 1, f"{TOOL_KO[tool]} 오류가 {k}개 권역 공통 ({_join(regs, 4)}) — {len(det)}개 사이트",
+                            "본사 템플릿·공통 가이드 단위 수정 필요", tool=tool, details=det))
+    out.sort(key=lambda x: (0 if x["rule"] == "R2" else 1, -len({d["subs"] for d in x.get("details") or [] if d["sev"] == 1})))
+    return {"top": out[:MAX_LINES], "all": out, "by_region": region_line, "by_subs": by_subs, "basis": BASIS_REGION}

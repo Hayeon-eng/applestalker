@@ -102,12 +102,24 @@ def _qubi_latest(session_local) -> Dict[str, Dict[str, Any]]:
             if hq and "data" not in slot:
                 fp = (hq.get("overall") or {}).get("final_pct")
                 if fp is not None:
-                    slot["data"] = {"score": round(fp), "at": row.at, "run_id": row.run_id,
+                    # [2026-11 E1] 권역 화면에서 '무엇이' 문제인지 보이도록 누락 속성·H1 등 세부 항목을 함께 넘긴다
+                    per = ((hq.get("level2") or {}).get("per_type")) or {}
+                    missing = [f"{t} {p}" for t, v in per.items() for p in (v.get("missing_required") or [])]
+                    weak = [f"{t} {p}" for t, v in per.items() for p in (v.get("weak_recommended") or [])]
+                    l1 = [it.get("item") for it in (((hq.get("level1_apply_rate") or {}).get("items")) or []) if it.get("pass") is False]
+                    slot["data"] = {"score": round(fp), "at": row.at, "run_id": row.run_id, "region": r.get("region"),
+                                    "page_type": r.get("page_type"), "missing": missing[:8], "weak": weak[:8], "l1_fail": l1[:5],
                                     "gate_zero": bool((hq.get("overall") or {}).get("any_gate_zero"))}
             if "spec" not in slot:
                 ss = _spec_summary(r)
                 if ss:
-                    slot["spec"] = {**ss, "at": row.at, "run_id": row.run_id}
+                    items = [it for src in ("spec_v2", "compare_v2") for it in (((r.get(src) or {}).get("items")) or [])]
+                    fails = [{"attribute": it.get("attribute") or it.get("rule_id"), "expected": it.get("expected"), "unit": it.get("unit"),
+                              "found": str(it.get("found") or "")[:40], "page": it.get("page") or r.get("page_type")}
+                             for it in items if it.get("status") == "fail"]
+                    warns = [it.get("attribute") or it.get("rule_id") for it in items if it.get("status") == "warn"]
+                    slot["spec"] = {**ss, "at": row.at, "run_id": row.run_id, "region": r.get("region"),
+                                    "page_type": r.get("page_type"), "fails": fails[:8], "warns": warns[:8]}
     return out
 
 
@@ -127,7 +139,9 @@ def _static_latest() -> Dict[str, Dict[str, Any]]:
         slot = out.setdefault(sc, {"pass": 0, "warn": 0, "fail": 0, "na": 0, "at": run.get("at"), "run_id": run.get("run_id"), "pages": []})
         sev = r.get("sev") or static_qa.sev_of(r.get("status"))
         slot[sev] += 1
-        slot["pages"].append({"page": r.get("page_label") or r.get("page"), "status": r.get("status"), "sev": sev})
+        cats = [pe.get("category") for pe in (r.get("parse_errors") or []) if pe.get("category")]
+        slot["pages"].append({"page": r.get("page_label") or r.get("page"), "page_key": r.get("page"), "status": r.get("status"), "sev": sev,
+                              "cause": max(set(cats), key=cats.count) if cats else None})
     for sc, s in out.items():
         scored = s["pass"] + s["warn"] + s["fail"]
         s["score"] = round(100 * s["pass"] / scored) if scored else None
@@ -149,12 +163,25 @@ def _hc_latest() -> Dict[str, Dict[str, Any]]:
         return {}
     run = runs[-1]
     code2sc = {c["code"]: (c.get("sitecode") or "").lower() for c in cfg_countries}
+    plabel = {p["slug"]: p["label"] for p in hc_routes._mock.config().get("products", [])}
     out: Dict[str, Dict[str, Any]] = {}
     for cell in run.get("cells", []):
+        # [2026-11 버그 수정] Apple 비교 셀(keyword_type=competitor)은 삼성 노출 신호등에서 제외
+        if (cell.get("keyword_type") or "brand") != "brand":
+            continue
         sc = code2sc.get(cell.get("country"), (cell.get("country") or "").lower())
-        slot = out.setdefault(sc, {"top1": 0, "topn": 0, "low": 0, "absent": 0, "other": 0, "at": run.get("at"), "run_id": run.get("run_id"), "week": run.get("week")})
+        slot = out.setdefault(sc, {"top1": 0, "topn": 0, "low": 0, "absent": 0, "other": 0, "at": run.get("at"), "run_id": run.get("run_id"),
+                                   "week": run.get("week"), "code": cell.get("country"), "absent_products": [], "low_products": [], "first_stores": []})
         st = cell.get("status")
         slot[st if st in slot else "other"] += 1
+        # [2026-11 E1] 어떤 제품이 미노출/하위인지, 그 칸의 1위 판매처는 누구인지
+        item = {"slug": cell.get("product"), "label": plabel.get(cell.get("product"), cell.get("product")), "first_store": cell.get("first_store")}
+        if st == "absent" and item["slug"] not in [x["slug"] for x in slot["absent_products"]]:
+            slot["absent_products"].append(item)
+        elif st == "low" and item["slug"] not in [x["slug"] for x in slot["low_products"]]:
+            slot["low_products"].append(item)
+        if st in ("absent", "low", "topn") and cell.get("first_store") and cell["first_store"] not in slot["first_stores"]:
+            slot["first_stores"].append(cell["first_store"])
     for s in out.values():
         s["tl"] = worst(*[_HC_TL[k] for k in ("absent", "low", "topn", "top1") if s[k] > 0]) or None
     return out
