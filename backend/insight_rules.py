@@ -303,7 +303,58 @@ def apple_compare(run: Dict[str, Any], label_of=None) -> Optional[Dict[str, Any]
         "by_country": [{"country": ct, "samsung_top1": _hc_top1([c for c in sam if c["country"] == ct]),
                         "apple_top1": _hc_top1([c for c in app_u if c["country"] == ct])} for ct in countries],
         "by_group": [{"group": g, "samsung": sg[g]["rate"], "apple": ag[g]["rate"]} for g in HC_GROUPS],
+        "by_attr": _hc_attr_compare(sam, app),
     }
+
+
+def _hc_attr_compare(sam: List[Dict[str, Any]], app: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """[2026-11] 속성별 삼성 vs Apple 노출률 + 'Apple 만 보이는' 국가·제품.
+    같은 국가·같은 삼성 제품 칸끼리 비교(Apple 셀은 비교 대상 삼성 제품마다 복사돼 있음). '확인 안 함'·na 제외."""
+    stat: Dict[str, Dict[str, Any]] = {}
+    def add(key, side, v):
+        d = stat.setdefault(key, {"key": key, "group": next((g for g, cs in HC_GROUPS.items() if key.split("#")[0] in cs), "기타"),
+                                  "s_ent": 0, "s_obs": 0, "a_ent": 0, "a_obs": 0, "apple_only": [], "samsung_only": []})
+        if v in ("entered", "missed"):
+            d[f"{side}_obs"] += 1
+            d[f"{side}_ent"] += v == "entered"
+    seen_a = set()
+    for c in app:   # Apple 노출률은 (국가, 모델) 단위로 1회만
+        k = (c["country"], c["keyword"])
+        if k in seen_a:
+            continue
+        seen_a.add(k)
+        for key, v in (c.get("attrs") or {}).items():
+            add(key, "a", v)
+    for c in sam:
+        for key, v in (c.get("attrs") or {}).items():
+            add(key, "s", v)
+    # 같은 국가·제품 칸에서 한쪽만 보이는 경우
+    s_by = {}
+    for c in sam:
+        if c.get("attrs"):
+            s_by.setdefault((c["country"], c["product"]), []).append(c)
+    for a in app:
+        for sc in s_by.get((a["country"], a["product"]), []):
+            for key, av in (a.get("attrs") or {}).items():
+                sv = (sc.get("attrs") or {}).get(key)
+                if key not in stat:
+                    continue
+                tag = f"{a['country']} {a['product']}"
+                if av == "entered" and sv == "missed" and tag not in stat[key]["apple_only"]:
+                    stat[key]["apple_only"].append(tag)
+                elif av == "missed" and sv == "entered" and tag not in stat[key]["samsung_only"]:
+                    stat[key]["samsung_only"].append(tag)
+    out = []
+    for d in stat.values():
+        if not (d["s_obs"] or d["a_obs"]):
+            continue
+        sr = round(100 * d["s_ent"] / d["s_obs"], 1) if d["s_obs"] else None
+        ar = round(100 * d["a_ent"] / d["a_obs"], 1) if d["a_obs"] else None
+        out.append({"key": d["key"], "group": d["group"], "samsung": sr, "apple": ar,
+                    "gap": (ar - sr) if (ar is not None and sr is not None) else None,
+                    "apple_only": d["apple_only"], "samsung_only": d["samsung_only"]})
+    out.sort(key=lambda x: (-(x["gap"] or -999), x["key"]))
+    return out
 
 
 def hc_insights(run: Dict[str, Any], prev: Optional[Dict[str, Any]] = None,
@@ -411,103 +462,195 @@ def hc_insights(run: Dict[str, Any], prev: Optional[Dict[str, Any]] = None,
 # ════════════════════════════════════════════════════════════════
 # 4. 권역별 OVERVIEW — 세 도구 신호등 → 권역별 주원인 + 공통 이슈  [R1·R2]
 # ════════════════════════════════════════════════════════════════
-BASIS_REGION = "판단 기준: 🔴 사이트가 있는 법인 = 오류 법인 · 주원인 = 권역 안에서 🔴 사이트가 가장 많은 도구 · 절반 이상 권역에서 🔴인 도구 = 공통 이슈"
+BASIS_REGION = "통일 기준: 문제 사이트 = 도구별 판정이 🔴(지금 고쳐야 함)인 사이트 · 🟡 = 확인 필요 · 절반 이상 권역에 같은 도구 문제가 있으면 공통 이슈로 묶음"
 TOOL_KO = {"data": "DATA QA(스키마)", "spec": "스펙 QA", "static": "공통페이지 QA", "hc": "honeyComb 노출"}
 TOOL_ACTION = {"data": "PDP 스키마 필수 속성 등록 필요", "spec": "PDP·Compare 스펙 표기 수정 필요",
                "static": "공통페이지 JSON-LD 수정 필요", "hc": "GMC 피드 등록·노출 점검 필요"}
 
 
+# ── [2026-11 E1 v2] 권역 OVERVIEW: 이슈 문장은 '무엇을 검사했고 · 어디가 · 왜 문제인지'가 읽히게 ──
+PROP_KO = {"offers.price": "가격", "offers.priceCurrency": "통화", "offers.availability": "재고 상태", "offers": "판매 정보",
+           "aggregateRating": "평점", "review": "리뷰", "image": "이미지", "description": "설명", "brand": "브랜드",
+           "sku": "SKU", "gtin": "GTIN", "mpn": "모델 번호", "name": "제품명", "url": "URL", "itemListElement": "목록 항목",
+           "mainEntity": "질문·답변", "acceptedAnswer": "답변"}
+STATIC_MEANING = {"파싱 실패": "JSON-LD(구조화 데이터)에 문법 오류가 있어 검색엔진이 읽지 못함",
+                  "오적용": "다른 국가 사이트의 주소(@id)를 가리키고 있음",
+                  "미해결 참조": "페이지 안에 정의되지 않은 @id 를 참조하고 있음",
+                  "페이지 없음": "페이지가 열리지 않음(404 등)", "접근 실패": "수집기가 페이지에 접근하지 못함(차단·타임아웃)",
+                  "기타": "필요한 JSON-LD 가 없음"}
+
+
+def _prop_ko(tp: str) -> str:
+    t, _, prop = tp.partition(" ")
+    ko = PROP_KO.get(prop) or PROP_KO.get(prop.split(".")[0])
+    return f"{t} 스키마의 {ko}({prop})" if ko else f"{t} 스키마의 {prop}"
+
+
 def _site_issues(site: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """[2026-11 E1] 사이트 1곳 × 도구별 '무엇이 문제 → 할 일' + 화면 이동 대상(go). 🔴·🟡 도구만."""
+    """사이트 1곳 × 도구별 이슈. text = 설명형 문장(길어도 됨), short = 표 칸용 짧은 라벨, go = 이동 대상."""
     out: List[Dict[str, Any]] = []
     sc, subs = site.get("sitecode") or "", site.get("subs") or "-"
     who = f"{sc.upper()}({subs})"
     t = site.get("tools") or {}
     sevof = lambda tl: 1 if tl == "red" else 2
+    base = dict(subs=subs, sitecode=sc, region=site.get("region"))
     d = t.get("data") or {}
     if d.get("tl") in ("red", "yellow"):
-        miss, l1 = d.get("missing") or [], d.get("l1_fail") or []
-        what = (f"{_join(miss, 2)} 필수 누락" if miss else f"{_join(l1, 2)} 미충족" if l1 else "권장 속성 미흡")
-        out.append(_ins("E-data", sevof(d["tl"]), f"{who} DATA QA {what} · AEO {d.get('score')}%",
-                        (f"{d.get('page_type') or 'PDP'} 스키마에 {miss[0].split(' ', 1)[-1]} 등록 필요" if miss
-                         else "H1·타이틀 가이드 기준 수정 필요" if l1 else "권장 속성 보강 필요"),
-                        tool="data", subs=subs, sitecode=sc, region=site.get("region"),
+        miss, l1, pt = d.get("missing") or [], d.get("l1_fail") or [], d.get("page_type") or "PDP"
+        if miss:
+            text = (f"{who} {pt}의 구조화 데이터에 {_prop_ko(miss[0])}가 없음"
+                    + (f" (외 {len(miss) - 1}개 필수 항목 누락)" if len(miss) > 1 else "")
+                    + f" — 검색엔진·AI 답변이 이 정보를 가져가지 못함. AEO 퀄리티 {d.get('score')}%")
+            act, short = f"{pt} {miss[0].split(' ')[0]} 스키마에 {miss[0].split(' ', 1)[-1]} 등록 필요", f"{miss[0].split(' ', 1)[-1]} 누락"
+        elif l1:
+            text = f"{who} {pt}의 기본 항목 '{l1[0]}' 기준 미충족" + (f" 외 {len(l1) - 1}개" if len(l1) > 1 else "") + f" · AEO 퀄리티 {d.get('score')}%"
+            act, short = "H1·타이틀·설명문을 가이드 기준으로 수정 필요", f"{l1[0]} 미충족"
+        else:
+            text = f"{who} {pt}의 필수 항목은 있으나 권장 항목이 부족해 AEO 퀄리티 {d.get('score')}%"
+            act, short = "권장 속성 보강 필요", f"AEO {d.get('score')}%"
+        out.append(_ins("E-data", sevof(d["tl"]), text, act, tool="data", short=short, **base,
                         go={"app": "qubi", "tab": "schema", "run_id": d.get("run_id"), "region": d.get("region"), "sitecode": sc}))
     sp = t.get("spec") or {}
     if sp.get("tl") in ("red", "yellow"):
         fails = sp.get("fails") or []
         if fails:
             f0 = fails[0]
-            exp = f"정답 {f0.get('expected')}{(' ' + f0['unit']) if f0.get('unit') and f0['unit'] not in str(f0.get('expected')) else ''}"
-            more = f" 외 {len(fails) - 1}개" if len(fails) > 1 else ""
-            text = f"{who} 스펙 {f0.get('attribute')} 오류 ({exp}, 표기 {f0.get('found') or '-'}){more}"
-            act = f"{f0.get('page') or 'PDP'} {_join([x.get('attribute') for x in fails], 3)} 표기 수정 필요"
+            unit = f" {f0['unit']}" if f0.get("unit") and f0["unit"] not in str(f0.get("expected")) else ""
+            text = (f"{who} {f0.get('page') or 'PDP'}에 표기된 {f0.get('attribute')}가 '{f0.get('found') or '-'}' 인데 "
+                    f"제품 정답은 {f0.get('expected')}{unit}" + (f" (외 {len(fails) - 1}개 스펙 오류)" if len(fails) > 1 else ""))
+            act, short = f"{f0.get('page') or 'PDP'}의 {_join([x.get('attribute') for x in fails], 3)} 표기 수정 필요", f"{f0.get('attribute')} 오류"
         else:
-            text = f"{who} 스펙 확인 필요 {len(sp.get('warns') or [])}건 ({_join(sp.get('warns') or [], 3)})"
-            act = "표기 단위·형식 확인 필요"
-        out.append(_ins("E-spec", sevof(sp["tl"]), text, act, tool="spec", subs=subs, sitecode=sc, region=site.get("region"),
+            w = sp.get("warns") or []
+            text = f"{who} 스펙 {_join(w, 3)} 표기가 정답과 형식·단위가 달라 확인 필요 ({len(w)}건)"
+            act, short = "표기 단위·형식 확인 필요", f"{w[0] if w else '스펙'} 확인"
+        out.append(_ins("E-spec", sevof(sp["tl"]), text, act, tool="spec", short=short, **base,
                         go={"app": "qubi", "tab": "copy", "run_id": sp.get("run_id"), "region": sp.get("region"), "sitecode": sc}))
     st = t.get("static") or {}
     if st.get("tl") in ("red", "yellow"):
-        bad = [pg for pg in (st.get("pages") or []) if pg.get("sev") in ("fail", "warn")]
-        bad.sort(key=lambda pg: _STATIC_SEV.get(pg.get("status"), 3))
-        parts = [f"{pg.get('page')} {pg.get('status')}" + (f"({_PARSE_CAT_KO.get(pg['cause'], pg['cause'])})" if pg.get("cause") else "") for pg in bad]
-        top_status = bad[0].get("status") if bad else ""
-        out.append(_ins("E-static", sevof(st["tl"]), f"{who} 공통페이지 {_join(parts, 2)} · 정상률 {st.get('score')}%",
-                        _STATIC_ACTION.get(top_status, "JSON-LD 점검 필요"), tool="static", subs=subs, sitecode=sc, region=site.get("region"),
-                        go={"app": "qubi", "tab": "static", "run_id": st.get("run_id"), "sitecode": sc, "page": (bad[0].get("page_key") if bad else None)}))
+        bad = sorted([pg for pg in (st.get("pages") or []) if pg.get("sev") in ("fail", "warn")],
+                     key=lambda pg: _STATIC_SEV.get(pg.get("status"), 3))
+        if bad:
+            b0 = bad[0]
+            why = f" — 원인: {_PARSE_CAT_KO.get(b0['cause'], b0['cause'])}" if b0.get("cause") else ""
+            text = (f"{who} 공통페이지 '{b0.get('page')}'의 {STATIC_MEANING.get(b0.get('status'), b0.get('status'))}{why}"
+                    + (f" (외 {len(bad) - 1}개 페이지)" if len(bad) > 1 else ""))
+            act, short = _STATIC_ACTION.get(b0.get("status"), "JSON-LD 점검 필요"), f"{b0.get('page')} {b0.get('status')}"
+        else:
+            text, act, short = f"{who} 공통페이지 정상률 {st.get('score')}%", "JSON-LD 점검 필요", f"정상률 {st.get('score')}%"
+        out.append(_ins("E-static", sevof(st["tl"]), text, act, tool="static", short=short, **base,
+                        go={"app": "qubi", "tab": "static", "run_id": st.get("run_id"), "sitecode": sc,
+                            "page": (bad[0].get("page_key") if bad else None)}))
     h = t.get("hc") or {}
     if h.get("tl") in ("red", "yellow"):
         ab, lo = h.get("absent_products") or [], h.get("low_products") or []
         prods = ab or lo
         names = _join([x["label"] for x in prods], 3)
         stores = _join(h.get("first_stores") or [], 2)
-        text = f"{who} honeyComb {names} {'미노출' if ab else '8위 밖'}" + (f" · 1위 {stores}" if stores else "")
-        out.append(_ins("E-hc", sevof(h["tl"]), text, f"{subs} GMC 피드 {names} 등록·승인 상태 확인 필요",
-                        tool="hc", subs=subs, sitecode=sc, region=site.get("region"),
-                        go={"app": "honeycomb", "run_id": h.get("run_id"), "country": h.get("code"),
-                            "product": prods[0]["slug"] if prods else None}))
+        where = "상위 8위 안에 안 보임" if ab else "8위 밖에 있음"
+        text = (f"{who} Google Shopping에서 제품명({names})을 검색하면 삼성닷컴 상품이 {where}"
+                + (f" — 그 자리 1위는 {stores}" if stores else ""))
+        out.append(_ins("E-hc", sevof(h["tl"]), text, f"{subs} GMC 피드에서 {names} 등록·승인 상태 확인 필요",
+                        tool="hc", short=f"{prods[0]['label'].replace('Galaxy ', '')}{' 외' if len(prods) > 1 else ''} {'미노출' if ab else '8위 밖'}" if prods else "노출 부족",
+                        **base, go={"app": "honeycomb", "run_id": h.get("run_id"), "country": h.get("code"),
+                                    "product": prods[0]["slug"] if prods else None}))
     return out
 
 
-def region_insights(ov: Dict[str, Any]) -> Dict[str, Any]:
-    """[2026-11 E1] 권역 OVERVIEW — 요약 3줄(펼치면 사이트별 세부 + 이동), 권역 카드, 법인 패널용 세부."""
+def _tool_tiles(sites: List[Dict[str, Any]], issues: List[Dict[str, Any]], apple: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Summary 타일 — 툴마다 그 툴에 맞는 대표 지표(크게) + 통일 기준(작게: 문제 사이트 수 / 검수 사이트 수)."""
+    def checked(tool):
+        return [s for s in sites if ((s.get("tools") or {}).get(tool) or {}).get("tl")]
+    def red(tool):
+        return [s for s in sites if ((s.get("tools") or {}).get(tool) or {}).get("tl") == "red"]
+    def top_cause(tool):
+        c = Counter(i["short"] for i in issues if i["tool"] == tool and i["sev"] == 1)
+        return f"{c.most_common(1)[0][0]} {c.most_common(1)[0][1]}곳" if c else ""
+    tiles = []
+    if apple and apple.get("has_data"):
+        tiles.append({"key": "apple", "letter": "A", "name": "appleStalker", "sub": "경쟁사 페이지 변경",
+                      "metric": f"{apple.get('changes', 0)}건", "metric_label": f"이번 수집 변경 (High {apple.get('high', 0)})",
+                      "note": f"변경 사이트 {len(apple.get('sites') or [])}곳 · 삼성 변경 {'있음' if 'samsung' in (apple.get('sites') or []) else '없음'}",
+                      "cause": (apple.get("issues") or [{}])[0].get("short", ""), "go": {"app": "applestalker"}})
+    dc = checked("data")
+    if dc:
+        sc = [((s["tools"]["data"]).get("score")) for s in dc if s["tools"]["data"].get("score") is not None]
+        tiles.append({"key": "data", "letter": "B", "name": "qaBee · DATA QA", "sub": "스키마·메타 데이터",
+                      "metric": f"{round(sum(sc) / len(sc))}%" if sc else "—", "metric_label": "AEO 퀄리티 평균",
+                      "note": f"기준 미달 사이트 {len(red('data'))} / {len(dc)}곳", "cause": top_cause("data"),
+                      "go": {"app": "qubi", "tab": "schema"}})
+    spc = checked("spec")
+    if spc:
+        crit = sum((s["tools"]["spec"].get("critical") or 0) for s in spc)
+        tiles.append({"key": "spec", "letter": "B", "name": "qaBee · 스펙 QA", "sub": "PDP·Compare 스펙 표기",
+                      "metric": f"{crit}건", "metric_label": "스펙 오류 항목",
+                      "note": f"오류 사이트 {len(red('spec'))} / {len(spc)}곳", "cause": top_cause("spec"),
+                      "go": {"app": "qubi", "tab": "copy"}})
+    stc = checked("static")
+    if stc:
+        sc = [s["tools"]["static"].get("score") for s in stc if s["tools"]["static"].get("score") is not None]
+        tiles.append({"key": "static", "letter": "B", "name": "qaBee · 공통페이지 QA", "sub": "Home·Switch to Galaxy 등",
+                      "metric": f"{round(sum(sc) / len(sc))}%" if sc else "—", "metric_label": "정상 페이지 비율",
+                      "note": f"오류 사이트 {len(red('static'))} / {len(stc)}곳", "cause": top_cause("static"),
+                      "go": {"app": "qubi", "tab": "static"}})
+    hcc = checked("hc")
+    if hcc:
+        t1 = sum((s["tools"]["hc"].get("top1") or 0) for s in hcc)
+        tot = sum(sum((s["tools"]["hc"].get(k) or 0) for k in ("top1", "topn", "low", "absent")) for s in hcc)
+        tiles.append({"key": "hc", "letter": "C", "name": "honeyComb", "sub": "Google Shopping 노출",
+                      "metric": f"{round(100 * t1 / tot)}%" if tot else "—", "metric_label": "삼성닷컴 1위 비율",
+                      "note": f"미노출 있는 국가 {len(red('hc'))} / {len(hcc)}개국", "cause": top_cause("hc"),
+                      "go": {"app": "honeycomb"}})
+    return tiles
+
+
+def region_insights(ov: Dict[str, Any], apple: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """권역 OVERVIEW — summary(툴 타일), urgent(급한 이슈, 설명형), sites(사이트 표), by_region·by_subs(지도·법인 패널)."""
     sites = ov.get("sites") or []
     issues = [i for s in sites for i in _site_issues(s)]
-    by_region: Dict[str, List[Dict[str, Any]]] = {}
-    for i in issues:
-        by_region.setdefault(i.get("region") or "(미분류)", []).append(i)
     by_subs: Dict[str, List[Dict[str, Any]]] = {}
     for i in issues:
         by_subs.setdefault(i["subs"], []).append(i)
     for v in by_subs.values():
         v.sort(key=lambda x: x["sev"])
-    nreg = len({s.get("region") or "(미분류)" for s in sites})
-    out: List[Dict[str, Any]] = []
-    region_line: Dict[str, Any] = {}
-    tool_regions: Counter = Counter()
-    for reg, iss in by_region.items():
-        red = [i for i in iss if i["sev"] == 1]
-        if not red:
+    # 사이트 표 — 빨간 도구 많은 순
+    site_rows = []
+    for s in sites:
+        iss = [i for i in issues if i["sitecode"] == (s.get("sitecode") or "")]
+        if not iss:
             continue
-        cause = Counter(i["tool"] for i in red)
-        for k in cause:
-            tool_regions[k] += 1
-        tool, n = cause.most_common(1)[0]
-        red_subs = sorted({i["subs"] for i in red})
-        samples = [i for i in red if i["tool"] == tool][:2]
-        snippet = " / ".join(x["text"] for x in samples)
-        it = _ins("R1", 1, f"{reg} 법인 {len(red_subs)}곳 오류 — 주원인 {TOOL_KO[tool]} {n}개 사이트: {snippet}",
-                  " · ".join(dict.fromkeys(x["action"] for x in samples)),
-                  region=reg, tool=tool, details=sorted(iss, key=lambda x: (x["sev"], x["tool"] != tool)))
-        region_line[reg] = {**it, "short": f"법인 {len(red_subs)}곳 오류 · 주원인 {TOOL_KO[tool]}",
-                            "first": samples[0]["text"] if samples else ""}
-        out.append(it)
+        site_rows.append({"sitecode": s.get("sitecode"), "subs": s.get("subs"), "region": s.get("region"), "country": s.get("country"),
+                          "red": sum(1 for i in iss if i["sev"] == 1), "cells": {i["tool"]: {"sev": i["sev"], "short": i["short"]} for i in iss},
+                          "details": sorted(iss, key=lambda x: x["sev"])})
+    site_rows.sort(key=lambda r: (-r["red"], -len(r["details"]), r["sitecode"] or ""))
+    # 급한 이슈 — 여러 권역 공통(R2) 먼저, 그다음 개별 🔴 이슈(도구가 골고루 보이게), appleStalker 변경 1건
+    nreg = len({s.get("region") or "(미분류)" for s in sites})
+    urgent: List[Dict[str, Any]] = []
+    tool_regions = Counter()
+    for tool in TOOL_KO:
+        regs = {i.get("region") for i in issues if i["tool"] == tool and i["sev"] == 1}
+        tool_regions[tool] = len(regs)
     for tool, k in tool_regions.most_common():
         if nreg >= 2 and k * 2 >= nreg and k >= 2:
             det = [i for i in issues if i["tool"] == tool and i["sev"] == 1]
-            regs = sorted({i.get("region") or "-" for i in det})
-            out.append(_ins("R2", 1, f"{TOOL_KO[tool]} 오류가 {k}개 권역 공통 ({_join(regs, 4)}) — {len(det)}개 사이트",
-                            "본사 템플릿·공통 가이드 단위 수정 필요", tool=tool, details=det))
-    out.sort(key=lambda x: (0 if x["rule"] == "R2" else 1, -len({d["subs"] for d in x.get("details") or [] if d["sev"] == 1})))
-    return {"top": out[:MAX_LINES], "all": out, "by_region": region_line, "by_subs": by_subs, "basis": BASIS_REGION}
+            causes = Counter(i["short"] for i in det)
+            urgent.append(_ins("R2", 1, f"{TOOL_KO[tool]}에서 같은 유형의 문제가 {k}개 권역 {len(det)}개 사이트에 퍼져 있음 — 가장 많은 것: "
+                                        + ", ".join(f"{c} {n}곳" for c, n in causes.most_common(2)),
+                               "개별 법인 수정보다 본사 템플릿·공통 가이드 단위로 고치는 것이 빠름", tool=tool, details=det))
+    reds = [i for i in issues if i["sev"] == 1]
+    picked: List[Dict[str, Any]] = []
+    for tool in ("hc", "data", "spec", "static"):   # 도구별 가장 심한 1건씩 먼저
+        cand = [i for i in reds if i["tool"] == tool and i not in picked]
+        if cand:
+            picked.append(cand[0])
+    picked += [i for i in reds if i not in picked]
+    urgent += picked[: max(0, 5 - len(urgent))]
+    for ai in ((apple or {}).get("issues") or [])[:1]:
+        urgent.append(ai)
+    by_region = {}
+    for reg in {s.get("region") or "(미분류)" for s in sites}:
+        rr = [r for r in site_rows if (r.get("region") or "(미분류)") == reg]
+        if rr:
+            by_region[reg] = {"short": f"문제 사이트 {len(rr)}곳", "first": rr[0]["details"][0]["text"], "line": rr[0]["details"][0]["line"]}
+    return {"summary": _tool_tiles(sites, issues, apple), "urgent": urgent, "sites": site_rows,
+            "by_region": by_region, "by_subs": by_subs, "basis": BASIS_REGION,
+            "top": urgent[:MAX_LINES]}

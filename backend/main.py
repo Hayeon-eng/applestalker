@@ -555,11 +555,16 @@ def overview_regions():
                      "high": sum(1 for c in ch if c.get("level") == "High"),
                      "medium": sum(1 for c in ch if c.get("level") == "Medium"),
                      "sites": sorted({c.get("site") for c in ch if c.get("site")}),
-                     "by_category": rep.get("by_category") or {}}
+                     "by_category": rep.get("by_category") or {},
+                     # [2026-11 E1] A(appleStalker) 도 급한 이슈에 — 변경 내용 해석 문장(설명형)
+                     "issues": [{**x, "tool": "apple", "short": x.get("text", "")[:40],
+                                 "text": f"[경쟁사 변경] {x.get('text', '')}", "line": f"[경쟁사 변경] {x.get('line', '')}",
+                                 "go": {"app": "applestalker"}}
+                                for x in ((rep.get("insights") or {}).get("changes") or []) if x.get("site") != "samsung"][:3]}
     except Exception as e:
         apple = {"has_data": False, "error": str(e)}
     try:   # [2026-11 E1] 권역별 주원인·공통 이슈 (insight_rules 단일 소스)
-        reg_ins = insight_rules.region_insights(data)
+        reg_ins = insight_rules.region_insights(data, apple)
     except Exception as e:
         reg_ins = {"top": [], "by_region": {}, "basis": "", "error": str(e)[:200]}
     return {**data, "apple": apple, "insights": reg_ins}
