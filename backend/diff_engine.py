@@ -100,7 +100,10 @@ class DiffEngine:
             if not _copy_change_is_meaningful(fld, b_cmp, a_cmp, cd, ts):
                 continue
             sev = classify_text_severity(fld, b_cmp, a_cmp, cd, ts, self.critical_keywords)
-            ctype2 = "commerce" if sev == "L5" else ctype
+            # [2026-11 A6] 변화 폭이 크다(L5)는 이유만으로 '가격·프로모션'으로 분류하지 않는다.
+            #   추가·삭제된 문장에 가격/구매 키워드가 실제로 있을 때만 commerce 로 본다.
+            _moved = " ".join(ts["sentences_added"] + ts["sentences_removed"]).lower()
+            ctype2 = "commerce" if sev == "L5" and any(k.lower() in _moved for k in self.critical_keywords) else ctype
             evidence = {
                 "sentences_added": ts["sentences_added"][:5],
                 "sentences_removed": ts["sentences_removed"][:5],
@@ -156,15 +159,21 @@ class DiffEngine:
 
     # ── helpers ────────────────────────────────────────────
 
+    # [2026-11 A3] 화면·메일에 개발 필드명(body_content 등)이 그대로 나가지 않도록 한글 표기로 저장.
+    _FIELD_KO = {"title": "타이틀", "meta_description": "검색 설명문", "canonical_url": "canonical",
+                 "h1": "H1", "body_content": "본문"}
+
     def _text_summary(self, fld: str, b: str, a: str, ts: Dict) -> str:
+        ko = self._FIELD_KO.get(fld, fld)
         if not b:
-            return f"{fld} 신규 추가"
+            return f"{ko} 신규 추가"
         if not a:
-            return f"{fld} 제거됨"
+            return f"{ko} 삭제"
         sa, sr = len(ts["sentences_added"]), len(ts["sentences_removed"])
         if sa or sr:
-            return f"{fld} 변경 (문장 +{sa}/-{sr})"
-        return f"{fld} 변경 (단어 단위)"
+            parts = ([f"{sa}문장 추가"] if sa else []) + ([f"{sr}문장 삭제"] if sr else [])
+            return f"{ko} 변경: {', '.join(parts)}"
+        return f"{ko} 변경: 단어 수정"
 
     def _structural_events(self, url, site_key, tier, cs, ps,
                            schema_only: bool = False,

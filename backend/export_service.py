@@ -12,7 +12,7 @@ import io
 from datetime import datetime
 from typing import Any, Dict, List
 
-COLS = ["사이트", "카테고리", "중요도", "항목", "이전 원문", "현재 원문", "URL"]
+COLS = ["사이트", "카테고리", "중요도", "항목", "할 일", "이전 원문", "현재 원문", "URL"]
 SITE_KO = {"samsung": "Samsung", "apple": "Apple", "google_pixel": "Google Pixel", "xiaomi": "Xiaomi", "oppo": "OPPO", "vivo": "vivo", "sony_audio": "Sony Audio", "garmin": "Garmin", "dell": "Dell", "meta_ai_glasses": "Meta AI Glasses"}
 LV_KO = {"High": "높음", "Medium": "보통", "Low": "낮음"}
 BUCKET_OF = {"데이터·스키마": "DATA", "카피": "COPY", "가격·프로모션": "COPY", "비주얼": "VISUAL"}
@@ -22,7 +22,8 @@ def _row(c: Dict[str, Any]) -> List[str]:
     return [
         SITE_KO.get(c.get("site"), c.get("site") or ""),
         c.get("category") or "", LV_KO.get(c.get("level"), c.get("level") or ""),
-        c.get("field") or "", c.get("before") or "", c.get("after") or "", c.get("url") or "",
+        c.get("summary") or c.get("field") or "", c.get("action") or "",
+        c.get("before") or "", c.get("after") or "", c.get("url") or "",
     ]
 
 
@@ -56,7 +57,7 @@ def _group_by_page(changes: List[Dict[str, Any]]):
 
 
 def build_xlsx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = "",
-                dcv: Dict[str, Any] | None = None) -> bytes:
+                dcv: Dict[str, Any] | None = None, insights: Dict[str, Any] | None = None) -> bytes:
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
@@ -74,7 +75,7 @@ def build_xlsx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
         cell = ws.cell(3, c); cell.fill = head; cell.font = hf
     for ch in changes:
         ws.append(_row(ch))
-    widths = [16, 14, 8, 16, 48, 48, 40]
+    widths = [16, 14, 8, 30, 40, 48, 48, 40]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     for r in ws.iter_rows(min_row=4):
@@ -146,6 +147,34 @@ def build_xlsx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
             for cell in r:
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
         ws2.freeze_panes = "A4"
+
+    # ── [2026-11] 시트: 요약·할 일 — 화면·메일과 같은 인사이트(백엔드 insight_rules 단일 소스) ──
+    if insights:
+        wsI = wb.create_sheet("요약·할 일", 0)
+        wsI.append([f"Apple Stalker — 요약·할 일 ({timestamp})"])
+        wsI["A1"].font = Font(bold=True, size=13)
+        wsI.append([insights.get("basis", "")])
+        wsI["A2"].font = Font(color="8A94A6", size=9)
+        wsI.append(["구분", "지표", "사이트", "판단", "할 일"])
+        for c in range(1, 6):
+            cell = wsI.cell(3, c); cell.fill = head; cell.font = hf
+        rows_i: List[List[str]] = []
+        for it in insights.get("top") or []:
+            rows_i.append(["요약", (it.get("metric") or "").upper(), SITE_KO.get(it.get("site"), it.get("site") or ""), it["text"], it.get("action", "")])
+        for m in ("data", "copy", "visual"):
+            for it in (insights.get("by_metric") or {}).get(m, []):
+                rows_i.append(["지표별", m.upper(), SITE_KO.get(it.get("site"), it.get("site") or ""), it["text"], it.get("action", "")])
+        for it in insights.get("changes") or []:
+            rows_i.append(["변경", (it.get("metric") or "").upper(), SITE_KO.get(it.get("site"), it.get("site") or ""), it["text"], it.get("action", "")])
+        for r_ in rows_i:
+            wsI.append(r_)
+        for i, w in enumerate([8, 9, 14, 70, 50], 1):
+            wsI.column_dimensions[get_column_letter(i)].width = w
+        for r in wsI.iter_rows(min_row=4):
+            for cell in r:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+        wsI.freeze_panes = "A4"
+        wb.active = 0
 
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
@@ -222,7 +251,8 @@ def _tier(score):
 
 
 def build_pptx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = "",
-               summary: str = "", dcv: Dict[str, Any] | None = None) -> bytes:
+               summary: str = "", dcv: Dict[str, Any] | None = None,
+               insights: Dict[str, Any] | None = None) -> bytes:
     from pptx import Presentation
     from pptx.util import Inches, Pt, Emu
     from pptx.dml.color import RGBColor
@@ -342,9 +372,15 @@ def build_pptx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
 
     # 우리 우선 액션 3줄
     ay = Inches(1.7) + Inches(0.5 * rows) + Inches(0.35)
-    text(s, Inches(0.7), ay, Inches(12), Inches(0.4), "우리(Samsung) 우선 액션", size=15, bold=True, color=INK)
+    ins_top = (insights or {}).get("top") or []
+    text(s, Inches(0.7), ay, Inches(12), Inches(0.4), "이번 수집 요약" if ins_top else "우리(Samsung) 우선 액션", size=15, bold=True, color=INK)
     ay2 = ay + Inches(0.5)
-    for b in ("data", "copy", "visual"):
+    if ins_top:   # [2026-11] 화면·메일과 같은 인사이트 3줄 + 판단 기준
+        for it in ins_top[:3]:
+            text(s, Inches(0.7), ay2 - Inches(0.03), Inches(12), Inches(0.5), "· " + it["line"], size=12, color=INK)
+            ay2 += Inches(0.55)
+        text(s, Inches(0.7), ay2, Inches(12), Inches(0.35), insights.get("basis", ""), size=10, color=GRAY)
+    for b in (() if ins_top else ("data", "copy", "visual")):
         blk = (dcv.get(b) or {}).get(OURS_KEY) or {}
         facts = blk.get("facts") or {}
         bd = breaks[b].get(OURS_KEY) or {}
@@ -405,9 +441,11 @@ def build_pptx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
 
         # 우선 액션 박스 (은은한 tint)
         rect(s, Inches(0.7), Inches(6.05), Inches(12), Inches(1.05), fill=PANEL)
-        text(s, Inches(0.95), Inches(6.2), Inches(11.5), Inches(0.35), "우선 액션", size=12, bold=True, color=AXIS[b])
+        sline = next((x for x in ((insights or {}).get("by_metric") or {}).get(b, []) if x.get("site") == OURS_KEY), None)
+        text(s, Inches(0.95), Inches(6.2), Inches(11.5), Inches(0.35), "할 일" if insights else "우선 액션", size=12, bold=True, color=AXIS[b])
         text(s, Inches(0.95), Inches(6.55), Inches(11.5), Inches(0.5),
-             _priority_action(b, blk.get("facts") or {}, bd), size=13, color=INK)
+             (sline["line"] if sline else "부족·열세 항목 없음") if insights else _priority_action(b, blk.get("facts") or {}, bd),
+             size=13, color=INK)
 
     # ── 4) 변경점 (있을 때만) ──
     if changes:

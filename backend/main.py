@@ -21,6 +21,7 @@ from database import engine, SessionLocal, init_db, sync_engine, prune_old_snaps
 from crawl_service import CrawlServiceV2
 from intel_engine import IntelEngine, aeo_facts
 from email_service import EmailService
+import insight_rules
 from config import SEED_TARGETS, load_active_urls, all_site_keys, site_key_for_url, tier_for_url, page_role_for_url
 
 CRON_TOKEN = os.getenv("CRON_TOKEN", "change-me")
@@ -106,6 +107,8 @@ def display_level(change_type: str, field_name: str, severity_level: str,
 crawl_state = {"crawling": False, "events": [], "run_id": None}
 crawl_service = CrawlServiceV2(SessionLocal, sync_engine, crawl_state)
 email_service = EmailService(sync_engine)
+# [2026-11] 메일 본문도 화면과 같은 인사이트를 쓰도록 연결 (latest_report 는 아래에 정의 — 호출 시점에 참조)
+email_service.insight_provider = lambda: (latest_report() or {}).get("insights")
 
 
 @asynccontextmanager
@@ -364,13 +367,15 @@ def latest_report(run_id: Optional[str] = None):
         ch = q("SELECT id,url,severity_level,change_type,field_name,summary,before_value,after_value,evidence,tier_level "
                "FROM detected_changes WHERE crawl_run_id=:r ORDER BY severity_level DESC, id DESC", r=rid)
         for c in ch:
-            cat = CATEGORY.get(c[3], "데이터·스키마")
-            by_cat[cat] = by_cat.get(cat, 0) + 1
             ev = json.loads(c[8]) if c[8] else {}
+            cat = _display_category(c[3], c[4], ev)
+            by_cat[cat] = by_cat.get(cat, 0) + 1
             changes.append({
                 "id": c[0], "url": c[1], "site": site_key_for_url(c[1]) or "samsung",
                 "level": display_level(c[3], c[4], c[2], ev, c[9]), "level_raw": c[2],
-                "category": cat, "field": c[4], "summary": c[5],
+                "category": cat, "field": c[4],
+                # [2026-11 A3] 과거 수집분('body_content 변경 (문장 +3/-13)')도 화면 표기로 변환
+                "summary": insight_rules.humanize_change_summary(c[4], c[5]), "summary_raw": c[5],
                 "before": c[6], "after": c[7],
                 "evidence": ev,
             })
@@ -399,12 +404,34 @@ def latest_report(run_id: Optional[str] = None):
            "visual": _by_site(visual_by_rid)}
     # 영역별 한 줄 요약 (사실 기반: 어느 사이트가 이 영역에서 무엇을, 몇 건). 아래 카드와 중복되지 않게 '종합' 수준.
     cat_summary = _category_summaries(changes)
+    # [2026-11] 공통 인사이트 엔진 — 화면·메일·Quick View 가 같은 문장을 쓴다
+    try:
+        insights = insight_rules.apple_stalker_insights(dcv, changes)
+    except Exception as e:  # 인사이트 실패가 리포트 전체를 막지 않게
+        logger.warning(f"insight_rules 실패: {e}")
+        insights = {"top": [], "by_metric": {}, "by_site": {}, "changes": [], "basis": insight_rules.BASIS_SCORE}
     return {"has_data": True, "run_id": rids[0], "session": target_key,
             "timestamp": _kst_str(started),
             "has_changes": len(changes) > 0, "by_category": by_cat,
             "category_summary": cat_summary,
             "changes": changes, "analysis": analysis,
-            "dcv": dcv}
+            "dcv": dcv, "insights": insights}
+
+
+_PRICE_KW_LOWER = ("price", "$", "₩", "£", "€", "할부", "보상", "trade-in", "trade in", "sold out", "품절",
+                   "out of stock", "pre-order", "사전예약", "buy now", "add to cart", "purchase", "order now",
+                   "checkout", "구매하기", "장바구니", "/mo", "per month", "financing", "installment")
+
+
+def _display_category(change_type: str, field: str, ev: Dict[str, Any]) -> str:
+    """[2026-11 A6] 과거에 '변화 폭 L5'만으로 commerce 로 저장된 본문 변경은 가격·구매 문구가 실제로 있을 때만
+    '가격·프로모션'으로 보여준다. 나머지는 '카피'."""
+    cat = CATEGORY.get(change_type, "데이터·스키마")
+    if cat == "가격·프로모션" and field in ("body_content", "h1"):
+        moved = " ".join((ev.get("sentences_added") or []) + (ev.get("sentences_removed") or [])).lower()
+        if not any(k in moved for k in _PRICE_KW_LOWER):
+            return "카피"
+    return cat
 
 
 def _category_summaries(changes):
@@ -531,7 +558,11 @@ def overview_regions():
                      "by_category": rep.get("by_category") or {}}
     except Exception as e:
         apple = {"has_data": False, "error": str(e)}
-    return {**data, "apple": apple}
+    try:   # [2026-11 E1] 권역별 주원인·공통 이슈 (insight_rules 단일 소스)
+        reg_ins = insight_rules.region_insights(data)
+    except Exception as e:
+        reg_ins = {"top": [], "by_region": {}, "basis": "", "error": str(e)[:200]}
+    return {**data, "apple": apple, "insights": reg_ins}
 
 
 @app.get("/api/site-keys")
@@ -614,6 +645,8 @@ def page_detail(url: str = Query(...)):
         "data": {"facts": d, "narrative": _narrate_schema_completeness(d["schema"])},
         "copy": {"facts": c, "narrative": intel._narrate_copy(c)},
         "visual": {"facts": v, "narrative": intel._narrate_visual(v)},
+        # [2026-11 A10] 페이지 상세 패널: 긴 근거 나열 대신 '부족 → 할 일' 최대 3줄 (근거는 접어서 유지)
+        "insights": insight_rules.page_insights(url, {"data": {"facts": d}, "copy": {"facts": c}, "visual": {"facts": v}}),
     }
 
 
@@ -736,7 +769,7 @@ def export_xlsx(run_id: Optional[str] = None):
     from export_service import build_xlsx, filename
     rep = latest_report(run_id)
     data = build_xlsx(rep.get("changes", []), title="변경점", timestamp=rep.get("timestamp", ""),
-                       dcv=rep.get("dcv"))
+                       dcv=rep.get("dcv"), insights=rep.get("insights"))
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename('competitor_stalker','xlsx')}"})
@@ -747,7 +780,8 @@ def export_pptx(run_id: Optional[str] = None):
     from export_service import build_pptx, filename
     rep = latest_report(run_id)
     data = build_pptx(rep.get("changes", []), title="변경점", timestamp=rep.get("timestamp", ""),
-                      summary=(rep.get("analysis") or {}).get("summary", ""), dcv=rep.get("dcv"))
+                      summary=(rep.get("analysis") or {}).get("summary", ""), dcv=rep.get("dcv"),
+                      insights=rep.get("insights"))
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f"attachment; filename={filename('competitor_stalker','pptx')}"})

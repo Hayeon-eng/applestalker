@@ -49,6 +49,9 @@ def _short(value, fallback="값 없음", limit=220):
 
 
 class EmailService:
+    # [2026-11] main.py 가 화면과 같은 인사이트(latest_report()["insights"])를 넘겨주는 함수를 꽂는다.
+    insight_provider = None
+
     def __init__(self, engine):
         self.engine = engine
         self._refresh_env()
@@ -166,7 +169,7 @@ class EmailService:
                     "evidence": ev, "action": _strip_cav(_priority_action(bucket, facts, bd or {"all": []})),
                 })
             data["sites_detail"].append({
-                "name": SITE_KO.get(site, site), "is_ours": site == "samsung", "axes": axes,
+                "key": site, "name": SITE_KO.get(site, site), "is_ours": site == "samsung", "axes": axes,
             })
 
         # 제품군별 변경·커버리지 요약
@@ -218,7 +221,7 @@ class EmailService:
                     "</div></td>"
                 )
                 ev = _short(a.get("evidence") or "", "", 72) if a.get("evidence") else ""
-                act = _short(a.get("action") or "", "", 96)
+                act = _short(a.get("action") or "", "", 280)
                 detail = ev + (" · " if ev else "") + act
                 lines += (
                     "<div style='font-size:11.5px;color:#475467;line-height:1.55;margin-top:3px'>"
@@ -236,7 +239,7 @@ class EmailService:
                 "</div>"
             )
         return ("<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 2px'>사이트별 현황 "
-                "<span style='font-weight:400;color:#667085'>(점수 · 근거 · 우선 액션)</span></div>" + cards)
+                "<span style='font-weight:400;color:#667085'>(점수 · 부족/우세 → 할 일)</span></div>" + cards)
 
     def _products_html(self, products):
         """제품군별 변경·커버리지 요약."""
@@ -296,7 +299,7 @@ class EmailService:
         return (
             "<div style='font-size:13px;font-weight:700;color:#101318;margin:4px 0 6px'>우리 현황 (Samsung) · 종합 점수 <span style='font-weight:400;color:#667085'>(경쟁사 평균 대비)</span></div>"
             "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse'><tr>" + cells + "</tr></table>"
-            "<div style='font-size:12px;font-weight:700;color:#101318;margin:14px 0 2px'>우선 액션</div>"
+            "<div style='font-size:12px;font-weight:700;color:#101318;margin:14px 0 2px'>지표별 할 일</div>"
             + actions +
             "<div style='font-size:10.5px;color:#98A2B3;margin-top:8px'>점수=각 축 하위지표 전체 평균 · 경쟁사 평균=비-Samsung 사이트 평균</div>"
         )
@@ -334,8 +337,10 @@ class EmailService:
         level = LEVEL_KO.get(change[2], "낮음")
         color = LEVEL_COLOR[level]
         site = SITE_KO.get(change[1], change[1] or "미분류")
-        summary = _short(change[5], "변경 감지")
-        action = escape(self._change_action(change[0], change[1], change[4], change[3]))
+        import insight_rules as ir
+        summary = _short(ir.humanize_change_summary(change[4], change[5]), "변경 감지")
+        action = escape((getattr(self, "_change_actions", {}) or {}).get((change[1], change[0]))
+                        or self._change_action(change[0], change[1], change[4], change[3]))
         url = _short(change[0], "", 200)
         return ("<tr>" +
             "<td style='padding:10px 8px;border-top:1px solid #EAECF0;font-size:12px;white-space:nowrap;vertical-align:top'>" + escape(site) + "</td>" +
@@ -346,8 +351,39 @@ class EmailService:
             ("<div style='font-family:monospace;color:#B0B7C0;font-size:10.5px;margin-top:3px;word-break:break-all'>" + url + "</div>" if url else "") +
             "</td></tr>")
 
+    def _apply_insights(self, d, ins, wanted):
+        """[2026-11] 메일 문구를 화면과 같은 인사이트로 교체. ins 가 없으면(과거 응답) 기존 문구 유지."""
+        import insight_rules as ir
+        if not ins:
+            return ""
+        keep = (lambda m: (not wanted) or (str(m or "").upper() in wanted))
+        for a in d["axes"]:
+            m = a["label"].lower()
+            line = next((x for x in (ins.get("by_metric") or {}).get(m, []) if x.get("site") == "samsung"), None)
+            a["action"] = line["line"] if line else "부족·열세 항목 없음"
+        for sd in d.get("sites_detail") or []:
+            bsm = (ins.get("by_site_metric") or {}).get(sd.get("key"), {})
+            for a in sd["axes"]:
+                lines = bsm.get(a["label"].lower()) or []
+                a["evidence"] = None
+                a["action"] = " / ".join(x["line"] for x in lines) if lines else (
+                    "부족·열세 항목 없음" if sd.get("is_ours") else "삼성 대비 우세 항목 없음")
+        self._change_actions = {}
+        for it in ins.get("changes") or []:
+            for u in it.get("urls") or []:
+                self._change_actions[(it.get("site"), u)] = it.get("action") or ""
+        top = [x for x in (ins.get("top") or []) if keep(x.get("metric"))]
+        return ir.email_box_html(top, ins.get("basis", ""), "이번 수집 요약")
+
     def build_html(self, report_type="morning", sections=None):
         d = self._report_data()
+        self._change_actions = {}
+        ins = None
+        try:
+            ins = self.insight_provider() if self.insight_provider else None
+        except Exception:
+            ins = None
+        ins_html = self._apply_insights(d, ins, {str(s).upper() for s in sections} if sections else None)
         # [2026-09 신규] DATA/COPY/VISUAL 중 원하는 축만 골라 보내고 싶다는 요청 — axes/sites_detail 은
         # AXIS_META 순서로 이미 깔끔하게 나뉘어 있어 라벨로 안전하게 거를 수 있다. 다만 "변화" 표(rows)는
         # detected_changes 테이블에 축이 명확히 안 남아 있어(값을 확인 못 함) 여기서는 거르지 않는다 —
@@ -376,8 +412,9 @@ class EmailService:
                 "<table style='width:100%;border-collapse:collapse'><tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>구분</th><th style='padding:6px 8px'>중요도</th><th style='padding:6px 8px'>변화 → 액션</th></tr>" + rows + "</table>"
             )
             body = (
-                # 요약 (문장 + Samsung 스코어보드)
-                "<p style='font-size:14px;color:#344054;line-height:1.7;margin:0 0 16px'>" + summary + "</p>"
+                # 요약 (문장 + Samsung 스코어보드) — [2026-11] 인사이트 박스(화면과 같은 문장)를 맨 위에
+                ins_html +
+                "<p style='font-size:13px;color:#667085;line-height:1.7;margin:0 0 16px'>" + summary + "</p>"
                 + (scoreboard + sep if scoreboard else "")
                 # 사이트별
                 + (sites_detail + sep if sites_detail else "")
@@ -387,7 +424,7 @@ class EmailService:
                 + changes_section
             )
         header_meta = "변경 " + str(d["changes"]) + "건" + (" · " + str(d["sites"]) + "개 사이트" if d["sites"] else "")
-        return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>애플스토커 🍎</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>" + header_meta + "</div><div style='margin-top:16px'>" + body + "</div></div></div>"
+        return "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'><div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'><div style='font-size:12px;color:#667085;font-weight:700'>appleStalker 🍎</div><h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + " KST</h1><div style='font-size:13px;color:#667085'>" + header_meta + "</div><div style='margin-top:16px'>" + body + "</div></div></div>"
 
     def send(self, report_type="morning"):
         self._refresh_env()
