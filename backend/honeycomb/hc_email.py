@@ -81,8 +81,10 @@ def _attr_breakdown(run: Dict[str, Any], attributes: Optional[List[Dict[str, Any
     name_of = {a["code"]: a["name"] for a in (attributes or [])}
     counts: Dict[str, Dict[str, int]] = {}
     for cell in run.get("cells", []):
+        if cell.get("keyword_type", "brand") != "brand":   # [2026-11] Apple 비교 셀은 삼성 속성 집계에서 제외
+            continue
         for code, v in (cell.get("attrs") or {}).items():
-            if v == "na":
+            if v not in ("entered", "missed"):            # [2026-11] na·확인 안 함 제외
                 continue
             counts.setdefault(code, {"entered": 0, "missed": 0})
             counts[code][v] = counts[code].get(v, 0) + 1
@@ -140,6 +142,30 @@ def build_html(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, c
     if prev_run:
         changes_html = _changes_block(hc_engine.diff_runs(prev_run, run), cname, plabel)
 
+    # [2026-11] 화면과 같은 인사이트(부족 → 할 일) + 판단 기준, Apple 비교 요약(8-3)
+    ins_html = apple_html = ""
+    try:
+        import insight_rules as _ir
+        _ins = _ir.hc_insights(run, prev_run, plabel)
+        ins_html = _ir.email_box_html(_ins.get("top"), _ins.get("basis", ""), "이번 주 요약", "부족·열세 항목 없음")
+        ap = _ins.get("apple")
+        if ap:
+            f = lambda v: "-" if v is None else f"{v}%"
+            rows = "".join(
+                f"<tr><td style='padding:5px 8px;border-top:1px solid #EAECF0;font-size:12px'>{escape(x['group'])}</td>"
+                f"<td style='padding:5px 8px;border-top:1px solid #EAECF0;font-size:12px;text-align:right'>{f(x['samsung'])}</td>"
+                f"<td style='padding:5px 8px;border-top:1px solid #EAECF0;font-size:12px;text-align:right'>{f(x['apple'])}</td></tr>"
+                for x in ap["by_group"])
+            apple_html = (
+                "<div style='margin-top:16px'><div style='font-size:13px;font-weight:800;color:#101318;border-bottom:2px solid #8A5A00;padding-bottom:4px'>"
+                "⬡ Apple 비교 <span style='font-weight:400;color:#98A2B3;font-size:11px'>" + escape(", ".join(ap["models"])) + "</span></div>"
+                "<div style='font-size:12.5px;margin-top:8px'>1위 비율 삼성 <b>" + f(ap["overall"]["samsung_top1"]) + "</b> · Apple <b>" + f(ap["overall"]["apple_top1"]) + "</b></div>"
+                "<table style='width:100%;border-collapse:collapse;margin-top:6px'><tr style='color:#667085;font-size:11px'>"
+                "<th style='text-align:left;padding:4px 8px'>속성 영역</th><th style='text-align:right;padding:4px 8px'>삼성</th><th style='text-align:right;padding:4px 8px'>Apple</th></tr>"
+                + rows + "</table></div>")
+    except Exception as _e:
+        ins_html = ""
+
     return (
         "<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'>"
         "<div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0;border-top:4px solid #E0A008'>"
@@ -150,11 +176,11 @@ def build_html(run: Dict[str, Any], prev_run: Optional[Dict[str, Any]] = None, c
         + (f" · 상단 노출(1~topN) {s['topn_rate']}%" if s.get("topn_rate") is not None else "")
         + (f" · 속성 노출률 {s['attr_entered_rate']}%" if s.get("attr_entered_rate") is not None else "")
         + "</div>"
-        "<div style='margin-top:14px'>" + _status_table(s["by_status"], total) + "</div>"
+        "<div style='margin-top:14px'>" + ins_html + _status_table(s["by_status"], total) + "</div>"
         "<div style='margin-top:16px'>"
         "<div style='font-size:13px;font-weight:800;color:#101318;border-bottom:2px solid #8A5A00;padding-bottom:4px'>⬡ 제품별 현황</div>"
         + per_product_html + "</div>"
-        + attr_html + stores_html + changes_html
+        + apple_html + attr_html + stores_html + changes_html
         + "</div></div>")
 
 

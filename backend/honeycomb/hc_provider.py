@@ -30,7 +30,7 @@ class Provider:
     def fetch_shopping(self, country: Dict[str, Any], keyword: str) -> Dict[str, Any]:
         raise NotImplementedError
 
-    def fetch_product_detail(self, country: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
+    def fetch_product_detail(self, country: Dict[str, Any], item: Dict[str, Any], brand: str = "samsung") -> Dict[str, Any]:
         return {}
 
 
@@ -169,7 +169,7 @@ class SerpApiProvider(Provider):
                 "raw_ref": (data.get("search_metadata") or {}).get("json_endpoint"), "total": len(items),
                 "ads_excluded": ad_count + len(data.get("shopping_ads") or data.get("ads") or [])}
 
-    def fetch_product_detail(self, country: Dict[str, Any], item: Dict[str, Any]) -> Dict[str, Any]:
+    def fetch_product_detail(self, country: Dict[str, Any], item: Dict[str, Any], brand: str = "samsung") -> Dict[str, Any]:
         # [2026-09-14] Google 이 상세를 immersive product 로 바꾸면서 옛 product_id → google_product 방식은
         # 대부분 실패한다. 우선순위: ① immersive_product_page_token → google_immersive_product
         #                          ② product_id → google_product(폴백, 구형 항목용)
@@ -211,8 +211,13 @@ class SerpApiProvider(Provider):
         if pr.get("rating") is not None:
             out["_rating"] = pr.get("rating"); out["_reviews"] = pr.get("reviews")
         sellers = ((data.get("sellers_results") or {}).get("online_sellers")) or []
+        def _brand_seller(sd):
+            if brand == "samsung":
+                return _is_samsung(sd.get("name", ""), sd.get("link", ""))
+            nm = (sd.get("name") or "").lower(); host = (urlparse(sd.get("link") or "").netloc or "").lower()
+            return (brand in nm and "amazon" not in nm and "ebay" not in nm) or host.endswith(f"{brand}.com")
         for s in sellers:
-            if _is_samsung(s.get("name", ""), s.get("link", "")):
+            if _brand_seller(s):
                 if s.get("base_price"):
                     out["price"] = s["base_price"]
                 if s.get("additional_price") is not None:
@@ -223,7 +228,80 @@ class SerpApiProvider(Provider):
                 break
         if data.get("reviews_results"):
             out["_has_reviews"] = True
+        # [2026-11 D4③] 위에서 명시적으로 읽는 키 외에, 상세 응답 JSON 전체에서 GMC 속성명을 찾아 보강한다.
+        #   SerpApi 상세 응답 구조가 엔진·국가별로 달라 특정 경로를 가정하지 않고, 키 이름(또는 스펙 표의 항목명)이
+        #   속성 동의어와 일치하면 '보임'으로 기록한다. 값에는 출처 경로를 붙여 화면에서 검증할 수 있게 한다.
+        for code, val in _deep_attr_scan(data).items():
+            out.setdefault(code, val)
         return out
+
+
+# ── [2026-11 D4③] 상세 응답 전체 탐색 ─────────────────────────────────────────
+# 토큰 단위로 일치하는 경우만 인정(부분 문자열 금지) — 'type' 같은 범용 키로 생기는 오탐을 막는다.
+_ATTR_SYNONYMS = {
+    "gtin": ["gtin", "ean", "upc", "isbn", "jan"],
+    "mpn": ["mpn", "model number", "model no", "part number", "manufacturer part number", "modellnummer", "référence"],
+    "color": ["color", "colour", "colors", "colours", "farbe", "couleur", "colore"],
+    "size": ["size", "sizes", "storage", "capacity", "speicher", "stockage", "memory"],
+    "material": ["material", "materials", "matériau"],
+    "product_weight": ["weight", "gewicht", "poids", "peso"],
+    "product_length": ["length", "länge", "longueur"],
+    "product_width": ["width", "breite", "largeur"],
+    "product_height": ["height", "höhe", "hauteur", "dimensions", "abmessungen"],
+    "certification": ["certification", "certifications"],
+    "energy_efficiency_class": ["energy efficiency", "energy class", "energieeffizienzklasse"],
+    "question_and_answer": ["questions", "questions and answers", "q and a"],
+    "related_product": ["related products", "related", "similar products", "similar"],
+    "variant_option": ["variants", "variant", "configurations"],
+    "availability_date": ["availability date", "release date", "pre order", "preorder"],
+    "promotion_id": ["promotion", "promotions", "deals", "offer details"],
+    "virtual_model_link": ["3d model", "view in 3d", "ar model"],
+    "document_link": ["manual", "manuals", "documents", "user guide"],
+    "popularity_rank": ["rank", "best seller", "bestseller", "popularity"],
+    "google_product_category": ["category", "categories", "breadcrumbs", "breadcrumb"],
+    "installment": ["installment", "installments", "financing", "monthly payment"],
+    "free_shipping_threshold": ["free shipping", "free delivery"],
+}
+
+
+def _norm_tok(s: str) -> str:
+    import re as _re
+    return _re.sub(r"[^a-z0-9äöüéèàç ]+", " ", (s or "").lower()).strip()
+
+
+def _deep_attr_scan(data: Any) -> Dict[str, str]:
+    found: Dict[str, str] = {}
+    syn = {code: {_norm_tok(x) for x in xs} for code, xs in _ATTR_SYNONYMS.items()}
+
+    def hit(name: str, value: Any, path: str):
+        n = _norm_tok(name.replace("_", " "))
+        if not n or value in (None, "", [], {}):
+            return
+        for code, names in syn.items():
+            if code in found:
+                continue
+            if n in names:
+                v = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+                found[code] = f"{str(v)[:120]}  [출처: {path}]"
+
+    def walk(o: Any, path: str, depth: int = 0):
+        if depth > 6:
+            return
+        if isinstance(o, dict):
+            # 스펙 표 형태 {name/title/key: ..., value: ...}
+            label = o.get("name") or o.get("title") or o.get("key") or o.get("label")
+            if isinstance(label, str) and ("value" in o or "values" in o):
+                hit(label, o.get("value") or o.get("values"), f"{path}.{label}")
+            for k, v in o.items():
+                if isinstance(k, str):
+                    hit(k, v, f"{path}.{k}")
+                walk(v, f"{path}.{k}", depth + 1)
+        elif isinstance(o, list):
+            for i, v in enumerate(o[:60]):
+                walk(v, f"{path}[{i}]", depth + 1)
+
+    walk(data, "detail")
+    return found
 
 
 def get_provider(kind: Optional[str] = None, raw_dir: Optional[str] = None) -> Provider:

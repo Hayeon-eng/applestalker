@@ -145,7 +145,26 @@ def hc_run(run_id: str, keyword_type: Optional[str] = Query(None)):
         raise HTTPException(404, f"run {run_id} 없음")
     cells = [dict(c, gaps=hc_engine.gaps(c)) for c in run["cells"] if not keyword_type or c["keyword_type"] == keyword_type]
     return {"run_id": run_id, "week": run.get("week"), "at": run["at"], "source": run.get("source"), "errors": run.get("errors", []),
-            "api_calls": run.get("api_calls"), "summary": hc_engine.summarize(run, keyword_type), "cells": cells}
+            "api_calls": run.get("api_calls"), "summary": hc_engine.summarize(run, keyword_type), "cells": cells,
+            "apple_models": run.get("apple_models") or [],
+            "insights": _run_insights(run)}
+
+
+def _prev_run_of(run: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    runs = _all_runs()
+    ids = [r["run_id"] for r in runs]
+    i = ids.index(run["run_id"]) if run.get("run_id") in ids else -1
+    return runs[i - 1] if i > 0 else None
+
+
+def _run_insights(run: Dict[str, Any]) -> Dict[str, Any]:
+    """[2026-11 D1·H1~H6] 화면·메일 공통 인사이트(insight_rules 단일 소스) + Apple 비교(8-3)."""
+    try:
+        import insight_rules
+        labels = {p["slug"]: p["label"] for p in _mock.config().get("products", [])}
+        return insight_rules.hc_insights(run, _prev_run_of(run), labels)
+    except Exception as e:
+        return {"top": [], "all": [], "basis": "", "apple": None, "error": str(e)[:200]}
 
 
 @hc_router.get("/diff")
@@ -156,7 +175,7 @@ def hc_diff(prev: str, cur: str):
     return {"prev": prev, "cur": cur, "changes": hc_engine.diff_runs(a, b)}
 
 
-def _bg(countries, products, detail):
+def _bg(countries, products, detail, apple_models=None):
     try:
         run_id_tmp = STATE["run_id"]
         provider = get_provider("serpapi", raw_dir=os.path.join(RUNS_DIR, run_id_tmp, "raw"))
@@ -169,6 +188,17 @@ def _bg(countries, products, detail):
                 STATE["cells"] = cells + [info]
         run = hc_engine.collect_run(provider, _mock.config(), _mock.attributes(), kws, countries, products, detail, prog,
                                     should_cancel=lambda: STATE.get("cancel"))
+        # [2026-11 D3] 선택한 Apple 모델 비교 수집 — 삼성 셀과 같은 run 에 keyword_type='competitor' 로 저장
+        if apple_models and not STATE.get("cancel"):
+            base_done = STATE.get("done", 0)
+            comp = hc_engine.collect_competitors(provider, _mock.config(), _mock.attributes(), apple_models,
+                                                 countries, products, detail,
+                                                 lambda d, t, info=None: STATE.update(done=base_done + d, total=base_done + t),
+                                                 should_cancel=lambda: STATE.get("cancel"))
+            run["cells"] += comp["cells"]
+            run["errors"] = (run.get("errors") or []) + comp["errors"]
+            run["apple_models"] = list(apple_models)
+            run["api_calls"] = getattr(provider, "calls", run.get("api_calls"))
         run["run_id"] = run_id_tmp
         json.dump(run, open(os.path.join(RUNS_DIR, run_id_tmp + ".json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
         files = sorted(f for f in os.listdir(RUNS_DIR) if f.endswith(".json"))
@@ -180,19 +210,25 @@ def _bg(countries, products, detail):
         STATE["running"] = False
 
 
-def _estimate(countries=None, products=None, detail=False) -> Dict[str, Any]:
+def _estimate(countries=None, products=None, detail=True, apple_models=None) -> Dict[str, Any]:
     cfg = _mock.config(); kws = [k for k in _load_keywords().get("keywords", []) if k.get("enabled", True)]
     cts = [c for c in cfg["countries"] if not countries or c["code"] in countries]
     prs = [p for p in cfg["products"] if not products or p["slug"] in products]
     n = sum(1 for c in cts for p in prs for k in kws if k["product"] == p["slug"] and (not k.get("countries") or c["code"] in k["countries"]))
-    return {"searches": n, "detail_max": n if detail else 0, "total_max": n + (n if detail else 0),
-            "countries": len(cts), "products": len(prs), "keywords_enabled": len(kws),
-            "note": "상세 조회(속성 역추적)는 우리 카드가 잡힌 셀마다 1회 추가 — 최대치로 계산"}
+    slugs = {p["slug"] for p in prs}
+    am = [m for m in (cfg.get("competitors") or []) if m.get("model") in (apple_models or [])
+          and any(sl in slugs for sl in m.get("compare_to") or [])]
+    na = len(cts) * len(am)
+    return {"searches": n + na, "detail_max": (n + na) if detail else 0, "total_max": (n + na) * (2 if detail else 1),
+            "samsung_searches": n, "apple_searches": na,
+            "countries": len(cts), "products": len(prs), "keywords_enabled": len(kws), "apple_models": len(am),
+            "note": "상세 조회(속성 역추적)는 공식몰 카드가 잡힌 셀마다 1회 추가 — 최대치로 계산 · Apple 모델은 국가당 1회"}
 
 
 @hc_router.get("/run-estimate")
-def hc_run_estimate(detail: bool = Query(False), countries: Optional[List[str]] = Query(None), products: Optional[List[str]] = Query(None)):
-    return _estimate(countries=countries, products=products, detail=detail)
+def hc_run_estimate(detail: bool = Query(True), countries: Optional[List[str]] = Query(None), products: Optional[List[str]] = Query(None),
+                    apple_models: Optional[List[str]] = Query(None)):
+    return _estimate(countries=countries, products=products, detail=detail, apple_models=apple_models)
 
 
 @hc_router.post("/run")
@@ -203,9 +239,45 @@ def hc_run_start(payload: Dict[str, Any] = Body(default={})):
         raise HTTPException(409, "이미 수집 중")
     from datetime import datetime
     STATE.update(running=True, done=0, total=0, run_id=f"hc_{datetime.now():%Y%m%d_%H%M%S}", error=None, cancel=False, cells=[])
-    detail = bool(payload.get("detail", False))  # 기본 OFF — 호출 수 절감(운영 결정 2026-09)
-    threading.Thread(target=_bg, args=(payload.get("countries"), payload.get("products"), detail), daemon=True).start()
-    return {"status": "started", "run_id": STATE["run_id"], "estimate": _estimate(payload.get("countries"), payload.get("products"), detail)}
+    # [2026-11 D4] 상세 조회 기본 ON(사용자 결정) — 끄면 상세 창 속성은 '확인 안 함'으로 표시된다.
+    detail = bool(payload.get("detail", True))
+    apple_models = [m for m in (payload.get("apple_models") or []) if isinstance(m, str)]
+    threading.Thread(target=_bg, args=(payload.get("countries"), payload.get("products"), detail, apple_models), daemon=True).start()
+    return {"status": "started", "run_id": STATE["run_id"],
+            "estimate": _estimate(payload.get("countries"), payload.get("products"), detail, apple_models)}
+
+
+# ── [2026-11 B2] SerpApi 잔여 검색 수 — Account API(무료, 월 쿼터 차감 없음) ─────────────
+_ACCT_CACHE: Dict[str, Any] = {"at": 0.0, "data": None}
+
+
+@hc_router.get("/serpapi/account")
+def hc_serpapi_account():
+    import time as _t
+    key = os.getenv("SERPAPI_KEY", "")
+    if not key:
+        return {"ok": False, "reason": "SERPAPI_KEY 미설정"}
+    if _ACCT_CACHE["data"] and _t.time() - _ACCT_CACHE["at"] < 60 and not STATE.get("running"):
+        return _ACCT_CACHE["data"]
+    try:
+        import httpx
+        r = httpx.get("https://serpapi.com/account.json", params={"api_key": key}, timeout=15,
+                      verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false"))
+        r.raise_for_status()
+        a = r.json()
+        out = {"ok": True,
+               "plan": a.get("plan_name"),
+               "searches_per_month": a.get("searches_per_month"),
+               "this_month_usage": a.get("this_month_usage"),
+               "plan_searches_left": a.get("plan_searches_left"),
+               "extra_credits": a.get("extra_credits"),
+               "total_searches_left": a.get("total_searches_left"),
+               "hourly_limit": a.get("account_rate_limit_per_hour"),
+               "last_hour": a.get("last_hour_searches")}
+    except Exception as e:
+        out = {"ok": False, "reason": f"조회 실패: {str(e)[:120]}"}
+    _ACCT_CACHE.update(at=_t.time(), data=out)
+    return out
 
 
 @hc_router.get("/run-status")

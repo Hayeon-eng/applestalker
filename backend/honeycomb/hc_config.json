@@ -110,5 +110,12 @@
   "unchecked": "아직 조회하지 않음"
  },
  "attribute_note": "속성 표준은 Master File 59행(51 + 하위 8). 사람 리포트(Shopping Check)는 그중 55개만 판정했으므로, 리포트에 없는 4개(Mobile link·Google product category(Alt)·에너지 등급 min/max)는 '확인 불가'로 둔다.",
- "data_note": "Final Report Summary 시트의 'Fold8'/'Fold8 Ultra' 블록 헤더가 서로 바뀐 것으로 판단(각 블록의 Entered 수가 Shopping Check 의 다른 제품과 일치). 목업은 내용 기준으로 판매처를 배치 — 원본 리포트 작성자 확인 필요."
+ "data_note": "Final Report Summary 시트의 'Fold8'/'Fold8 Ultra' 블록 헤더가 서로 바뀐 것으로 판단(각 블록의 Entered 수가 Shopping Check 의 다른 제품과 일치). 목업은 내용 기준으로 판매처를 배치 — 원본 리포트 작성자 확인 필요.",
+  "competitors_note": "[2026-11] Apple 비교 키워드 — 모델명 단위. 기준: 2026-09 Apple 발표 라인업(iPhone 18 Pro, iPhone Duo, Apple Watch Series 12·Ultra 4). [2026-11 수정] Galaxy Z 폰 3종(Fold8·Fold8 Ultra·Flip8)은 iPhone 18 Pro 와 iPhone Duo 둘 다와 비교. 화면에서 모델별로 선택해 조회. 같은 Apple 모델은 국가당 1회만 호출(여러 삼성 제품 비교에 공유).",
+  "competitors": [
+    {"brand": "apple", "model": "iPhone Duo", "compare_to": ["galaxy-z-fold8", "galaxy-z-fold8-ultra", "galaxy-z-flip8"]},
+    {"brand": "apple", "model": "iPhone 18 Pro", "compare_to": ["galaxy-z-fold8", "galaxy-z-fold8-ultra", "galaxy-z-flip8"]},
+    {"brand": "apple", "model": "Apple Watch Ultra 4", "compare_to": ["galaxy-watch-ultra2"]},
+    {"brand": "apple", "model": "Apple Watch Series 12", "compare_to": ["galaxy-watch9"]}
+  ]
 }
