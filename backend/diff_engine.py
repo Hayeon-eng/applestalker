@@ -318,6 +318,53 @@ class DiffEngine:
         c, p = texts(cur), texts(prev)
         out = []
 
+        # [2026-11 C3] "Shop iPhone Shop iPhone" — 링크 텍스트와 aria-label 이 같은 문구로 두 번 붙은 중복을 정리
+        def _dedupe_repeat(t: str) -> str:
+            t = " ".join(t.split())
+            n = len(t)
+            if n >= 6 and n % 2 == 1 and t[: n // 2] == t[n // 2 + 1:]:
+                return t[: n // 2]
+            return t
+        c = {_dedupe_repeat(t) for t in c} - {""}
+        p = {_dedupe_repeat(t) for t in p} - {""}
+
+        # [2026-11 C2] 같은 버튼의 문구 수정은 '제거 1건 + 추가 1건'이 아니라 '문구 변경 1건' — 제거·추가 문구가
+        #   서로 비슷하면(토큰 자카드 ≥ 0.5 또는 한쪽이 다른 쪽을 포함) 짝을 지어 하나로 합친다.
+        def _tok(t: str) -> set:
+            return {w for w in re.findall(r"[\w가-힣]+", t.lower()) if len(w) >= 2}
+        def _similar(a: str, b: str) -> bool:
+            al, bl = a.lower(), b.lower()
+            if al in bl or bl in al:
+                return True
+            ta, tb = _tok(a), _tok(b)
+            return bool(ta and tb) and len(ta & tb) / len(ta | tb) >= 0.5
+        reworded = []
+        if fld == "ctas":
+            removed_pool, added_pool = sorted(p - c), sorted(c - p)
+            for r_ in removed_pool:
+                match = next((a_ for a_ in added_pool if _similar(r_, a_)), None)
+                if match is not None:
+                    added_pool.remove(match)
+                    reworded.append((r_, match))
+            for r_, a_ in reworded:
+                c.discard(a_); p.discard(r_)
+                blob = f"{r_} {a_}"
+                # [2026-11 C1] CTA 는 가격·프로모션 문구일 때만 commerce, 아니면 카피(content)
+                ctype_i = "commerce" if (_is_promo_cta(blob) or _is_critical(fld, "", blob, self.critical_keywords)) else "content"
+                sev_i = "L5" if _is_critical(fld, "", blob, self.critical_keywords) else ("L2" if _is_promo_cta(blob) else "L1")
+                out.append(self._mk(url, site_key, tier, fld, ctype_i, sev_i,
+                                    f"{fld} 문구 변경: {r_[:40]} → {a_[:40]}", before=r_, after=a_,
+                                    evidence={"copy_importance": _copy_importance_note(fld, r_, a_), "kind": "reworded",
+                                              "counting_note": "같은 버튼의 문구 수정 — 제거·추가를 1건으로 합침"}))
+            # 둘 중 하나라도 남아 있어야 아래 추가/제거 집계가 돈다
+            c = (c - {a for _, a in reworded}) | (c & p)
+            p = (p - {r for r, _ in reworded}) | (c & p)
+
+        def _ctype_for(text: str) -> str:
+            if fld != "ctas":
+                return ctype
+            return "commerce" if (_is_promo_cta(text) or _is_critical(fld, "", text, self.critical_keywords)) else "content"
+
         def keep_list_change(text: str) -> bool:
             if _is_critical(fld, "", text, self.critical_keywords):
                 return True
@@ -333,7 +380,7 @@ class DiffEngine:
             if not keep_list_change(t):
                 continue
             sev = sev_for(t, added_sev)
-            out.append(self._mk(url, site_key, tier, fld, ctype, sev,
+            out.append(self._mk(url, site_key, tier, fld, _ctype_for(t), sev,
                                  f"{fld} 추가: {t[:60]}", after=t,
                                  evidence={"copy_importance": _copy_importance_note(fld, "", t),
                                            "counting_note": "일반 메뉴/탭/짧은 CTA 라벨은 변경점 집계에서 제외" if fld == "ctas" else ""}))
@@ -341,7 +388,7 @@ class DiffEngine:
             if not keep_list_change(t):
                 continue
             sev = sev_for(t, removed_sev)
-            out.append(self._mk(url, site_key, tier, fld, ctype, sev,
+            out.append(self._mk(url, site_key, tier, fld, _ctype_for(t), sev,
                                  f"{fld} 제거: {t[:60]}", before=t,
                                  evidence={"copy_importance": _copy_importance_note(fld, t, ""),
                                            "counting_note": "일반 메뉴/탭/짧은 CTA 라벨은 변경점 집계에서 제외" if fld == "ctas" else ""}))

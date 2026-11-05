@@ -461,18 +461,18 @@ class CrawlServiceV2:
         try:
             with self.sync_engine.connect() as conn:
                 rows = conn.execute(text("""
-                    SELECT url FROM monitored_urls
-                    WHERE enabled=true AND site_key=:s
+                    SELECT url, enabled FROM monitored_urls WHERE site_key=:s
                 """), {"s": site_key}).fetchall()
 
-            db_urls = [r[0] for r in rows]
+            db_urls = [r[0] for r in rows if r[1]]
+            off_urls = [r[0] for r in rows if not r[1]]   # [2026-11] 양식에서 N 으로 내린 URL(시드 포함) 제외
 
         except Exception as e:
             logger.warning(f"monitored_urls query failed ({site_key}): {e} — seed only")
-            db_urls = []
+            db_urls, off_urls = [], []
 
         # SEED_TARGETS의 seed_urls + DB 등록분 머지 (중복 제거, tier 자동 계산)
-        urls = load_active_urls(site_key, db_urls if db_urls else None)
+        urls = load_active_urls(site_key, db_urls if db_urls else None, off_urls)
 
         # [FIX] tier 높은(구매/스펙 등 4) 페이지부터 크롤해 BROWSER_PAGE_CAP(JS 렌더링 예산)이
         # URL 리스트에 적힌 순서가 아니라 실제 중요도 순으로 소모되게 한다.

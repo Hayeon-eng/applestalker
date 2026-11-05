@@ -392,7 +392,8 @@ def normalize_seed_url(site_key: str, url: str) -> str:
         return legacy_map.get(u, u)
     return u
 
-def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None) -> List[Dict]:
+def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None,
+                     disabled_urls: Optional[List[str]] = None) -> List[Dict]:
     """
     크롤 대상 URL 목록 반환. SEED + DB(MonitoredURL) 머지 후 중복 제거.
     각 항목: {"url", "tier_level", "site_key", "page_role"}
@@ -404,9 +405,13 @@ def load_active_urls(site_key: str, db_urls: Optional[List[str]] = None) -> List
     urls: List[str] = list(get_seed_urls(site_key))
     if db_urls:
         urls.extend(db_urls)
+    # [2026-11] 모니터링 대상 양식(템플릿 ②)에서 N 으로 내린 URL 은 시드여도 제외한다(DB monitored_urls.enabled=false)
+    disabled = {normalize_seed_url(site_key, d) for d in (disabled_urls or [])}
     seen, out = set(), []
     for u in urls:
         u = normalize_seed_url(site_key, u)
+        if u in disabled:
+            continue
         # Samsung 기준은 SG로 확정했으므로, 예전 DB에 남은 samsung.com/us URL은
         # 화면/크롤 대상에서 제외한다. 필요하면 사용자가 별도 사이트키로 다시 등록해야 한다.
         if site_key == "samsung" and "samsung.com/us/" in u.lower():

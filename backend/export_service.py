@@ -176,12 +176,19 @@ def build_xlsx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
         wsI.freeze_panes = "A4"
         wb.active = 0
 
+    # [2026-11] 첫 시트 '요약판' — 화면·메일·PPT 와 같은 데이터(as_exec_summary)
+    try:
+        import as_exec_summary
+        as_exec_summary.write_summary_sheet(wb, as_exec_summary.build(dcv, changes, insights, timestamp))
+        wb.active = 0
+    except Exception:
+        import traceback; traceback.print_exc()
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
 
 # ══════════════════════════════════════════════════════════════════
 # PPTX — 점수 스코어보드 + 축별 스코어카드 + 변경점 (표·색 박스 재설계)
-# 점수는 프론트 metricScoreBreakdown 과 동일 산식(하위지표 전체 평균)을 Python으로 재현.
+# 점수는 insight_rules_base.score_block 단일 소스(아래 _score_breakdown 이 감싼다) — 화면·메일·PPT 가 같은 값.
 # ══════════════════════════════════════════════════════════════════
 OURS_KEY = "samsung"
 
@@ -192,56 +199,16 @@ def _avg(vals):
 
 
 def _score_breakdown(bucket: str, facts: Dict[str, Any]) -> Dict[str, Any]:
-    """(components[상위3], all[전체], total) — 프론트와 동일 로직."""
-    f = facts or {}
-    comp = []
-    if bucket == "data":
-        sch = f.get("schema", {}) or {}
-        schema = round(sch["coverage_pct"]) if isinstance(sch.get("coverage_pct"), (int, float)) else None
-        h1v = (((f.get("html_structure") or {}).get("h_tag_coverage") or {}).get("h1_coverage_pct"))
-        h1 = round(h1v) if isinstance(h1v, (int, float)) else None
-        tcnt = len(sch.get("schema_type_counts") or {})
-        structured = min(100, tcnt * 30) if tcnt > 0 else schema
-        tp = sch.get("total_pages") or 0
-        gaps = len(sch.get("role_alignment_gaps") or [])
-        rolefit = round((tp - min(gaps, tp)) / tp * 100) if tp else None
-        pf = ((sch.get("completeness") or {}).get("Product") or {}).get("filled_ratio")
-        prod = round(pf * 100) if isinstance(pf, (int, float)) else None
-        idl = sch.get("id_linkage") or {}
-        idt = idl.get("total_id_nodes") or 0
-        idlink = round((idl.get("linked_ids") or 0) / idt * 100) if idt else None
-        comp = [("Schema", schema), ("H-tag", h1), ("타입다양성", structured),
-                ("역할적합성", rolefit), ("Product완성도", prod), ("@id연결성", idlink)]
-    elif bucket == "copy":
-        cr = f.get("copy_richness", {}) or {}
-        pages = cr.get("all_pages") or []
-        richness = _avg([p.get("score") for p in pages])
-        tp = len(pages) or ((f.get("page_inventory") or {}).get("total_pages") or 0)
-        buy = (f.get("commerce_cta") or {}).get("pages_with_buy_cta")
-        cta = round(buy / tp * 100) if isinstance(buy, (int, float)) and tp else None
-        wok = len([p for p in pages if (p.get("word_count") or 0) >= 80])
-        wcov = round(wok / len(pages) * 100) if pages else None
-        det = (f.get("faq") or {}).get("detail") or []
-        faq = _avg([d.get("avg_score") for d in det]) if det else None
-        ig = len(cr.get("intent_gap_pages") or [])
-        intent = round((len(pages) - min(ig, len(pages))) / len(pages) * 100) if pages else None
-        dup = len((f.get("duplication") or {}).get("duplicate_copy_pages") or []) + \
-              len((f.get("duplication") or {}).get("duplicate_cta_pages") or [])
-        dupav = 100 - round(min(dup, tp) / tp * 100) if tp else None
-        comp = [("구체성", richness), ("CTA", cta), ("분량", wcov),
-                ("FAQ품질", faq), ("intent", intent), ("중복회피", dupav)]
-    else:
-        aq = (f.get("alt_text_quality") or {}).get("descriptive_ratio_pct")
-        alt = round(aq) if isinstance(aq, (int, float)) else None
-        idv = f.get("image_diversity") or {}
-        dvr = idv.get("lifestyle_ratio_pct")
-        diversity = round(dvr) if isinstance(dvr, (int, float)) else None
-        ti = idv.get("total_images") or 0
-        tp = (f.get("page_inventory") or {}).get("total_pages") or ti
-        cov = min(100, round(ti / tp * 100)) if ti and tp else None
-        comp = [("ALT", alt), ("다양성", diversity), ("커버리지", cov)]
-    total = _avg([v for _, v in comp])
-    return {"components": comp[:3], "all": comp, "total": total}
+    """[2026-11 점수 단순화 — 단일 소스] 엑셀·PPT·메일의 점수도 insight_rules_base.score_block 하나로 계산한다.
+    (예전엔 여기에 화면과 별개의 6/6/3 지표 공식 사본이 있어 화면·메일·PPT 점수가 서로 어긋날 수 있었다.)
+    반환 형태는 기존 호출부 호환: components=점수 지표 [(라벨, 값)], all=점수+참고 지표, total, basis."""
+    from insight_rules_base import score_block
+    sb = score_block(bucket, {"facts": facts or {}})
+    comps = [(c.get("label_ko") or c["label"], c["value"]) for c in sb["components"]]
+    refs = [(c.get("label_ko") or c["label"], c["value"]) for c in sb["reference"]]
+    # all: 한글 라벨과 영문 키 둘 다로 찾을 수 있게(표시는 한글, 규칙 조회는 영문 키)
+    allp = comps + refs + [(c["label"], c["value"]) for c in sb["components"] + sb["reference"]]
+    return {"components": comps, "reference": refs, "all": allp, "total": sb["total"], "basis": sb["basis"]}
 
 
 def _tier(score):
@@ -336,59 +303,17 @@ def build_pptx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
     if summary:
         text(s, Inches(0.9), Inches(5.1), Inches(11.5), Inches(1.6), summary[:220], size=13, color=RGBColor(0xCA, 0xDC, 0xFC))
 
-    # ── 2) Executive Summary — 스코어보드 표 + 우리 우선 액션 ──
-    s = slide()
-    text(s, Inches(0.7), Inches(0.45), Inches(12), Inches(0.7), "Executive Summary — 종합 점수", size=26, bold=True, color=INK)
-    text(s, Inches(0.7), Inches(1.12), Inches(12), Inches(0.4),
-         "점수 = 각 축 하위지표 전체 평균(0~100). 색은 신호등(70↑ Strong / 40~69 Moderate / 40↓ Needs Attention).", size=11, color=GRAY)
-
-    rows = 1 + len(all_sites)
-    tbl_shape = s.shapes.add_table(rows, 4, Inches(0.7), Inches(1.7), Inches(12), Inches(0.5 * rows))
-    tbl = tbl_shape.table
-    tbl.columns[0].width = Inches(4.5)
-    for ci in (1, 2, 3):
-        tbl.columns[ci].width = Inches(2.5)
-    hdr = ["사이트", "DATA", "COPY", "VISUAL"]
-    for ci, htxt in enumerate(hdr):
-        c = tbl.cell(0, ci); c.fill.solid(); c.fill.fore_color.rgb = NAVY
-        c.vertical_anchor = MSO_ANCHOR.MIDDLE
-        p = c.text_frame.paragraphs[0]; p.text = htxt; p.alignment = PP_ALIGN.CENTER if ci else PP_ALIGN.LEFT
-        p.font.size = Pt(13); p.font.bold = True; p.font.color.rgb = WHITE
-    for ri, site in enumerate(all_sites, start=1):
-        ours = site == OURS_KEY
-        c0 = tbl.cell(ri, 0); c0.fill.solid(); c0.fill.fore_color.rgb = (RGBColor(0xE9, 0xEF, 0xFB) if ours else WHITE)
-        c0.vertical_anchor = MSO_ANCHOR.MIDDLE
-        p0 = c0.text_frame.paragraphs[0]; p0.text = ("★ " if ours else "") + SITE_KO.get(site, site)
-        p0.font.size = Pt(12); p0.font.bold = ours; p0.font.color.rgb = INK
-        for ci, b in enumerate(("data", "copy", "visual"), start=1):
-            total = (breaks[b].get(site) or {}).get("total")
-            tier = _tier(total)
-            c = tbl.cell(ri, ci); c.fill.solid(); c.fill.fore_color.rgb = TIERC[tier]
-            c.vertical_anchor = MSO_ANCHOR.MIDDLE
-            p = c.text_frame.paragraphs[0]; p.text = "-" if total is None else str(total)
-            p.alignment = PP_ALIGN.CENTER
-            p.font.size = Pt(13); p.font.bold = True
-            p.font.color.rgb = WHITE if tier != "none" else RGBColor(0x44, 0x44, 0x44)
-
-    # 우리 우선 액션 3줄
-    ay = Inches(1.7) + Inches(0.5 * rows) + Inches(0.35)
-    ins_top = (insights or {}).get("top") or []
-    text(s, Inches(0.7), ay, Inches(12), Inches(0.4), "이번 수집 요약" if ins_top else "우리(Samsung) 우선 액션", size=15, bold=True, color=INK)
-    ay2 = ay + Inches(0.5)
-    if ins_top:   # [2026-11] 화면·메일과 같은 인사이트 3줄 + 판단 기준
-        for it in ins_top[:3]:
-            text(s, Inches(0.7), ay2 - Inches(0.03), Inches(12), Inches(0.5), "· " + it["line"], size=12, color=INK)
-            ay2 += Inches(0.55)
-        text(s, Inches(0.7), ay2, Inches(12), Inches(0.35), insights.get("basis", ""), size=10, color=GRAY)
-    for b in (() if ins_top else ("data", "copy", "visual")):
-        blk = (dcv.get(b) or {}).get(OURS_KEY) or {}
-        facts = blk.get("facts") or {}
-        bd = breaks[b].get(OURS_KEY) or {}
-        act = _priority_action(b, facts, bd)
-        rect(s, Inches(0.7), ay2, Inches(0.16), Inches(0.16), fill=AXIS[b])
-        text(s, Inches(1.0), ay2 - Inches(0.03), Inches(11.4), Inches(0.5),
-             f"{AXIS_LABEL[b].split(' ')[0]}  {act}", size=12, color=INK)
-        ay2 += Inches(0.55)
+    # ── 2) 요약판 — [2026-11] 공통 레이아웃(pptx_common.summary_slide): KPI 띠 · 한 줄 결론 · 할 일 Top5 · 사이트별 표
+    try:
+        import as_exec_summary, pptx_common as P
+        S = as_exec_summary.build(dcv, changes, insights, timestamp)
+        parts = as_exec_summary.pptx_parts(S, insights)
+        P.summary_slide(prs, NAVY, "요약판 — Samsung vs 경쟁사", timestamp or "", S["headline"], parts["verdict"], parts["kpis"], parts["actions"],
+                        parts["ranking"], basis=S["basis"], conclusion=S["conclusion"])
+    except Exception:
+        import traceback; traceback.print_exc()
+        s = slide()
+        text(s, Inches(0.7), Inches(0.45), Inches(12), Inches(0.7), "요약판 생성 실패 — 상세 슬라이드를 참고하세요", size=20, bold=True, color=INK)
 
     # ── 3) 축별 상세 ──
     for b in ("data", "copy", "visual"):
@@ -409,11 +334,11 @@ def build_pptx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
         text(s, Inches(0.7), Inches(3.25), Inches(3.3), Inches(0.4),
              f"Samsung 종합 · {TIERL[tier]}", size=13, bold=True, color=INK, align=PP_ALIGN.CENTER)
         text(s, Inches(0.7), Inches(3.62), Inches(3.3), Inches(0.3),
-             "하위지표 전체 평균", size=10, color=GRAY, align=PP_ALIGN.CENTER)
+             "점수 지표 단순 평균 (가중치 없음)", size=10, color=GRAY, align=PP_ALIGN.CENTER)
 
         # 우: 주요 3개 하위지표 + 경쟁사 평균 대비
         rx = Inches(4.3); ry = Inches(1.7)
-        text(s, rx, ry, Inches(8.3), Inches(0.35), "주요 지표 (경쟁사 평균 대비)", size=13, bold=True, color=INK)
+        text(s, rx, ry, Inches(8.3), Inches(0.35), "점수 지표 (경쟁사 평균 대비)", size=13, bold=True, color=INK)
         ry += Inches(0.5)
         for label, val in bd.get("components", []):
             d = comp_delta(b, label, val)
@@ -481,7 +406,7 @@ def build_pptx(changes: List[Dict[str, Any]], title: str = "", timestamp: str = 
     rect(s, 0, 0, SW, SH, fill=NAVY)
     text(s, Inches(0.9), Inches(0.9), Inches(11.5), Inches(0.7), "점수·액션 기준 (참고)", size=26, bold=True, color=WHITE)
     notes = [
-        "· 점수는 각 축의 하위지표(DATA·COPY 6개, VISUAL 3개) 전체 평균이며, 화면 카드에는 주요 3개만 노출됩니다.",
+        "· 점수는 축별 점수 지표(DATA: 스키마 적용률·페이지 유형별 스키마·Product 완성도 / COPY: 카피 구체성·구매 CTA 보유율·FAQ 품질 / VISUAL: 설명형 ALT·이미지 보유 페이지)의 단순 평균입니다. 나머지 지표(H1·@id·타입 수·본문 분량·사용 장면 비율 등)는 참고 지표로 할 일 근거에만 쓰입니다.",
         "· 스키마 역할 기대값은 '우리 사이트 Schema Link Map' 기준(참고)입니다. 절대 기준이 아니며, @id로 연결돼 있을 수 있어 누락=오류로 보지 않습니다.",
         "· 고급 스키마(FAQPage·Quotation·3DModel·VideoObject 등)는 없어도 되며, 있으면 검색·AI 노출에 유리한 '기회'로만 표기합니다.",
         "· VISUAL(이미지) 판단은 HTML 신호(ALT·파일명 등) 기반이며 실제 이미지 픽셀은 검증하지 않았습니다.",
@@ -520,24 +445,24 @@ def _priority_action(bucket: str, facts: Dict[str, Any], bd: Dict[str, Any]) -> 
             return "Schema 적용 페이지 비율 낮음 — 적용 페이지 확대로 구조화 신호 강화."
         return "핵심 스키마 신호 양호 — 현 구조 유지, 다음 수집에서 변화만 확인."
     if bucket == "copy":
-        if (allc.get("분량") or 100) < 40:
+        if (allc.get("Word coverage") or 100) < 40:
             return "본문 분량(80단어↑) 충족 페이지 적음 — 스펙·소재·기능 설명 추가로 이해도↑."
-        if (allc.get("구체성") or 100) < 40:
+        if (allc.get("Copy richness") or 100) < 40:
             return "카피 구체성 점수 낮음 — 수치·소재·기능 언급 추가로 구체성↑."
-        if (allc.get("FAQ품질") is not None) and (allc.get("분량") or 100) < 70:
+        if (allc.get("FAQ 품질") is not None) and (allc.get("Word coverage") or 100) < 70:
             return "FAQ는 있으나 본문 분량 충족 페이지 적음 — 제품 설명 분량 보강."
-        if (allc.get("CTA") or 100) < 30:
+        if (allc.get("CTA coverage") or 100) < 30:
             return "구매 CTA 커버리지 낮음 — PDP·Buying에 Buy/Where to buy 버튼 보강."
         return "핵심 카피 신호 양호 — 현 상태 유지, 경쟁사 문구 변화만 모니터."
     ti = (f.get("image_diversity") or {}).get("total_images") or 0
     cav = " (HTML 신호 기준, 실제 이미지 미검증)"
     if ti == 0:
         return "수집된 이미지 없음 — 렌더 여부 확인, 핵심 비교 제외." + cav
-    if (allc.get("ALT") or 100) < 30:
+    if (allc.get("ALT ratio") or 100) < 30:
         return "설명형 ALT 비율 낮음 — ALT에 제품명·핵심 기능 반영." + cav
-    if (allc.get("다양성") or 100) < 20:
+    if (allc.get("Image diversity") or 100) < 20:
         return "제품 단독컷 위주 — 사용 장면 이미지 추가." + cav
-    if (allc.get("ALT") or 100) < 70:
+    if (allc.get("ALT ratio") or 100) < 70:
         return "설명형 ALT 비율 중간 — ALT 품질을 페이지 전반으로 확대." + cav
     return "이미지 신호 양호 — 현 구성 유지." + cav
 
@@ -584,5 +509,7 @@ def build_criteria_xlsx(criteria: List[Dict[str, Any]]) -> bytes:
     buf = _io.BytesIO(); wb.save(buf); return buf.getvalue()
 
 
-
+def filename(prefix: str, ext: str) -> str:
+    """[2026-11 FIX] 함수 머리글이 사라진 채 본문만 남아 있어 main.py 의 `from export_service import filename` 이
+    ImportError 를 내 엑셀/PPT 내보내기가 실패하던 버그(이전 버전부터)."""
     return f"{prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"

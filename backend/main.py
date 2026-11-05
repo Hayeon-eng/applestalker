@@ -109,6 +109,7 @@ crawl_service = CrawlServiceV2(SessionLocal, sync_engine, crawl_state)
 email_service = EmailService(sync_engine)
 # [2026-11] 메일 본문도 화면과 같은 인사이트를 쓰도록 연결 (latest_report 는 아래에 정의 — 호출 시점에 참조)
 email_service.insight_provider = lambda: (latest_report() or {}).get("insights")
+email_service.summary_provider = lambda: (latest_report() or {}).get("exec_summary")   # [2026-11] 요약판
 
 
 @asynccontextmanager
@@ -368,7 +369,7 @@ def latest_report(run_id: Optional[str] = None):
                "FROM detected_changes WHERE crawl_run_id=:r ORDER BY severity_level DESC, id DESC", r=rid)
         for c in ch:
             ev = json.loads(c[8]) if c[8] else {}
-            cat = _display_category(c[3], c[4], ev)
+            cat = _display_category(c[3], c[4], ev, c[6] or "", c[7] or "")
             by_cat[cat] = by_cat.get(cat, 0) + 1
             changes.append({
                 "id": c[0], "url": c[1], "site": site_key_for_url(c[1]) or "samsung",
@@ -402,6 +403,15 @@ def latest_report(run_id: Optional[str] = None):
         return {site_by_rid.get(rid, rid): blk for rid, blk in blocks_by_rid.items()}
     dcv = {"data": _by_site(data_by_rid), "copy": _by_site(copy_by_rid),
            "visual": _by_site(visual_by_rid)}
+    # [2026-11 점수 단순화 — 단일 소스] 블록마다 점수를 실어 보낸다. 화면은 이 값만 표시하고 facts 로 재계산하지 않는다.
+    try:
+        from insight_rules_base import score_block
+        for _m, _blocks in dcv.items():
+            for _site, _blk in (_blocks or {}).items():
+                if isinstance(_blk, dict):
+                    _blk["scores"] = score_block(_m, _blk)
+    except Exception as e:
+        logger.warning(f"score_block 실패: {e}")
     # 영역별 한 줄 요약 (사실 기반: 어느 사이트가 이 영역에서 무엇을, 몇 건). 아래 카드와 중복되지 않게 '종합' 수준.
     cat_summary = _category_summaries(changes)
     # [2026-11] 공통 인사이트 엔진 — 화면·메일·Quick View 가 같은 문장을 쓴다
@@ -410,12 +420,19 @@ def latest_report(run_id: Optional[str] = None):
     except Exception as e:  # 인사이트 실패가 리포트 전체를 막지 않게
         logger.warning(f"insight_rules 실패: {e}")
         insights = {"top": [], "by_metric": {}, "by_site": {}, "changes": [], "basis": insight_rules.BASIS_SCORE}
+    # [2026-11] 요약판 — 화면 상단·엑셀 첫 시트·PPT 2번·메일 맨 위가 같은 데이터
+    try:
+        import as_exec_summary
+        exec_summary = as_exec_summary.build(dcv, changes, insights, _kst_str(started))
+    except Exception as e:
+        logger.warning(f"exec_summary 실패: {e}")
+        exec_summary = None
     return {"has_data": True, "run_id": rids[0], "session": target_key,
             "timestamp": _kst_str(started),
             "has_changes": len(changes) > 0, "by_category": by_cat,
             "category_summary": cat_summary,
             "changes": changes, "analysis": analysis,
-            "dcv": dcv, "insights": insights}
+            "dcv": dcv, "insights": insights, "exec_summary": exec_summary}
 
 
 _PRICE_KW_LOWER = ("price", "$", "₩", "£", "€", "할부", "보상", "trade-in", "trade in", "sold out", "품절",
@@ -423,13 +440,19 @@ _PRICE_KW_LOWER = ("price", "$", "₩", "£", "€", "할부", "보상", "trade-
                    "checkout", "구매하기", "장바구니", "/mo", "per month", "financing", "installment")
 
 
-def _display_category(change_type: str, field: str, ev: Dict[str, Any]) -> str:
+def _display_category(change_type: str, field: str, ev: Dict[str, Any], before: str = "", after: str = "") -> str:
     """[2026-11 A6] 과거에 '변화 폭 L5'만으로 commerce 로 저장된 본문 변경은 가격·구매 문구가 실제로 있을 때만
     '가격·프로모션'으로 보여준다. 나머지는 '카피'."""
     cat = CATEGORY.get(change_type, "데이터·스키마")
     if cat == "가격·프로모션" and field in ("body_content", "h1"):
         moved = " ".join((ev.get("sentences_added") or []) + (ev.get("sentences_removed") or [])).lower()
         if not any(k in moved for k in _PRICE_KW_LOWER):
+            return "카피"
+    # [2026-11 C1] 과거 수집분의 CTA 는 전부 commerce 로 저장돼 "Learn more about Apple Intelligence 제거"가
+    #   가격·프로모션으로 보였다 — 가격·구매 문구가 실제로 있을 때만 그 분류를 유지한다.
+    if cat == "가격·프로모션" and field == "ctas":
+        blob = f"{before or ''} {after or ''}".lower()
+        if not any(k in blob for k in _PRICE_KW_LOWER):
             return "카피"
     return cat
 
@@ -681,13 +704,13 @@ def _check_admin(pw: str):
 
 @app.get("/api/urls")
 def list_urls(site_key: Optional[str] = None):
-    db = {}
-    for r in q("SELECT site_key,url FROM monitored_urls WHERE enabled=true"):
-        db.setdefault(r[0], []).append(r[1])
+    db, off = {}, {}
+    for r in q("SELECT site_key,url,enabled FROM monitored_urls"):
+        (db if r[2] else off).setdefault(r[0], []).append(r[1])
     keys = [site_key] if site_key else all_site_keys()
     out = []
     for k in keys:
-        out += load_active_urls(k, db.get(k, []))
+        out += load_active_urls(k, db.get(k, []), off.get(k, []))
     return {"urls": out, "total": len(out)}
 
 
@@ -751,6 +774,86 @@ def del_url(url: str = Query(...), admin_password: str = Query("")):
     return {"status": "disabled", "url": url}
 
 
+# ── [2026-11 신규] 모니터링 대상 워크북(템플릿 ②) — appleStalker URL + honeyComb 국가·제품·경쟁사·키워드 ──
+def _as_urls_for_sheet() -> List[Dict[str, Any]]:
+    """시드 + DB(활성·비활성)를 합쳐 시트 행으로. source=seed/db, enabled 는 실제 크롤 대상 여부."""
+    import monitor_targets_xlsx as _mt  # noqa
+    from config import get_seed_urls, normalize_seed_url
+    db_on, db_off = {}, {}
+    for r in q("SELECT site_key,url,enabled FROM monitored_urls"):
+        (db_on if r[2] else db_off).setdefault(r[0], []).append(r[1])
+    out = []
+    for k in all_site_keys():
+        seeds = {normalize_seed_url(k, u) for u in get_seed_urls(k)}
+        offs = {normalize_seed_url(k, u) for u in db_off.get(k, [])}
+        for u in load_active_urls(k, db_on.get(k, []), db_off.get(k, [])):
+            out.append({"site_key": k, "url": u["url"], "enabled": True, "tier_level": u["tier_level"], "page_role": u["page_role"],
+                        "source": "seed" if u["url"] in seeds else "db"})
+        for u in sorted(offs):
+            out.append({"site_key": k, "url": u, "enabled": False, "tier_level": tier_for_url(u), "page_role": page_role_for_url(u),
+                        "source": "seed" if u in seeds else "db"})
+    return out
+
+
+@app.get("/api/targets/template.xlsx")
+def targets_template():
+    import monitor_targets_xlsx as mt
+    return StreamingResponse(iter([mt.build_template(_as_urls_for_sheet())]),
+                             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": "attachment; filename=monitor_targets_template.xlsx"})
+
+
+@app.get("/api/targets/export.xlsx")
+def targets_export():
+    import monitor_targets_xlsx as mt
+    return StreamingResponse(iter([mt.build_export(_as_urls_for_sheet())]),
+                             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": "attachment; filename=monitor_targets_current.xlsx"})
+
+
+class TargetsUpload(BaseModel):
+    b64: str
+    admin_password: str = ""
+    mode: str = "upsert"   # upsert | replace
+
+
+@app.post("/api/targets/upload")
+def targets_upload(req: TargetsUpload):
+    import base64
+    import monitor_targets_xlsx as mt
+    _check_admin(req.admin_password)
+    b64 = req.b64.split(",", 1)[1] if "," in req.b64 else req.b64
+    mode = req.mode if req.mode in ("upsert", "replace") else "upsert"
+    try:
+        parsed = mt.parse(base64.b64decode(b64))
+    except ValueError as e:
+        raise HTTPException(400, f"양식 오류 — {e}")
+    except Exception as e:
+        raise HTTPException(400, f"엑셀 파싱 실패 — {e}")
+    applied: Dict[str, Any] = {}
+    warnings: List[str] = []
+    if parsed.get("AS_URL") is not None:
+        plan, w = mt.as_url_plan(parsed["AS_URL"], site_key_for_url, mode, _as_urls_for_sheet())
+        warnings += w
+        on = off = 0
+        with sync_engine.connect() as c:
+            for sk, u, en in plan:
+                exists = c.execute(text("SELECT 1 FROM monitored_urls WHERE url=:u"), {"u": u}).fetchone()
+                if exists:
+                    c.execute(text("UPDATE monitored_urls SET enabled=:e, site_key=:s WHERE url=:u"), {"e": en, "s": sk, "u": u})
+                else:
+                    c.execute(text("INSERT INTO monitored_urls (site_key,url,tier_level,enabled,created_at) VALUES (:s,:u,:t,:e,:c)"),
+                              {"s": sk, "u": u, "t": tier_for_url(u), "e": en, "c": datetime.utcnow()})
+                on += int(en); off += int(not en)
+            c.commit()
+        applied["AS_URL"] = {"mode": mode, "enabled": on, "disabled": off}
+    try:
+        applied.update(mt.apply_hc(parsed, mode))
+    except ValueError as e:
+        raise HTTPException(400, f"honeyComb 양식 오류 — {e}")
+    return {"ok": True, "applied": applied, "warnings": warnings}
+
+
 # ── 이미지 비교샷 ──
 @app.get("/api/snapshot/screenshots")
 def screenshots(url: str = Query(...)):
@@ -804,9 +907,6 @@ def export_criteria_xlsx(payload: Dict[str, Any] = Body(default={})):
     return StreamingResponse(iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=apple_stalker_기준표.xlsx"})
-    return StreamingResponse(iter([data]),
-        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f"attachment; filename={filename('competitor_stalker','pptx')}"})
 
 
 # ── Cron tick (GitHub Actions) ──

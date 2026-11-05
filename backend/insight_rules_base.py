@@ -16,7 +16,8 @@ WEAK_BELOW = 70          # 70점(%) 미만 = 부족
 GAP_PP = 10              # 10%p 이상 차이 = 열세/우세
 MAX_LINES = 3            # 한 박스 최대 줄 수
 
-BASIS_SCORE = f"판단 기준: {WEAK_BELOW}점 미만 = 부족 · 비교 대상보다 {GAP_PP}%p 이상 낮음 = 열세, 높음 = 우세"
+BASIS_SCORE = (f"판단 기준: {WEAK_BELOW}점 미만 = 부족 · 비교 대상보다 {GAP_PP}%p 이상 낮음 = 열세, 높음 = 우세 · "
+               "점수 = 축별 지표의 단순 평균(DATA 3개·COPY 3개·VISUAL 2개, 가중치 없음) · 사용 장면 이미지 비율은 경쟁사 대비로만 판단")
 
 
 def _ins(rule: str, sev: int, text: str, action: str = "", metric: str = "", site: str = "",
@@ -120,6 +121,7 @@ COMP_KO = {
     "Copy richness": "카피 구체성", "CTA coverage": "구매 CTA 보유율", "Word coverage": "본문 분량",
     "FAQ 품질": "FAQ 품질", "intent 충족": "구체성 기준 충족 페이지", "중복 회피": "중복 문구 회피",
     "ALT ratio": "설명형 ALT 비율", "Image diversity": "사용 장면 이미지 비율", "Coverage": "이미지 보유율",
+    "Image pages": "이미지 보유 페이지 비율",
 }
 
 # 스키마 타입 → 삼성에서 넣을 위치 (D1 할 일)
@@ -146,14 +148,36 @@ def _num(v: Any) -> Optional[float]:
     return float(v) if isinstance(v, (int, float)) else None
 
 
-def metric_components(metric: str, block: Optional[Dict[str, Any]]) -> Dict[str, Optional[float]]:
-    """세부 지표 값(0~100). 수집 페이지가 0개면 None(근거 없음) — 0점과 구분한다. [A7]"""
+# ── [2026-11 점수 단순화 — 단일 소스] ────────────────────────────────────
+# appleStalker 점수는 여기서만 정의한다. 화면(sharedScoring.ts)·메일·PPTX·Excel 은 /api/latest-report 가
+# 블록마다 실어 보내는 scores 를 그대로 표시한다(화면이 facts 로 재계산하지 않음 → 화면 점수와 인사이트 문장이
+# 어긋날 수 없다).
+#   원칙: 축마다 '점수 지표' 3개(VISUAL 2개)의 단순 평균. 모두 '비율(%)'로 정의가 같다. 가중치 없음.
+#   제외(참고 지표로만): 변별력이 없거나(이미지 보유율=거의 항상 100, 스키마 타입 수×30), 다른 지표의 재가공이거나
+#   (intent 충족 = 카피 구체성<40 비율, 스키마 타입 다양성 = 스키마 적용의 변주), 목표치가 없는 상대 지표
+#   (사용 장면 이미지 비율 — 경쟁사 대비로만 의미 있음, PPT 6번 원인)인 것.
+SCORE_COMPONENTS = {
+    "data": ["Schema", "역할적합성", "Product 완성도"],
+    "copy": ["Copy richness", "CTA coverage", "FAQ 품질"],
+    "visual": ["ALT ratio", "Image pages"],
+}
+REFERENCE_COMPONENTS = {
+    "data": ["H-tag", "@id 연결성", "Structured"],
+    "copy": ["Word coverage", "intent 충족", "중복 회피"],
+    "visual": ["Image diversity", "Coverage"],
+}
+# 사용 장면 이미지 비율처럼 절대 기준(70점)이 의미 없는 지표 — 인사이트에서 '부족' 판정을 하지 않고 경쟁사 대비만 본다
+RELATIVE_ONLY = {"Image diversity", "Structured"}
+
+
+def all_components(metric: str, block: Optional[Dict[str, Any]]) -> Dict[str, Optional[float]]:
+    """세부 지표 값(0~100) 전부 — 점수용 + 참고용. 수집 페이지가 0개면 None(근거 없음) — 0점과 구분한다. [A7]"""
     f = (block or {}).get("facts") or {}
     if metric == "data":
         sch = f.get("schema") or {}
         total = sch.get("total_pages") or 0
         if not total:
-            return {k: None for k in ("Schema", "H-tag", "Structured", "역할적합성", "Product 완성도", "@id 연결성")}
+            return {k: None for k in SCORE_COMPONENTS["data"] + REFERENCE_COMPONENTS["data"]}
         hs = (f.get("html_structure") or {}).get("h_tag_coverage") or {}
         schema = _num(sch.get("coverage_pct"))
         tc = len(sch.get("schema_type_counts") or {})
@@ -163,17 +187,17 @@ def metric_components(metric: str, block: Optional[Dict[str, Any]]) -> Dict[str,
         idt, idk = idl.get("total_id_nodes") or 0, idl.get("linked_ids") or 0
         return {
             "Schema": round(schema) if schema is not None else None,
-            "H-tag": round(hs["h1_coverage_pct"]) if isinstance(hs.get("h1_coverage_pct"), (int, float)) else None,
-            "Structured": min(100, tc * 30) if tc else (round(schema) if schema is not None else None),
             "역할적합성": round((total - min(roles, total)) / total * 100),
             "Product 완성도": round(prod * 100) if isinstance(prod, (int, float)) else None,
+            "H-tag": round(hs["h1_coverage_pct"]) if isinstance(hs.get("h1_coverage_pct"), (int, float)) else None,
             "@id 연결성": round(idk / idt * 100) if idt else None,
+            "Structured": min(100, tc * 30) if tc else None,
         }
     if metric == "copy":
         pages = ((f.get("copy_richness") or {}).get("all_pages")) or []
         total = len(pages) or ((f.get("page_inventory") or {}).get("total_pages") or 0)
         if not pages:
-            return {k: None for k in ("Copy richness", "CTA coverage", "Word coverage", "FAQ 품질", "intent 충족", "중복 회피")}
+            return {k: None for k in SCORE_COMPONENTS["copy"] + REFERENCE_COMPONENTS["copy"]}
         rich = round(sum(float(p.get("score") or 0) for p in pages) / len(pages))
         buy = (f.get("commerce_cta") or {}).get("pages_with_buy_cta")
         faq = (f.get("faq") or {}).get("detail") or []
@@ -183,8 +207,8 @@ def metric_components(metric: str, block: Optional[Dict[str, Any]]) -> Dict[str,
         return {
             "Copy richness": rich,
             "CTA coverage": round(buy / total * 100) if isinstance(buy, int) and total else None,
-            "Word coverage": round(sum(1 for p in pages if (p.get("word_count") or 0) >= 80) / len(pages) * 100),
             "FAQ 품질": round(sum(float(d.get("avg_score") or 0) for d in faq) / len(faq)) if faq else None,
+            "Word coverage": round(sum(1 for p in pages if (p.get("word_count") or 0) >= 80) / len(pages) * 100),
             "intent 충족": round((len(pages) - min(gap, len(pages))) / len(pages) * 100),
             "중복 회피": 100 - round(min(dup, total) / total * 100) if total else None,
         }
@@ -192,13 +216,44 @@ def metric_components(metric: str, block: Optional[Dict[str, Any]]) -> Dict[str,
     div = f.get("image_diversity") or {}
     total_images = div.get("total_images") or 0
     if not total_images:
-        return {"ALT ratio": None, "Image diversity": None, "Coverage": None}
+        return {k: None for k in SCORE_COMPONENTS["visual"] + REFERENCE_COMPONENTS["visual"]}
     alt = (f.get("alt_text_quality") or {}).get("descriptive_ratio_pct")
-    pages = (f.get("page_inventory") or {}).get("total_pages") or total_images
+    pages = (f.get("page_inventory") or {}).get("total_pages") or div.get("total_pages") or total_images
+    pw, pt = div.get("pages_with_images"), div.get("total_pages")
     return {
         "ALT ratio": round(alt) if isinstance(alt, (int, float)) else None,
+        # 이미지 1장 이상 있는 페이지 비율(페이지 단위). 예전 수집분(pages_with_images 없음)은 참고 지표 Coverage 로 대체
+        "Image pages": round(pw / pt * 100) if isinstance(pw, int) and pt else
+                       (min(100, round(total_images / pages * 100)) if pages else None),
         "Image diversity": round(div["lifestyle_ratio_pct"]) if isinstance(div.get("lifestyle_ratio_pct"), (int, float)) else None,
         "Coverage": min(100, round(total_images / pages * 100)) if pages else None,
+    }
+
+
+def metric_components(metric: str, block: Optional[Dict[str, Any]]) -> Dict[str, Optional[float]]:
+    """점수에 들어가는 지표만(축별 3개·VISUAL 2개)."""
+    allc = all_components(metric, block)
+    return {k: allc.get(k) for k in SCORE_COMPONENTS[metric]}
+
+
+def reference_components(metric: str, block: Optional[Dict[str, Any]]) -> Dict[str, Optional[float]]:
+    """점수엔 안 들어가고 인사이트(할 일)·표시에만 쓰는 참고 지표."""
+    allc = all_components(metric, block)
+    return {k: allc.get(k) for k in REFERENCE_COMPONENTS[metric]}
+
+
+def score_block(metric: str, block: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """API 가 블록에 실어 보내는 점수 payload — 화면은 이것만 표시한다.
+    {total, components:[{label,value,in_score}], reference:[...], basis}"""
+    sc = metric_components(metric, block)
+    rf = reference_components(metric, block)
+    vals = [v for v in sc.values() if v is not None]
+    total = round(sum(vals) / len(vals)) if vals else None
+    return {
+        "total": total,
+        "components": [{"label": k, "label_ko": COMP_KO.get(k, k), "value": v, "in_score": True} for k, v in sc.items()],
+        "reference": [{"label": k, "label_ko": COMP_KO.get(k, k), "value": v, "in_score": False} for k, v in rf.items()],
+        "basis": f"점수 = {' · '.join(COMP_KO.get(k, k) for k in SCORE_COMPONENTS[metric])} 의 단순 평균(가중치 없음) · 근거 없는 지표는 평균에서 제외",
     }
 
 
@@ -310,6 +365,8 @@ def _samsung_detail(metric: str, comp: str, value: Optional[float], comp_avg: Op
         return (f"{who} 사용 장면 이미지 {v}{vs}", "기능별 사용 장면 이미지 추가 필요", False)
     if comp == "Coverage":
         return (f"{who} 이미지 보유율 {v}{vs}", "이미지 없는 페이지에 제품 이미지 추가 필요", False)
+    if comp == "Image pages":
+        return (f"{who} 이미지 보유 페이지 {v}{vs}", "이미지 없는 페이지에 제품 이미지 추가 필요", False)
     return None
 
 
@@ -337,7 +394,7 @@ def _competitor_detail(metric: str, site: str, cblock: Dict[str, Any], sblock: D
         if cq is not None and sq is not None and cq >= max(sq * 1.5, sq + 0.5) and ct - st >= GAP_PP:
             return (f"{head}, 삼성({st}점) 대비 수치 표현에서 우세 (100단어당 {cq}개 vs {sq}개)",
                     "삼성 PDP 카피에 배터리·무게 등 스펙 수치 추가 필요", ct - st)
-    cc, sc = metric_components(metric, cblock), metric_components(metric, sblock)
+    cc, sc = all_components(metric, cblock), all_components(metric, sblock)
     best = None
     for k, cv in cc.items():
         sv = sc.get(k)
@@ -365,6 +422,7 @@ def _competitor_detail(metric: str, site: str, cblock: Dict[str, Any], sblock: D
         "ALT ratio": "삼성 ALT를 제품명·기능 설명형으로 교체 필요",
         "Image diversity": "삼성 기능별 사용 장면 이미지 추가 필요",
         "Coverage": "삼성 이미지 없는 페이지에 이미지 추가 필요",
+        "Image pages": "삼성 이미지 없는 페이지에 이미지 추가 필요",
     }.get(k, "")
     return (f"{head}, 삼성({st}점) 대비 {label}에서 우세 ({round(cv)}% vs {round(sv)}%){extra}", act, gap)
 
@@ -511,14 +569,17 @@ def apple_stalker_insights(dcv: Dict[str, Dict[str, Any]], changes: List[Dict[st
         cblocks = {s: b for s, b in blocks.items() if s != "samsung"}
         items: List[Dict[str, Any]] = []
         if sblock is not None and metric_total(m, sblock) is not None:
-            sc = metric_components(m, sblock)
-            comp_avg = {k: _avg(metric_components(m, b).get(k) for b in cblocks.values()) for k in sc}
+            # 점수 지표 + 참고 지표 모두 '할 일'의 근거가 된다(참고 지표는 점수엔 안 들어갈 뿐)
+            sc = all_components(m, sblock)
+            comp_avg = {k: _avg(all_components(m, b).get(k) for b in cblocks.values()) for k in sc}
             for k, v in sc.items():
                 if v is None:
                     continue
                 ca = comp_avg.get(k)
-                weak = v < WEAK_BELOW
-                behind = ca is not None and ca - v >= GAP_PP
+                ahead = ca is not None and v - ca >= GAP_PP          # 경쟁사 평균보다 10%p 이상 높음 = 우세
+                behind = ca is not None and ca - v >= GAP_PP         # 10%p 이상 낮음 = 열세
+                # 상대 지표(사용 장면 이미지 비율 등)는 70점 절대 기준을 적용하지 않는다 — 열세일 때만 [PPT 6번]
+                weak = v < WEAK_BELOW and k not in RELATIVE_ONLY
                 if not (weak or behind):
                     continue
                 det = _samsung_detail(m, k, v, ca, sblock, cblocks)
@@ -527,9 +588,14 @@ def apple_stalker_insights(dcv: Dict[str, Dict[str, Any]], changes: List[Dict[st
                 kind = "열세" if behind else "부족"
                 # 점수형 문장(예: '삼성 설명형 ALT 54% (경쟁사 평균 70%)')에만 상태어를 붙인다.
                 # 대상이 특정된 문장(누락·없음·반복…)은 그 자체가 상태라 덧붙이지 않는다.
+                # [2026-11 운영 결정] 70점 미만이지만 경쟁사 평균보다 우세하면 그 사실을 병기한다 — "평균보다 높은데
+                # 보강 필요"로만 읽히던 문장(PPT 6번) 보완. 할 일은 유지(절대 기준 70점은 그대로).
                 text = det[0] if det[2] else f"{det[0]}로 {kind}"
+                if weak and ahead and not behind:
+                    text += " — 경쟁사보다는 우세"
                 sev = 1 if v < 40 else 2
-                it = _ins(f"{m[0].upper()}-{k}", sev, text, det[1], metric=m, site="samsung", value=v, comp_avg=ca)
+                it = _ins(f"{m[0].upper()}-{k}", sev, text, det[1], metric=m, site="samsung", value=v, comp_avg=ca,
+                          in_score=(k in SCORE_COMPONENTS[m]))
                 items.append(it)
             # 삼성 자체 세부 지표가 양호해도 경쟁사가 쓰는 스키마 타입이 없으면 D1 성격으로 1줄
             if m == "data":
@@ -595,8 +661,8 @@ def page_insights(page_url: str, blocks: Dict[str, Dict[str, Any]]) -> Dict[str,
     for m in ("data", "copy", "visual"):
         b = blocks.get(m) or {}
         items = []
-        for k, v in metric_components(m, b).items():
-            if v is None or v >= WEAK_BELOW:
+        for k, v in all_components(m, b).items():
+            if v is None or v >= WEAK_BELOW or k in RELATIVE_ONLY:
                 continue
             det = _samsung_detail(m, k, v, None, b, {}, who=who)
             if det:

@@ -940,6 +940,9 @@ def visual_facts(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
             "total_images": total_images,
             "product": product, "lifestyle": lifestyle, "unclassified": unclassified,
             "lifestyle_ratio_pct": round(lifestyle / total_images * 100, 1) if total_images else 0,
+            # [2026-11 점수 단순화] 페이지 단위 보유율용 — '이미지 1장 이상 있는 페이지 수 / 전체 페이지 수'
+            "pages_with_images": sum(1 for n in per_page_counts if n > 0),
+            "total_pages": len(per_page_counts),
         },
         "alt_text_quality": {
             "_note": "alt 텍스트 길이/제네릭 단어 기반 판정. 실제 이미지 시각 내용 분석(Vision)은 아님.",

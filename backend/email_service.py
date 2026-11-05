@@ -51,6 +51,7 @@ def _short(value, fallback="값 없음", limit=220):
 class EmailService:
     # [2026-11] main.py 가 화면과 같은 인사이트(latest_report()["insights"])를 넘겨주는 함수를 꽂는다.
     insight_provider = None
+    summary_provider = None   # [2026-11] main.py 가 latest_report()["exec_summary"] 를 꽂는다
 
     def __init__(self, engine):
         self.engine = engine
@@ -301,7 +302,7 @@ class EmailService:
             "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse'><tr>" + cells + "</tr></table>"
             "<div style='font-size:12px;font-weight:700;color:#101318;margin:14px 0 2px'>지표별 할 일</div>"
             + actions +
-            "<div style='font-size:10.5px;color:#98A2B3;margin-top:8px'>점수=각 축 하위지표 전체 평균 · 경쟁사 평균=비-Samsung 사이트 평균</div>"
+            "<div style='font-size:10.5px;color:#98A2B3;margin-top:8px'>점수=축별 점수 지표(DATA 3·COPY 3·VISUAL 2) 단순 평균 · 경쟁사 평균=비-Samsung 사이트 평균</div>"
         )
 
     def _change_action(self, url, site_key, field_name, change_type):
@@ -318,9 +319,12 @@ class EmailService:
         if "schema" in fn or ct == "technical":
             return ("의도한 스키마 변경인지 확인" if ours
                     else f"우리 동일 {role}에 같은 스키마 적용 검토")
-        if fn == "ctas" or ct == "commerce":
+        if ct == "commerce":
             return ("프로모션·CTA 노출 의도 확인" if ours
                     else f"{who} {role} 프로모션·CTA에 대응 검토")
+        if fn == "ctas":   # [2026-11 C1] 가격·프로모션 문구가 아닌 일반 CTA(Learn more 류)는 카피 변경으로
+            return ("CTA 문구 변경 의도 확인" if ours
+                    else f"{who} {role} CTA 문구 변경 참고(일반 버튼)")
         if fn == "faqs" or fn == "question":
             return ("FAQ 최신화 확인" if ours
                     else "동일 FAQ 항목 보강 검토")
@@ -411,9 +415,17 @@ class EmailService:
                 "<div style='font-size:13px;font-weight:700;color:#101318;margin:0 0 6px'>변화 · 권장 액션</div>" + changes_note +
                 "<table style='width:100%;border-collapse:collapse'><tr style='color:#667085;font-size:11px;text-align:left'><th style='padding:6px 8px'>구분</th><th style='padding:6px 8px'>중요도</th><th style='padding:6px 8px'>변화 → 액션</th></tr>" + rows + "</table>"
             )
+            summary_block = ""
+            try:   # [2026-11] 요약판 블록 — 엑셀 첫 시트·PPT 와 같은 데이터
+                S = self.summary_provider() if self.summary_provider else None
+                if S:
+                    import as_exec_summary
+                    summary_block = as_exec_summary.email_block_html(S)
+            except Exception:
+                summary_block = ""
             body = (
-                # 요약 (문장 + Samsung 스코어보드) — [2026-11] 인사이트 박스(화면과 같은 문장)를 맨 위에
-                ins_html +
+                # 요약판 → 인사이트 박스(화면과 같은 문장) → 스코어보드
+                summary_block + ins_html +
                 "<p style='font-size:13px;color:#667085;line-height:1.7;margin:0 0 16px'>" + summary + "</p>"
                 + (scoreboard + sep if scoreboard else "")
                 # 사이트별
