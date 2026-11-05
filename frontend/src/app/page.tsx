@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TargetsToolbar } from "./templateToolbars";
 import { toast, Loading } from "./uiShared";
 import {
   View, MainTab, MetricTab, MetricView, SiteKey, CrawlProgress, Change, Report, Session,
@@ -47,6 +48,7 @@ export default function Page() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerSection, setDrawerSection] = useState<string | null>(null);
   const [showUrlAdd, setShowUrlAdd] = useState(false);
+  const [showTargets, setShowTargets] = useState(false);
   // [2026-09-14] 선택 수집 — 사이트 목록 + 선택 집합
   const [siteKeys, setSiteKeys] = useState<string[]>([]);
   const [pickSites, setPickSites] = useState<Set<string>>(new Set());
@@ -386,6 +388,15 @@ export default function Page() {
                 <button className="btnAdd" onClick={addUrl}>추가</button>
               </div>
             </div>
+          )}
+
+          <button className="runItem" onClick={() => setShowTargets((v) => !v)}>
+            <span style={{ fontSize: 12, color: "var(--blue)", fontWeight: 600 }}>
+              {showTargets ? "▾" : "▸"} 모니터링 대상 양식(엑셀)
+            </span>
+          </button>
+          {showTargets && (
+            <TargetsToolbar apiBase={API} flash={(m) => toast(m, "ok")} askPassword={() => window.prompt("관리자 비밀번호를 입력하세요")} />
           )}
 
           <button className="urlAccordionToggle" onClick={() => setUrlAccordionOpen((v) => !v)}>

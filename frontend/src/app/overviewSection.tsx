@@ -211,29 +211,46 @@ function MetricSection({
                     <p className="muted">변경 없음</p>
                   ) : (
                     <div className="changeGrid">
-                      {groupByUrl(list).map(({ url, items }) => (
-                        <div key={url} className="urlChangeGroup">
-                          <p className="urlChangeGroupHead" title={url}>{shortUrl(url)} <span>· {items.length}건</span></p>
-                          {items.map((c) => {
-                            const isOpen = selectedChange?.id === c.id;
-                            return (
-                              <div key={c.id} id={`change-${c.id}`}>
-                                <button
-                                  className={`changeCard ${selectedChange?.id === c.id ? "selected" : ""}`}
-                                  onClick={() => setSelectedChange(selectedChange?.id === c.id ? null : c)}
-                                >
-                                  <div className="changeCardTop">
-                                    <span className={`badge ${levelClass(c.level)}`}>{levelKo(c.level)}</span>
-                                    <span style={{ fontSize: 11, color: "var(--sec)" }}>{c.category} · {c.field}</span>
-                                  </div>
-                                  <p className="changeSum">{c.summary || "변경 내용"}</p>
-                                </button>
-                                {isOpen && <ChangeDrilldown change={c} />}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
+                      {groupByUrl(list).map(({ url, items }) => {
+                        // [2026-11 C4 — 운영 결정] 페이지당 1줄 요약 + 펼치기. 기본은 '보통 이상'만 펼치고 '낮음'은 접는다.
+                        const major = items.filter((c) => c.level === "High" || c.level === "Medium");
+                        const minor = items.filter((c) => !(c.level === "High" || c.level === "Medium"));
+                        const hasSelected = items.some((c) => selectedChange?.id === c.id);
+                        const renderCard = (c: Change) => {
+                          const isOpen = selectedChange?.id === c.id;
+                          return (
+                            <div key={c.id} id={`change-${c.id}`}>
+                              <button
+                                className={`changeCard ${isOpen ? "selected" : ""}`}
+                                onClick={() => setSelectedChange(isOpen ? null : c)}
+                              >
+                                <div className="changeCardTop">
+                                  <span className={`badge ${levelClass(c.level)}`}>{levelKo(c.level)}</span>
+                                  <span style={{ fontSize: 11, color: "var(--sec)" }}>{c.category} · {c.field}</span>
+                                </div>
+                                <p className="changeSum">{c.summary || "변경 내용"}</p>
+                              </button>
+                              {isOpen && <ChangeDrilldown change={c} />}
+                            </div>
+                          );
+                        };
+                        return (
+                          <details key={url} className="urlChangeGroup" open={hasSelected || (major.length > 0 && items.length <= 6)}>
+                            <summary className="urlChangeGroupHead" title={url} style={{ cursor: "pointer" }}>
+                              {shortUrl(url)} <span>· {pageChangeOneLiner(items)}</span>
+                            </summary>
+                            {major.map(renderCard)}
+                            {minor.length > 0 && (
+                              <details style={{ marginTop: 6 }}>
+                                <summary style={{ fontSize: 11.5, color: "var(--sec)", cursor: "pointer" }}>
+                                  중요도 낮음 {minor.length}건 보기 (Learn more 류 일반 버튼·단어 수정)
+                                </summary>
+                                {minor.map(renderCard)}
+                              </details>
+                            )}
+                          </details>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -244,6 +261,23 @@ function MetricSection({
       </div>
     </>
   );
+}
+
+// [2026-11 C4] 페이지 변경 1줄 요약 — "본문 변경 1건 · CTA 변경 3건 · 스키마 1건 (높음 2 · 보통 1 · 낮음 2)"
+function pageChangeOneLiner(items: Change[]): string {
+  const byField: Record<string, number> = {};
+  const FIELD_KO: Record<string, string> = {
+    body_content: "본문", h1: "H1", title: "타이틀", meta_description: "검색 설명문", canonical_url: "canonical",
+    schema_type: "스키마", schema_types: "스키마", schema_props_by_type: "스키마 속성", ctas: "CTA", faqs: "FAQ",
+    images: "이미지", nav: "메뉴", dom: "페이지 구조",
+  };
+  items.forEach((c) => { const k = FIELD_KO[c.field] || c.field || "기타"; byField[k] = (byField[k] || 0) + 1; });
+  const parts = Object.entries(byField).map(([k, n]) => `${k} ${n}건`);
+  const hi = items.filter((c) => c.level === "High").length;
+  const md = items.filter((c) => c.level === "Medium").length;
+  const lo = items.length - hi - md;
+  const lv = [hi ? `높음 ${hi}` : "", md ? `보통 ${md}` : "", lo ? `낮음 ${lo}` : ""].filter(Boolean).join(" · ");
+  return `${parts.join(" · ")} (${lv})`;
 }
 
 export function Overview({

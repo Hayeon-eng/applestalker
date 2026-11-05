@@ -3,7 +3,8 @@ import { InsightBox } from "./insightUi";
 import { FOCUS_ROW } from "./qubiNav";
 /* QubiDataQa.tsx — DATA QA(스키마·HTML) 상세/종합/전사이트 렌더 블록.
    QubiSections에서 분리(파일 크기 축소). 상태는 ctx로 주입받음. */
-import { useState, Fragment } from "react";
+import { useState, Fragment, useRef } from "react";
+import { ProductPackToolbar } from "./templateToolbars";
 import type { ReactNode } from "react";
 import { SEV, HONEY, sel, TL_COLOR, TL_EMOJI, TL_NONE, humanizeTerm } from "./qubiShared";
 import { Meter } from "./uiShared";
@@ -472,6 +473,8 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
   };
   const regionOrder = Object.keys(byRegion).sort((a, b) => regionAvg(byRegion[a]) - regionAvg(byRegion[b]));
 
+  // [2026-11 D1] 에러 페이지로 응답한 등록 URL — 검수 대상에서 빠졌으니 사람이 레지스트리 URL 을 고쳐야 한다
+  const urlCheck = (c.results || []).filter((r: any) => r.url_check_needed);
   return (
     <div className="card qbiPopIn" style={{ marginTop: 16, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -483,6 +486,19 @@ export function HtmlQaSummary({ ctx: c }: { ctx: any }) {
           <span style={{ fontSize: 12 }}>🔴 {dist.red}</span>
         </span>
       </div>
+      <ProductPackToolbar api={c.api} flash={c.flash} product={c.product} compact />
+      {urlCheck.length > 0 && (
+        <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "var(--amber-soft, #FFF6DA)", fontSize: 12 }}>
+          <b>URL 점검 필요 {urlCheck.length}건</b> — 등록된 URL 이 에러 페이지로 응답해 검수에서 제외했습니다(점수 분모 제외). 레지스트리 URL 을 실제 제품 페이지로 갱신하세요.
+          <ul style={{ margin: "6px 0 0 16px", padding: 0 }}>
+            {urlCheck.map((r: any) => (
+              <li key={r.sitecode + r.url} style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
+                <b>{r.sitecode}</b> {r.url}{r.final_url && r.final_url !== r.url ? ` → ${r.final_url}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div style={{ marginTop: 6 }}>
         {regionOrder.map((region) => {
           const pages = byRegion[region];
@@ -571,6 +587,52 @@ export function SiteOverview({ ctx: c }: { ctx: any }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+
+/* ── [2026-11 신규] 스키마 정답값 엑셀 템플릿 — 내려받기 / 현재 값 내보내기 / 업로드 (PPT 4번: 언팩마다 바뀌는 룰을 양식으로) ── */
+export function SchemaValuesToolbar({ api, flash, product }: { api: (p: string) => string; flash: (m: string) => void; product?: string }) {
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<any>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const download = async (path: string, filename: string) => {
+    try {
+      const r = await fetch(api(path));
+      if (!r.ok) throw new Error(String((await r.json().catch(() => ({}))).detail || r.status));
+      const blob = await r.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = href; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1500);
+    } catch (e: any) { flash(`다운로드 실패 — ${e.message || e}`); }
+  };
+  const upload = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true); setReport(null);
+    try {
+      const b64: string = await new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result)); rd.onerror = rej; rd.readAsDataURL(f); });
+      const r = await fetch(api("/api/qb/schema-values/upload"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ b64 }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(String(d.detail || r.status));
+      setReport(d); flash(`스키마 정답값 저장 — ${(d.saved_products || []).join(", ")} 🐝`);
+    } catch (e: any) { flash(`업로드 실패 — ${e.message || e}`); setReport({ error: String(e.message || e) }); }
+    finally { setBusy(false); if (fileRef.current) fileRef.current.value = ""; }
+  };
+  const prod = product || "galaxy-z-fold8";
+  return (
+    <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 11.5 }}>
+      <span style={{ color: "var(--sec)" }}>스키마 정답값(@id·기대값) 양식:</span>
+      <button className="btnSecondary" style={{ fontSize: 11.5, padding: "4px 9px" }} onClick={() => download(`/api/qb/schema-values/template.xlsx?example=${encodeURIComponent(prod)}`, "qubi_schema_values_template.xlsx")}>⬇ 템플릿(예시 포함)</button>
+      <button className="btnSecondary" style={{ fontSize: 11.5, padding: "4px 9px" }} onClick={() => download(`/api/qb/schema-values/export.xlsx?product=${encodeURIComponent(prod)}`, `qubi_schema_values_${prod}.xlsx`)}>⬇ {prod} 현재 값</button>
+      <button className="btnSecondary" style={{ fontSize: 11.5, padding: "4px 9px" }} disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? "업로드 중…" : "⬆ 엑셀 업로드"}</button>
+      <input ref={fileRef} type="file" accept=".xlsx" style={{ display: "none" }} onChange={(e) => upload(e.target.files?.[0])} />
+      {report && !report.error && (
+        <span style={{ color: "var(--sec)" }}>
+          저장됨: {(report.saved_products || []).join(", ")}{report.warnings?.length ? ` · 참고 ${report.warnings.length}건` : ""}
+        </span>
+      )}
+      {report?.error && <span style={{ color: "var(--red-ink)" }}>{report.error}</span>}
     </div>
   );
 }

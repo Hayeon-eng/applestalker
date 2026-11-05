@@ -20,7 +20,7 @@ const HELP: Record<string, string> = {
   "미해결 참조": "스키마가 가리키는 @id 가 이 페이지 안에 정의되어 있지 않음",
   "페이지 없음": "404 이거나 안내 페이지로 떨어짐 — 그 국가에 이 페이지가 없거나 주소가 다름",
   "접근 실패": "403/429/네트워크 오류 — 사이트 문제보다 수집 환경(프록시·차단) 문제일 수 있음",
-  "기타": "중복 @id, 리치결과 필수 속성 누락, 또는 스키마가 하나도 없음",
+  "기타": "같은 @id에 내용이 다른 정의, 리치결과 필수 속성 누락, 또는 스키마가 하나도 없음",
 };
 const th: React.CSSProperties = { textAlign: "left", fontSize: 11.5, color: "var(--sec)", fontWeight: 600, padding: "6px 8px", borderBottom: "1px solid var(--line)", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#fff" };
 const td: React.CSSProperties = { fontSize: 12, padding: "5px 8px", borderBottom: "1px solid var(--line)", verticalAlign: "top" };
@@ -278,7 +278,7 @@ function Detail({ sel, onClose }: { sel: any; onClose: () => void }) {
         <div>
           {!!(sel.foreign_refs || []).length && <div style={{ marginBottom: 8 }}><b style={{ color: "var(--amber-ink)" }}>다른 국가 주소가 섞인 곳</b>{sel.foreign_refs.map((u: string) => <div key={u} style={{ wordBreak: "break-all", color: "var(--sec)" }}>{u}</div>)}</div>}
           {!!(sel.unresolved_refs || []).length && <div style={{ marginBottom: 8 }}><b style={{ color: "var(--amber-ink)" }}>정의되지 않은 @id 를 가리킴</b>{sel.unresolved_refs.map((u: string) => <div key={u} style={{ wordBreak: "break-all", color: "var(--sec)" }}>{u}</div>)}</div>}
-          {!!(sel.duplicate_ids || []).length && <div style={{ marginBottom: 8 }}><b style={{ color: "var(--amber-ink)" }}>중복 @id</b>{sel.duplicate_ids.map((u: string) => <div key={u} style={{ wordBreak: "break-all", color: "var(--sec)" }}>{u}</div>)}</div>}
+          {!!(sel.duplicate_ids || []).length && <div style={{ marginBottom: 8 }}><b style={{ color: "var(--amber-ink)" }}>같은 @id, 다른 내용</b>{sel.duplicate_ids.map((u: string) => <div key={u} style={{ wordBreak: "break-all", color: "var(--sec)" }}>{u}</div>)}</div>}
           {!!(sel.rich_missing || []).length && <div style={{ marginBottom: 8 }}><b style={{ color: "var(--amber-ink)" }}>Google 리치결과 필수 속성 누락</b>{sel.rich_missing.map((m: any, i: number) => <div key={i} style={{ color: "var(--sec)" }}>{m.type}: {m.missing.join(", ")}{m.id ? ` (${m.id})` : ""}</div>)}</div>}
           {!!(sel.external_refs || []).length && <div><b style={{ color: "var(--sec)" }}>다른 페이지에 정의된 참조(판정 안 함)</b>{sel.external_refs.slice(0, 5).map((u: string) => <div key={u} style={{ wordBreak: "break-all", color: "var(--ter)" }}>{u}</div>)}</div>}
         </div>

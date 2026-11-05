@@ -217,6 +217,7 @@ export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string
           {estimate && <span className="emailNotice">예상 호출 {estimate.searches}회{withDetail ? ` + 상세 최대 ${estimate.detail_max}회` : ""} · 국가 {estimate.countries} × 제품 {estimate.products} × 키워드 {estimate.keywords_enabled}{estimate.apple_models ? ` · Apple ${estimate.apple_models}모델` : ""}</span>}
           <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
           <a className="btnSecondary" href={api(`/api/hc/report.xlsx?run_id=${runId}`)}>📊 Excel 내려받기</a>
+          <a className="btnSecondary" href={api(`/api/hc/report.pptx?run_id=${runId}`)} title="요약판 1장 + 상세">📑 PPT 내려받기</a>
           {cfg.provider !== "serpapi" && <span className="emailNotice">SerpApi 키가 없어 새로 수집할 수 없습니다 — 설정(/desktop/settings)에서 키 입력</span>}
           {msg && <span className="emailNotice" style={{ color: HONEY_DARK }}>{msg}</span>}
         </div>

@@ -2,6 +2,7 @@
 /* QubiSpecRules.tsx — Spec QA 기준표(Rule DB 뷰어·엑셀 업로드) + 검수 기준/점수 설명 패널
    [2026-07 분할] QubiSpecQa.tsx에서 분리. */
 import { useEffect, useRef, useState } from "react";
+import { ProductPackToolbar } from "./templateToolbars";
 
 import { C } from "./specQaShared";
 
@@ -132,6 +133,8 @@ export function SpecV2RuleTable({ product, api, flash }:
           <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.currentTarget.value = ""; }} />
         </span>
       </div>
+      {/* [2026-11] 제품 1개 = 워크북 1개 — 스펙 룰만 따로 올리던 기존 버튼은 그대로 두고, 전체(제품정보·URL·스키마 포함) 왕복은 이 도구로 */}
+      <ProductPackToolbar api={api} flash={flash} product={product} />
       {histOpen && (
         <div style={{ margin: "8px 0", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 10px", background: "#F9FAFB" }}>
           {history.length === 0 && <div style={{ fontSize: 11.5, color: "var(--sec)" }}>아직 이력이 없어요 — 엑셀을 다시 올리거나 삭제하면 그 직전 상태가 여기 쌓여요.</div>}

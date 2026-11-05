@@ -300,6 +300,11 @@ input, select { font-family: inherit; }
 .urlChangeGroup:last-child { border-bottom: none; margin-bottom: 0; }
 .urlChangeGroupHead { font-size: 11px; font-family: var(--mono); color: var(--sec); font-weight: 600;
   margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* [2026-11 C4] 페이지 그룹을 <details>로 — 요약 1줄은 항상, 카드는 펼쳤을 때만 */
+details.urlChangeGroup > summary.urlChangeGroupHead { list-style: none; }
+details.urlChangeGroup > summary.urlChangeGroupHead::-webkit-details-marker { display: none; }
+details.urlChangeGroup > summary.urlChangeGroupHead::before { content: "▸ "; color: var(--ter); }
+details.urlChangeGroup[open] > summary.urlChangeGroupHead::before { content: "▾ "; }
 .urlChangeGroupHead span { font-family: var(--font); font-weight: 500; color: var(--ter); }
 .changeCard { width: 100%; text-align: left; padding: 11px 14px; border-radius: 12px;
   background: transparent; display: flex; flex-direction: column; gap: 4px; border: 1.5px solid transparent; }

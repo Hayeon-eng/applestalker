@@ -10,93 +10,88 @@ import {
 export const siteMetricScore = (metric: MetricTab, block?: AnalysisBlock): number | null =>
   metricScoreBreakdown(metric, block).total;
 
-export type ScoreComponent = { label: string; value: number | null };
-export type ScoreBreakdown = { components: ScoreComponent[]; allComponents: ScoreComponent[]; total: number | null };
+// [2026-11 점수 단순화 — 단일 소스] 점수는 백엔드(insight_rules_base.score_block)가 블록에 실어 보내는 scores 를
+// 그대로 표시한다. 축별 점수 지표: DATA 3개(스키마 적용률·페이지 유형별 스키마·Product 완성도) / COPY 3개(카피 구체성·
+// 구매 CTA 보유율·FAQ 품질) / VISUAL 2개(설명형 ALT·이미지 보유 페이지) 의 단순 평균. 나머지(H1·@id·타입 수·본문 분량·
+// intent·중복·사용 장면 비율·이미지 보유율)는 '참고 지표' — 점수엔 안 들어가고 할 일 근거로만 쓴다.
+// scores 가 없는 옛 수집분만 아래 폴백으로 같은 정의를 재계산한다.
+export type ScoreComponent = { label: string; value: number | null; labelKo?: string; inScore?: boolean };
+export type ScoreBreakdown = { components: ScoreComponent[]; allComponents: ScoreComponent[]; reference: ScoreComponent[]; total: number | null; basis?: string };
 export type ScoreTier = "good" | "mid" | "bad" | "none";
 
-// 점수 = 하위 지표 전체의 단순 평균(DATA/COPY 6개, VISUAL 3개). 카드 노출은 주요 3개(components).
-// AI 추론 없이 존재하는 facts만 재조합. allComponents = 점수 산출용 전체, components = 표시용 상위 3.
-export const metricScoreBreakdown = (metric: MetricTab, block?: AnalysisBlock): ScoreBreakdown => {
-  const f: any = block?.facts || {};
-  let allComponents: ScoreComponent[];
+const SCORE_LABELS: Record<MetricTab, string[]> = {
+  data: ["Schema", "역할적합성", "Product 완성도"],
+  copy: ["Copy richness", "CTA coverage", "FAQ 품질"],
+  visual: ["ALT ratio", "Image pages"],
+};
+const REF_LABELS: Record<MetricTab, string[]> = {
+  data: ["H-tag", "@id 연결성", "Structured"],
+  copy: ["Word coverage", "intent 충족", "중복 회피"],
+  visual: ["Image diversity", "Coverage"],
+};
 
-  // [2026-11 A7] 수집 페이지(이미지)가 0개면 '0점'이 아니라 '근거 없음'(null). 백엔드 insight_rules 와 같은 기준.
+export const metricScoreBreakdown = (metric: MetricTab, block?: AnalysisBlock): ScoreBreakdown => {
+  const sc: any = (block as any)?.scores;
+  if (sc && Array.isArray(sc.components)) {
+    const comps = sc.components.map((c: any) => ({ label: c.label, labelKo: c.label_ko, value: c.value ?? null, inScore: true }));
+    const refs = (sc.reference || []).map((c: any) => ({ label: c.label, labelKo: c.label_ko, value: c.value ?? null, inScore: false }));
+    return { components: comps, allComponents: comps, reference: refs, total: sc.total ?? null, basis: sc.basis };
+  }
+  // ── 폴백(옛 수집분): 백엔드와 같은 정의 ──
+  const f: any = block?.facts || {};
   const noPages = metric === "data" ? !(f.schema?.total_pages > 0)
     : metric === "copy" ? !(Array.isArray(f.copy_richness?.all_pages) && f.copy_richness.all_pages.length > 0)
     : !(f.image_diversity?.total_images > 0);
   if (noPages) {
-    const labels = metric === "data" ? ["Schema", "H-tag", "Structured", "역할적합성", "Product 완성도", "@id 연결성"]
-      : metric === "copy" ? ["Copy richness", "CTA coverage", "Word coverage", "FAQ 품질", "intent 충족", "중복 회피"]
-      : ["ALT ratio", "Image diversity", "Coverage"];
-    const empty = labels.map((label) => ({ label, value: null }));
-    return { components: empty.slice(0, 3), allComponents: empty, total: null };
+    const empty = SCORE_LABELS[metric].map((label) => ({ label, value: null, inScore: true }));
+    const emptyRef = REF_LABELS[metric].map((label) => ({ label, value: null, inScore: false }));
+    return { components: empty, allComponents: empty, reference: emptyRef, total: null };
   }
+  const all: Record<string, number | null> = {};
   if (metric === "data") {
     const schema = typeof f.schema?.coverage_pct === "number" ? Math.round(f.schema.coverage_pct) : null;
     const h1 = typeof f.html_structure?.h_tag_coverage?.h1_coverage_pct === "number"
       ? Math.round(f.html_structure.h_tag_coverage.h1_coverage_pct) : null;
     const typeCount = f.schema?.schema_type_counts ? Object.keys(f.schema.schema_type_counts).length : 0;
-    const structured = typeCount > 0 ? Math.min(100, typeCount * 30) : schema;
     const totalPages = typeof f.schema?.total_pages === "number" ? f.schema.total_pages : 0;
     const roleGaps = Array.isArray(f.schema?.role_alignment_gaps) ? f.schema.role_alignment_gaps.length : 0;
-    const roleFit = totalPages > 0 ? Math.round(((totalPages - Math.min(roleGaps, totalPages)) / totalPages) * 100) : null;
-    const productFill = typeof f.schema?.completeness?.Product?.filled_ratio === "number"
+    const idTotal = f.schema?.id_linkage?.total_id_nodes || 0;
+    const idLinked = f.schema?.id_linkage?.linked_ids || 0;
+    all["Schema"] = schema;
+    all["역할적합성"] = totalPages > 0 ? Math.round(((totalPages - Math.min(roleGaps, totalPages)) / totalPages) * 100) : null;
+    all["Product 완성도"] = typeof f.schema?.completeness?.Product?.filled_ratio === "number"
       ? Math.round(f.schema.completeness.Product.filled_ratio * 100) : null;
-    const idTotal = typeof f.schema?.id_linkage?.total_id_nodes === "number" ? f.schema.id_linkage.total_id_nodes : 0;
-    const idLinked = typeof f.schema?.id_linkage?.linked_ids === "number" ? f.schema.id_linkage.linked_ids : 0;
-    const idLinkage = idTotal > 0 ? Math.round((idLinked / idTotal) * 100) : null;
-    allComponents = [
-      { label: "Schema", value: schema },
-      { label: "H-tag", value: h1 },
-      { label: "Structured", value: structured },
-      { label: "역할적합성", value: roleFit },
-      { label: "Product 완성도", value: productFill },
-      { label: "@id 연결성", value: idLinkage },
-    ];
+    all["H-tag"] = h1;
+    all["@id 연결성"] = idTotal > 0 ? Math.round((idLinked / idTotal) * 100) : null;
+    all["Structured"] = typeCount > 0 ? Math.min(100, typeCount * 30) : null;
   } else if (metric === "copy") {
     const pages = Array.isArray(f.copy_richness?.all_pages) ? f.copy_richness.all_pages : [];
-    const richness = pages.length
-      ? Math.round(pages.reduce((s: number, p: any) => s + (Number(p?.score) || 0), 0) / pages.length) : null;
     const totalPages = pages.length || (typeof f.page_inventory?.total_pages === "number" ? f.page_inventory.total_pages : 0);
     const buyCta = typeof f.commerce_cta?.pages_with_buy_cta === "number" ? f.commerce_cta.pages_with_buy_cta : null;
-    const ctaCoverage = buyCta != null && totalPages ? Math.round((buyCta / totalPages) * 100) : null;
-    const wordOk = pages.filter((p: any) => (Number(p?.word_count) || 0) >= 80).length;
-    const wordCoverage = pages.length ? Math.round((wordOk / pages.length) * 100) : null;
     const faqDetail = Array.isArray(f.faq?.detail) ? f.faq.detail : [];
-    const faqQuality = faqDetail.length
-      ? Math.round(faqDetail.reduce((s: number, d: any) => s + (Number(d?.avg_score) || 0), 0) / faqDetail.length) : null;
     const intentGap = Array.isArray(f.copy_richness?.intent_gap_pages) ? f.copy_richness.intent_gap_pages.length : 0;
-    const intentFit = pages.length ? Math.round(((pages.length - Math.min(intentGap, pages.length)) / pages.length) * 100) : null;
-    const dupCount = (Array.isArray(f.duplication?.duplicate_copy_pages) ? f.duplication.duplicate_copy_pages.length : 0)
-      + (Array.isArray(f.duplication?.duplicate_cta_pages) ? f.duplication.duplicate_cta_pages.length : 0);
-    const dupAvoid = totalPages ? 100 - Math.round((Math.min(dupCount, totalPages) / totalPages) * 100) : null;
-    allComponents = [
-      { label: "Copy richness", value: richness },
-      { label: "CTA coverage", value: ctaCoverage },
-      { label: "Word coverage", value: wordCoverage },
-      { label: "FAQ 품질", value: faqQuality },
-      { label: "intent 충족", value: intentFit },
-      { label: "중복 회피", value: dupAvoid },
-    ];
+    const dupCount = (f.duplication?.duplicate_copy_pages?.length || 0) + (f.duplication?.duplicate_cta_pages?.length || 0);
+    all["Copy richness"] = pages.length ? Math.round(pages.reduce((s: number, p: any) => s + (Number(p?.score) || 0), 0) / pages.length) : null;
+    all["CTA coverage"] = buyCta != null && totalPages ? Math.round((buyCta / totalPages) * 100) : null;
+    all["FAQ 품질"] = faqDetail.length ? Math.round(faqDetail.reduce((s: number, d: any) => s + (Number(d?.avg_score) || 0), 0) / faqDetail.length) : null;
+    all["Word coverage"] = pages.length ? Math.round((pages.filter((p: any) => (Number(p?.word_count) || 0) >= 80).length / pages.length) * 100) : null;
+    all["intent 충족"] = pages.length ? Math.round(((pages.length - Math.min(intentGap, pages.length)) / pages.length) * 100) : null;
+    all["중복 회피"] = totalPages ? 100 - Math.round((Math.min(dupCount, totalPages) / totalPages) * 100) : null;
   } else {
-    const altRatio = typeof f.alt_text_quality?.descriptive_ratio_pct === "number"
-      ? Math.round(f.alt_text_quality.descriptive_ratio_pct) : null;
-    const diversity = typeof f.image_diversity?.lifestyle_ratio_pct === "number"
-      ? Math.round(f.image_diversity.lifestyle_ratio_pct) : null;
-    const totalImages = typeof f.image_diversity?.total_images === "number" ? f.image_diversity.total_images : 0;
-    const totalPages = typeof f.page_inventory?.total_pages === "number" ? f.page_inventory.total_pages : totalImages;
-    const coverage = totalImages > 0 && totalPages ? Math.min(100, Math.round((totalImages / totalPages) * 100)) : null;
-    allComponents = [
-      { label: "ALT ratio", value: altRatio },
-      { label: "Image diversity", value: diversity },
-      { label: "Coverage", value: coverage },
-    ];
+    const totalImages = f.image_diversity?.total_images || 0;
+    const totalPages = f.page_inventory?.total_pages || f.image_diversity?.total_pages || totalImages;
+    const pw = f.image_diversity?.pages_with_images, pt = f.image_diversity?.total_pages;
+    all["ALT ratio"] = typeof f.alt_text_quality?.descriptive_ratio_pct === "number" ? Math.round(f.alt_text_quality.descriptive_ratio_pct) : null;
+    all["Image pages"] = typeof pw === "number" && pt ? Math.round((pw / pt) * 100)
+      : (totalPages ? Math.min(100, Math.round((totalImages / totalPages) * 100)) : null);
+    all["Image diversity"] = typeof f.image_diversity?.lifestyle_ratio_pct === "number" ? Math.round(f.image_diversity.lifestyle_ratio_pct) : null;
+    all["Coverage"] = totalPages ? Math.min(100, Math.round((totalImages / totalPages) * 100)) : null;
   }
-
-  const components = allComponents.slice(0, 3);
-  const valid = allComponents.map((c) => c.value).filter((v): v is number => v != null);
+  const components = SCORE_LABELS[metric].map((label) => ({ label, value: all[label] ?? null, inScore: true }));
+  const reference = REF_LABELS[metric].map((label) => ({ label, value: all[label] ?? null, inScore: false }));
+  const valid = components.map((c) => c.value).filter((v): v is number => v != null);
   const total = valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
-  return { components, allComponents, total };
+  return { components, allComponents: components, reference, total };
 };
 
 // 절대 기준 신호등 — 평균 대비가 아니라 고정 구간(70/40)으로 판단

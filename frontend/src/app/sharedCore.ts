@@ -77,7 +77,7 @@ export const CRITERIA: {
   {
     id: "data",
     title: "DATA — Schema / HTML / Meta / H-tag",
-    note: "삼성 구조를 정답으로 두지 않습니다. 사이트별로 Linked(@id 참조형)와 Inline(페이지별 임베딩형)처럼 구조가 다를 수 있으므로, ‘좋고 나쁨’보다 페이지 역할과 실제 Schema 타입이 맞는지를 먼저 봅니다.",
+    note: "점수 = 스키마 적용률 · 페이지 유형별 스키마 · Product 스키마 완성도 3개의 단순 평균(가중치 없음). H1 적용률·@id 연결·스키마 타입 수는 참고 지표로 할 일 근거에만 씁니다. 삼성 구조를 정답으로 두지 않습니다. 사이트별로 Linked(@id 참조형)와 Inline(페이지별 임베딩형)처럼 구조가 다를 수 있으므로, ‘좋고 나쁨’보다 페이지 역할과 실제 Schema 타입이 맞는지를 먼저 봅니다.",
     items: [
       { q: "Schema Coverage", a: "전체 수집 페이지 중 Schema.org 구조화 데이터가 하나라도 발견된 페이지 비율입니다.", detail: "판단 방법: 각 페이지의 JSON-LD/microdata에서 WebPage, Product, FAQPage, Organization, BreadcrumbList, ItemList 등 schema type 존재 여부를 집계합니다. Coverage가 낮으면 검색엔진·AI가 페이지 의미를 파악할 단서가 적을 수 있습니다." },
       { q: "Product Completeness", a: "Product schema가 있는 페이지에서 제품명·이미지·설명·브랜드·구매정보·평점·리뷰 같은 주요 속성이 어느 정도 채워졌는지 봅니다.", detail: "판단 방법: name, image, description, brand, offers, aggregateRating, review를 확인합니다. 단, 모든 브랜드가 평점/리뷰를 공식 페이지에 넣는 것은 아니므로 ‘누락=무조건 문제’가 아니라 PDP/Buying에서 제품 이해와 구매 판단에 필요한 속성이 부족한지로 해석합니다." },
@@ -91,7 +91,7 @@ export const CRITERIA: {
   {
     id: "copy",
     title: "COPY — 카피 길이 / 톤 / CTA / FAQ",
-    note: "PF·PDP·Buying을 같은 길이 기준으로 재단하지 않습니다. PF는 탐색, PDP는 설득, Buying은 전환이라는 역할 차이를 기준으로 봅니다.",
+    note: "점수 = 카피 구체성 · 구매 CTA 보유율 · FAQ 품질 3개의 단순 평균(FAQ 없는 사이트는 2개). 본문 분량·구체성 기준 충족 페이지·중복 회피는 참고 지표입니다. PF·PDP·Buying을 같은 길이 기준으로 재단하지 않습니다. PF는 탐색, PDP는 설득, Buying은 전환이라는 역할 차이를 기준으로 봅니다.",
     items: [
       { q: "카피 구체성 점수 (0~100)", a: "숫자·스펙·가격·기간 같은 구체 근거, H2/CTA/FAQ 구조, 비교·증거 키워드를 합쳐 페이지 카피가 얼마나 설명력 있는지 봅니다.", scoring: "weighted", detail: "판단 방법: 정량 표현(GB, mAh, %, 가격, 시간 등), 구조 신호(H2·CTA·FAQ), 근거 키워드(compare, tested, certified 등)를 집계합니다. 70점 이상은 구체적, 40~69점은 보통, 40점 미만은 설명 근거가 약한 편으로 봅니다." },
       { q: "역할별 카피 길이", a: "PF/PDP/Buying별 평균 단어 수를 따로 봅니다.", detail: "판단 방법: PF는 제품군을 빠르게 훑을 수 있는지, PDP는 기능과 차별점을 충분히 설득하는지, Buying은 옵션/가격/혜택/CTA가 짧고 명확한지로 해석합니다." },
@@ -104,7 +104,7 @@ export const CRITERIA: {
   {
     id: "visual",
     title: "VISUAL — 이미지 메타데이터 / alt.copy / Visual tactic",
-    note: "현재 도구는 이미지 스크린샷이나 픽셀을 직접 보지 않습니다. HTML에서 수집한 alt 텍스트, src 파일명, URL, 주변 텍스트만으로 이미지 전략 신호를 판단합니다.",
+    note: "점수 = 설명형 ALT 비율 · 이미지 보유 페이지 비율 2개의 단순 평균. 사용 장면 이미지 비율은 목표치가 없는 상대 지표라 경쟁사 대비로만 봅니다(점수 미반영). 현재 도구는 이미지 스크린샷이나 픽셀을 직접 보지 않습니다. HTML에서 수집한 alt 텍스트, src 파일명, URL, 주변 텍스트만으로 이미지 전략 신호를 판단합니다.",
     items: [
       { q: "이미지 분류", a: "alt/src/파일명/URL 신호로 product, lifestyle, unclassified를 나눕니다.", detail: "판단 방법: 제품명·색상·gallery·KV·device 같은 단어는 product, lifestyle·hands·wearing·desk·person 같은 단어는 사용 상황 신호로 봅니다. 실제 이미지를 본 판정은 아닙니다." },
       { q: "alt.copy 품질", a: "비어 있음, 일반적(image/photo/banner), 설명적 alt를 구분합니다.", detail: "판단 방법: alt가 비어 있거나 너무 짧고 일반적인지, 제품/기능/상황을 설명하는지 봅니다. 설명적 alt는 접근성과 AI 검색 이해도에 도움이 됩니다." },

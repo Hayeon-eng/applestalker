@@ -298,6 +298,11 @@ export default function QubiApp({ apiBase = "", onHome, nav }: { apiBase?: strin
     if (!results.length && tab !== "static") { setErr("먼저 검수를 실행한 뒤 Excel을 받을 수 있어요."); return; }
     await downloadBlob(`/api/qb/report.xlsx${reportQs()}`, null, `qubi_qa_report${runId ? `_${runId}` : ""}.xlsx`); // [2026-07] 파일명에 run_id — 어느 검수의 리포트인지 파일만 봐도 구분
   };
+  // [2026-11] PPT — 요약판 1장 + 상세(이슈 Top·Data QA·Spec QA·URL 점검·공통페이지). 엑셀 첫 시트·메일 맨 위와 같은 숫자
+  const downloadPptx = async () => {
+    if (!results.length && tab !== "static") { setErr("먼저 검수를 실행한 뒤 PPT를 받을 수 있어요."); return; }
+    await downloadBlob(`/api/qb/report.pptx${reportQs()}`, null, `qubi_qa_report${runId ? `_${runId}` : ""}.pptx`);
+  };
   // [2026-09 FIX] 예전엔 "지금 보는 탭"만 복사됐고 공통페이지 QA는 아예 복사가 안 됐다 —
   // Data QA/Spec QA/공통페이지 QA 중 원하는 걸 체크박스로 골라서 한 메일에 합쳐 복사한다.
   const copyEmail = async (secsArg?: string[]) => {
@@ -502,6 +507,7 @@ export default function QubiApp({ apiBase = "", onHome, nav }: { apiBase?: strin
                 )}
               </div>
               <button className="toolBtn" onClick={downloadXlsx}>📊 Excel</button>
+              <button className="toolBtn" onClick={downloadPptx} title="요약판 1장 + 상세">📑 PPT</button>
             </div>
           </div>
         </header>

@@ -565,15 +565,32 @@ export function CurrentStatusDrilldown({
       )}
 
       {/* 핵심 근거 — 점수 구성요소를 사람이 읽을 수 있는 표로 (원시 로그 아님) */}
-      <p className="detailSectionLabel">핵심 근거</p>
-      <div className="evidenceGrid" style={{ marginBottom: 10 }}>
+      <p className="detailSectionLabel">점수 구성 (단순 평균)</p>
+      <div className="evidenceGrid" style={{ marginBottom: 6 }}>
         {breakdown.components.map((c) => (
           <>
-            <span key={`${c.label}_k`} className="evidenceKey">{c.label}</span>
+            <span key={`${c.label}_k`} className="evidenceKey">{c.labelKo || c.label}</span>
             <span key={`${c.label}_v`} className="evidenceVal">{c.value == null ? "근거 없음" : `${c.value}%`}</span>
           </>
         ))}
       </div>
+      {breakdown.basis && (
+        <p className="findingText" style={{ fontSize: 11.5, color: "var(--sec)", marginBottom: 8 }}>{breakdown.basis}</p>
+      )}
+      {/* [2026-11 점수 단순화] 참고 지표 — 점수엔 안 들어가고 할 일 근거로만 쓰는 값 */}
+      {breakdown.reference && breakdown.reference.some((c) => c.value != null) && (
+        <>
+          <p className="detailSectionLabel">참고 지표 (점수 미반영)</p>
+          <div className="evidenceGrid" style={{ marginBottom: 10 }}>
+            {breakdown.reference.map((c) => (
+              <>
+                <span key={`${c.label}_rk`} className="evidenceKey">{c.labelKo || c.label}</span>
+                <span key={`${c.label}_rv`} className="evidenceVal">{c.value == null ? "근거 없음" : `${c.value}%`}</span>
+              </>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* S4: 경쟁사(타 사이트) 평균 대비 우위/열위 — 지표별 + (DATA) 스키마 타입별 */}
       {peer && (
