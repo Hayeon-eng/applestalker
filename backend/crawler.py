@@ -341,6 +341,12 @@ class HybridCrawler:
         #   ① canonical 또는 최종 URL 이 삼성닷컴 공통 에러 경로(/common/error/, /error/)
         #   ② 타이틀이 'SAMSUNG | Samsung XX' 브랜드 꼬리뿐이고(제품명 없음) 요청 URL 의 제품 슬러그가
         #      타이틀·H1·최종 URL 어디에도 없음 — 제품 페이지인데 제품명이 한 군데도 없으면 안내 페이지다.
+        # QB_ERROR_PAGE_DETECT=legacy 이면 2026-11 이전 판정(H1 정규식 + 브랜드 타이틀&단어수)만 사용
+        if os.getenv("QB_ERROR_PAGE_DETECT", "strict").lower() == "legacy":
+            if soft404_h1 or (brand_only_title and word_count < 80):
+                return (f"soft 404 — page not available (title '{title or '?'}', h1 '{h1[:60] or '?'}') · "
+                        f"registry URL 확인 필요: {url}")
+            return None
         canon = str(data.get("canonical_url") or "").lower()
         final_low = str(data.get("final_url") or url or "").lower()
         if re.search(r"/(common/)?error/?(\?|$)", canon) or re.search(r"/(common/)?error/?(\?|$)", final_low):

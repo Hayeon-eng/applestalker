@@ -271,32 +271,38 @@ def _delete_run_cascade(conn, run_id: str) -> bool:
     """run 1건 + 매달린 모든 자식 레코드를 '같은 트랜잭션'에서 삭제.
     crawl_runs 행이 실제로 사라졌는지(True/False) 반환. commit/rollback 은 호출측(begin) 책임."""
     is_pg = conn.dialect.name == "postgresql"
+    # [2026-11 FIX] 존재하지 않는 테이블(geo_signals·crawled_pages·discovered_urls 는 구버전/PG 전용)에 DELETE 를 치면
+    #   "no such table" 로 트랜잭션 전체가 롤백돼 삭제가 조용히 실패했다(화면 X 를 눌러도 10월 이력이 계속 남던 원인).
+    #   있는 테이블만 지운다.
+    from sqlalchemy import inspect as _sa_inspect
+    try:
+        existing = set(_sa_inspect(conn).get_table_names())
+    except Exception:
+        existing = set()
+
+    def _del(sql: str):
+        conn.execute(text(sql), {"r": run_id})
 
     # 1) 앱이 직접 쓰는 자식들
-    conn.execute(text("DELETE FROM detected_changes WHERE crawl_run_id=:r"), {"r": run_id})
-    conn.execute(text("DELETE FROM page_snapshots WHERE crawl_run_id=:r"), {"r": run_id})
-    conn.execute(text("DELETE FROM povs WHERE related_crawl_run_id=:r"), {"r": run_id})
+    if "detected_changes" in existing:
+        _del("DELETE FROM detected_changes WHERE crawl_run_id=:r")
+    if "page_snapshots" in existing:
+        _del("DELETE FROM page_snapshots WHERE crawl_run_id=:r")
+    if "povs" in existing:
+        _del("DELETE FROM povs WHERE related_crawl_run_id=:r")
 
-    # 2) 🔥 핵심 추가: crawled_pages 참조 자식 먼저 삭제 (FK 충돌 방지)
-    conn.execute(text("""
-        DELETE FROM geo_signals
-        WHERE page_id IN (
-            SELECT id FROM crawled_pages WHERE crawl_run_id=:r
-        )
-    """), {"r": run_id})
+    # 2) crawled_pages 참조 자식 먼저 삭제 (FK 충돌 방지) — 두 테이블이 다 있을 때만
+    if "geo_signals" in existing and "crawled_pages" in existing:
+        _del("DELETE FROM geo_signals WHERE page_id IN (SELECT id FROM crawled_pages WHERE crawl_run_id=:r)")
+    if "crawled_pages" in existing:
+        _del("DELETE FROM crawled_pages WHERE crawl_run_id=:r")
 
     # 3) crawl_runs FK로 연결된 잔여 테이블 자동 삭제
     if is_pg:
         for tbl, col in _fk_child_tables(conn):
             conn.execute(text(f'DELETE FROM "{tbl}" WHERE "{col}"=:r'), {"r": run_id})
-    else:
-        try:
-            conn.execute(
-                text("DELETE FROM discovered_urls WHERE crawl_run_id=:r"),
-                {"r": run_id}
-            )
-        except Exception:
-            pass
+    elif "discovered_urls" in existing:
+        _del("DELETE FROM discovered_urls WHERE crawl_run_id=:r")
 
     # 4) 부모 삭제
     conn.execute(text("DELETE FROM crawl_runs WHERE crawl_run_id=:r"), {"r": run_id})
@@ -321,7 +327,7 @@ def delete_run(run_id: str):
         raise
     except Exception as e:
         logger.warning(f"delete failed: {run_id} | {e}")
-        raise HTTPException(status_code=500, detail=f"삭제 실패: {run_id}")
+        raise HTTPException(status_code=500, detail=f"삭제 실패: {run_id} — {type(e).__name__}: {str(e)[:160]}")
     return {"status": "deleted", "run_id": run_id}
 
 
