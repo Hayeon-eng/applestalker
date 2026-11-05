@@ -132,9 +132,15 @@ def structured_actions(S: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def build_pptx(S: Dict[str, Any], page_results: List[Dict[str, Any]], static_run=None) -> bytes:
-    import os, sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    import pptx_common as P
+    import os, sys, importlib.util
+    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _root not in sys.path:
+        sys.path.insert(0, _root)
+    try:
+        import pptx_common as P
+    except ImportError:   # 패키징(exe)·작업 디렉터리 차이로 못 찾을 때 파일 경로로 직접 로드
+        _spec = importlib.util.spec_from_file_location("pptx_common", os.path.join(_root, "pptx_common.py"))
+        P = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(P)
     from pptx.dml.color import RGBColor
     ACC = RGBColor(0x1B, 0x2A, 0x4A)
     prs = P.new_deck()

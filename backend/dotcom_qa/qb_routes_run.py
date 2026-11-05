@@ -42,6 +42,7 @@ _RUN_STATE: Dict[str, Any] = {"running": False, "run_id": None, "done": 0, "tota
                               "events": [], "result_run_id": None, "summary": None,
                               "dictionary_review": {}}
 _RUN_CONCURRENCY = int(os.getenv("QB_RUN_CONCURRENCY", "6"))
+_JUDGE_IN_THREAD = os.getenv("QB_JUDGE_IN_THREAD", "false").lower() in ("1", "true", "yes")
 
 
 def _filter_targets(sitecodes=None, page_types=None, products=None) -> List[Dict[str, Any]]:
@@ -151,11 +152,16 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
                     if html and err and ("soft 404" in str(err) or "error page" in str(err)):
                         raise RuntimeError(f"페이지 없음(에러 페이지) — URL 점검 필요 · {err}")
                     if html:
-                        # [2026-11 FIX] 판정(페이지당 최대 ~1초의 동기 CPU 작업)을 별도 스레드로 — 메인 루프에서 돌리면
-                        #   검수 중 /api/health·진행 스트림 응답이 같이 밀려 화면이 '확인 중'에 머문다.
-                        row = await asyncio.to_thread(runner.run_site, site, html, rules_for(pt, mp), page_type=pt,
-                                                      rendered_by=rendered_by, mode=mode,
-                                                      http_status=http_status, final_url=final_url)
+                        # [2026-11] 판정을 별도 스레드로 돌리는 옵션(QB_JUDGE_IN_THREAD=true) — 기본은 원래대로 인라인.
+                        #   스레드로 돌리면 검수 중에도 /api/health·진행 스트림이 멈추지 않지만, 검증 범위를 넓히기 전까지 opt-in.
+                        if _JUDGE_IN_THREAD:
+                            row = await asyncio.to_thread(runner.run_site, site, html, rules_for(pt, mp), page_type=pt,
+                                                          rendered_by=rendered_by, mode=mode,
+                                                          http_status=http_status, final_url=final_url)
+                        else:
+                            row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt,
+                                                  rendered_by=rendered_by, mode=mode,
+                                                  http_status=http_status, final_url=final_url)
                         # [2026-07 FIX] "스펙 값 0개 + httpx로만 수집됨" 진단이면, 이 페이지만
                         # Playwright로 재렌더해 재검수한다(Compare 포함 — 룰 자체는 이미 정상
                         # 적용되지만, JS 미렌더 HTML엔 애초에 스펙 텍스트가 없어 판정 불가했던 경우).
@@ -170,10 +176,10 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
                             except Exception as e:
                                 pw = {"error": str(e)}
                             if pw and pw.get("html_content") and not pw.get("error"):
-                                row = await asyncio.to_thread(runner.run_site, site, pw["html_content"], rules_for(pt, mp),
-                                                              page_type=pt, rendered_by="playwright(spec_rescue)",
-                                                              mode=mode, http_status=pw.get("status_code") or http_status,
-                                                              final_url=pw.get("final_url") or final_url)
+                                row = runner.run_site(site, pw["html_content"], rules_for(pt, mp),
+                                                      page_type=pt, rendered_by="playwright(spec_rescue)",
+                                                      mode=mode, http_status=pw.get("status_code") or http_status,
+                                                      final_url=pw.get("final_url") or final_url)
                         ok = True
                     else:
                         raise RuntimeError(err or "no html")
@@ -232,8 +238,8 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
         _scope = ("전체" if not sitecodes else f"{len(sitecodes)}개 사이트")
         if _mode_label:
             _scope = f"{_scope} · {_mode_label}"
-        entry = await asyncio.to_thread(_history_save, final, summary, product=product,
-                                        scope=_scope, duration_seconds=_time.time() - start_ts)
+        entry = _history_save(final, summary, product=product,
+                              scope=_scope, duration_seconds=_time.time() - start_ts)
         _RUN_STATE["events"].append({"type": "done", "run_id": entry["run_id"], "summary": summary, "mode": mode})
         _RUN_STATE.update(result_run_id=entry["run_id"], summary=summary, dictionary_review=dict_review)
     except Exception as e:

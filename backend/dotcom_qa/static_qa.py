@@ -238,6 +238,7 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
     types = set()
     ids: Dict[str, int] = {}
     id_bodies: Dict[str, List[str]] = {}   # [2026-11 T2] @id 별 '정의' 본문(참조 제외) — 내용이 다른 중복만 문제
+    id_defs: Dict[str, List[Dict[str, Any]]] = {}   # [2026-11 T2b] 같은 @id 정의들의 원본 — 속성 단위 충돌 판정용
     refs: List[tuple] = []
     all_urls: List[str] = []
     # [2026-11 T1] 참조 노드(속성이 @id/@type 뿐 — "publisher": {"@type":"Organization","@id":"…#org"})는
@@ -255,6 +256,7 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
             if not _is_reference(n):
                 ids[nid] = ids.get(nid, 0) + 1
                 id_bodies.setdefault(nid, []).append(json.dumps(n, sort_keys=True, ensure_ascii=False))
+                id_defs.setdefault(nid, []).append(n)
         for p in REF_PROPS:
             v = n.get(p)
             for rid in sc._collect_ids(v) if v is not None else []:
@@ -266,8 +268,25 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
     out["types"] = sorted(types)
     # [2026-11 T2 — 운영 결정] 내용까지 완전히 같은 중복 정의(템플릿이 같은 블록을 두 번 출력)는 검색엔진이 하나로
     #   합치므로 표시하지 않는다. 같은 @id 인데 내용이 다른 정의만 '확인 필요'.
-    out["duplicate_ids"] = sorted(k for k, bodies in id_bodies.items() if len(set(bodies)) > 1)
-    out["identical_duplicate_ids"] = sorted(k for k, bodies in id_bodies.items() if len(bodies) > 1 and len(set(bodies)) == 1)
+    # [2026-11 T2b] '다른 내용' = 같은 @id 의 정의들이 **같은 속성에 서로 다른 값**을 가질 때만. 한쪽이 부분 정의
+    #   (예: publisher: {@id, @type, name})인 경우는 JSON-LD 병합이지 충돌이 아니므로 잡지 않는다.
+    #   (전체 JSON 비교로 하면 부분 정의가 전부 '다른 내용'으로 잡혀 전 사이트에 중복 @id 가 다시 깔린다.)
+    def _conflicts(defs: List[Dict[str, Any]]) -> List[str]:
+        seen: Dict[str, str] = {}
+        bad: List[str] = []
+        for d in defs:
+            for k, v in d.items():
+                if k in ("@context",):
+                    continue
+                vv = json.dumps(v, sort_keys=True, ensure_ascii=False)
+                if k in seen and seen[k] != vv and k not in bad:
+                    bad.append(k)
+                seen.setdefault(k, vv)
+        return bad
+    conflict_props = {k: _conflicts(defs) for k, defs in id_defs.items() if len(defs) > 1}
+    out["duplicate_ids"] = sorted(k for k, props in conflict_props.items() if props)
+    out["duplicate_id_conflicts"] = {k: props for k, props in conflict_props.items() if props}   # {@id: [충돌 속성]}
+    out["identical_duplicate_ids"] = sorted(k for k, props in conflict_props.items() if not props)
     defined = {n.get("@id") for n in def_nodes if isinstance(n.get("@id"), str)}   # 참조만 있는 @id 는 '정의'가 아님
     # 같은 페이지 앵커(…/mobile/#faq)만 '정의되어야 하는' 참조로 본다. 사이트 공통 노드(/{sc}/#org, /#brand-galaxy)는
     # 홈 등 다른 페이지에 정의되는 관행이라 여기서는 판정하지 않는다(외부 정의).
@@ -320,7 +339,8 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
     elif out["duplicate_ids"] or out["rich_missing"]:
         out["status"] = "기타"
         if out["duplicate_ids"]:
-            out["reasons"].append(f"같은 @id 에 내용이 다른 정의 {len(out['duplicate_ids'])}건")
+            det = "; ".join(f"{d.rsplit('#', 1)[-1] if '#' in d else d}: {', '.join(out['duplicate_id_conflicts'].get(d, []))}" for d in out["duplicate_ids"][:3])
+            out["reasons"].append(f"같은 @id 에 속성 값이 다른 정의 {len(out['duplicate_ids'])}건 ({det})")
         if out["rich_missing"]:
             out["reasons"].append("리치결과 필수 속성 누락 " + ", ".join(f"{m['type']}({','.join(m['missing'])})" for m in out["rich_missing"][:3]))
     elif not nodes:

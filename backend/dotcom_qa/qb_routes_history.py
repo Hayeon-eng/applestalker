@@ -285,7 +285,11 @@ def qb_report_pptx_get(run_id: str = Query(None)):
     import qa_exec_summary, qa_summary_render
     results = qb_core._resolve_results(run_id=run_id)
     static_run = _latest_static_run()
-    data = qa_summary_render.build_pptx(qa_exec_summary.build(results, static_run, run_id or ""), results, static_run)
+    try:
+        data = qa_summary_render.build_pptx(qa_exec_summary.build(results, static_run, run_id or ""), results, static_run)
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        raise HTTPException(500, f"PPT 생성 실패 — {type(e).__name__}: {str(e)[:200]}")
     return StreamingResponse(iter([data]), media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                              headers={"Content-Disposition": f"attachment; filename=qubi_qa_report{('_' + run_id) if run_id else ''}.pptx"})
 
