@@ -71,7 +71,9 @@ def _flatten(page_results, tab=None):
                 "region": pr.get("region", ""), "country": pr.get("country", "")}
         if want_schema:
             for f in (pr.get("schema") or {}).get("findings", []):
-                if f.get("status") == "pass":
+                # [2026-11] na(조건부 블록 없음·페이지 없음) 는 이슈가 아니다 — 메일·요약에서 제외.
+                #   페이지 없음(URL 점검 필요)은 _section_block 이 별도 줄로 보여준다.
+                if f.get("status") in ("pass", "na", "info"):
                     continue
                 rows.append({**base, "area": "Schema", "item": f.get("block", ""),
                              "status": f.get("status"), "f": f})
@@ -87,10 +89,12 @@ def _flatten(page_results, tab=None):
                     if it.get("status") not in ("fail", "warn"):
                         continue
                     exp = f'{it.get("expected", "")}{(" " + it["unit"]) if it.get("unit") else ""}'
+                    # [2026-11] 확인 필요(warn)는 '왜 확인인지'(전작 값·라벨 미동반 등)가 핵심이라 사유를 함께 싣는다
+                    why = f' · {it["message"]}' if it.get("status") == "warn" and it.get("message") else ""
                     rows.append({**base, "area": "Spec", "item": it.get("attribute", ""),
                                  "status": it["status"],
                                  "f": {"status": it["status"],
-                                       "as_is": f'현재 {it.get("found") or "(페이지에 없음)"}',
+                                       "as_is": f'현재 {it.get("found") or "(페이지에 없음)"}{why}',
                                        "to_be": f'기준 {exp}' + (f' — {it["fix_guide"]}' if it.get("fix_guide") else "")}})
                 # Dictionary Review는 보조 정보 — fail/warn 집계에 섞이지 않도록 status="info"
                 for c in sv.get("dictionary_review", []) or []:

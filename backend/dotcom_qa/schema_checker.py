@@ -71,15 +71,10 @@ def extract_jsonld(html: str, parse_errors: Optional[List[str]] = None) -> List[
         block_no += 1
         type_guess = _guess_type(raw)
         _n = len(parse_errors) if parse_errors is not None else 0
-        # Google 기준: 파싱은 되더라도 스마트쿼트/비표시문자가 있으면 SEO 위험으로 경고
-        if parse_errors is not None and re.search(r"[“”‘’\u00a0\u200b\ufeff]", raw):
-            smart = bool(re.search(r"[“”‘’]", raw))
-            parse_errors.append({"msg": "invalid character in JSON literal",
-                                 "lineno": None, "colno": None, "line_text": "",
-                                 "category": "smart_quote" if smart else "invisible_char",
-                                 "hint": ("스마트 따옴표(“ ” ‘ ’)가 값에 섞여 있습니다 — 일반 따옴표로 교체."
-                                          if smart else "비표시 문자(NBSP/제로폭/BOM) 포함 — 제거."),
-                                 "engine": "google_rich_result", "severity": "warn"})
+        # [2026-11 D2] 파싱이 '성공한' 블록의 따옴표(’ “)·NBSP 는 문자열 값 안의 정상 문자다(JSON·Google 모두 허용).
+        #   기존엔 원문에 보이기만 하면 "invalid character in JSON literal" 경고를 내 포르투갈어 설명문의
+        #   아포스트로피까지 전부 오탐이었고(PPT 5번), 같은 경고가 스키마·HTML QA 두 곳에 중복 집계됐다.
+        #   따옴표 때문에 실제로 파싱이 실패하면 아래 _classify_syntax 가 'smart_quote' 로 분류한다.
         try:
             data = json.loads(raw)
         except Exception as e1:
@@ -191,6 +186,46 @@ def _collect_ids(value: Any) -> List[str]:
     return ids
 
 
+# ---------- 여러 개가 있을 수 있는 블록(캠페인마다 바뀌는 콘텐츠) ----------
+# [2026-11 D3 — 운영 결정] Video·Quotation·Comment·3DModel 은 페이지마다 개수·이름이 다르다. 값 파일의
+#   '#video-1' 같은 고정 @id 와 정확 일치를 요구하면 실제 '#video-form-factor' 가 늘 틀린 것으로 나온다(PPT 5번).
+#   → @id 는 '페이지 URL + # + 접두어' 까지만 맞으면 정상, 노드는 해당 타입 전부를 검사하고,
+#     Product/WebPage 의 hasPart 는 고정 목록이 아니라 "페이지에 있는 그 타입 노드가 모두 연결됐는가"로 본다.
+MULTI_INSTANCE_TYPES = {"VideoObject", "Quotation", "Comment", "3DModel", "Review"}
+_MULTI_FRAG_PREFIX = {"VideoObject": "video", "Quotation": "mediaquote", "Comment": "samsung-members-comment",
+                      "3DModel": "model3d", "Review": "review"}
+
+
+def _frag_prefix(id_pattern: str, types: List[str]) -> Optional[str]:
+    """'…/#video-1' → 'video' (다중 인스턴스 타입일 때만). 접두어는 패턴 프래그먼트의 첫 토큰."""
+    if not id_pattern or "#" not in id_pattern:
+        return None
+    if not (set(types) & MULTI_INSTANCE_TYPES):
+        return None
+    frag = id_pattern.rsplit("#", 1)[-1]
+    return frag.split("-")[0].lower() or None
+
+
+def _id_regex_prefix(id_pattern: str, prefix: str, sitecode: Optional[str], page_url: Optional[str]) -> re.Pattern:
+    """접두어 일치 정규식: base#prefix 또는 base#prefix-… (대소문자 무시)."""
+    base = id_pattern.rsplit("#", 1)[0]
+    rx_base = _id_regex(base, sitecode, page_url).pattern[1:-1]   # ^…$ 벗기기
+    return re.compile("^" + rx_base + "#" + re.escape(prefix) + r"(-[\w\-]+)?$", re.IGNORECASE)
+
+
+_EN_HINT_RX = re.compile(r"\b(the|and|with|your|for|that|this|from|you|are|our|new)\b", re.I)
+
+
+def _looks_english(text: str) -> bool:
+    """비영어 사이트의 텍스트가 영어 원문 그대로인지 — 라틴 문자 95% 이상 + 영어 기능어 2개 이상."""
+    t = text or ""
+    letters = [c for c in t if c.isalpha()]
+    if len(letters) < 12:
+        return False
+    ascii_ratio = sum(1 for c in letters if c.isascii()) / len(letters)
+    return ascii_ratio >= 0.95 and len(_EN_HINT_RX.findall(t)) >= 2
+
+
 # ---------- 검수 ----------
 def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                sitecode: Optional[str] = None, site_lang: Optional[str] = None,
@@ -221,7 +256,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         return s
 
     def _norm(u):
-        return str(u).strip().rstrip("/").lower()
+        return re.sub(r"^https?://", "", str(u).strip()).rstrip("/").lower()   # [2026-11 D9] 스킴 차이는 불일치가 아님
 
     def _one_match(expected: str, actual: Any, kind: str) -> bool:
         if actual is None:
@@ -254,6 +289,7 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
     nodes = extract_jsonld(html, parse_errors)
     findings: List[Dict[str, Any]] = []
     ok = warn = fail = 0
+    na_cnt = 0
 
     # Q2=a: JSON-LD 파싱 실패/문법 위험 리포트 (Google Rich Result 기준 분류 포함)
     for pe in parse_errors:
@@ -284,21 +320,23 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
         types = block["types"]
         id_pat = block.get("id_pattern")
         conditional = block.get("conditional")
-        rx = _id_regex(id_pat, sitecode, page_url) if id_pat else None
+        prefix = _frag_prefix(id_pat or "", types)
+        rx = (_id_regex_prefix(id_pat, prefix, sitecode, page_url) if prefix
+              else (_id_regex(id_pat, sitecode, page_url) if id_pat else None))
+        multi = bool(set(types) & MULTI_INSTANCE_TYPES)
 
-        # 블록에 해당하는 노드 찾기: @type 교집합 + (@id 패턴 일치 시 가점)
-        cand = [n for n in nodes if set(_types_of(n)) & set(types)]
+        # 블록에 해당하는 노드 찾기: @type 교집합 + @id 패턴(단일 블록=정확, 다중 블록=접두어) 일치
+        #   참조 노드(@id/@type 뿐)는 검사 대상이 아니다 — 속성이 없는 게 정상.
+        cand = [n for n in nodes if set(_types_of(n)) & set(types)
+                and any(k not in ("@id", "@type", "@context") for k in n.keys())]
+        matched_nodes = [n for n in cand if rx is not None and n.get("@id") and rx.match(str(n.get("@id")))]
         node = None
-        id_matched = False
-        if rx is not None:
-            for n in cand:
-                nid = str(n.get("@id", ""))
-                if nid and rx.match(nid):
-                    node = n
-                    id_matched = True
-                    break
-        if node is None and cand:
+        id_matched = bool(matched_nodes)
+        if matched_nodes:
+            node = matched_nodes[0]
+        elif cand:
             node = cand[0]  # 타입은 있으나 @id 불일치
+        check_nodes = matched_nodes if (multi and matched_nodes) else ([node] if node is not None else [])
 
         f: Dict[str, Any] = {"block": name, "types": types, "id_slug": block.get("id_slug"),
                              "conditional": conditional, "missing_props": [], "haspart_missing": [],
@@ -318,9 +356,12 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                 f["to_be"] = "문법 오류 수정 후 재검수"
                 findings.append(f)
                 continue
-            # 없음 → 조건부면 경고, 아니면 실패
+            # 없음 → 조건부면 '해당 없음'(na — 있어도 되고 없어도 되는 항목, 건수·점수 제외 [2026-11 D5]),
+            #        아니면 실패
             if conditional:
-                f["status"] = "warn"; _apply(f, "schema.missing"); warn += 1
+                f["status"] = "na"; _apply(f, "schema.missing"); na_cnt += 1
+                f["to_be"] = ""
+                f["as_is"] = f"{name} 없음 — 조건부(선택) 항목이라 이슈 아님"
             else:
                 f["status"] = "fail"; _apply(f, "schema.missing"); fail += 1
             findings.append(f)
@@ -339,25 +380,26 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
             f["raw"] = None
 
         # 필수 속성 검증 (Remarks 달린 선택 속성은 soft 로 분리)
+        #   [2026-11 D3] 다중 블록(Video 등)은 접두어가 맞는 노드 '전부'를 검사한다 — 기존엔 첫 노드만 봤다.
         optional = set(block.get("optional_properties", []))
-        for prop in block.get("required_properties", []):
-            if prop not in node or node.get(prop) in (None, "", [], {}):
-                f["missing_props"].append(prop)
-        hard_missing = [p for p in f["missing_props"] if p not in optional]
-        soft_missing = [p for p in f["missing_props"] if p in optional]
-        f["missing_props"] = hard_missing
-        f["optional_missing"] = soft_missing
-
-        # 값 검사 — 검사방식(kind)별로 하드/소프트 분리
+        soft_missing: List[str] = []
         val_mismatch = []       # 하드 불일치(오류)
-        translate_confirm = []  # 번역/존재 확인(경고)
+        translate_confirm = []  # 형식 확인(경고): duration/date/image_path
+        info_notes = []         # [2026-11 D4] 참고(건수 제외): 비영어 사이트의 영어 원문 텍스트
         name_issue = []         # 제품명 식별토큰 위반(오류)
         lang_issue = []         # inLanguage ↔ 사이트 언어 불일치(경고)
         name_tokens = block.get("name_tokens") or {}
-        for prop, spec in (block.get("expected_values") or {}).items():
+        f["instances"] = len(check_nodes)
+        for node in check_nodes:
+          tag = (f"[{_slug(str(node.get('@id', '')))}] " if len(check_nodes) > 1 else "")
+          node_missing = [prop for prop in block.get("required_properties", [])
+                          if prop not in node or node.get(prop) in (None, "", [], {})]
+          f["missing_props"] += [tag + p for p in node_missing if p not in optional]
+          soft_missing += [tag + p for p in node_missing if p in optional]
+          for prop, spec in (block.get("expected_values") or {}).items():
             if prop == "hasPart":
                 continue
-            if prop in f["missing_props"]:
+            if prop in node_missing:
                 continue
             if prop not in node or node.get(prop) in (None, "", [], {}):
                 continue
@@ -381,42 +423,48 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                 if not tier_ok:
                     miss.append(name_tokens.get("tier_label", "등급표기"))
                 if miss or bad:
-                    name_issue.append({"prop": prop, "actual": astr[:60],
+                    name_issue.append({"prop": tag + prop, "actual": astr[:60],
                                        "missing": miss, "forbidden": bad})
                 continue
             if kind == "image_path":
                 # 파일명 변동 허용 — 경로에 제품 슬러그가 들어있는지만(경고)
                 slug = market_product_slug or ""
                 if slug and slug not in astr:
-                    translate_confirm.append({"prop": prop, "actual": astr[:60],
+                    translate_confirm.append({"prop": tag + prop, "actual": astr[:60],
                                               "note": "image_path"})
                 continue
             if kind == "duration_fmt":
                 if not re.match(r"^PT(\d+H)?(\d+M)?(\d+S)?$", astr.strip()):
-                    translate_confirm.append({"prop": prop, "actual": astr[:40], "note": "duration_fmt"})
+                    translate_confirm.append({"prop": tag + prop, "actual": astr[:40], "note": "duration_fmt"})
                 continue
             if kind == "date_fmt":
                 # [2026-07 신규] uploadDate 등 — 날짜 자체는 콘텐츠마다 정상적으로 다르므로
                 # 정확한 값이 아니라 ISO 8601 날짜 형식(YYYY-MM-DD, 필요시 시간 포함)만 확인.
                 if not re.match(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:?\d{2})?)?$", astr.strip()):
-                    translate_confirm.append({"prop": prop, "actual": astr[:40], "note": "date_fmt"})
+                    translate_confirm.append({"prop": tag + prop, "actual": astr[:40], "note": "date_fmt"})
                 continue
             if kind == "inlanguage":
                 if site_lang and astr and site_lang.split("-")[0].lower() != astr.split("-")[0].lower():
-                    lang_issue.append({"prop": prop, "actual": astr, "expected": site_lang})
+                    lang_issue.append({"prop": tag + prop, "actual": astr, "expected": site_lang})
                 continue
             if kind == "exist":
                 continue  # [2026-09] 존재만 확인 — 값이 있으면 끝(번역확인 행 생성 안 함: citation/thumbnailUrl 등 URL 오탐)
             if kind == "text":
-                translate_confirm.append({"prop": prop, "actual": astr[:60]})
+                # [2026-11 D4 — 운영 결정] 영어 사이트의 영어 문장에 "번역 확인"을 내던 로직 제거.
+                #   비영어 사이트인데 값이 영어 원문으로 보일 때만 '참고'(건수 제외)로 남긴다.
+                if site_lang and not site_lang.lower().startswith("en") and _looks_english(astr):
+                    info_notes.append({"prop": tag + prop, "actual": astr[:60], "note": "영어 원문으로 보임 — 현지어 번역 여부 참고"})
                 continue
             # kind url / enum → 하드 정확 일치
             if not _val_matches(exp, actual, kind or "url"):
-                val_mismatch.append({"prop": prop, "expected": _resolve(exp), "actual": astr[:80]})
+                val_mismatch.append({"prop": tag + prop, "expected": _resolve(exp), "actual": astr[:80]})
+        f["optional_missing"] = soft_missing
         f["val_mismatch"] = val_mismatch
         f["translate_confirm"] = translate_confirm
+        f["info_notes"] = info_notes
         f["name_issue"] = name_issue
         f["lang_issue"] = lang_issue
+        node = check_nodes[0] if check_nodes else node
 
         # about 등 Word 기준 'object' 필드가 실제로 배열([...])로 온 경우:
         # Google Rich Result 는 배열도 허용하므로 하드 오류로 보지 않고, 안쪽 @id 는 그대로
@@ -431,10 +479,24 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                     if False else f["val_mismatch"]
         f["array_where_object"] = array_where_object
 
-        # Product.hasPart @id 검증
+        # Product/WebPage.hasPart @id 검증
+        #   [2026-11 D3] 다중 블록 접두어(#video-1 → video-*)인 항목은 고정 @id 대신 상호 연결로 본다:
+        #   "페이지에 있는 그 타입(VideoObject 등) 노드의 @id 가 hasPart 에 모두 들어있는가".
         if block.get("haspart_ids"):
             present = set(_collect_ids(node.get("hasPart")))
             for want in block["haspart_ids"]:
+                want_types = [t for t, pre in _MULTI_FRAG_PREFIX.items()
+                              if "#" in want and want.rsplit("#", 1)[-1].split("-")[0].lower() == pre]
+                if want_types:
+                    wrx = _id_regex_prefix(want, want.rsplit("#", 1)[-1].split("-")[0].lower(), sitecode, page_url)
+                    page_ids = [str(n.get("@id")) for n in nodes if set(_types_of(n)) & set(want_types)
+                                and isinstance(n.get("@id"), str) and wrx.match(str(n.get("@id")))
+                                and any(k not in ("@id", "@type", "@context") for k in n.keys())]
+                    for pid in page_ids:
+                        if pid not in present:
+                            f["haspart_missing"].append(_slug(pid) + " (페이지에 있는 노드가 hasPart 에 미연결)")
+                    # 페이지에 그 타입 노드가 없으면 블록 자체의 '없음' 판정이 이미 다루므로 여기선 중복 보고하지 않는다
+                    continue
                 wrx = _id_regex(want, sitecode, page_url)
                 if not any(wrx.match(pid) for pid in present):
                     f["haspart_missing"].append(_slug(want))
@@ -445,12 +507,14 @@ def check_page(html: str, product_rules: Dict[str, Any], lang: str = "ko",
                 f["status"] = "warn"; _apply(f, "schema.optional"); warn += 1
             else:
                 f["status"] = "pass"; _apply(f, "schema.pass"); ok += 1
+                if f.get("info_notes"):   # 참고는 정상 판정에 메모로만 붙인다
+                    f["as_is"] = "; ".join(f"{n['prop']}: {n['note']} ('{n['actual']}')" for n in f["info_notes"])
         else:
             f["status"] = "fail"; _apply(f, "schema.problem"); fail += 1
         findings.append(f)
 
     return {
-        "summary": {"total": len(findings), "pass": ok, "warn": warn, "fail": fail,
+        "summary": {"total": len(findings), "pass": ok, "warn": warn, "fail": fail, "na": na_cnt,
                     "jsonld_nodes": len(nodes)},
         "findings": findings,
     }

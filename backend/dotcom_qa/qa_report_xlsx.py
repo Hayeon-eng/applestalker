@@ -484,4 +484,11 @@ def build_xlsx(page_results, static_run=None):
         import static_guide
         static_guide.build_report_sheets(wb, static_run)
 
+    # [2026-11] 첫 시트 '요약판' — 화면 상단과 같은 숫자(qa_exec_summary 단일 소스)
+    try:
+        import qa_exec_summary, qa_summary_render
+        qa_summary_render.write_summary_sheet(wb, qa_exec_summary.build(page_results, static_run))
+        wb.active = 0
+    except Exception as e:
+        import traceback; traceback.print_exc()
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()

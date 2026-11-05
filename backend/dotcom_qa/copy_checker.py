@@ -157,7 +157,8 @@ def check_copy(html: str, product_rules: Dict[str, Any],
         t = _scope_text(s.get("page_types") or ["PDP"])
         return any(_num_present(_norm_num(v), unit, t) if v[:1].isdigit() else _present(v, t) for v in vals)
     present_cnt = sum(1 for s in exp if _spec_present(s))
-    if exp and (len(body) < 1500 or present_cnt == 0):
+    # [2026-11 D7] 스펙 검출 여부는 더 이상 수집 품질의 근거가 아니다(스펙 판정은 Spec QA 전담) — 본문 분량만 본다
+    if len(body) < 1500:
         ko = lang != "en"
         findings.append({"kind": "collection", "token": "(collection quality)", "status": "fail", "code": "copy.collection",
             "as_is": (f"페이지 텍스트가 비정상적으로 적음(본문 {len(body):,}자, 기대 스펙 {present_cnt}/{len(exp)} 검출)"
@@ -169,8 +170,22 @@ def check_copy(html: str, product_rules: Dict[str, Any],
                             "collection_suspect": True}, "findings": findings}
 
     # 1) 핵심 스펙 값 대조
+    #   [2026-11 D7 — 운영 결정] 스펙 '값' 판정은 Spec QA(spec_engine V3)로 일원화한다. 여기의 "같은 단위의 다른 숫자가
+    #   있으면 오류" 방식은 V3 가 오탐 때문에 버린 로직이라 DATA QA 탭과 Spec QA 탭이 같은 스펙을 다른 기준으로
+    #   이중 판정했다. key_specs 는 더 이상 판정하지 않고(기록만 na), 고유명사 검사(2)만 유지한다.
     vmis = vmiss = 0
     for s in key_specs:
+        cat = s.get("category", "")
+        vals = [str(v) for v in (s.get("values") or []) if str(v).strip()]
+        if not vals:
+            continue
+        na += 1
+        findings.append({"kind": "spec_value", "token": cat, "category": cat,
+                         "expected": " / ".join(vals), "region": "본문", "status": "na", "code": "copy.na",
+                         "as_is": ("스펙 값 판정은 Spec QA 탭에서 (중복 판정 제거)" if lang != "en"
+                                   else "Spec values are judged in the Spec QA tab (duplicate check removed)"),
+                         "to_be": ""})
+    for s in []:  # (구 스펙 값 대조 루프 — 비활성)
         cat = s.get("category", ""); unit = s.get("unit", "")
         vals = [str(v) for v in (s.get("values") or []) if str(v).strip()]
         pts = s.get("page_types") or ["PDP"]

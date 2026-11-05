@@ -197,9 +197,9 @@ def build_code_fixes(html: str, out: Dict[str, Any], my: str, defined: set, ids:
 
     # 중복 @id
     for d in out.get("duplicate_ids", []):
-        fixes.append({"kind": "duplicate_id", "block": None, "label": "중복 @id", "as_is": f'"@id": "{d}"   // ×{ids.get(d, 2)}',
-                      "to_be": f'"@id": "{d}"   // 한 블록만 유지, 나머지는 #suffix 로 구분하거나 삭제', "auto": False,
-                      "note": "같은 @id 를 가진 노드가 여러 개면 검색엔진이 하나로 합치거나 무시함."})
+        fixes.append({"kind": "duplicate_id", "block": None, "label": "같은 @id, 다른 내용", "as_is": f'"@id": "{d}"   // ×{ids.get(d, 2)} (내용 상이)',
+                      "to_be": f'"@id": "{d}"   // 한 정의만 남기거나, 다른 노드면 #suffix 로 @id 분리', "auto": False,
+                      "note": "같은 @id 로 서로 다른 내용이 정의되면 검색엔진이 어느 쪽을 쓸지 보장되지 않음."})
 
     # 리치결과 필수 속성 누락
     for m in out.get("rich_missing", []):
@@ -237,14 +237,24 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
                            for pe in parse_errors]
     types = set()
     ids: Dict[str, int] = {}
+    id_bodies: Dict[str, List[str]] = {}   # [2026-11 T2] @id 별 '정의' 본문(참조 제외) — 내용이 다른 중복만 문제
     refs: List[tuple] = []
     all_urls: List[str] = []
+    # [2026-11 T1] 참조 노드(속성이 @id/@type 뿐 — "publisher": {"@type":"Organization","@id":"…#org"})는
+    #   JSON-LD 에서 '같은 노드를 가리키는 참조'지 새 정의가 아니다. 기존엔 이것을 정의로 세어 전 사이트·전 페이지에
+    #   '중복 @id 1~2건'과 'Organization name 누락'이 똑같이 깔렸다(PPT 3번 — 확인(기타) 249건의 주원인).
+    def _is_reference(node: Dict[str, Any]) -> bool:
+        return not any(k for k in node.keys() if k not in ("@id", "@type", "@context"))
+    def_nodes = [n for n in nodes if not _is_reference(n)]
     for n in nodes:
         for t in sc._types_of(n):
             types.add(t)
         nid = n.get("@id")
         if isinstance(nid, str):
-            ids[nid] = ids.get(nid, 0) + 1; all_urls.append(nid)
+            all_urls.append(nid)
+            if not _is_reference(n):
+                ids[nid] = ids.get(nid, 0) + 1
+                id_bodies.setdefault(nid, []).append(json.dumps(n, sort_keys=True, ensure_ascii=False))
         for p in REF_PROPS:
             v = n.get(p)
             for rid in sc._collect_ids(v) if v is not None else []:
@@ -254,8 +264,11 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
         if isinstance(u, str):
             all_urls.append(u)
     out["types"] = sorted(types)
-    out["duplicate_ids"] = sorted(k for k, c in ids.items() if c > 1)
-    defined = set(ids.keys())
+    # [2026-11 T2 — 운영 결정] 내용까지 완전히 같은 중복 정의(템플릿이 같은 블록을 두 번 출력)는 검색엔진이 하나로
+    #   합치므로 표시하지 않는다. 같은 @id 인데 내용이 다른 정의만 '확인 필요'.
+    out["duplicate_ids"] = sorted(k for k, bodies in id_bodies.items() if len(set(bodies)) > 1)
+    out["identical_duplicate_ids"] = sorted(k for k, bodies in id_bodies.items() if len(bodies) > 1 and len(set(bodies)) == 1)
+    defined = {n.get("@id") for n in def_nodes if isinstance(n.get("@id"), str)}   # 참조만 있는 @id 는 '정의'가 아님
     # 같은 페이지 앵커(…/mobile/#faq)만 '정의되어야 하는' 참조로 본다. 사이트 공통 노드(/{sc}/#org, /#brand-galaxy)는
     # 홈 등 다른 페이지에 정의되는 관행이라 여기서는 판정하지 않는다(외부 정의).
     page_base = url.split("#")[0].rstrip("/")
@@ -275,8 +288,8 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
             if not (my in ("cn",) and seg == "cn"):
                 out["foreign_refs"].append(u)
     out["foreign_refs"] = sorted(set(out["foreign_refs"]))[:20]
-    # 리치결과 필수 속성(전형적)
-    for n in nodes:
+    # 리치결과 필수 속성(전형적) — 정의 노드만(참조 노드는 속성이 없는 게 정상)
+    for n in def_nodes:
         for t in sc._types_of(n):
             req = RICH_REQUIRED.get(t)
             if not req:
@@ -307,7 +320,7 @@ def check_static_page(html: str, url: str, sitecode: str, http_status: Optional[
     elif out["duplicate_ids"] or out["rich_missing"]:
         out["status"] = "기타"
         if out["duplicate_ids"]:
-            out["reasons"].append(f"중복 @id {len(out['duplicate_ids'])}건")
+            out["reasons"].append(f"같은 @id 에 내용이 다른 정의 {len(out['duplicate_ids'])}건")
         if out["rich_missing"]:
             out["reasons"].append("리치결과 필수 속성 누락 " + ", ".join(f"{m['type']}({','.join(m['missing'])})" for m in out["rich_missing"][:3]))
     elif not nodes:

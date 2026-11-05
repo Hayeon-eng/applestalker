@@ -175,6 +175,11 @@ def scan_unit_hits(blocks: List[str], unit: str,
             prev1 = nb[m.start() - 1] if m.start() >= 1 else ""
             prev2 = nb[m.start() - 2] if m.start() >= 2 else ""
             delta = prev1 == "+" or (prev1 == "-" and not prev2.isdigit())
+            # [2026-11 S3] 통신 규격 '5G'/'4G' — 숫자(2~6, 정수)에 공백 없이 g 가 붙은 토큰은 그램이 아니다.
+            #   ("Galaxy Z Fold8 5G" 가 Weight 룰에서 '5g 오기재' FAIL 로 잡히던 오탐 — 재현 테스트로 고정)
+            if cu == "g" and m.group(2) == "g" and " " not in m.group(0) and "." not in m.group(1) \
+                    and 2 <= val <= 6:
+                continue
             out.append({"value": val, "unit": cu, "text": m.group(0),
                         "block": block, "block_norm": nb, "pos": m.start(),
                         "approx": approx, "delta": delta})
@@ -355,6 +360,64 @@ def prev_accepted_for(prev_models: List[Dict[str, Any]], model: Optional[str],
     return vals if found_any else None
 
 
+def prev_owners_of(prev_models: List[Dict[str, Any]], value: float, unit: str) -> List[str]:
+    """[2026-11 S2] 이 값(단위 기준)을 정답으로 가진 전작 모델명 목록 — '확인 필요' 사유에 모델명을 적기 위함."""
+    cu = canon_unit(unit)
+    out: List[str] = []
+    for pm in prev_models or []:
+        for sp in pm.get("specs") or []:
+            if canon_unit(sp.get("unit", "")) != cu:
+                continue
+            for v in sp.get("values") or []:
+                n = re.search(r"\d+(?:\.\d+)?", normalize_text(str(v)))
+                if n and float(n.group()) == value and pm.get("model") not in out:
+                    out.append(pm.get("model", ""))
+    return out
+
+
+def build_delta_table(rules: List[Dict[str, Any]], prev_models: List[Dict[str, Any]]) -> Dict[str, Dict[float, Tuple[str, float, str, float]]]:
+    """[2026-11 S4] 단위별 '전작 대비 차이값' 표: {unit: {차이값: (속성, 현 정답, 전작모델, 전작 정답)}}.
+    같은 속성(Thickness (Folded) ↔ 전작 Thickness (Folded))끼리의 |현 − 전작| 만 넣는다 — 단위만 같은 임의
+    조합(|4.5 − 14.4| = 9.9)까지 허용하면 진짜 오기재가 차이값으로 묻히므로(재현 테스트) 속성을 맞춘다."""
+    def _loose(x: str) -> str:
+        return re.sub(r"[^\w]|_", "", normalize_text(x))
+    table: Dict[str, Dict[float, Tuple[str, float, str, float]]] = {}
+    for r in rules or []:
+        cu = canon_unit(r.get("unit", ""))
+        if not cu or r.get("validation") not in ("numeric_exact", "exact"):
+            continue
+        cur_vals = []
+        for a in parse_accepted(r.get("expected", "")):
+            m = re.search(r"\d+(?:\.\d+)?", normalize_text(a))
+            if m:
+                cur_vals.append(float(m.group()))
+        if not cur_vals:
+            continue
+        attr = _loose(r.get("attribute", ""))
+        for pm in prev_models or []:
+            for sp in pm.get("specs") or []:
+                if canon_unit(sp.get("unit", "")) != cu or _loose(sp.get("attribute", "")) != attr:
+                    continue
+                for v in sp.get("values") or []:
+                    m = re.search(r"\d+(?:\.\d+)?", normalize_text(str(v)))
+                    if not m:
+                        continue
+                    pv = float(m.group())
+                    for cv in cur_vals:
+                        d = round(abs(cv - pv), 2)
+                        if d > 0:
+                            table.setdefault(cu, {}).setdefault(d, (r.get("attribute", ""), cv, pm.get("model", ""), pv))
+    return table
+
+
+def is_delta_value(value: float, unit: str, delta_table: Optional[Dict[str, Dict[float, Tuple]]]) -> Optional[Tuple]:
+    """값이 같은 속성의 |현 제품 정답 − 전작 정답| 과 같으면 (속성, 현 정답, 전작모델, 전작 정답). 아니면 None."""
+    for d, info in ((delta_table or {}).get(canon_unit(unit)) or {}).items():
+        if abs(d - value) < 0.051:
+            return info
+    return None
+
+
 # ── ⑥ 룰 하나에 대한 값 우선 판정 ─────────────────────────────────────
 def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                      unit_synonyms: Dict[str, List[str]],
@@ -363,7 +426,8 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                      label_in_block=None,
                      target_tokens: Optional[List[str]] = None,
                      sibling_models: Optional[List[Dict[str, Any]]] = None,
-                     accept_conversion: bool = False) -> Dict[str, Any]:
+                     accept_conversion: bool = False,
+                     delta_table: Optional[Dict[str, Dict[float, Tuple]]] = None) -> Dict[str, Any]:
     """numeric_exact 룰의 V3 판정.
     [2026-09] accept_conversion=True 면 단위 환산 표기(inch 정답 ↔ mm 노출)를 '확인'이 아닌 PASS 로 판정한다 —
     한국(sec)처럼 법정 계량단위(mm)로만 화면 크기를 적는 사이트용(sec 실크롤: 7.6"→193.0mm 정상 표기가 확인으로 떴음).
@@ -424,7 +488,12 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
             if h["value"] in pv or h["value"] in union:
                 detail.append(f"'{owner}' 비교 문구의 {_fmt_num(h['value'])}{unit} — 전작 정답과 일치(정상)")
             else:
-                prev_fail = (h, owner, pv)
+                dv = is_delta_value(h["value"], unit, delta_table)
+                if dv:  # [2026-11 S4] 'Plus fin de 0,8 mm' — 현 정답 9.7 과 전작 8.9 의 차이값
+                    detail.append(f"'{owner}' 비교 문구의 {_fmt_num(h['value'])}{unit} — {dv[0]} 현 제품 {_fmt_num(dv[1])} 과 "
+                                  f"{dv[2]} {_fmt_num(dv[3])} 의 차이값(증감 표기), 스펙 주장이 아니므로 판정 제외")
+                else:
+                    prev_fail = (h, owner, pv)
             continue
         # ── 검수 대상 제품 소속 숫자 ──
         prev_all = prev_accepted_for(prev_models, None, unit, any_model=True) or []
@@ -450,6 +519,11 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
             #   (PPT 6번: Fold8 PDP 비교 위젯의 Fold6 239g·12.1mm 가 High 오류로 뜨던 오탐).
             prev_label = prev_label or h
         else:
+            dv = is_delta_value(h["value"], unit, delta_table)
+            if dv:  # [2026-11 S4] 모델명 없는 블록의 '14 g 더 가벼움' 류 차이값
+                detail.append(f"{_fmt_num(h['value'])}{unit} — {dv[0]} 현 제품 {_fmt_num(dv[1])} 과 {dv[2]} {_fmt_num(dv[3])} 의 "
+                              f"차이값(증감 표기)으로 판단, 판정 제외")
+                continue
             other_model = mentions_other_galaxy_model(h["block_norm"], target_tokens or [])
             if label_in_block and label_in_block(h["block"]) and not other_model:
                 # [V3.1] 범용 단위(x=줌 배율)는 라벨 동반이어도 FAIL로 단정하지 않는다 —
@@ -480,10 +554,16 @@ def evaluate_numeric(rule: Dict[str, Any], blocks: List[str],
                             f"{_fmt_num(h['value'])}{unit}이 항목 라벨과 함께 표기됨"),
                 "detail": detail + [f"labeled wrong value @ '{h['block'][:60]}'"]}
     if prev_label and not exact_pass_hit:
+        # [2026-11 S2 — 운영 결정] 전작 정답과 '정확히 같은' 값만 있고 현 제품 정답이 없는 경우는
+        # 오류(FAIL)가 아니라 '확인 필요'. 사람이 비교 모듈의 전작 컬럼인지, 현 제품 자리의 오기재인지
+        # 바로 알 수 있게 사유(어느 전작의 값인지·무엇이 없는지)를 적는다.
         h = prev_label
-        return {"status": "fail", "found": h["block"][:120], "confidence": "high",
-                "message": (f"전작 값 혼입 — 현 제품 정답 {'/'.join(accepted_str)}{unit}은 없고 "
-                            f"전작 정답 {_fmt_num(h['value'])}{unit}이 항목 라벨과 함께 표기됨"),
+        owners = prev_owners_of(prev_models, h["value"], unit)
+        who = "/".join(owners) if owners else "전작"
+        return {"status": "warn", "found": h["block"][:120], "confidence": "medium",
+                "message": (f"확인 필요 — {who} 정답값 {_fmt_num(h['value'])}{unit}이 항목 라벨과 함께 있고, "
+                            f"현 제품 정답 {'/'.join(accepted_str)}{unit}은 페이지에 없음. "
+                            f"비교 모듈의 전작 컬럼이면 정상, 현 제품 자리라면 {'/'.join(accepted_str)}{unit}으로 수정"),
                 "detail": detail + [f"labeled predecessor value @ '{h['block'][:60]}'"]}
     if prev_label:
         detail.append(f"전작 정답 {_fmt_num(prev_label['value'])}{unit}도 함께 표기됨 — 현 제품 정답이 있어 비교 모듈(전작 컬럼)로 판단, 판정 제외")

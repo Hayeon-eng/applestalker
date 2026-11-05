@@ -332,7 +332,28 @@ class HybridCrawler:
             r"не найдена|недоступна|nie znaleziono|niedostępna|bulunamad|mevcut değil|ไม่พบหน้า|không tìm thấy)",
             h1_low)
         brand_only_title = bool(re.match(r"^\s*samsung\s*[|｜\-–]\s*samsung\b", title.lower()))
-        if soft404_h1 or (brand_only_title and word_count < 80):
+        # [2026-11 D1] 언어 무관한 에러 페이지 신호 — PPT 4번(LV): H1 이 라트비아어라 위 정규식에 없었고
+        #   GNB/푸터 텍스트 때문에 word_count 도 80 을 넘어 '정상 수집'으로 통과, SEO 오류 7건이 찍혔다.
+        #   ① canonical 또는 최종 URL 이 삼성닷컴 공통 에러 경로(/common/error/, /error/)
+        #   ② 타이틀이 'SAMSUNG | Samsung XX' 브랜드 꼬리뿐이고(제품명 없음) 요청 URL 의 제품 슬러그가
+        #      타이틀·H1·최종 URL 어디에도 없음 — 제품 페이지인데 제품명이 한 군데도 없으면 안내 페이지다.
+        canon = str(data.get("canonical_url") or "").lower()
+        final_low = str(data.get("final_url") or url or "").lower()
+        if re.search(r"/(common/)?error/?(\?|$)", canon) or re.search(r"/(common/)?error/?(\?|$)", final_low):
+            return (f"soft 404 — error page (canonical/final URL = {canon or final_low}) · "
+                    f"registry URL 확인 필요: {url}")
+        if brand_only_title:
+            slug = [s for s in url.split("?")[0].split("#")[0].rstrip("/").split("/") if s]
+            slug = slug[-1].lower() if slug else ""
+            slug_words = [w for w in re.split(r"[-_]", slug) if len(w) >= 3 and not w.isdigit()]
+            hay = f"{title} {h1}".lower()
+            product_seen = bool(slug_words) and any(w in hay for w in slug_words)
+            # H1 이 비라틴(아랍·타이·키릴 등) 현지어면 슬러그 단어 대조가 불가 → 기존 기준(word_count)만 적용
+            nonlatin_h1 = bool(re.search(r"[\u0600-\u06FF\u0E00-\u0E7F\u0400-\u04FF\u0590-\u05FF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF\u0900-\u097F]", h1))
+            if word_count < 80 or (not product_seen and not nonlatin_h1):
+                return (f"soft 404 — page not available (title '{title or '?'}', h1 '{h1[:60] or '?'}', "
+                        f"제품명 미노출) · registry URL 확인 필요: {url}")
+        if soft404_h1:
             return (f"soft 404 — page not available (title '{title or '?'}', h1 '{h1[:60] or '?'}') · "
                     f"registry URL 확인 필요: {url}")
 

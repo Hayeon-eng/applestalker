@@ -519,7 +519,22 @@ def score_html_qa(html: str, schema_rules: Dict[str, Any], schema_result: Dict[s
             continue
         a1 = axis1_info_adequacy(schema_result, name, rule_props=rule_props_by_block.get(name))
         if a1 is None:
-            continue  # 페이지에 없는 타입 → 해당없음, 평균에서 제외
+            # [2026-11 G6 — 운영 결정] 있어야 할 블록(조건부 아님)이 페이지에 없으면 0점으로 평균·속성 집계에 넣는다.
+            #   기존엔 '평균에서 제외'라 WebPage 하나뿐인 에러 페이지가 88.5% 로 나왔다(PPT 4번).
+            fnd = next((x for x in schema_result.get("findings", []) if x.get("block") == name), None)
+            blk = next((b for b in (schema_rules.get("blocks") or []) if b.get("name") == name), None)
+            if fnd is not None and fnd.get("code") == "schema.missing" and fnd.get("status") == "fail" and blk is not None:
+                req = list(blk.get("required_properties") or [])
+                per_type[name] = {
+                    "axis1_info_adequacy_pct": 0.0, "axis1_gate_triggered": True, "axis2_gate": 1,
+                    "rich_result_status": RICH_RESULT_STATUS.get(name, "해당없음"), "final_pct": 0.0,
+                    "traffic_light": "red", "missing_block": True,
+                    "required_total": len(req), "required_ok": 0,
+                    "recommended_total": 0, "recommended_ok": 0,
+                    "missing_required": req, "weak_recommended": [],
+                    "prop_detail": [{"prop": p, "score": 0.0} for p in req],
+                }
+            continue  # 조건부 블록 없음·룰에 없는 타입 → 해당없음, 평균에서 제외
         rich_status = RICH_RESULT_STATUS.get(name, "해당없음")
         raw_axis2_gate = axis2.get("by_type", {}).get(name, {}).get("gate", 1)
         apply_axis2 = rich_status in ("정식", "제한적(AR만)")

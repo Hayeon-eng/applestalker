@@ -360,6 +360,7 @@ def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
     header = [str(c or "").strip().lower() for c in rows[0]]
     idx = {c: header.index(c) for c in _URL_COLS if c in header}
     added = 0
+    updated = 0
     skipped_dupe = 0
     # [2026-09] replace_product=true 면 업로드 파일에 등장하는 (product, page_type) 조합의 기존 항목을 먼저 지운다 —
     # finder API 로 다시 받은 워치 URL 처럼 '통째로 교체'가 필요할 때(tools/registry_from_collector.py 산출물).
@@ -384,14 +385,18 @@ def qb_sites_upload(payload: Dict[str, Any] = Body(...)):
         if not url:
             continue
         sc = g("sitecode") or qb_core._sitecode_from_url(url)
+        prod, pt = g("product") or "galaxy-z-fold8", g("page_type") or "PDP"
+        # [2026-11] mode=upsert: 같은 사이트·제품·페이지타입의 기존 URL 을 파일의 URL 로 교체(신모델 URL 갱신용)
+        if (payload.get("mode") == "upsert") and not any(e["sitecode"] == sc.lower() and e.get("url") == url for e in _registry.all()):
+            tgt = next((e for e in _registry.all() if e["sitecode"] == sc.lower() and e.get("product") == prod and (e.get("page_type") or "PDP") == pt), None)
+            if tgt:
+                _registry.remove(sc, tgt["url"]); updated += 1
         try:
-            _registry.add(sc, url, region=g("region"), country=g("country"),
-                          lang=g("lang"), product=g("product") or "galaxy-z-fold8",
-                          page_type=g("page_type") or "PDP")
+            _registry.add(sc, url, region=g("region"), country=g("country"), lang=g("lang"), product=prod, page_type=pt)
             added += 1
         except ValueError:
             skipped_dupe += 1  # 이미 (sitecode, url) 그대로 존재 — 새 행을 또 만들지 않음
     _registry.save()
-    return {"ok": True, "added": added, "skipped_duplicate": skipped_dupe, "removed": removed, "count": len(_registry.all())}
+    return {"ok": True, "added": added - updated, "updated": updated, "skipped_duplicate": skipped_dupe, "removed": removed, "count": len(_registry.all())}
 
 

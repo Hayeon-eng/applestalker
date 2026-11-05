@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
@@ -213,3 +214,140 @@ def qb_spec_rules_dict_suggest(payload: Dict[str, Any] = Body(...)):
     rs = _spec_rule_db.load(product) or {}
     attributes = sorted({r.get("attribute", "") for r in rs.get("rules", []) if r.get("attribute")})
     return dict_ai_suggest.suggest(alias, attributes, lang_hint=lang)
+
+
+# ════════════════════════════════════════════════════════════════
+# [2026-11 신규] 스키마 정답값(schema_values) 엑셀 템플릿 — 내려받기/내보내기/업로드/삭제
+#   PPT 4번: "스키마 룰은 언팩마다 바뀌는데 매번 새롭게 업데이트할 수 있는 양식" — Spec Rule DB 와 같은 왕복 방식.
+# ════════════════════════════════════════════════════════════════
+import schema_values_xlsx as _sv_xlsx
+import runner as _runner_mod
+
+
+@qb_router.get("/schema-values/products")
+def qb_schema_values_products():
+    vals = _runner_mod._schema_values()
+    up = _sv_xlsx.load_uploaded()
+    return {"products": sorted(vals.keys()), "uploaded": sorted(up.keys())}
+
+
+@qb_router.get("/schema-values/template.xlsx")
+def qb_schema_values_template(example: str = Query("galaxy-z-fold8")):
+    content = _sv_xlsx.build_template_xlsx(example, _runner_mod._schema_values())
+    return StreamingResponse(iter([content]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=qubi_schema_values_template.xlsx"})
+
+
+@qb_router.get("/schema-values/export.xlsx")
+def qb_schema_values_export(product: str = Query(...)):
+    try:
+        content = _sv_xlsx.build_export_xlsx(product, _runner_mod._schema_values())
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return StreamingResponse(iter([content]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=qubi_schema_values_{product}.xlsx"})
+
+
+@qb_router.post("/schema-values/upload")
+def qb_schema_values_upload(payload: Dict[str, Any] = Body(...)):
+    """body: {b64: dataURL|base64}. 엑셀 파싱 → 검증 → schema_values.uploaded.json 저장(제품키 단위 덮어쓰기)."""
+    import base64
+    b64 = (payload.get("b64") or "")
+    if not b64:
+        raise HTTPException(400, "b64 가 필요합니다.")
+    if "," in b64:
+        b64 = b64.split(",", 1)[1]
+    try:
+        parsed, warnings = _sv_xlsx.parse_xlsx(base64.b64decode(b64))
+    except ValueError as e:
+        raise HTTPException(400, f"양식 오류 — {e}")
+    except Exception as e:
+        raise HTTPException(400, f"엑셀 파싱 실패 — {e}")
+    info = _sv_xlsx.save_uploaded(parsed)
+    _runner_mod.reset_schema_values_cache()
+    # 검증: 실제 룰에 적용했을 때 블록별 id_pattern/기대값 키가 채워지는지 확인해 돌려준다
+    applied = {}
+    for prod in parsed:
+        try:
+            base = _runner_mod.load_rules("M3", page_type="PDP", market_product=prod)["schema"]
+            applied[prod] = [{"block": b["name"], "id_pattern": b.get("id_pattern"), "expected_keys": list((b.get("expected_values") or {}).keys())}
+                             for b in base.get("blocks", [])]
+        except Exception as e:
+            applied[prod] = f"적용 확인 실패: {e}"
+    return {"ok": True, **info, "warnings": warnings, "applied": applied}
+
+
+@qb_router.delete("/schema-values/uploaded")
+def qb_schema_values_delete(product: str = Query(...)):
+    ok = _sv_xlsx.delete_uploaded(product)
+    _runner_mod.reset_schema_values_cache()
+    if not ok:
+        raise HTTPException(404, f"업로드된 값에 '{product}' 가 없습니다.")
+    return {"ok": True, "product": product}
+
+
+# ════════════════════════════════════════════════════════════════
+# [2026-11 신규] 제품 등록 워크북(템플릿 ①) — 제품정보·URL·스펙 룰·스키마 정답값을 엑셀 1개로
+# ════════════════════════════════════════════════════════════════
+import product_pack_xlsx as _pack
+import product_master as _pmaster
+from qb_core import _registry as _pack_registry
+
+_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _xlsx_response(content: bytes, filename: str):
+    return StreamingResponse(iter([content]), media_type=_XLSX,
+                             headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+@qb_router.get("/product-pack/products")
+def qb_product_pack_products():
+    vals = _runner_mod._schema_values()
+    spec_products = [p.get("product") for p in (_spec_rule_db.list_products() or []) if isinstance(p, dict)]
+    reg_products = sorted({e.get("product") for e in _pack_registry.all() if e.get("product")})
+    keys = sorted({*vals.keys(), *[p for p in spec_products if p], *reg_products, *_pmaster.load().keys()})
+    return {"products": [{"product": k, "master": _pmaster.get(k), "has_spec": k in spec_products,
+                          "has_schema": k in vals, "url_count": sum(1 for e in _pack_registry.all() if e.get("product") == k)} for k in keys]}
+
+
+@qb_router.get("/product-pack/template.xlsx")
+def qb_product_pack_template(example: str = Query("galaxy-z-fold8")):
+    return _xlsx_response(_pack.build_template(example, _runner_mod._schema_values(), _pack_registry), "qubi_product_pack_template.xlsx")
+
+
+@qb_router.get("/product-pack/export.xlsx")
+def qb_product_pack_export(product: str = Query(...)):
+    return _xlsx_response(_pack.build_export(product, _runner_mod._schema_values(), _pack_registry), f"qubi_product_pack_{product}.xlsx")
+
+
+@qb_router.get("/product-pack/draft.xlsx")
+def qb_product_pack_draft(from_product: str = Query(..., alias="from"), to_product: str = Query(..., alias="to"), label: str = Query("")):
+    """신모델 전환 초안 — 이전 제품키 → 새 제품키(슬러그). 노랑 칸만 채워 업로드."""
+    if not re.match(r"^[a-z0-9\-]+$", to_product):
+        raise HTTPException(400, "새 제품키는 URL 슬러그 형식(소문자·숫자·하이픈)이어야 합니다. 예: galaxy-z-fold9")
+    return _xlsx_response(_pack.build_draft(from_product, to_product, label, _runner_mod._schema_values(), _pack_registry),
+                          f"qubi_product_pack_draft_{to_product}.xlsx")
+
+
+@qb_router.post("/product-pack/upload")
+def qb_product_pack_upload(payload: Dict[str, Any] = Body(...)):
+    """body: {b64, url_mode?: add|upsert|replace_product, version?}"""
+    import base64
+    b64 = payload.get("b64") or ""
+    if not b64:
+        raise HTTPException(400, "b64 가 필요합니다.")
+    if "," in b64:
+        b64 = b64.split(",", 1)[1]
+    mode = payload.get("url_mode") or "add"
+    if mode not in ("add", "upsert", "replace_product"):
+        raise HTTPException(400, "url_mode 는 add / upsert / replace_product 중 하나")
+    try:
+        res = _pack.parse_and_apply(base64.b64decode(b64), _pack_registry, url_mode=mode, version=payload.get("version") or "")
+    except ValueError as e:
+        raise HTTPException(400, f"양식 오류 — {e}")
+    except Exception as e:
+        raise HTTPException(400, f"반영 실패 — {e}")
+    return {"ok": True, **res}

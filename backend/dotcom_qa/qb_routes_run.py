@@ -145,6 +145,11 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
                 except Exception as e:
                     err = str(e)
                 try:
+                    # [2026-11 D1] 크롤러가 에러 페이지/soft-404 로 판정한 URL 은 HTML 이 있어도 검수하지 않는다.
+                    #   기존엔 html 만 있으면 그대로 검수해 에러 페이지의 타이틀·canonical·스키마가 오류 7건으로 찍혔다
+                    #   (PPT 4번 LV). 결과는 '페이지 없음 — URL 점검 필요' 1행으로, 점수 분모에서도 제외(not_checked).
+                    if html and err and ("soft 404" in str(err) or "error page" in str(err)):
+                        raise RuntimeError(f"페이지 없음(에러 페이지) — URL 점검 필요 · {err}")
                     if html:
                         row = runner.run_site(site, html, rules_for(pt, mp), page_type=pt,
                                               rendered_by=rendered_by, mode=mode,
@@ -171,13 +176,17 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
                     else:
                         raise RuntimeError(err or "no html")
                 except Exception as e:
+                    is_missing = "페이지 없음" in str(e) or "soft 404" in str(e) or "error page" in str(e)
                     row = {"sitecode": site.get("sitecode"), "url": url, "region": site.get("region"),
                            "country": site.get("country"), "page_type": pt, "product": mp,
                            "http_status": http_status, "final_url": final_url, "not_checked": True,  # [D8]
+                           "url_check_needed": is_missing,   # [2026-11 D1] 화면 'URL 점검 필요' 목록용
                            "schema": {"summary": {}, "findings": [
-                               {"block": "(collection failed)", "status": "fail",
-                                "as_is": f"HTML collection failed{(' — ' + str(e)) if str(e) else ''}",
-                                "to_be": "Check blocking / unrendered JS / timeout, then retry"}]},
+                               {"block": "(페이지 없음)" if is_missing else "(collection failed)", "status": "na" if is_missing else "fail",
+                                "as_is": (f"에러 페이지로 응답 — 등록된 URL 이 유효하지 않음. {str(e)}" if is_missing
+                                          else f"HTML collection failed{(' — ' + str(e)) if str(e) else ''}"),
+                                "to_be": ("레지스트리 URL 을 실제 제품 페이지 URL 로 갱신 후 재검수" if is_missing
+                                          else "Check blocking / unrendered JS / timeout, then retry")}]},
                            "copy": {"summary": {}, "findings": []},
                            "html_qa": None}
                     ok = False
@@ -199,6 +208,10 @@ async def _run_batch(product, sitecodes, run_id, page_types=None, products=None,
             print(f"[qb_routes_run] seo duplicate check skip: {e}")
         qb_core.LAST_RESULTS = final
         summary = qa_report.summary_counts(final)
+        # [2026-11 D1] URL 점검 필요 목록 — 에러 페이지로 응답한 등록 URL (사람이 레지스트리를 고칠 대상)
+        summary["url_check_needed"] = [{"sitecode": r.get("sitecode"), "url": r.get("url"), "final_url": r.get("final_url"),
+                                        "reason": ((r.get("schema") or {}).get("findings") or [{}])[0].get("as_is", "")}
+                                       for r in final if r.get("url_check_needed")]
 
         # ── Dictionary Review 집계(보조 기능) — summary에는 영향 없음 ──
         try:

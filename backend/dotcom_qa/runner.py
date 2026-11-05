@@ -113,6 +113,13 @@ def schema_set_for(page_type: str, market_product: Optional[str], url: str = "")
         return None  # [D1] Specs 는 별도 Word 세트가 없어 스키마 검사 제외(HTML/SEO 검사만)
     if page_type == "Compare":
         return "compare"
+    try:   # [2026-11] 제품 마스터(제품 등록 워크북)에 등록된 세트가 있으면 슬러그 추정보다 우선
+        import product_master
+        ov = product_master.schema_set_override(market_product)
+        if ov:
+            return ov
+    except Exception:
+        pass
     return "flagship" if is_smartphone(market_product, url) else "simple"
 
 
@@ -132,7 +139,18 @@ def _schema_values():
             for p in sorted(glob.glob(os.path.join(_HERE, "schema_values.part*.json"))):
                 merged.update(json.load(open(p, encoding="utf-8")))
             _SCHEMA_VALUES_CACHE = merged
+        # [2026-11 신규] 엑셀 템플릿으로 업로드된 값(schema_values.uploaded.json)이 seed 를 제품키 단위로 덮어쓴다
+        try:
+            import schema_values_xlsx
+            _SCHEMA_VALUES_CACHE.update(schema_values_xlsx.load_uploaded())
+        except Exception:
+            pass
     return _SCHEMA_VALUES_CACHE
+
+
+def reset_schema_values_cache():
+    global _SCHEMA_VALUES_CACHE
+    _SCHEMA_VALUES_CACHE = None
 
 
 def _apply_product_values(schema_rules: Dict[str, Any], market_product: str,
@@ -277,6 +295,16 @@ def load_rules(product: str = "M3", page_type: str = "PDP", market_product: str 
     entry = specs_all.get(mp) or (specs_all.get("galaxy-s26-ultra") if str(mp).startswith(("galaxy-s", "galaxy-z")) else None) or {}
     ks = entry.get("specs", []) if isinstance(entry, dict) else (entry or [])
     label = entry.get("label", mp) if isinstance(entry, dict) else mp
+    try:   # [2026-11] 제품 마스터 우선: 표시명·고유명사
+        import product_master
+        pm = product_master.get(mp)
+        if pm.get("label"):
+            label = pm["label"]
+        pn = product_master.proper_nouns_override(mp)
+        if pn is not None:
+            cr = {**(cr or {}), "proper_nouns": pn}
+    except Exception:
+        pass
     return {"schema": sr, "copy": cr, "key_specs": ks, "product_label": label,
             "market_product": mp, "page_type": page_type, "schema_set": schema_set}
 

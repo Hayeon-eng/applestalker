@@ -32,8 +32,8 @@ STATUS_GUIDE: Dict[str, Dict[str, str]] = {
         "to_be": "PC 프로그램(exe)에서 재시도하세요(사내 인증서 자동 인식). 계속되면 config.json 의 ca_bundle_path 지정 또는 잠시 후 재수집.",
         "who": "운영"},
     "기타": {
-        "as_is": "중복 @id, Google 리치결과 필수 속성 누락, 또는 스키마가 하나도 없습니다.",
-        "to_be": "중복 @id 는 하나로 합치고, 누락된 필수 속성(아래 표시)을 채우세요. 스키마가 없으면 페이지에 JSON-LD 를 추가하세요.",
+        "as_is": "같은 @id 에 내용이 다른 정의, Google 리치결과 필수 속성 누락(정의 노드 기준), 또는 스키마가 하나도 없습니다.",
+        "to_be": "같은 @id 로 다른 내용이 정의됐으면 하나로 합치거나 @id 를 분리하고, 누락된 필수 속성(아래 표시)을 채우세요. 스키마가 없으면 페이지에 JSON-LD 를 추가하세요.",
         "who": "개발"},
 }
 
@@ -67,7 +67,7 @@ def cell_guide(cell: Dict[str, Any]) -> Dict[str, Any]:
         g["fixes"].append({"block": m.get("type"), "category": "rich_missing", "where": ", ".join(m.get("missing", [])),
                            "to_be": f"{m.get('type')} 에 필수 속성({', '.join(m.get('missing', []))})을 추가."})
     for d in cell.get("duplicate_ids", [])[:5]:
-        g["fixes"].append({"block": "@id", "category": "duplicate", "where": d, "to_be": "같은 @id 노드를 하나로 합치기."})
+        g["fixes"].append({"block": "@id", "category": "duplicate", "where": d, "to_be": "같은 @id 로 서로 다른 내용이 정의됨 — 하나로 합치거나 다른 노드면 @id 를 #suffix 로 분리."})
     return g
 
 
@@ -153,7 +153,7 @@ def _reason_en(r: Dict[str, Any]) -> str:
         return "No JSON-LD found"
     bits = []
     if r.get("duplicate_ids"):
-        bits.append(f"{len(r['duplicate_ids'])} duplicate @id")
+        bits.append(f"{len(r['duplicate_ids'])} same @id with different content")
     if r.get("rich_missing"):
         types = ", ".join(f"{m['type']}({','.join(m['missing'])})" for m in r["rich_missing"][:3])
         bits.append(f"missing required rich-result properties: {types}")

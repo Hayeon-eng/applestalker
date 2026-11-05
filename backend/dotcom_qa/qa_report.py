@@ -63,10 +63,19 @@ def _section_block_schema_copy(page_results, tab):
     pages_with_issue = len({r["url"] for r in rows if r.get("url")})
     pct = round(100 * (total_pages - pages_with_issue) / total_pages, 1) if total_pages else None
     summary_html = ""
-    if total_pages:
+    # [2026-11 D1] 에러 페이지로 응답한 URL 은 검수 대상(분모)에서 빼고, 'URL 점검 필요' 로 따로 알린다
+    url_check = [p for p in page_results if p.get("url_check_needed")]
+    checked = [p for p in page_results if not p.get("not_checked")]
+    total_pages = len(checked)
+    pct = round(100 * (total_pages - pages_with_issue) / total_pages, 1) if total_pages else None
+    if total_pages or url_check:
         color = "#1F9E5C" if (pct or 0) >= 90 else ("#E0A008" if (pct or 0) >= 70 else "#D8362F")
-        summary_html = ("<div style='font-size:12.5px;color:#475467;margin-bottom:8px'>이슈 없는 페이지 <b style='color:" + color + "'>" + str(pct) + "%</b>"
+        summary_html = ("<div style='font-size:12.5px;color:#475467;margin-bottom:8px'>이슈 없는 페이지 <b style='color:" + color + "'>" + (str(pct) if pct is not None else "-") + "%</b>"
                          " · 오류 " + str(fail) + "건 · 확인 " + str(warn) + "건 (검수한 페이지 " + str(total_pages) + "개 중 " + str(pages_with_issue) + "개에서 발견)</div>")
+        if url_check and tab == "schema":
+            summary_html += ("<div style='font-size:12px;color:#8A6D00;background:#FFF6DA;border-radius:8px;padding:6px 10px;margin-bottom:8px'>"
+                             "<b>URL 점검 필요 " + str(len(url_check)) + "건</b> — 등록된 URL 이 에러 페이지로 응답해 검수에서 제외했습니다. 레지스트리 URL 을 갱신해 주세요: "
+                             + ", ".join(escape(str(p.get("sitecode", ""))) for p in url_check[:20]) + ("…" if len(url_check) > 20 else "") + "</div>")
     by_site = {}
     for r in rows:
         by_site.setdefault(r["sitecode"], []).append(r)
@@ -180,12 +189,19 @@ def build_email_draft(page_results, when="", sections=None, static_run=None):
             + ins_html + blocks + "</div>")
     qa_label = " + ".join(section_labels) if section_labels else "QA"
     body = "".join(section_htmls) or "<p>선택한 항목이 없습니다.</p>"
+    # [2026-11] 맨 위 '요약판' 블록 — 엑셀 첫 시트·PPT 와 같은 데이터
+    summary_block = ""
+    try:
+        import qa_exec_summary, qa_summary_render
+        summary_block = qa_summary_render.email_block_html(qa_exec_summary.build(page_results, static_run if "static" in sections else None, when))
+    except Exception:
+        summary_block = ""
     return ("<div style='max-width:720px;margin:0 auto;background:#F4F5F7;padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif'>"
             "<div style='background:#fff;border-radius:12px;padding:24px;border:1px solid #EAECF0'>"
             "<div style='font-size:12px;color:#667085;font-weight:700'>qaBee 🐝 — " + escape(qa_label) + " 리포트</div>"
             "<h1 style='font-size:22px;margin:6px 0 2px'>" + escape(when or datetime.now().strftime("%Y-%m-%d %H:%M")) + "</h1>"
             "<div style='font-size:13px;color:#667085'>선택 영역 오류 " + str(total_fail) + "건</div>"
-            "<div style='margin-top:14px'>" + body + "</div></div></div>")
+            "<div style='margin-top:14px'>" + summary_block + body + "</div></div></div>")
 
 
 if __name__ == "__main__":

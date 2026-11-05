@@ -189,6 +189,27 @@ def _unit_accepted_union(rules: List[Dict], prev_models: List[Dict]) -> Dict[str
     return union
 
 
+# ── 페어 값에서 '이 룰의 단위가 붙은 숫자'만 고르기 ───────────────────────
+def _pair_numbers(value: str, unit: str, unit_synonyms: Dict[str, List[str]]) -> Tuple[List[float], str]:
+    """[2026-11 S1] 구조 페어 값의 판정 대상 숫자.
+    기존엔 첫 숫자(_num)만 봐서 '153,5 × 68,1 × 12,1 mm'(가로×세로×두께)의 153.5 를 두께로 판정해
+    FAIL High 를 냈다(PPT 2번 재현). 규칙:
+      · 값 안에 룰 단위가 붙은 숫자가 있으면 그것들만(치수 묶음은 단위가 끝에 붙은 두께 12.1/5.6 만 해당)
+      · 단위 붙은 숫자가 없고 숫자가 1개면 그 숫자(단위 생략 표기: '239')
+      · 단위 붙은 숫자가 없고 숫자가 여러 개면 판정 보류('ambiguous') — 어느 숫자가 이 항목인지 알 수 없음
+    반환: (숫자 목록, 'unit'|'single'|'ambiguous'|'none')"""
+    hits = svm.scan_unit_hits([value], unit, unit_synonyms) if unit else []
+    hits = [h for h in hits if not h.get("delta")]
+    if hits:
+        return (list(dict.fromkeys(h["value"] for h in hits)), "unit")
+    nums = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", svm.normalize_text(value))]
+    if len(nums) == 1:
+        return (nums, "single")
+    if not nums:
+        return ([], "none")
+    return (nums, "ambiguous")
+
+
 # ── Compare 컬럼 귀속 ────────────────────────────────────────────────
 def _pair_owner(pair: Dict[str, Any], target_tokens: List[str],
                 prev_tokens: List[Tuple[str, str]]) -> Optional[str]:
@@ -231,6 +252,7 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
     sibling_models: List[Dict] = ruleset.get("sibling_models", []) or []
     unit_synonyms = svm.build_unit_synonyms(ruleset)
     unit_union = _unit_accepted_union(rules, prev_models)
+    delta_table = svm.build_delta_table(rules, prev_models)   # [2026-11 S4] 같은 속성의 |현 − 전작| 차이값
     prev_tokens = svm.model_tokens(prev_models)
     # 구조 페어(Compare 표 컬럼) 귀속에도 형제 토큰을 포함 — 형제 컬럼 값이 대상 값으로 오인되지 않게
     owner_tokens = svm.model_tokens(prev_models + sibling_models)
@@ -317,25 +339,34 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             v_norm = svm.normalize_text(p["value"])
             if owner:  # 전작 컬럼/문구 — 전작 정답과 대조
                 pv = svm.prev_accepted_for(prev_models, owner, rule.get("unit", ""))
-                pn = _num(p["value"])
-                if pv is None or pn is None:
-                    trace.append({"step": "pair", "detail": f"[{owner}] '{p['label']}' → '{p['value'][:40]}' — 전작 스펙 미등록/숫자 없음, 보류"})
+                pns, how = _pair_numbers(p["value"], rule.get("unit", ""), unit_synonyms)
+                if pv is None or not pns or how == "ambiguous":
+                    trace.append({"step": "pair", "detail": f"[{owner}] '{p['label']}' → '{p['value'][:40]}' — 전작 스펙 미등록/숫자 없음/묶음값, 보류"})
                     continue
-                if pn in pv:
-                    trace.append({"step": "pair", "detail": f"[{owner}] {pn:g}{rule.get('unit','')} — 전작 정답 일치"})
-                else:
-                    pair_verdict = ("fail", p["value"],
-                                    f"전작 오기재 — '{owner}'의 정답은 {'/'.join(f'{v:g}' for v in pv)}{rule.get('unit','')}인데 {pn:g}로 표기됨", p)
+                for pn in pns:
+                    if pn in pv:
+                        trace.append({"step": "pair", "detail": f"[{owner}] {pn:g}{rule.get('unit','')} — 전작 정답 일치"})
+                    elif svm.is_delta_value(pn, rule.get("unit", ""), delta_table):
+                        trace.append({"step": "pair", "detail": f"[{owner}] {pn:g}{rule.get('unit','')} — 현 제품·전작 정답의 차이값(증감 표기), 판정 제외"})
+                    else:
+                        pair_verdict = ("fail", p["value"],
+                                        f"전작 오기재 — '{owner}'의 정답은 {'/'.join(f'{v:g}' for v in pv)}{rule.get('unit','')}인데 {pn:g}로 표기됨", p)
+                        trace.append({"step": "pair", "detail": f"[{owner}] {pn:g} ≠ 전작 정답 → FAIL"})
+                        break
+                if pair_verdict and pair_verdict[0] == "fail":
                     break
                 continue
             # 검수 대상 제품의 페어
             hit_ok = any(svm.normalize_text(a) and svm.normalize_text(a) in v_norm for a in accepted_str)
-            if not hit_ok and rule["validation"] == "numeric_exact":
-                pn = _num(p["value"])
-                acc_nums = [_num(a) for a in accepted_str]
-                hit_ok = pn is not None and pn in [a for a in acc_nums if a is not None]
+            pns, how = ([], "none")
+            if rule["validation"] == "numeric_exact":
+                pns, how = _pair_numbers(p["value"], rule.get("unit", ""), unit_synonyms)
+                acc_nums = [n for n in (_num(a) for a in accepted_str) if n is not None]
+                if not hit_ok:
+                    hit_ok = any(pn in acc_nums for pn in pns)
             if hit_ok:
                 pair_verdict = ("pass", p["value"], "OK", p)
+                trace.append({"step": "pair", "detail": f"'{p['label']}' → '{p['value'][:40]}' — 정답 포함 → PASS"})
                 break
             # [V3.1] 페어 불일치 ≠ 곧바로 오류. "값 없음 ≠ 오류" 원칙은 구조 페어에도
             # 적용된다 — 라벨 옆 서술이 다르다는 것만으로는 '틀린 값'의 증거가 아니다.
@@ -358,26 +389,46 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                 # [V3.2] 숫자 룰의 페어 불일치도 "실제 다른 숫자"가 있을 때만 오류다.
                 # Compare 표에서 라벨 셀 텍스트("커버 디스플레이 크기", "무게")가 값으로
                 # 잡히는 경우 숫자가 없다 — 그건 오기재 증거가 아니라 미노출이므로 보류.
-                pn = _num(p["value"])
-                if pn is None:
+                # [2026-11 S1] 숫자는 '이 룰의 단위가 붙은 것'만 본다(치수 묶음 153.5×68.1×12.1mm → 12.1).
+                if how in ("none", "ambiguous"):
                     trace.append({"step": "pair", "detail":
-                                  f"'{p['label']}' → '{p['value'][:40]}' — 숫자 없음(라벨성 텍스트), 오기재 증거 아님 → 보류"})
+                                  f"'{p['label']}' → '{p['value'][:40]}' — "
+                                  + ("숫자 없음(라벨성 텍스트)" if how == "none" else "단위 없는 숫자 여러 개(어느 숫자가 이 항목인지 불명)")
+                                  + ", 오기재 증거 아님 → 보류"})
                     break
                 cu = svm.canon_unit(rule.get("unit", ""))
                 prev_vals = svm.prev_accepted_for(prev_models, None, cu, any_model=True) or []
-                if pn in prev_vals:
-                    if prev_candidate is None:
-                        prev_candidate = ("warn", p["value"],
-                                          f"확인 필요 — '{rule['attribute']}'에 전작 정답 {pn:g}{rule.get('unit','')}이 표기됨 "
-                                          f"(현 제품 정답: {rule['expected']}). 비교 모듈의 전작 컬럼이면 정상", p)
-                    trace.append({"step": "pair", "detail": f"'{p['label']}' → {pn:g} = 전작 정답 — 비교 모듈 가능성, 보류 후 계속 탐색"})
+                judged = None
+                prev_in_pair = [x for x in pns if x in prev_vals]
+                for pn in pns:
+                    if pn in prev_vals:
+                        owners = []
+                        for x in prev_in_pair:
+                            owners += [o for o in svm.prev_owners_of(prev_models, x, cu) if o not in owners]
+                        who = "/".join(owners) if owners else "전작"
+                        shown = "/".join(f"{x:g}" for x in prev_in_pair)
+                        if prev_candidate is None:
+                            prev_candidate = ("warn", p["value"],
+                                              f"확인 필요 — '{rule['attribute']}'에 {who} 정답값 {shown}{rule.get('unit','')}이 표기되고 "
+                                              f"현 제품 정답 {rule['expected']}{(' ' + rule['unit']) if rule.get('unit') else ''}은 페이지에 없음. "
+                                              f"비교 모듈의 전작 컬럼이면 정상, 현 제품 자리라면 수정", p)
+                        trace.append({"step": "pair", "detail": f"'{p['label']}' → {pn:g} = {who} 정답 — 비교 모듈 가능성, 보류 후 계속 탐색"})
+                        judged = judged or "prev"
+                    elif svm.is_delta_value(pn, cu, delta_table):
+                        trace.append({"step": "pair", "detail": f"'{p['label']}' → {pn:g} — 현 제품·전작 정답의 차이값(증감 표기), 판정 제외"})
+                        judged = judged or "delta"
+                    elif pn in unit_union.get(cu, set()):
+                        pair_verdict = ("warn", p["value"],
+                                        f"확인 필요 — 같은 단위의 다른 스펙 정답값 {pn:g}{rule.get('unit','')}이 이 항목에 표기됨 (행/값 배치 확인)", p)
+                        trace.append({"step": "pair", "detail": f"'{p['label']}' → {pn:g} = 같은 단위 다른 스펙 정답 → 확인 필요"})
+                        judged = "union"; break
+                    else:
+                        pair_verdict = ("fail", p["value"],
+                                        f"오기재 — 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule['unit'] else ''}이 아닌 {pn:g}이 항목에 표기됨", p)
+                        trace.append({"step": "pair", "detail": f"'{p['label']}' → {pn:g} ≠ 정답·전작·차이값 어디에도 없음 → FAIL"})
+                        judged = "fail"; break
+                if judged in ("prev", "delta"):
                     continue
-                elif pn in unit_union.get(cu, set()):
-                    pair_verdict = ("warn", p["value"],
-                                    f"확인 필요 — 같은 단위의 다른 스펙 정답값 {pn:g}{rule.get('unit','')}이 이 항목에 표기됨 (행/값 배치 확인)", p)
-                else:
-                    pair_verdict = ("fail", p["value"],
-                                    f"오기재 — 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule['unit'] else ''}이 아닌 {pn:g}이 항목에 표기됨", p)
                 break
             if rule["validation"] in ("exact", "prefix"):
                 # [2026-07] '24 hours'처럼 숫자+단위인 exact 룰은 여기서 문자열 충돌로 FAIL시키지
@@ -433,16 +484,15 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
             res = svm.evaluate_numeric(rule, blocks, unit_synonyms, prev_models,
                                        unit_union, label_in_block=label_in_block,
                                        target_tokens=target_tokens, sibling_models=sibling_models,
-                                       accept_conversion=accept_conv)
+                                       accept_conversion=accept_conv, delta_table=delta_table)
             for d in res.get("detail", []):
                 trace.append({"step": "value-scan", "detail": d})
             if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
                 res = {"status": "pass", "found": pair_verdict[1], "confidence": "high", "message": "OK"}
             elif res["status"] == "na" and pair_verdict is not None and pair_verdict is prev_candidate:
-                # [2026-11 C2] 현 제품 정답이 페이지 어디에도 없고 전작 값만 라벨과 함께 있음 → 전작 값 혼입(기존 P4 규칙 유지)
-                res = {"status": "fail", "found": pair_verdict[1], "confidence": "high",
-                       "message": f"전작 값 혼입 — 현 제품 정답 '{rule['expected']}'{(' ' + rule['unit']) if rule.get('unit') else ''}은 없고 "
-                                  f"전작 값 '{pair_verdict[1][:30]}'만 표기됨"}
+                # [2026-11 S2 — 운영 결정] 현 제품 정답은 없고 전작 정답값만 라벨과 함께 있음 → 오류가 아닌
+                # '확인 필요'. 사유(어느 전작 값·무엇이 없음·어느 경우 정상/수정)는 prev_candidate 메시지에 있다.
+                res = {"status": "warn", "found": pair_verdict[1], "confidence": "medium", "message": pair_verdict[2]}
             elif res["status"] == "na" and pair_verdict and pair_verdict[0] == "warn":
                 res = {"status": "warn", "found": pair_verdict[1], "confidence": "medium",
                        "message": pair_verdict[2]}
@@ -469,7 +519,7 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
                     res = svm.evaluate_numeric(num_rule, blocks, unit_synonyms, prev_models,
                                                unit_union, label_in_block=label_in_block,
                                                target_tokens=target_tokens, sibling_models=sibling_models,
-                                               accept_conversion=accept_conv)
+                                               accept_conversion=accept_conv, delta_table=delta_table)
                     for d in res.get("detail", []):
                         trace.append({"step": "value-scan", "detail": d})
                     if res["status"] == "na" and pair_verdict and pair_verdict[0] == "pass":
@@ -554,6 +604,33 @@ def run(html: str, ruleset: Dict[str, Any], page_type: str = "PDP",
         # 알 수 없는 검증 타입 — 판정하지 않음
         item["message"] = f"unknown validation '{vtype}'"
         items.append(item)
+
+    # ── [2026-11 S5] 같은 근거(같은 단위·같은 텍스트)에서 나온 오류는 1건만 센다 ──
+    # 두께(접힘)·두께(펼침) 룰이 한 셀의 같은 숫자를 각각 FAIL 로 내거나, 메인·커버 해상도 룰이 같은
+    # 'NNNN x NNNN' 을 두 번 잡으면 점수가 이중으로 깎인다. 먼저 나온 항목을 남기고 나머지는 '동일 근거'로
+    # 표시(na — 집계 제외)해, 고칠 곳은 하나라는 사실이 그대로 보이게 한다.
+    seen_evidence: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for it in items:   # 1차: 오류끼리
+        if it["status"] != "fail":
+            continue
+        key = (svm.canon_unit(it.get("unit", "")), svm.normalize_text(it.get("found", ""))[:120])
+        if key[1]:
+            seen_evidence.setdefault(key, it)
+    for it in items:   # 2차: 오류와 같은 근거를 가리키는 '확인'도 묶는다(같은 숫자를 다른 룰이 확인으로 한 번 더 내는 경우)
+        if it["status"] not in ("fail", "warn"):
+            continue
+        key = (svm.canon_unit(it.get("unit", "")), svm.normalize_text(it.get("found", ""))[:120])
+        if not key[1]:
+            continue
+        first = seen_evidence.get(key)
+        if first is None or first is it:
+            continue
+        it["dup_of"] = first["rule_id"]
+        it["status"] = "na"
+        it["confidence"] = ""
+        it["message"] = (f"동일 근거 — '{first['attribute']}' 오류와 같은 텍스트에서 나온 항목이라 중복 집계하지 않음 "
+                         f"(원 판정: {it['message'][:80]})")
+        it["trace"].append({"step": "result", "detail": f"DEDUP — same evidence as {first['rule_id']}"})
 
     # ── 집계 ──
     # [V3.1 운영 결정] 점수 = 일치 ÷ (일치 + 불일치). 확인(warn)은 "오답 단정 불가 —

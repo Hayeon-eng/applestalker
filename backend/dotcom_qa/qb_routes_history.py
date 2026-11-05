@@ -277,3 +277,24 @@ def qb_email_draft(payload: Dict[str, Any] = Body(default={})):
     return HTMLResponse(content=qa_report.build_email_draft(qb_core._resolve_results(payload), sections=secs, static_run=static_run))
 
 
+
+
+# ── [2026-11 신규] PPT 리포트 — 요약판 1장 + 상세 ──
+@qb_router.get("/report.pptx")
+def qb_report_pptx_get(run_id: str = Query(None)):
+    import qa_exec_summary, qa_summary_render
+    results = qb_core._resolve_results(run_id=run_id)
+    static_run = _latest_static_run()
+    data = qa_summary_render.build_pptx(qa_exec_summary.build(results, static_run, run_id or ""), results, static_run)
+    return StreamingResponse(iter([data]), media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                             headers={"Content-Disposition": f"attachment; filename=qubi_qa_report{('_' + run_id) if run_id else ''}.pptx"})
+
+
+@qb_router.post("/report.pptx")
+def qb_report_pptx(payload: Dict[str, Any] = Body(default={})):
+    import qa_exec_summary, qa_summary_render
+    results = qb_core._resolve_results(payload)
+    static_run = _latest_static_run()
+    data = qa_summary_render.build_pptx(qa_exec_summary.build(results, static_run, payload.get("run_id") or ""), results, static_run)
+    return StreamingResponse(iter([data]), media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                             headers={"Content-Disposition": "attachment; filename=qubi_qa_report.pptx"})
