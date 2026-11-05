@@ -300,9 +300,31 @@ def hc_report(run_id: str):
     if not run:
         raise HTTPException(404, f"run {run_id} 없음")
     import hc_report
-    buf = hc_report.build_xlsx(run, _mock.attributes(), _mock.config())
+    try:
+        buf = hc_report.build_xlsx(run, _mock.attributes(), _mock.config(), _prev_run_of(run), _run_insights(run))
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        raise HTTPException(500, f"Excel 생성 실패 — {type(e).__name__}: {str(e)[:200]}")
     return StreamingResponse(io.BytesIO(buf), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": f"attachment; filename=honeycomb_{run_id}.xlsx"})
+
+
+@hc_router.get("/report.pptx")
+def hc_report_pptx(run_id: str):
+    """[2026-11 신규] PPT — 요약판 1장 + 상세(국가×제품 매트릭스·속성 영역 삼성 vs Apple·전주 대비 변화·1위 판매처)."""
+    run = _find_run(run_id)
+    if not run:
+        raise HTTPException(404, f"run {run_id} 없음")
+    try:
+        import hc_exec_summary
+        ins = _run_insights(run)
+        S = hc_exec_summary.build(run, _prev_run_of(run), _mock.config(), _mock.attributes(), ins)
+        buf = hc_exec_summary.build_pptx(S, run, _mock.config(), _mock.attributes(), ins)
+    except Exception as e:   # [2026-11] 생성 실패를 JSON 으로 — 화면이 메시지로 보여주고 페이지 이동하지 않게
+        import traceback; traceback.print_exc()
+        raise HTTPException(500, f"PPT 생성 실패 — {type(e).__name__}: {str(e)[:200]}")
+    return StreamingResponse(io.BytesIO(buf), media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                             headers={"Content-Disposition": f"attachment; filename=honeycomb_{run_id}.pptx"})
 
 
 # ── 이메일(2026-09 신규): 본문 복사 / 발송 / 자동발송(cron) ─────────────────
