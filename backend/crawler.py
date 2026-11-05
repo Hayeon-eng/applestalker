@@ -69,7 +69,8 @@ class HybridCrawler:
         # [JS_RESCUE] 전면 렌더(USE_PLAYWRIGHT)는 그대로 꺼둔 채, httpx가 '빈/차단'
         # 페이지를 받은 경우에 한해서만 Playwright로 그 페이지만 구제한다.
         # → 정상 페이지는 렌더하지 않아 전체 크롤 속도는 유지, Meta 같은 소수만 추가 비용.
-        self.js_rescue = os.getenv("JS_RESCUE", "true").lower() == "true"
+        # [2026-09] 기본 OFF — 렌더는 예외 상황에서만(JS_RESCUE=true). Data QA 는 소스 HTML, Compare 스펙은 API.
+        self.js_rescue = os.getenv("JS_RESCUE", "false").lower() == "true"
         self.js_rescue_cap = int(os.getenv("JS_RESCUE_CAP", "8"))
         self._rescue_used = 0
         # 렌더가 실제로 가능한지(전면 렌더 or 구제 중 하나라도 켜짐)
@@ -106,14 +107,11 @@ class HybridCrawler:
     # START
     # ─────────────────────────────────────────────
     async def start(self):
-        self._client = httpx.AsyncClient(
+        self._client = httpx.AsyncClient(verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false"), 
             headers=BASE_HEADERS,
             timeout=httpx.Timeout(self.http_timeout, connect=10.0),
             follow_redirects=True,
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
-            # [2026-09 FIX] 사내망 SSL 재봉인 프록시 대응 — dotcom_qa/honeycomb 와 동일한
-            # QB_SSL_VERIFY 이스케이프 해치(데스크톱 launcher.py 의 ssl_verify=false 최후수단이 이 값을 셋함).
-            verify=(os.getenv("QB_SSL_VERIFY", "true").lower() != "false"),
         )
 
     # ─────────────────────────────────────────────
@@ -212,7 +210,11 @@ class HybridCrawler:
         # 기존: if not requires_js → Samsung/Apple(requires_js=True)에서 HTTP 완전 건너뜀
         #       + USE_PLAYWRIGHT=false(기본) → Playwright도 건너뜀 → "empty result" 100%
         http_data = await self._fetch_http(url)
-        http_bad = (not http_data) or bool(http_data.get("error"))
+        # [2026-11 FIX] soft-404(에러 페이지) 판정은 '수집 실패'가 아니라 '페이지가 그것뿐'이다 — JS 로 다시 그려도
+        #   에러 페이지라 Playwright 구제/전면 렌더를 태우지 않는다. (전체 실행에서 에러 URL 수만큼 최대 50초 렌더가
+        #   쌓여 시간이 폭증하고 진행 스트림이 끊기던 원인)
+        soft404 = bool(http_data and http_data.get("soft404"))
+        http_bad = (not http_data) or (bool(http_data.get("error")) and not soft404)
         if http_data and not http_data.get("error"):
             result.update(http_data)
             result["rendered_by"] = "httpx"
@@ -221,7 +223,7 @@ class HybridCrawler:
         #  1) 전면 렌더(USE_PLAYWRIGHT=true): 기존처럼 '얼마나 비었나' 기준으로 업그레이드
         #  2) 구제(JS_RESCUE): 평소엔 안 태우고, httpx가 '빈/차단' 페이지를 받은 경우에만
         #     그 페이지만 별도 예산으로 재렌더 → 정상 페이지는 손대지 않아 속도 유지
-        use_full = self.enable_playwright and self._looks_empty(http_data, strict=requires_js) \
+        use_full = self.enable_playwright and not soft404 and self._looks_empty(http_data, strict=requires_js) \
             and self._browser_used < self.browser_page_cap
         use_rescue = (not self.enable_playwright) and self.js_rescue and http_bad \
             and self._rescue_used < self.js_rescue_cap
@@ -321,6 +323,44 @@ class HybridCrawler:
         if re.search(r"(?<!\d)(404|403|429)(?!\d)", head) or re.search(r"\bnot found\b", head):
             return f"error page detected: {title or 'unknown title'}"
 
+        # [2026-09 FIX] 삼성닷컴 soft-404 — 없는 URL 을 HTTP 200 + 안내 페이지로 돌려준다.
+        #   title: "SAMSUNG | Samsung UK"(제품명 없는 브랜드 타이틀), h1: "The page you requested is not available",
+        #   본문은 GNB/푸터 메뉴만. 워치 실크롤에서 이 페이지가 '정상 수집'으로 통과해 ✅ 가 찍혔다.
+        #   → 실패로 분류해 Not Checked 시트로 보낸다(URL 자체를 고쳐야 하는 문제임을 사유에 명시).
+        h1_low = h1.lower()
+        soft404_h1 = re.search(
+            r"(is not available|page you requested|cannot be found|could not be found|doesn'?t exist|"
+            r"페이지를 찾을 수 없|요청하신 페이지|ページが見つかりません|お探しのページ|无法找到|页面不存在|找不到|"
+            r"nicht verf[üu]gbar|nicht gefunden|n'est pas disponible|introuvable|no est[áa] disponible|no se encontr|"
+            r"non [èe] disponibile|non trovata|n[aã]o est[áa] dispon[íi]vel|niet beschikbaar|niet gevonden|"
+            r"не найдена|недоступна|nie znaleziono|niedostępna|bulunamad|mevcut değil|ไม่พบหน้า|không tìm thấy)",
+            h1_low)
+        brand_only_title = bool(re.match(r"^\s*samsung\s*[|｜\-–]\s*samsung\b", title.lower()))
+        # [2026-11 D1] 언어 무관한 에러 페이지 신호 — PPT 4번(LV): H1 이 라트비아어라 위 정규식에 없었고
+        #   GNB/푸터 텍스트 때문에 word_count 도 80 을 넘어 '정상 수집'으로 통과, SEO 오류 7건이 찍혔다.
+        #   ① canonical 또는 최종 URL 이 삼성닷컴 공통 에러 경로(/common/error/, /error/)
+        #   ② 타이틀이 'SAMSUNG | Samsung XX' 브랜드 꼬리뿐이고(제품명 없음) 요청 URL 의 제품 슬러그가
+        #      타이틀·H1·최종 URL 어디에도 없음 — 제품 페이지인데 제품명이 한 군데도 없으면 안내 페이지다.
+        canon = str(data.get("canonical_url") or "").lower()
+        final_low = str(data.get("final_url") or url or "").lower()
+        if re.search(r"/(common/)?error/?(\?|$)", canon) or re.search(r"/(common/)?error/?(\?|$)", final_low):
+            return (f"soft 404 — error page (canonical/final URL = {canon or final_low}) · "
+                    f"registry URL 확인 필요: {url}")
+        if brand_only_title:
+            slug = [s for s in url.split("?")[0].split("#")[0].rstrip("/").split("/") if s]
+            slug = slug[-1].lower() if slug else ""
+            slug_words = [w for w in re.split(r"[-_]", slug) if len(w) >= 3 and not w.isdigit()]
+            hay = f"{title} {h1}".lower()
+            product_seen = bool(slug_words) and any(w in hay for w in slug_words)
+            # H1 이 비라틴(아랍·타이·키릴 등) 현지어면 슬러그 단어 대조가 불가 → 기존 기준(word_count)만 적용
+            nonlatin_h1 = bool(re.search(r"[\u0600-\u06FF\u0E00-\u0E7F\u0400-\u04FF\u0590-\u05FF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF\u0900-\u097F]", h1))
+            if word_count < 80 or (not product_seen and not nonlatin_h1):
+                return (f"soft 404 — page not available (title '{title or '?'}', h1 '{h1[:60] or '?'}', "
+                        f"제품명 미노출) · registry URL 확인 필요: {url}")
+        if soft404_h1:
+            return (f"soft 404 — page not available (title '{title or '?'}', h1 '{h1[:60] or '?'}') · "
+                    f"registry URL 확인 필요: {url}")
+
         # title/h1은 있으나 실제 분석 근거가 거의 없는 케이스. Meta 에러 페이지처럼
         # nav나 빈 컨테이너만 남는 경우 변경 없음으로 오판하지 않도록 차단한다.
         if word_count < 15 and image_count == 0 and cta_count == 0 and schema_count == 0:
@@ -360,6 +400,7 @@ class HybridCrawler:
                 bad_reason = self._detect_bad_page(data, final_url)
                 if bad_reason:
                     data["error"] = bad_reason
+                    data["soft404"] = bad_reason.startswith("soft 404")
                     data["collection_issues"].append(bad_reason)
                 return data
 
@@ -382,7 +423,6 @@ class HybridCrawler:
                     user_agent=self.user_agent,
                     locale="en-US",
                     timezone_id="America/Los_Angeles",
-                    ignore_https_errors=(os.getenv("QB_SSL_VERIFY", "true").lower() == "false"),
                 )
                 # [consent] 동의/지역 게이트가 강한 사이트(Meta 등)에 미리 동의 쿠키를 심어
                 # 쿠키월/리다이렉트로 'Error | Meta' 껍데기가 오는 것을 줄인다.
