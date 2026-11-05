@@ -176,9 +176,15 @@ export default function Page() {
     e.stopPropagation();
     if (!confirm("이 수집 기록을 삭제할까요?")) return;
     setRuns((prev) => prev.filter((s) => !s.run_ids.some((r) => runIds.includes(r))));
+    // [2026-11 FIX] 삭제 실패를 삼키지 않는다 — 실패하면 사유를 토스트로 보여주고 목록을 다시 불러온다(지워진 척 금지)
+    const failed: string[] = [];
     for (const id of runIds) {
-      await fetch(API + "/api/runs/" + encodeURIComponent(id), { method: "DELETE" }).catch(() => {});
+      try {
+        const r = await fetch(API + "/api/runs/" + encodeURIComponent(id), { method: "DELETE" });
+        if (!r.ok) { let d = ""; try { d = (await r.json()).detail || ""; } catch { /* */ } failed.push(d || `${id} (${r.status})`); }
+      } catch (e: any) { failed.push(`${id} — ${e?.message || e}`); }
     }
+    if (failed.length) toast(`삭제 실패 ${failed.length}건: ${failed[0]}`, "err");
     load();
   };
 

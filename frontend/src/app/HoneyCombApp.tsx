@@ -18,6 +18,16 @@ import {
 
 export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string; onHome: () => void; nav?: NavTarget | null }) {
   const api = (p: string) => `${apiBase}${p}`;
+  const downloadFile = async (path: string, filename: string) => {
+    if (!runId) { setMsg("먼저 실행 결과를 선택하세요."); return; }
+    try {
+      const r = await fetch(api(path), { cache: "no-store" });
+      if (!r.ok) { let d = ""; try { d = (await r.json()).detail || ""; } catch { /* */ } setMsg(`내려받기 실패 (${r.status})${d ? ` — ${d}` : ""}`); return; }
+      const blob = await r.blob(); const href = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = href; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1500);
+    } catch (e: any) { setMsg(`내려받기 실패 — ${e?.message || e}`); }
+  };
   const [cfg, setCfg] = useState<any>(null);
   const [attrs, setAttrs] = useState<Attr[]>([]);
   const [runs, setRuns] = useState<any[]>([]);
@@ -216,8 +226,10 @@ export default function HoneyCombApp({ apiBase, onHome, nav }: { apiBase: string
           </label>
           {estimate && <span className="emailNotice">예상 호출 {estimate.searches}회{withDetail ? ` + 상세 최대 ${estimate.detail_max}회` : ""} · 국가 {estimate.countries} × 제품 {estimate.products} × 키워드 {estimate.keywords_enabled}{estimate.apple_models ? ` · Apple ${estimate.apple_models}모델` : ""}</span>}
           <button className="toolBtn" onClick={copyEmail}>✉ 메일 복사</button>
-          <a className="btnSecondary" href={api(`/api/hc/report.xlsx?run_id=${runId}`)}>📊 Excel 내려받기</a>
-          <a className="btnSecondary" href={api(`/api/hc/report.pptx?run_id=${runId}`)} title="요약판 1장 + 상세">📑 PPT 내려받기</a>
+          {/* [2026-11 FIX] <a href> 로 받으면 서버가 생성에 실패했을 때 브라우저가 페이지 이동(게이트 화면)으로 처리한다 —
+              fetch 로 받아 파일만 저장하고, 실패하면 메시지만 표시 */}
+          <button className="btnSecondary" onClick={() => downloadFile(`/api/hc/report.xlsx?run_id=${encodeURIComponent(runId)}`, `honeycomb_${runId}.xlsx`)}>📊 Excel 내려받기</button>
+          <button className="btnSecondary" onClick={() => downloadFile(`/api/hc/report.pptx?run_id=${encodeURIComponent(runId)}`, `honeycomb_${runId}.pptx`)} title="요약판 1장 + 상세">📑 PPT 내려받기</button>
           {cfg.provider !== "serpapi" && <span className="emailNotice">SerpApi 키가 없어 새로 수집할 수 없습니다 — 설정(/desktop/settings)에서 키 입력</span>}
           {msg && <span className="emailNotice" style={{ color: HONEY_DARK }}>{msg}</span>}
         </div>
